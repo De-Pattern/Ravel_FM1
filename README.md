@@ -179,7 +179,7 @@ Knobs speed up when you turn them quickly, so a fast turn crosses a whole range 
 
 So if a page seems to be "skipped", it is hidden because it does not apply to this track. Change the track or the setting and it comes back.
 
-**Greyed-out knobs.** When a knob does nothing with the track set as it is, its name and value turn grey. For example, on a strike track with the PING body, DAMP, INHARM, GEOMTRY and MODES are grey, because a ping filter has none of those. The value is kept, so it is ready if you change the setup. So are T DECAY until TRANS is up, RING F until RING is up, ORDER, RATE and SEED except with the DUST or RAIN exciter, and on PHYS, POSITN for BLOWN and MEMBRAN.
+**Greyed-out knobs.** When a knob does nothing with the track set as it is, its name and value turn grey. For example, on a strike track with the PING body, DAMP, INHARM, GEOMTRY and MODES are grey, because a ping filter has none of those. The value is kept, so it is ready if you change the setup. So are ENGINE and VELO on strike and tape tracks (engines are for synth tracks; strike and tape take velocity as it comes), VOICES on a tape track (one playhead; a strike track offers MONO or 2), T DECAY until TRANS is up, RING F until RING is up, ORDER, RATE and SEED except with the DUST or RAIN exciter, and on PHYS, POSITN for BLOWN and MEMBRAN.
 
 ## 4. How the parts connect
 

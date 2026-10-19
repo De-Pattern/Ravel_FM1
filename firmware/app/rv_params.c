@@ -419,6 +419,10 @@ const char *rv_pid_label(int pid, char *buf, int max)
 int rv_tp_applies(int t, int p)
 {
     const int16_t *tp = rv.tp[t];
+    if ((p == TP_ENGINE || p == TP_VELO) && tp[TP_KIND] != KIND_SYNTH)   /* synth engines; strike and tape */
+        return 0;                                                      /* take velocity as it comes */
+    if (p == TP_POLY && tp[TP_KIND] == KIND_TAPE)                      /* a tape track is one playhead */
+        return 0;
     if (tp[TP_KIND] == KIND_STRIKE) {
         int exc = tp[TP_S0], body = tp[TP_S1];
         int grains = exc == EXC_DUST || exc == EXC_RAIN;

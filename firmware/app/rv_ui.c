@@ -335,6 +335,8 @@ static kinfo_t kb_info(kb_t k)
         r.names = pi->names;
         if (k.id == TP_H2START)                      /* a step that exists */
             r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS);
+        if (k.id == TP_POLY && rv.tp[ui.track][TP_KIND] == KIND_STRIKE)
+            r.max = 1;                               /* a strike track has two voices: MONO or 2 */
         break;
     case K_GP:
         pi = rv_pinfo_global(k.id);
