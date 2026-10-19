@@ -63,7 +63,7 @@ enum {
     /* mixer */
     TP_LEVEL, TP_PAN, TP_FBS, TP_PAIRS, TP_DLYS, TP_REVS,
     /* sequencer */
-    TP_LEN, TP_RATE, TP_DIR, TP_SIEVE, TP_CLKSRC, TP_BRANCH, TP_H2ROLE, TP_H2RATE, TP_H2START,
+    TP_LEN, TP_RATE, TP_DIR, TP_INTERVAL, TP_CLKSRC, TP_BRANCH, TP_H2ROLE, TP_H2RATE, TP_H2START,
     /* the graph sequencer: mode, the two playheads and their function generators (Silt's
      * traversal shapes, which move each head's rate against the clock) */
     TP_SEQMODE, TP_H1ROLE, TP_H1SHAPE, TP_H1DEPTH, TP_H1CYCLE, TP_H1COMB, TP_H1TRANS,

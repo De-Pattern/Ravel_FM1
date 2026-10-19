@@ -104,7 +104,7 @@ static const page_t pages[] = {
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER 2", {GP(GP_VOCATK), GP(GP_VOCREL), GP(GP_VOCSHIFT), GP(GP_VOCQ)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER", {GP(GP_MDRIVE), GP(GP_CUTSIZE), GP(GP_CUTREP), GP(GP_CUTMIX)}},
 
-    {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_SIEVE)}},
+    {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_INTERVAL)}},
 
     {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "CAPTURE", {GP(GP_TAPEQUAL), GP(GP_TAPESRC), GP(GP_RESBARS), GP(GP_ERODE)}},
 #ifdef RV_NO_AUDIO_IN
@@ -2094,17 +2094,17 @@ static void pic_scale(void)
 {
     static const uint16_t masks[12] = {0xFFF, 0xAB5, 0x5AD, 0x6AD, 0x5AB, 0xAD5, 0x6B5, 0x295, 0x4A9, 0x555, 0x18D, 0x463};
     static const char *const nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    int root = rv.gp[GP_ROOT], sc = clampi(rv.gp[GP_SCALE], 0, 11), i, sieve = rv.tp[ui.track][TP_SIEVE];
+    int root = rv.gp[GP_ROOT], sc = clampi(rv.gp[GP_SCALE], 0, 11), i, ivl = rv.tp[ui.track][TP_INTERVAL];
     for (i = 0; i < 12; i++) {
         int rel = ((i - root) % 12 + 12) % 12, in = (masks[sc] >> rel) & 1, x = 6 + i * 19;   /* C in bit 0 */
-        int pass = sieve <= 1 || rel % sieve == 0;
+        int pass = ivl <= 1 || rel % ivl == 0;
         g_fill(x, PIC_Y + 20, 16, 60, in ? (i == root ? C_TEAL : C_PANEL) : C_BG);
         g_frame(x, PIC_Y + 20, 16, 60, C_LINE);
         g_text_c(x + 8, PIC_Y + 64, &FONT_T, nm[i], in ? C_INK : C_DIM);
-        if (sieve > 1)
+        if (ivl > 1)
             g_fill(x + 4, PIC_Y + 86, 8, 8, pass ? C_AMBER : C_LINE);
     }
-    g_text(8, PIC_Y + 104, &FONT_T, sieve > 1 ? "AMBER: NOTES THIS TRACK'S SIEVE LETS THROUGH" : "SCL + KEY SETS THE ROOT", C_DIM);
+    g_text(8, PIC_Y + 104, &FONT_T, ivl > 1 ? "AMBER: THE NOTES THIS TRACK'S INTERVAL PLAYS" : "SCL + KEY SETS THE ROOT", C_DIM);
     if (sc)
         g_text(8, PIC_Y + 116, &FONT_T, "THE KEYS PLAY THE SCALE, FOLDED", C_TEAL);
 }

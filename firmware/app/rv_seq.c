@@ -324,7 +324,7 @@ static void step_fire(int t, int h, int si, uint32_t when)
     }
     note = s->note;
     if (rv.tp[tt][TP_KIND] != KIND_TAPE) {
-        int sieve = clampi(rv.tp[t][TP_SIEVE], 1, 12);
+        int ivl = clampi(rv.tp[t][TP_INTERVAL], 1, 12);
         if (is_graph(t))
             note += rv.tp[t][h ? TP_H2TRANS : TP_H1TRANS];
         note += rv.gp[GP_TRANSPOSE];
@@ -336,8 +336,8 @@ static void step_fire(int t, int h, int si, uint32_t when)
         }
         if (role == ROLE_GATE && sq[t].pitch_set)    /* a GATE head plays the PITCH head's note */
             note = sq[t].pitch_reg;
-        else if (sieve > 1 && ((note - rv.gp[GP_ROOT]) % sieve + sieve) % sieve)
-            return;                                 /* the sieve: this track answers only notes that pass */
+        else if (ivl > 1 && ((note - rv.gp[GP_ROOT]) % ivl + ivl) % ivl)
+            return;                                 /* INTERVAL: only notes a multiple of N semitones from the root */
     } else if (role == ROLE_PITCH) {
         return;
     }
