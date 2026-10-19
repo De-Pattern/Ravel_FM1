@@ -86,7 +86,7 @@ jobs:
           - \`ravel-manual.pdf\`: the manual.
           - \`SHA256SUMS.txt\`: checksums.
 
-          Live emulator: ${pages}emulator.html · Installer: ${pages}install/ · Manual: ${repo}#the-manual
+          Live emulator: ${pages} · Installer: ${pages}install/ · Manual: ${pages}manual.html
           NOTES
       - uses: softprops/action-gh-release@v2
         with:

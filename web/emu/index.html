@@ -37,6 +37,8 @@ header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
 .dot.on { background: var(--red-hi); box-shadow: 0 0 6px var(--red); }
 .spacer { flex: 1; }
+.hbtn[hidden] { display: none; }
+a.hbtn { text-decoration: none; display: inline-block; }
 .hbtn { font: 600 13px var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
 .hbtn:hover { border-color: var(--muted); }
 .hbtn.prime { background: #2a2a2a; border-color: #555; color: #f0f0f0; }
@@ -153,6 +155,9 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
     <div class="status"><span class="dot" id="sdot"></span><span id="status">Loading…</span></div>
     <div class="spacer"></div>
     <button class="hbtn" id="manualbtn" title="The full manual, in a new tab">Manual</button>
+    <a class="hbtn" id="pdflink" href="manual.pdf" target="_blank" rel="noopener" hidden title="The manual as a PDF">PDF</a>
+    <a class="hbtn" id="installlink" href="install/" hidden title="Install Ravel on an FM-1 over USB (Chrome or Edge)">Install on FM-1</a>
+    <a class="hbtn" id="repolink" href="#" target="_blank" rel="noopener" hidden title="Source, releases and downloads">Source</a>
     <button class="hbtn" id="panic" title="Stop the sequencer and release every note">Panic / stop all</button>
   </header>
 
@@ -489,6 +494,15 @@ function openManual(hash) {
   window.open(manualUrl + (hash || ""), "_blank", "noopener");
 }
 $("manualbtn").addEventListener("click", () => openManual());
+if (/^https?:$/.test(location.protocol)) {            /* on the site: the PDF, the installer and the repository beside it */
+  $("pdflink").hidden = false;
+  $("installlink").hidden = false;
+  const h = location.hostname, parts = location.pathname.split("/").filter(Boolean);
+  if (/\.github\.io$/i.test(h) && parts.length) {
+    $("repolink").href = `https://github.com/${h.split(".")[0]}/${parts[0]}`;
+    $("repolink").hidden = false;
+  }
+}
 $("manualbtn2").addEventListener("click", () => openManual());
 
 /* ------------------------------------------------------------- the guide */

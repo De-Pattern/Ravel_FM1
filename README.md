@@ -858,7 +858,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 
 **Ravel has not been tested on FM-1 hardware yet. Installing it is at your own risk.**
 
-1. Open the web installer on Ravel's site (`https://OWNER.github.io/Ravel-FM1/install/`, in Chrome or Edge on a computer).
+1. Open Ravel's site (the repository's GitHub Pages: the emulator) in Chrome or Edge on a computer, and press **Install on FM-1** at the top.
 2. Connect the FM-1, switched on, directly to the computer with a USB data cable.
 3. Press **Install**, allow MIDI when the browser asks, and wait until it says it is done. Don't unplug part way. The FM-1 restarts into Ravel.
 
@@ -887,7 +887,6 @@ The installer works from M-VAVE's own firmware, from Ravel, and from the other c
 | `docs/` | The signal-flow diagram, and `docs/manual/`: the panel drawing and the screenshots used in this manual |
 | `tools/` | The FM-1 build (`build_fm1.py`, `fm1pkg_make.py`), the installer and rescue tools, the site assembler (`make_site.py`), toolchain and SDK-file downloads, font and table generators |
 | `web/installer/` | The web installer (Web MIDI), from Felucca and X0X |
-| `site/` | The GitHub Pages landing page |
 | `tests/fm1/` | Felucca's update-path tests, run against Ravel's package |
 
 ## Building

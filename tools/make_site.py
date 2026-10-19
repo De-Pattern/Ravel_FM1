@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Assemble the GitHub Pages site: the landing page, the emulator, the manual's pictures, the web
+"""Assemble the GitHub Pages site: the emulator as the front page, the manual (web page and PDF), the web
 installer (web/installer, with fm1pkg.js, fm1ota.js and the package's metadata inlined) and the
 firmware itself.
 
   tools/make_site.py OUT_DIR EMULATOR.html [PACKAGE.fwsc VERSION]
 
-Without a package the site has no installer (the landing page says the firmware is coming)."""
+Without a package the site has no installer."""
 import json
 import shutil
 import sys
@@ -31,16 +31,14 @@ def main(argv):
     out, emu = Path(argv[1]), Path(argv[2])
     if out.exists():
         shutil.rmtree(out)
-    (out / "docs").mkdir(parents=True)
-    shutil.copy(SRC / "site" / "index.html", out / "index.html")
-    shutil.copy(emu, out / "emulator.html")
+    out.mkdir(parents=True)
+    shutil.copy(emu, out / "index.html")               # the site opens on the emulator
+    shutil.copy(emu, out / "emulator.html")            # (and the older address still works)
     manual = emu.parent / "ravel-manual.html"        # made beside the emulator by web/emu/bundle.py
     if manual.exists():
         shutil.copy(manual, out / "manual.html")
     if manual.with_suffix(".pdf").exists():                 # tools/make_manual_pdf.mjs
         shutil.copy(manual.with_suffix(".pdf"), out / "manual.pdf")
-    shutil.copy(SRC / "docs" / "signal-flow.svg", out / "signal-flow.svg")
-    shutil.copytree(SRC / "docs" / "manual", out / "docs" / "manual")
     (out / ".nojekyll").write_text("")
     if len(argv) == 5:
         pkg_path, version = Path(argv[3]), argv[4]

@@ -165,7 +165,7 @@ blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--re
 <div class="layout">
 <nav id="nav">
   <div class="brand">RAVEL<span>.</span></div>
-  <div class="sub">Manual · M-VAVE FM-1 firmware<span id="pdf" hidden> · <a href="manual.pdf">PDF</a></span></div>
+  <div class="sub">Manual · M-VAVE FM-1 firmware<span id="pdf" hidden> · <a href="manual.pdf">PDF</a> · <a href="./">Emulator</a></span></div>
   <button class="menu" id="menu" aria-expanded="false" aria-controls="links">Contents</button>
   <div class="links" id="links">
     {"".join(nav)}
