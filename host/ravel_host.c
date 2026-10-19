@@ -14,7 +14,8 @@
  *   master N                      MASTER pot 0..4096
  *   wav FILE | wavstop            record the output
  *   shot FILE.png                 save the screen
- *   reboot                        start again from the simulated flash (what SAVE kept)
+ *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
+ *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect gp NAME VALUE          a global parameter
  *   expect frozen 0|1             the tape is caught (1) or listening (0)
@@ -309,6 +310,10 @@ int main(int argc, char **argv)
             png_write(path);
         } else if (!strcmp(a, "peakreset")) {
             peak_out = 0;
+        } else if (!strcmp(a, "demo")) {      /* demo 1|2|3, as SAVE > DEMO 1-3 */
+            int d = atoi(b);
+            rv_transport(0);
+            rv_demo(d == 3 ? 3 : d == 2 ? 1 : 0);
         } else if (!strcmp(a, "reboot")) {
             held_btn = held_keys = 0;
             boot();

@@ -16,6 +16,13 @@ const check = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (
 rv.rv_boot();
 run(300);
 tap('PLAY');
+run(2000);
+check(peak === 0, 'it starts on a blank project: silent while playing');
+tap('PLAY');
+rv.web_demo(0);
+peak = 0; frames = 0;
+run(300);
+tap('PLAY');
 run(6000);
 check(rv.web_playing() === 1, 'PLAY starts the demo');
 check(peak > 0.05, `the demo makes sound (peak ${(20 * Math.log10(peak)).toFixed(1)} dB)`);

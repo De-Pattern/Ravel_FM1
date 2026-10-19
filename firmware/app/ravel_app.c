@@ -13,12 +13,10 @@
 #include "rv_project.c"
 #include "rv_ui.c"
 
-/* start: the last project saved in slot 0 ("the session"), else the first demo */
+/* start: always a blank project */
 void ravel_start(void)
 {
-    rv_project_init();
-    if (rv_load(0) != 0)
-        rv_demo(0);
+    rv_demo(2);                     /* a blank project; saved ones stay in their slots (SAVE > LOAD) */
     rv_engine_init();
     ui_init();
 }

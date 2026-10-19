@@ -1,5 +1,6 @@
-# Screenshots for the manual (README): boot the demo, play, visit the pages the manual shows.
+# Screenshots for the manual (README): load the demo, play, visit the pages the manual shows.
 wait 300
+demo 1
 tap PLAY
 wait 4000
 turn ALGO -8

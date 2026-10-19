@@ -170,10 +170,10 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="proj" id="proj">RAVEL</div>
         <div class="row2" style="margin-top:8px">
           <select id="demo" aria-label="Demo project">
+            <option value="2" selected>Blank project</option>
             <option value="0">Demo: Ravel</option>
             <option value="1">Demo: Dust</option>
             <option value="3">Demo: Graph</option>
-            <option value="2">Blank project</option>
           </select>
           <button class="hbtn" id="loaddemo">Load</button>
         </div>
@@ -509,7 +509,7 @@ $("manualbtn2").addEventListener("click", () => openManual());
 
 /* ------------------------------------------------------------- the guide */
 const GUIDE = {
-  "Start": `<p>Press <b>Play</b> (or PLAY on the panel). The demo synthesizes for two bars, <b>resamples them onto the tape</b>, and then T7 and T8 rebuild them: T7's playhead jumps when T5 strikes, T8 grains the tape.</p>
+  "Start": `<p>Ravel starts on a <b>blank project</b>: play the keys to hear T1. To hear what it can do, choose <b>Demo: Ravel</b> on the left, press <b>Load</b>, then <b>Play</b>: the demo synthesizes for two bars, <b>resamples them onto the tape</b>, and then T7 and T8 rebuild them: T7's playhead jumps when T5 strikes, T8 grains the tape.</p>
 <ul><li><b>ALGORITHM</b> picks the track, T1–T8. The keys play it.</li>
 <li>Each button opens its section; <b>SELECT</b> (or tapping the button again) walks its pages.</li>
 <li><b>KNOB 1–4</b> set the four values at the top of the screen.</li>

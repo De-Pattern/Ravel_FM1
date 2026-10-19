@@ -1,5 +1,6 @@
-# Ravel tour: boot into the demo, play it, visit every section and page.
+# Ravel tour: load the demo, play it, visit every section and page.
 wait 300
+demo 1
 shot 00_home.png
 wav tour.wav
 tap PLAY

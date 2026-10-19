@@ -715,6 +715,8 @@ Set **head 1 to GATE** and **head 2 to PITCH** and you have rhythm and melody on
 4. Press **SAVE** once: the footer says "PRESS SAVE AGAIN TO CONFIRM".
 5. Press **SAVE** again to do it.
 
+Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
+
 A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the envelope library. **It does not hold the tape audio.** Catch or resample again after loading.
 
 ## 15. Hold layers
