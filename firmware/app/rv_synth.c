@@ -706,6 +706,174 @@ static void part_render(voice_t *v, const float *eff, float f, float *out, int n
     }
 }
 
+/* -------------------------------------------------------------- CHIP --- */
+/* After the Syntakt's SY CHIP: a SID-style oscillator (triangle, saw, pulse, the noise shift
+ * register, the combined saw&pulse wave, ring, animated PWM and two drum tables) that steps
+ * through the played note and up to three offsets (OF2-OF4) at SPEED, so one voice plays a
+ * chord. Then a decompose stage: overdrive, sample-rate reduction, bit crushing, and fragments
+ * of the voice's own last moments repeated, reversed, dropped, bit-flipped or doubled. */
+static void chip_note(voice_t *v, const float *eff)
+{
+    chip_t *c = &v->e.ch;
+    int seed = (int)(eff[TP_S15] + 0.5f);
+    c->step = 0;
+    c->dir = 1;
+    c->acc = 0.0f;
+    c->sweep = 1.0f;
+    c->vib_t = 0.0f;
+    if (!c->lfso)
+        c->lfso = 0x7FFFF8u;                          /* the SID's noise register starts all ones */
+    c->ns = seed ? 0x9E3779B9u * (uint32_t)seed : (c->ns ? c->ns : v->rng | 1u);   /* SEED: the same breaks each note */
+    c->frag_left = 0;
+    c->frag_mode = 0;
+}
+
+static inline float chip_wave(chip_t *c, int w, float ph, float pw)
+{
+    switch (w) {
+    case CW_TRI: return ph < 0.5f ? 4.0f * ph - 1.0f : 3.0f - 4.0f * ph;
+    case CW_SAW: return 2.0f * ph - 1.0f;
+    case CW_PULSE: case CW_PWM: return ph < pw ? 1.0f : -1.0f;
+    case CW_NOISE: return c->noise;
+    case CW_SAWPUL: {                                 /* the SID ANDs the two waves' bits */
+        int a = (int)(ph * 4095.0f), b = ph < pw ? 4095 : 0;
+        return (float)(a & b) * (2.0f / 4095.0f) - 1.0f;
+    }
+    default: return 0.0f;
+    }
+}
+
+static void chip_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    chip_t *c = &v->e.ch;
+    int w = clampi((int)(eff[TP_S0] + 0.5f), 0, CW_N - 1), mode = clampi((int)(eff[TP_S3] + 0.5f), 0, 4);
+    int steps = clampi((int)(eff[TP_S7] + 0.5f), 1, 4), i;
+    float pw = 0.05f + eff[TP_S1] * (0.9f / 127.0f), spd = 2.0f * fm_exp2f(eff[TP_S2] * (6.0f / 127.0f));
+    float ofs[4] = {0.0f, eff[TP_S4], eff[TP_S5], eff[TP_S6]};
+    float srr = eff[TP_S8] * (1.0f / 127.0f), hold_n = 1.0f + srr * srr * 63.0f;
+    float q = (float)(1 << (clampi((int)(eff[TP_S9] + 0.5f), 1, 16) - 1));
+    float dec = eff[TP_S10] * (1.0f / 127.0f);
+    int flen = 64 + (int)(eff[TP_S11] * ((RV_CHIP_BUF - 80) / 127.0f));
+    float over = eff[TP_S12] * (1.0f / 127.0f), swp = eff[TP_S13] * (48.0f / 127.0f), vib = eff[TP_S14] * (0.8f / 127.0f);
+    float semi, dt, dt2, nclk, drum = 0.0f;
+    if ((uint32_t)c->w >= RV_CHIP_BUF)                /* shared memory: never trust a stale index */
+        c->w = 0;
+    /* the arpeggio: advance once per block (a step every 1/SPEED s) */
+    if (steps > 1) {
+        c->acc += spd * (float)n * RV_DT;
+        while (c->acc >= 1.0f) {
+            c->acc -= 1.0f;
+            switch (mode) {
+            case 0: c->step = (int8_t)((c->step + 1) % steps); break;
+            case 1: c->step = (int8_t)((c->step + steps - 1) % steps); break;
+            case 2:
+                if (c->step + c->dir >= steps || c->step + c->dir < 0)
+                    c->dir = (int8_t)-c->dir;
+                c->step = (int8_t)(c->step + c->dir);
+                break;
+            case 3: c->step = (int8_t)(xs_uni(&c->ns) * (float)steps * 0.9999f); break;
+            default: if (c->step < steps - 1) c->step++; break;   /* ONCE: up, then stays */
+            }
+        }
+        c->step = (int8_t)clampi(c->step, 0, steps - 1);
+    } else {
+        c->step = 0;
+    }
+    /* pitch: the arp's offset, the SWEEP drop (KICK has its own), vibrato after a moment */
+    c->sweep *= fm_expf(-(float)n * RV_DT / (w == CW_KICK ? 0.035f : 0.06f));
+    c->vib_t += (float)n * RV_DT;
+    semi = ofs[c->step] + (w == CW_KICK ? 36.0f + swp : swp) * c->sweep;
+    if (vib > 0.0f)
+        semi += vib * clampf(c->vib_t * 3.0f - 0.3f, 0.0f, 1.0f) * sin_lut(c->vib_t * 6.0f);
+    dt = clampf(f * fm_exp2f(semi * (1.0f / 12.0f)) * RV_DT, 0.0f, 0.45f);
+    dt2 = dt * (1.0f + eff[TP_S1] * (3.0f / 127.0f));   /* RING: PW is the partner's ratio */
+    nclk = dt * 16.0f;                                /* the noise register clocks 16 times a cycle */
+    for (i = 0; i < n; i++) {
+        float x, y;
+        c->ph += dt;
+        if (c->ph >= 1.0f)
+            c->ph -= 1.0f;
+        c->drift += nclk;
+        while (c->drift >= 1.0f) {                    /* the SID's 23-bit noise register */
+            uint32_t b = ((c->lfso >> 22) ^ (c->lfso >> 17)) & 1u;
+            c->drift -= 1.0f;
+            c->lfso = ((c->lfso << 1) | b) & 0x7FFFFFu;
+            c->noise = (float)(((c->lfso >> 15) & 0xFFu)) * (2.0f / 255.0f) - 1.0f;
+        }
+        switch (w) {
+        case CW_RING: {                               /* triangle, its sign flipped by a partner */
+            c->ph2 += dt2;
+            if (c->ph2 >= 1.0f)
+                c->ph2 -= 1.0f;
+            x = chip_wave(c, CW_TRI, c->ph, pw) * (c->ph2 < 0.5f ? 1.0f : -1.0f);
+            break;
+        }
+        case CW_PWM:
+            c->pwm += 2.2f * RV_DT;
+            if (c->pwm >= 1.0f)
+                c->pwm -= 1.0f;
+            x = chip_wave(c, CW_PULSE, c->ph, 0.5f + (pw - 0.05f) * 0.5f * sin_lut(c->pwm));
+            break;
+        case CW_KICK:                                 /* a noise click, then a falling triangle */
+            drum = c->sweep;
+            x = c->vib_t < 0.004f ? c->noise : chip_wave(c, CW_TRI, c->ph, pw);
+            break;
+        case CW_SNARE:                                /* a triangle body under noise that outlasts it */
+            drum = c->sweep;
+            x = chip_wave(c, CW_TRI, c->ph, pw) * drum + c->noise * 0.7f;
+            break;
+        default: x = chip_wave(c, w, c->ph, pw); break;
+        }
+        x *= 0.5f;
+        if (over > 0.0f)                              /* OVER: driven into a soft wall */
+            x = sat(x * (1.0f + over * 7.0f)) * (0.5f + 0.2f * over) / (0.5f + over * 0.3f);
+        /* SRR: hold each sample HOLD times (fractional, so the aliasing moves with it) */
+        c->hold_n += 1.0f;
+        if (c->hold_n >= hold_n) {
+            c->hold_n -= hold_n;
+            c->hold = x;
+        }
+        x = hold_n > 1.01f ? c->hold : x;
+        if (q < 32768.0f)                             /* CRUSH: down to so many bits */
+            x = fm_floorf(x * q + 0.5f) / q;
+        /* DECOMP: the voice remembers its last 46 ms; at each fragment's end the dice may
+         * replay the last fragment, reverse it, drop it, flip its bits or play it twice as fast */
+        c->buf[c->w] = (int16_t)clampf(x * 16000.0f, -32000.0f, 32000.0f);
+        y = x;
+        if (dec > 0.0f) {
+            if (--c->frag_left <= 0) {
+                float r = xs_uni(&c->ns);
+                c->frag_len = flen;
+                c->frag_left = flen;
+                c->frag_pos = 0;
+                c->frag_mode = r < dec ? (uint8_t)(1 + (int)(xs_uni(&c->ns) * 4.999f)) : 0;
+                c->flip = (uint16_t)(xs_uni(&c->ns) * 65535.0f) | 0x2000u;
+            }
+            if (c->frag_mode) {
+                int32_t k = c->frag_pos++, r0;
+                switch (c->frag_mode) {
+                case 1: r0 = c->w - c->frag_len + (k % c->frag_len); break;            /* repeat */
+                case 2: r0 = c->w - 2 * k - 1; break;                                     /* reverse */
+                case 3: r0 = -1; break;                                                   /* drop */
+                case 4: r0 = c->w; break;                                                 /* bit flip */
+                default: r0 = c->w - c->frag_len + ((2 * k) % c->frag_len); break;       /* twice as fast */
+                }
+                if (r0 < 0 && c->frag_mode != 3)
+                    r0 += RV_CHIP_BUF * 2;
+                if (c->frag_mode == 3)
+                    y = 0.0f;
+                else if (c->frag_mode == 4)
+                    y = (float)((int16_t)(c->buf[c->w] ^ (int16_t)(c->flip & 0x3FF0u))) * (1.0f / 16000.0f);
+                else
+                    y = (float)c->buf[r0 % RV_CHIP_BUF] * (1.0f / 16000.0f);
+            }
+        }
+        c->w = (c->w + 1) % RV_CHIP_BUF;
+        out[i] = y;
+    }
+    (void)drum;
+}
+
 /* --------------------------------------------------- the synth voice --- */
 /* clear a voice's engine state for eng. The engines share one block of memory (a union), so only
  * eng's own fields are seeded: writing another engine's fields would land on eng's phases and
@@ -764,6 +932,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_FM: fm_render(v, eff, f, buf, n); break;
     case ENG_PHYS: phys_render(v, eff, f, tr->exc, buf, n); break;
     case ENG_FORMANT: form_render(v, eff, f, buf, n); break;
+    case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the articulation, the key */

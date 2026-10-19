@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), six engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **PD** (Casio-style phase distortion, 8 waves, foam sidebands, ring), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync).
+- **Synth tracks** (T1 to T4), seven engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **PD** (Casio-style phase distortion, 8 waves, foam sidebands, ring), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
@@ -189,7 +189,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with six engines: VA, PD, FM, PHYS, FORMANT, PARTICLE. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with seven engines: VA, PD, FM, PHYS, FORMANT, PARTICLE, CHIP. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 
@@ -222,7 +222,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, PD, FM, PHYS, FORMANT, PARTICLE |
+| 4 **ENGINE** | For synth tracks: VA, PD, FM, PHYS, FORMANT, PARTICLE, CHIP |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -272,7 +272,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The six synth engines (SOURCE pages)
+### The seven synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -333,6 +333,19 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 | DUTY: burst length (short = buzzy, long = tonal) | MASK: drop bursts at random |
 | EMIT: 1–3 emitters | FORMANT: the burst's own pitch |
 | RATIO between emitters | SCATTER: timing randomness |
+
+**CHIP:** a glitchy chiptune voice, after the Syntakt's SY CHIP. A SID-style oscillator steps through the note you play and up to three offsets at SPEED, so one voice plays a fast arpeggio, a chord or a "complex voice". After it comes a decompose stage that reduces, crushes and breaks the sound apart.
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 (decompose) | SOURCE 4 |
+| --- | --- | --- | --- |
+| WAVE: TRI, SAW, PULSE, NOISE (the SID's noise register), SAW&PUL (the SID's combined wave), RING, PWM (the width sweeps by itself), KICK and SNARE (drum tables) | OF2: the arp's second note, in semitones | SRR: sample-rate reduction (aliasing, grit) | OVER: overdrive |
+| PW: pulse width (on RING, the ring partner's ratio; on PWM, how far it sweeps) | OF3: the third note | CRUSH: bits, 16 (clean) down to 1 | SWEEP: a fast pitch drop at the start of each note, like SID drums |
+| SPEED: arp rate, 2–128 steps a second (classic chip arps are around 50) | OF4: the fourth note | DECOMP: how often the sound breaks | VIBRATO: chip vibrato, fading in after a moment |
+| MODE: UP, DOWN, PINGPNG, RANDOM, ONCE (up through the notes, then stays) | STEPS: how many of the root, OF2, OF3 and OF4 the arp walks (1 = no arp) | FRAG: the size of each piece, 1.5–46 ms | SEED: 0 = new breaks every note; otherwise the same breaks each time |
+
+- **The arp:** for a minor chord, set OF2 +3, OF3 +7, OF4 +12 and STEPS 4. Multiples of 12 jump octaves. SPEED, MODE and the offsets grey out while STEPS is 1.
+- **Decompose:** the voice keeps its last 46 ms. At the end of each fragment, DECOMP is the chance that the next one breaks: the last fragment repeats, plays backwards, drops out, has its bits flipped, or plays at double speed. FRAG and SEED grey out while DECOMP is 0.
+- **Presets:** CHIP ARP, SID BASS, CHIP KICK, CHIP SNARE and DECOMPOSED.
 
 ### Strike tracks (SOURCE pages)
 

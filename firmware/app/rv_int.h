@@ -42,6 +42,16 @@ typedef struct { float ph[4], fb1, fb2, menv; } fm_t;
 typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
 typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3]; uint32_t ns; } form_t;
 typedef struct { float th[3], since[3], rd[3]; uint8_t on[3]; uint32_t ns; uint32_t count; } part_t;
+#define RV_CHIP_BUF 2048                    /* CHIP's decompose memory: 46 ms of the voice */
+typedef struct {
+    float ph, ph2, pwm, noise, sweep, vib_t, acc, hold, hold_n, drift;
+    uint32_t lfso, ns;                      /* the noise register, the decompose dice */
+    int8_t step, dir;                       /* the arpeggio: where it is, which way */
+    int16_t buf[RV_CHIP_BUF];
+    int32_t w, frag_left, frag_len, frag_pos;
+    uint8_t frag_mode;
+    uint16_t flip;
+} chip_t;
 
 typedef struct {
     uint8_t on, track, gate, held_key;
@@ -58,7 +68,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; pd_t pd; fm_t fm; phys_t ph; form_t fo; part_t pa; } e;
+    union { va_t va; pd_t pd; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; } e;
 } voice_t;
 
 /* strike: exciter into body, with a transient layer */

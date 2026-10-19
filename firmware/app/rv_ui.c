@@ -1686,7 +1686,8 @@ static void pic_source(void)
     } else {
         static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO-STYLE PHASE DISTORTION",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
-                                                "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED"};
+                                                "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
+                                                "SID WAVES, ARP OFFSETS, DECOMPOSE"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         g_text(8, PIC_Y + 6, &FONT_B, rv_engine_names[e], C_SYNTH);
         g_text(8, PIC_Y + 30, &FONT_T, desc[e], C_MID);

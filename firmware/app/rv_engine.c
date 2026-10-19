@@ -174,6 +174,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             vo->a.gate = 1;
         if (rv.tp[t][TP_ENGINE] == ENG_PHYS)
             phys_strike(vo, tr->eff);
+        else if (rv.tp[t][TP_ENGINE] == ENG_CHIP)
+            chip_note(vo, tr->eff);
     } else if (kind == KIND_STRIKE) {
         int poly = clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;
