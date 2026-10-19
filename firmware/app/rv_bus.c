@@ -10,7 +10,7 @@
 /* ---------------------------------------------------------- vocoder --- */
 static const float voc_hz[8] = {140.0f, 220.0f, 340.0f, 520.0f, 800.0f, 1250.0f, 2600.0f, 6000.0f};
 static svf_t voc_an[8], voc_sy[8];
-static float voc_env[8];
+static float voc_env[8], voc_cenv[8];
 static svf_t drop_f[2];
 static float drop_env, drop_ph, drop_hz;
 static uint32_t voc_rng = 0x51ED27u, dust_rng2 = 0xC0FFEEu;
@@ -36,7 +36,7 @@ static void vocoder_run(const float *in, const float *body_track, int n, float *
 {
     int i, b, which = clampi(rv.gp[GP_VOCBODY], 0, 11);
     float rel = 0.0015f / (0.2f + rv.gp[GP_VOCREL] * (3.0f / 127.0f)), tilt = rv.gp[GP_VOCTILT] * (1.0f / 64.0f);
-    float lvl = rv.gp[GP_VOCLEVEL] * (1.0f / 127.0f) * 3.0f;
+    float lvl = rv.gp[GP_VOCLEVEL] * (1.0f / 127.0f);
     float att = 0.2f / (1.0f + rv.gp[GP_VOCATK] * 0.5f);
     if (voc_set_shift != rv.gp[GP_VOCSHIFT] || voc_set_q != rv.gp[GP_VOCQ])
         vocoder_setup();
@@ -62,17 +62,27 @@ static void vocoder_run(const float *in, const float *body_track, int n, float *
             drop_env *= 0.9985f;
             break;
         case 2: body = xs_bi(&voc_rng); break;
-        default: body = body_track ? body_track[i] * 3.0f : 0.0f; break;
+        default: body = body_track ? body_track[i] : 0.0f; break;
         }
         for (b = 0; b < 8; b++) {
             float bp, sb, a, w = 1.0f + tilt * ((float)b - 3.5f) * 0.25f;
+            float c, g;
             svf_tick(&voc_an[b], x, &bp, 0);
-            a = fm_fabsf(bp);
+            a = fm_fabsf(bp * voc_an[b].k);             /* k: unity gain at the band's centre */
             voc_env[b] += (a - voc_env[b]) * (a > voc_env[b] ? att : rel);
             svf_tick(&voc_sy[b], body, &sb, 0);
-            y += sb * voc_env[b] * (w > 0.0f ? w : 0.0f);
+            sb *= voc_sy[b].k;
+            /* the body is levelled band by band, so the output follows the analysed sound's level
+             * (not input x body), whatever the body is: a quiet track, noise or sparse dust */
+            c = fm_fabsf(sb);
+            voc_cenv[b] += (c - voc_cenv[b]) * (c > voc_cenv[b] ? 0.004f : 0.0004f);
+            g = 1.0f / (voc_cenv[b] + 0.004f);
+            if (g > 24.0f)
+                g = 24.0f;
+            y += sb * g * voc_env[b] * (w > 0.0f ? w : 0.0f);
         }
-        out[i] += y * lvl * 6.0f;
+        y *= lvl * 3.0f;
+        out[i] += y / (1.0f + fm_fabsf(y) * 0.5f);        /* soft ceiling: never a hard edge */
     }
     for (b = 0; b < 8; b++)
         rv_live.voc_band[b] = voc_env[b];
@@ -425,6 +435,7 @@ static void buses_reset(void)
     __builtin_memset(voc_an, 0, sizeof(voc_an));
     __builtin_memset(voc_sy, 0, sizeof(voc_sy));
     __builtin_memset(voc_env, 0, sizeof(voc_env));
+    __builtin_memset(voc_cenv, 0, sizeof(voc_cenv));
     __builtin_memset(drop_f, 0, sizeof(drop_f));
     drop_env = drop_ph = 0.0f;
     voc_dust_acc = 0.0f;

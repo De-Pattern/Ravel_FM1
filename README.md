@@ -440,6 +440,8 @@ Each track can send part of its sound into five shared effects (buses). Their ou
 - The tracks you **send** into it are the *voice*: their spectrum is measured in 8 bands.
 - The **BODY** is the material that gets shaped by that spectrum.
 - So T1's melody can be played on dust crackle, water drops, the tape, or another track's sound.
+- The body is levelled band by band, so a quiet track works as well as a loud one. How loud the vocoder is follows the voice: the SEND, how hard the voice is played, and LEVEL.
+- If a body track is also playing in the mix, turn its LEVEL down to hear only the vocoded version.
 
 **The feedback bus** is a delay loop with an effect inside. Each pass goes through the effect again, so a comb rises into a ringing pitch, a shift climbs or falls, and a fold grows harsher.
 
