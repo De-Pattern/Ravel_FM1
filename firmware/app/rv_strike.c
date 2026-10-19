@@ -35,6 +35,7 @@ static void strike_note_on(strike_t *v, int note, float vel, const float *eff)
         v->mph[i] = (float)i * 0.13f;
     v->fmph[0] = v->fmph[1] = 0.0f;
     v->bow_v = 0.0f;
+    v->lim = 0.0f;
     if (clampi((int)(eff[TP_S1] + 0.5f), 0, BODY_N - 1) == BODY_STRINGS) {
         /* strings: a burst into both lines */
         per = 44100.0f / note_hz((float)note + eff[TP_PITCH]);
@@ -171,7 +172,10 @@ static float strike_render(strike_t *v, track_t *tr, float *out, int n)
         case BODY_PING: {
             float bp;
             svf_tick(&v->ping, x, &bp, 0);
-            y = bp * (2.0f + v->ping.g * 0.0f + (1.0f / v->ping.k) * 0.12f);   /* a narrow band rings quieter: make up for it */
+            /* k: unity gain at the centre (the raw band peaks at its Q, up to 300; it used to be
+             * boosted by Q again on top). A narrow band passes less of a broad strike: make up
+             * in proportion to Q, and let the voice limiter below catch the peaks */
+            y = bp * v->ping.k * (3.0f + (1.0f / v->ping.k) * 0.9f);
             break;
         }
         case BODY_STRINGS: {
@@ -209,9 +213,15 @@ static float strike_render(strike_t *v, track_t *tr, float *out, int n)
             y *= 0.6f;
             break;
         }
-        /* a body driven steadily at its resonance (rain, bow, input, a long decay) can ring far
-         * past full scale: round it off gently above about -6 dB */
-        y = 2.0f * sat(y * 0.5f);
+        /* a body driven steadily at its resonance (rain, bow, blow, metal, a long decay) can ring far
+         * past full scale: a level limiter (instant attack, 80 ms release) holds the voice under
+         * -3 dB without distorting it, and the soft curve only catches what slips through */
+        {
+            float ay = fm_fabsf(y), gl;
+            v->lim = ay > v->lim ? ay : v->lim * 0.99972f;
+            gl = v->lim > 0.7f ? 0.7f / v->lim : 1.0f;
+            y = 2.0f * sat(y * gl * 0.5f);
+        }
         if (ring > 0.001f) {
             v->ring_ph += f * ringf * RV_DT;
             v->ring_ph -= fm_floorf(v->ring_ph);

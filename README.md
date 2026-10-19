@@ -262,7 +262,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
-| **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE | AMOUNT | MIX |
+| **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
 | **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | – |
 
@@ -408,7 +408,13 @@ Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can
 
 **Key tracking with KEY.** At AMOUNT +63, KEY moves these parameters by exactly one semitone a key: the **INSERT TUNE** of a COMB insert, **CUTOFF**, **PITCH** and **FINE**. Any other parameter moves one step a key. Smaller amounts track part of the way, and negative amounts turn the keyboard upside down. KEY reads the target track's newest note, so with several voices the comb follows the last key played.
 
-*Example: a strike track whose comb rings in tune with the keys.* On T5's INSERT page, set INSERT to COMB and TUNE to taste (TUNE now sets the comb's pitch at C4). Then on the MATRIX page: SOURCE **KEY**, TRACK **T5**, PARAM **TUNE**, AMOUNT **+63**. The comb now follows every key you play. Its range is five octaves, so very low or very high notes stop at the ends.
+*Example: a strike track whose comb rings in tune with the keys.*
+
+1. On T5's **INSERT** page (EDIT), set INSERT to **COMB**. Leave TUNE at **C4**, its default. AMOUNT sets how strongly the comb rings (try 90–127), and MIX how much of it you hear (try 127).
+2. Press **LFO** for the **MATRIX** page (not HOME › INFLUENCE: influence routes move a parameter by another track's envelope, not by the keys). Set SOURCE **KEY**, TRACK **T5**, PARAM **TUNE**, AMOUNT **+63**.
+3. Play: the comb now rings in unison with every key. Turn TUNE to C5 for an octave above, or G4 for a fifth.
+
+The comb reaches down to about F3; notes below that stop there.
 
 **Macros:** 4 macros, each moving up to 8 destinations at once. Each destination has its own start and end values, curve, and window (FROM % / TO %).
 

@@ -702,6 +702,10 @@ static void kb_format(kb_t k, int v, char *o)
     if (!in.name) {
         return;
     }
+    if (k.kind == K_TP && k.id == TP_INA && rv.tp[ui.track][TP_INS] == INS_COMB) {
+        sx_note(o, 60 + v - 64);                    /* the comb's pitch: 64 = C4 */
+        return;
+    }
     if (k.kind == K_TP) {
         rv_param_format(PID_T(ui.track, k.id), v, o, 12);
         return;
@@ -1764,7 +1768,7 @@ static void pic_skin(void)
 static void pic_insert(void)
 {
     int t = ui.track;
-    static const char *const d[INS_N] = {"NO INSERT", "COMB: TUNE SETS THE PITCH", "FREQUENCY SHIFT, -200..+200 HZ",
+    static const char *const d[INS_N] = {"NO INSERT", "COMB: TUNE IS ITS NOTE", "FREQUENCY SHIFT, -200..+200 HZ",
                                          "CRUSH: RATE AND BITS", "SMEAR: FOUR ALLPASSES"};
     g_text(8, PIC_Y + 6, &FONT_B, d[clampi(rv.tp[t][TP_INS], 0, INS_N - 1)], C_INK);
     pic_scope(t, PIC_Y + 30, 100, C_TEAL);

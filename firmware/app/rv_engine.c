@@ -383,7 +383,9 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
     int k;
     switch (ins) {
     case INS_COMB: {
-        float fr = 175.0f * fm_exp2f(a * 5.0f), d = clampf(44100.0f / fr - 0.42f, 2.0f, 253.0f), z, y, fd;   /* 0.42: the loop's smoothing delays it */
+        /* TUNE in semitones, 64 = C4 (so KEY at +63 keeps it in unison with the keys); the
+         * buffer reaches down to about F3. 0.42: the loop's smoothing delays it */
+        float fr = 261.6256f * fm_exp2f((a * 127.0f - 64.0f) * (1.0f / 12.0f)), d = clampf(44100.0f / fr - 0.42f, 2.0f, 253.0f), z, y, fd;
         int32_t di = (int32_t)d, i0 = tr->comb_w - di, i1;
         fd = d - (float)di;                              /* fractional delay: in tune up high */
         if (i0 < 0)

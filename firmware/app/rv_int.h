@@ -85,6 +85,7 @@ typedef struct {
     float ring_ph;
     float bow_v;
     float last;
+    float lim;                      /* the voice's level limiter: its envelope */
 } strike_t;
 
 /* ---------------------------------------------------------------- tape --- */

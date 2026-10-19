@@ -193,16 +193,15 @@ static float pid_range(int pid)
 /* KEY: parameter units per semitone, so AMOUNT +63 follows the keyboard exactly */
 static float key_units(int pid)
 {
-    int t, p;
+    int p;
     if (pid >= RV_GPID)
         return 1.0f;
-    t = pid / RV_TP;
     p = pid % RV_TP;
     switch (p) {
     case TP_PITCH: return 1.0f;
     case TP_FINE: return 100.0f;                         /* cents */
     case TP_CUT: return 127.0f / 120.0f;                 /* 10 octaves over the knob */
-    case TP_INA: return rv.tp[t][TP_INS] == INS_COMB ? 127.0f / 60.0f : 1.0f;   /* the comb: 5 octaves */
+    case TP_INA: return 1.0f;                            /* the comb's TUNE is in semitones */
     default: return 1.0f;                                /* other knobs: one step a key */
     }
 }
