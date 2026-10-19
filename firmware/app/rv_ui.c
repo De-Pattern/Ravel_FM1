@@ -1400,6 +1400,16 @@ static void draw_knobs(void)
         if (!in.name || k.kind == K_NONE) {
             continue;
         }
+        if (k.kind == K_TP && !rv_tp_applies(ui.track, k.id)) {   /* does nothing as the track is set: greyed */
+            v = kb_get(k);
+            kb_format(k, v, val);
+            g_text_c(cx, 25, &FONT_T, in.name, C_LINE);
+            g_text_c(cx, 38, g_text_w(&FONT_B, val) > 56 ? &FONT_XS : &FONT_B, val, C_LINE);
+            g_fill(x + 6, 62, 48, 3, C_LINE);
+            if (i)
+                g_vline(x, 26, 40, C_LINE);
+            continue;
+        }
         v = kb_get(k);
         if (held >= 0 && k.kind == K_TP) {
             int lv;

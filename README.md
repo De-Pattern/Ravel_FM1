@@ -76,6 +76,7 @@ The emulator page has three parts:
   - **Play** and **Record**;
   - **T1–T8** pick a track;
   - **Sound** chooses the track's kind, engine and a preset;
+  - **Page ← Back / Forward →** steps through the section's pages (the same as turning SELECT, or the ← → keys);
   - **Go to** jumps straight to a section;
   - **Catch** and **Resample** for the tape;
   - **Audio in** plays a file into the input;
@@ -115,7 +116,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | Control | What it does in Ravel |
 | --- | --- |
 | **MASTER** | Output volume |
-| **SELECT** | Moves to the next or previous page of the section you are in |
+| **SELECT** | Moves to the next page (turn right) or back to the previous one (turn left) in the section you are in |
 | **ALGORITHM** | Picks the track you are working on, **T1 to T8**. The keys play this track. |
 | **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE, rows on TAPE, steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
 | **KNOB 1–4** | Change the four values in the row at the top of the screen, left to right |
@@ -177,6 +178,8 @@ Knobs speed up when you turn them quickly, so a fast turn crosses a whole range 
 - the graph's HEAD pages only appear when the track is in GRAPH mode, and HEAD 2's pages only when head 2 is on.
 
 So if a page seems to be "skipped", it is hidden because it does not apply to this track. Change the track or the setting and it comes back.
+
+**Greyed-out knobs.** When a knob does nothing with the track set as it is, its name and value turn grey. For example, on a strike track with the PING body, DAMP, INHARM, GEOMTRY and MODES are grey, because a ping filter has none of those. The value is kept, so it is ready if you change the setup. So are T DECAY until TRANS is up, RING F until RING is up, ORDER, RATE and SEED except with the DUST or RAIN exciter, and on PHYS, POSITN for BLOWN and MEMBRAN.
 
 ## 4. How the parts connect
 
@@ -306,10 +309,12 @@ Each operator can be SINE, TRI, SAW, SQUARE, HALF, ABS, QUART or BITS.
 
 | SOURCE 1 | SOURCE 2 |
 | --- | --- |
-| MODEL: STRING (plucked), BOWED, BLOWN, MEMBRAN (drum skin) | EXCITE: how hard it is played |
-| BRIGHT: brightness of the excitation | INHARM: detunes the overtones (metallic) |
-| DAMP: how quickly highs die | BODY: resonance of the body |
-| POSITN: where it is struck or bowed | DECAY |
+| MODEL: STRING (plucked), BOWED, BLOWN, MEMBRAN (drum skin) | EXCITE: how hard it is played: pluck strength, bow speed, breath |
+| BRIGHT: brightness of the excitation | INHARM: detunes the overtones (metallic); on BOWED, lighter bow pressure (scratchier, airier) |
+| DAMP: how quickly highs die | BODY: resonance of the body (not MEMBRAN) |
+| POSITN: where it is plucked or bowed (STRING, BOWED) | DECAY |
+
+BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a clarinet. BLOWN speaks an octave lower in character (a clarinet's hollow, odd-harmonic tone) but plays the note you press.
 
 **FORMANT:** vowels and voices.
 

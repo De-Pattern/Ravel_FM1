@@ -201,6 +201,13 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         </div>
       </div>
       <div>
+        <h3>Page</h3>
+        <div class="row2">
+          <button class="hbtn" id="pageback" title="Turn SELECT left (← key)">← Back</button>
+          <button class="hbtn" id="pagefwd" title="Turn SELECT right (→ key)">Forward →</button>
+        </div>
+      </div>
+      <div>
         <h3>Go to</h3>
         <div class="row2" id="gotos"></div>
       </div>
@@ -468,6 +475,8 @@ function presetStep(d) {
   sel.selectedIndex = i; const v = +sel.value; if (v >= 0) rv.web_preset_apply(rv.web_track(), v);
 }
 $("pprev").addEventListener("click", () => presetStep(-1));
+$("pageback").addEventListener("click", () => rv && rv.rv_enc(0, -1));   /* SELECT, as on the panel */
+$("pagefwd").addEventListener("click", () => rv && rv.rv_enc(0, 1));
 $("pnext").addEventListener("click", () => presetStep(1));
 $("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
 $("rec").addEventListener("click", () => tapBtn("REC"));

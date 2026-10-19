@@ -415,6 +415,35 @@ const char *rv_pid_label(int pid, char *buf, int max)
     return buf;
 }
 
+/* does this knob do anything with the track as it is set now? (the page shows a dash if not) */
+int rv_tp_applies(int t, int p)
+{
+    const int16_t *tp = rv.tp[t];
+    if (tp[TP_KIND] == KIND_STRIKE) {
+        int exc = tp[TP_S0], body = tp[TP_S1];
+        int grains = exc == EXC_DUST || exc == EXC_RAIN;
+        switch (p) {
+        case TP_S3: return body == BODY_MODAL || body == BODY_DISC || exc <= EXC_FM || exc == EXC_BOW;   /* TONE */
+        case TP_S4: case TP_S6: return body != BODY_PING;                  /* DAMP, GEOMETRY */
+        case TP_S5: return body != BODY_PING;                               /* INHARM */
+        case TP_S7: return body == BODY_MODAL || body == BODY_DISC;         /* MODES */
+        case TP_S8: case TP_S9: case TP_S15: return grains;                 /* ORDER, RATE, SEED */
+        case TP_S11: return tp[TP_S10] > 0;                                 /* T DECAY: with a TRANS layer */
+        case TP_S12: return tp[TP_S13] > 0;                                 /* RING F: with RING */
+        default: return 1;
+        }
+    }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_PHYS) {
+        int model = tp[TP_S0];                                              /* STRING, BOWED, BLOWN, MEMBRAN */
+        switch (p) {
+        case TP_S3: return model <= 1;                                      /* POSITN: pluck or bow point */
+        case TP_S6: return model != 3;                                      /* BODY */
+        default: return 1;
+        }
+    }
+    return 1;
+}
+
 /* parameters modulation may move: continuous ones (an engine's numbered slots too) */
 int rv_is_moddest(int p)
 {

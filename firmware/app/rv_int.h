@@ -39,7 +39,7 @@ typedef struct {
 typedef struct { float ph, ph2, sub, drift, drift_t; float sph[7]; uint32_t ns; } va_t;
 typedef struct { float ph1, ph2, dcwenv; } pd_t;
 typedef struct { float ph[4], fb1, fb2, menv; } fm_t;
-typedef struct { int16_t line[RV_KS_LEN]; int32_t w; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;
+typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
 typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3]; uint32_t ns; } form_t;
 typedef struct { float th[3], since[3], rd[3]; uint8_t on[3]; uint32_t ns; uint32_t count; } part_t;
 

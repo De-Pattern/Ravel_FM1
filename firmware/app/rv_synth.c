@@ -459,7 +459,13 @@ static void phys_render(voice_t *v, const float *eff, float f, const float *exc_
     float per = 44100.0f / f, lpc = 0.15f + bright * 0.84f - damp * 0.3f;
     float t60 = 0.05f + decay * decay * 12.0f;
     float g = fm_exp2f(-per / (t60 * 44100.0f) * 9.97f);   /* loop gain for that T60 */
-    float apc = inh * 0.7f;
+    float apc = inh * 0.7f, lpd;
+    if ((uint32_t)s->w >= RV_KS_LEN)                  /* the voice's memory is shared by every engine: */
+        s->w = 0;                                     /* after a switch these may hold another's bytes */
+    if ((uint32_t)s->wn >= RV_KS_LEN)
+        s->wn = 0;
+    if (!(s->bow == s->bow) || fm_fabsf(s->bow) > 4.0f)
+        s->bow = 0.0f;
     if (model == 3) {
         float b1[6], b2[6], gn[6];
         for (k = 0; k < 6; k++) {
@@ -487,8 +493,48 @@ static void phys_render(voice_t *v, const float *eff, float f, const float *exc_
         return;
     }
     lpc = clampf(lpc, 0.05f, 0.99f);
+    lpd = (1.0f - lpc) / lpc;                         /* the loss filter's delay: tuned out */
+    if (model == 1) {
+        /* bowed (STK's bowed string): two segments of string meet at the bow, POSITN from the
+         * bridge. Each sample the bow grips or slips by the friction curve and sends the same
+         * velocity both ways; the bridge end is lossy (BRIGHT, DAMP, DECAY), the nut end rigid. */
+        float beta = 0.05f + eff[TP_S3] * (0.4f / 127.0f), tot = per - lpd, db, dn;
+        if (tot > 2.0f * (RV_KS_LEN - 3))
+            tot = 2.0f * (RV_KS_LEN - 3);
+        db = clampf(tot * beta, 1.5f, RV_KS_LEN - 3.0f);
+        dn = clampf(tot - db, 1.5f, RV_KS_LEN - 3.0f);
+        for (i = 0; i < n; i++) {
+            float br, nr, sv, dv, bt, nv, a0, a1, fr;
+            int di, r0, r1;
+            di = (int)db; fr = db - (float)di;            /* the bridge segment's far end */
+            r0 = s->w - di; if (r0 < 0) r0 += RV_KS_LEN;
+            r1 = r0 - 1; if (r1 < 0) r1 += RV_KS_LEN;
+            a0 = (s->line[r0] + (s->line[r1] - s->line[r0]) * fr) * (1.0f / 16000.0f);
+            di = (int)dn; fr = dn - (float)di;            /* the neck segment's far end */
+            r0 = s->wn - di; if (r0 < 0) r0 += RV_KS_LEN;
+            r1 = r0 - 1; if (r1 < 0) r1 += RV_KS_LEN;
+            a1 = (s->neck[r0] + (s->neck[r1] - s->neck[r0]) * fr) * (1.0f / 16000.0f);
+            s->lp += (a0 - s->lp) * lpc;
+            br = -s->lp * g;                              /* the bridge reflects, with loss */
+            nr = -a1;                                     /* the nut reflects */
+            sv = br + nr;                                 /* the string's speed under the bow */
+            s->bow += ((v->a.gate ? (0.03f + exc * 0.22f) * v->vel : 0.0f) - s->bow) * 0.003f;
+            dv = s->bow - sv;
+            bt = fm_fabsf(dv * (5.0f - inh * 3.0f) + 0.001f) + 0.75f;   /* INHARM: lighter bow pressure */
+            bt = 1.0f / (bt * bt * bt * bt);
+            nv = dv * (bt > 1.0f ? 1.0f : bt) + exc_in[i] * 0.3f;
+            s->neck[s->wn] = (int16_t)clampf((br + nv) * 16000.0f, -32760.0f, 32760.0f);
+            s->line[s->w] = (int16_t)clampf((nr + nv) * 16000.0f, -32760.0f, 32760.0f);
+            s->w = (s->w + 1) % RV_KS_LEN;
+            s->wn = (s->wn + 1) % RV_KS_LEN;
+            s->dly += (a0 - s->dly) * 0.02f;
+            out[i] = (a0 + body * s->dly * 3.0f) * 1.6f;
+        }
+        return;
+    }
     for (i = 0; i < n; i++) {
-        float d = per - 1.0f - (apc > 0.0f ? 1.0f : 0.0f), y, rd, frac, x;
+        /* blown: a clarinet's bore inverts at the reed, so the loop is half the period */
+        float d = (model == 2 ? per * 0.5f : per) - lpd - (apc > 0.0f ? 1.0f : 0.0f), y, rd, frac, x;
         int di, r0, r1;
         if (d < 2.0f)
             d = 2.0f;
@@ -512,13 +558,13 @@ static void phys_render(voice_t *v, const float *eff, float f, const float *exc_
             y = a;
         }
         x = exc_in[i] * 0.3f;
-        if (model == 1 && v->a.gate) {                /* bowed: stick-slip friction */
-            float bowv = exc * 0.35f * v->vel, dv = bowv - y;
-            float fr = dv * clampf(1.2f - fm_fabsf(dv) * 5.0f, 0.0f, 1.0f);
-            x += fr * 1.5f + xs_bi(&s->ns) * 0.01f * exc;
-        } else if (model == 2 && v->a.gate) {         /* blown: breath through a reed */
-            float br = exc * v->vel * (0.6f + xs_bi(&s->ns) * 0.25f);
-            x += sat(br - y * 0.8f) * 0.45f;
+        if (model == 2) {                      /* blown: a reed (STK's clarinet) */
+            float br, pd, r;
+            s->bow += ((v->a.gate ? (0.62f + exc * 0.45f) * (0.75f + 0.25f * v->vel) : 0.0f) - s->bow) * 0.001f;   /* above the reed's threshold */
+            br = s->bow * (1.0f + xs_bi(&s->ns) * 0.04f);   /* breath, with a little turbulence */
+            pd = -0.95f * y - br;                     /* the bore reflects inverted */
+            r = clampf(0.7f - 0.3f * pd, -1.0f, 1.0f);    /* the reed opens and closes */
+            x += br + pd * r - y;                     /* the reed sets what goes back in */
         }
         y += x;
         s->line[s->w] = (int16_t)clampf(y * 16000.0f, -32760.0f, 32760.0f);
