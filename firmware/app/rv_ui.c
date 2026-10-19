@@ -106,7 +106,11 @@ static const page_t pages[] = {
     {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_SIEVE)}},
 
     {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "CAPTURE", {GP(GP_TAPEQUAL), GP(GP_TAPESRC), GP(GP_RESBARS), GP(GP_ERODE)}},
+#ifdef RV_NO_AUDIO_IN
+    {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "ROWS", {{K_ROW, 0}, {K_ROW, 1}, NO, NO}},   /* no audio input */
+#else
     {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "ROWS", {{K_ROW, 0}, {K_ROW, 1}, GP(GP_INPUTLEVEL), GP(GP_TAPEMON)}},
+#endif
     {SEC_TAPE, V_TAPE, PIC_TAPE, PR_SOUND, "PLAYBACK", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR", {TP(TP_S4), TP(TP_S5), TP(TP_PITCH), TP(TP_LEVEL)}},
     {SEC_TAPE, V_BEADS, PIC_TAPE, PR_SOUND, "BEADS", {TP(TP_S6), TP(TP_S7), TP(TP_S8), TP(TP_S9)}},
@@ -119,7 +123,7 @@ static const page_t pages[] = {
     {SEC_SEQ, V_ALL, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
     {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), NO, NO, NO}},
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "GRAPH", {SF(SF_CORDA), SF(SF_CORDB), TP(TP_BRANCH), TP(TP_H2ROLE)}},
-    {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "HEAD 1", {TP(TP_H1ROLE), TP(TP_H1TRANS), TP(TP_H2ROLE), NO}},
+    {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "HEAD 1", {TP(TP_H1TRANS), NO, NO, NO}},
     {SEC_SEQ, V_GRAPH, PIC_MOTION, PR_NONE, "HEAD 1 MOTION", {TP(TP_H1SHAPE), TP(TP_H1DEPTH), TP(TP_H1CYCLE), TP(TP_H1COMB)}},
     {SEC_SEQ, V_GRAPH2, PIC_GRAPH, PR_STEPCUR, "HEAD 2", {TP(TP_H2TARGET), TP(TP_H2RATE), TP(TP_H2START), TP(TP_H2TRANS)}},
     {SEC_SEQ, V_GRAPH2, PIC_MOTION, PR_NONE, "HEAD 2 MOTION", {TP(TP_H2SHAPE), TP(TP_H2DEPTH), TP(TP_H2CYCLE), TP(TP_H2COMB)}},
@@ -329,6 +333,8 @@ static kinfo_t kb_info(kb_t k)
         r.max = pi->max;
         r.fmt = pi->fmt;
         r.names = pi->names;
+        if (k.id == TP_H2START)                      /* a step that exists */
+            r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS);
         break;
     case K_GP:
         pi = rv_pinfo_global(k.id);
@@ -357,7 +363,7 @@ static kinfo_t kb_info(kb_t k)
         case SF_ENV: r.max = 256; break;
         case SF_CUT: r.max = 3; r.fmt = PF_ENUM; r.names = cut_names; break;
         case SF_TIE: r.max = 1; r.fmt = PF_ONOFF; break;
-        default: r.max = 64; break;
+        default: r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS); break;   /* cords: steps 1..LENGTH */
         }
         break;
     }
@@ -730,7 +736,7 @@ static void kb_format(kb_t k, int v, char *o)
         return;
     }
     if (k.kind == K_STEP && (k.id == SF_CORDA || k.id == SF_CORDB)) {
-        if (!v)
+        if (!v || v > clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS))   /* past LENGTH: not used */
             sx_cat(o, k.id == SF_CORDA ? "NEXT" : "NONE");
         else {
             sx_cat(o, "> ");
@@ -1654,6 +1660,10 @@ static void pic_source(void)
         g_frame(136, PIC_Y + 8, 90, 24, C_STRIKE);
         g_text_c(181, PIC_Y + 12, &FONT_B, bo->names[clampi(rv.tp[t][TP_S1], 0, bo->max)], C_INK);
         pic_scope(t, PIC_Y + 40, 90, C_STRIKE);
+        if (rv.tp[t][TP_S0] == EXC_INPUT && rv_live.exc_in[t] < 0.0005f) {   /* EXT with nothing coming in */
+            g_text_c(120, PIC_Y + 106, &FONT_T, "EXT: NOTHING IS EXCITING THE BODY", C_AMBER);
+            g_text_c(120, PIC_Y + 118, &FONT_T, "ADD AN EXCITE ROUTE ON HOME > INFLUENCE", C_DIM);
+        }
     } else if (kind == KIND_TAPE) {
         g_text_c(120, PIC_Y + 10, &FONT_B, "A TAPE TRACK: SEE ARP / TAPE", C_TAPE);
         pic_scope(t, PIC_Y + 34, 96, C_TAPE);
@@ -2232,9 +2242,8 @@ static void pic_graph(void)
     }
     for (i = 0; i < len; i++) {
         const rv_step *s = &p->s[i];
-        int a = s->to[0] ? s->to[0] - 1 : (i + 1) % len;
-        if (a < len)
-            g_line(xs[i], ys[i], xs[a], ys[a], s->to[0] ? C_TEAL : C_LINE);
+        int own = s->to[0] && s->to[0] <= len, a = own ? s->to[0] - 1 : (i + 1) % len;   /* as rv_seq.c */
+        g_line(xs[i], ys[i], xs[a], ys[a], own ? C_TEAL : C_LINE);
         if (s->to[1] && s->to[1] - 1 < len)
             g_line(xs[i], ys[i], xs[s->to[1] - 1], ys[s->to[1] - 1], C_AMBER);
     }
@@ -2250,8 +2259,9 @@ static void pic_graph(void)
     if (rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH)
         g_text_c(120, PIC_Y + 124, &FONT_T, "SET MODE TO GRAPH ON THE TRACK PAGE", C_DIM);
     else {
-        static const char *const rn[] = {"OFF", "NOTES", "GATE", "PITCH"};
-        int r1 = clampi(rv.tp[t][TP_H1ROLE], 0, 2) + 1, r2 = clampi(rv.tp[t][TP_H2ROLE], 0, 3), tg = rv.tp[t][TP_H2TARGET];
+        static const char *const rn[] = {"OFF", "NOTES", "RHYTHM", "MELODY"};
+        int r2 = clampi(rv.tp[t][TP_H2ROLE], 0, 3), tg = rv.tp[t][TP_H2TARGET];
+        int r1 = r2 == ROLE_PITCH ? ROLE_GATE : r2 == ROLE_GATE ? ROLE_PITCH : ROLE_NOTES;   /* as rv_seq.c */
         char b[32] = "H1 ";
         sx_cat(b, rn[r1]);
         g_text(6, PIC_Y + 6, &FONT_T, b, C_WHITE);

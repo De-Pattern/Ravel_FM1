@@ -19,7 +19,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 ## What it is
 
 - **Synth tracks** (T1 to T4), six engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **PD** (Casio-style phase distortion, 8 waves, foam sidebands, ring), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync).
-- **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or the audio input) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
+- **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, or clock any other.
@@ -104,7 +104,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 **On the FM-1.** Install it with the web installer (see [Installing on the FM-1](#installing-on-the-fm-1)). Everything works the same as in the emulator, with these differences:
 
 - **MASTER** is the output volume (the emulator's Volume slider).
-- **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. The INPUT tape source and the INPUT exciter are silent on the FM-1.
+- **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. So the FM-1 hides the input's controls: the tape has no INPUT source, and the ROWS page has no IN GAIN or INPUT knob. The EXT exciter still works there, from other tracks.
 - **Saving pauses the sound for a moment**, because the code runs from the same flash the project is written to.
 - **No Bluetooth.**
 
@@ -335,12 +335,12 @@ A strike is an **exciter** (what hits) and a **body** (what rings).
 
 | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
 | --- | --- | --- | --- |
-| EXCITER: CLICK, NOISE, METAL, FM, DUST, RAIN, BOW, BLOW, INPUT (the audio input) | DAMP | ORDER: how the modes are laid out | RING F: ring-mod frequency |
+| EXCITER: CLICK, NOISE, METAL, FM, DUST, RAIN, BOW, BLOW, EXT (only from outside) | DAMP | ORDER: how the modes are laid out | RING F: ring-mod frequency |
 | BODY: PING (filters), MODAL (bars and bells), DISC (cymbals, plates), STRINGS (coupled strings) | INHARM: how un-harmonic the modes are | RATE: for DUST and RAIN, how often grains fall | RING amount |
 | DECAY | GEOMTRY: the shape of the body | TRANS: level of the attack transient | P DROP: pitch drop at the hit (toms, kicks) |
 | TONE: brightness | MODES: 2–8 resonances | T DECAY: length of the transient | SEED: a different random variation |
 
-With **INPUT** as the exciter, audio coming in rings the body (in the emulator, a file under Audio in; the FM-1 has no audio input).
+With **EXT** as the exciter, the track makes no strike of its own: the body rings only from what comes in from outside. That is another track's sound through an **EXCITE** route (HOME › INFLUENCE), the feedback bus returning into this track, or, in the emulator, a file under Audio in. If nothing is coming in, the SOURCE page says so, and you will hear only the attack layer and the inserts, the same on every note. The body's pitch still follows the notes, so a track exciting it through an EXCITE route rings at the note you play.
 
 ## 7. ENV: articulation
 
@@ -542,7 +542,7 @@ The picture shows the whole tape, the four rows (the current one bright), the pl
 **Audio in.**
 
 - In the emulator, choose a file under **Audio in**; "Record it onto the tape" sets the tape's source to INPUT. The FM-1 has no audio input in Ravel.
-- Set SOURCE to INPUT to catch it, or use it as a strike exciter (EXCITER = INPUT).
+- Set SOURCE to INPUT to catch it, or ring a strike body with it (EXCITER = EXT).
 
 ## 12. SEQ: steps and the graph
 
@@ -605,19 +605,21 @@ On the STEPS picture:
 
 Set **SEQ › TRACK › MODE** to **GRAPH**. Now the steps sit in a circle, and each step has **cords** that say where a playhead goes next, instead of always moving to the following step. The pages after TRACK change to GRAPH, HEAD 1, HEAD 1 MOTION (and HEAD 2, HEAD 2 MOTION when head 2 is on).
 
+**GRAPH drives the same steps.** It is not a second sequencer: the steps you set on the STEPS pages (which are on, their notes, velocity, length, locks, ratchets and the rest) are exactly what plays in GRAPH mode too. GRAPH only changes **the order the playhead visits them**, and adds a second playhead. Edit the steps on STEPS, STEP TIMING and STEP SHAPE in either mode; draw the cords on GRAPH.
+
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
 | --- | --- | --- | --- | --- | --- |
-| **GRAPH** | CORD A: the step to go to next (NEXT = just the following step) | CORD B: a second choice (NONE = no branch) | BRANCH: how to choose between A and B | HEAD 2: its role | step to edit |
-| **HEAD 1** | ROLE: NOTES, GATE, PITCH | TRANSP: head 1's transpose | HEAD 2 role | – | – |
+| **GRAPH** | CORD A: the step to go to next, 1 to LENGTH (NEXT = just the following step) | CORD B: a second choice (NONE = no branch) | BRANCH: how to choose between A and B | HEAD 2: OFF, NOTES, RHYTHM, MELODY | step to edit |
+| **HEAD 1** | TRANSP: head 1's transpose | – | – | – | – |
 | **HEAD 1 MOTION** | SHAPE | DEPTH (±) | CYCLE: 2–64 steps | COMBINE: × CLOCK or + CLOCK | – |
-| **HEAD 2** | PLAYS: THIS track, or T1–T8 | H2 RATE | H2 START: the step it starts on | TRANSP | step |
+| **HEAD 2** | PLAYS: THIS track, or T1–T8 | H2 RATE | H2 START: the step it starts on (1 to LENGTH) | TRANSP | step |
 | **HEAD 2 MOTION** | SHAPE | DEPTH | CYCLE | COMBINE | – |
 
 **Making a graph:**
 
 1. Go to the GRAPH page.
 2. Pick a step with **PRESETS**, or hold its white key.
-3. Set **CORD A** (where it goes) and, if you want a branch, **CORD B**. The cords are drawn on the circle.
+3. Set **CORD A** (where it goes) and, if you want a branch, **CORD B**. The cords are drawn on the circle. A cord can only point at a step that exists (1 to the track's LENGTH). If you shorten LENGTH later, cords to steps past the end are ignored: they read NEXT or NONE until LENGTH grows again.
 4. Choose **BRANCH**, which decides between A and B at a fork:
    - **CHANCE:** a coin toss;
    - **TURNS:** alternate each visit;
@@ -627,17 +629,18 @@ Set **SEQ › TRACK › MODE** to **GRAPH**. Now the steps sit in a circle, and 
 **Two playheads** walk the same graph at once.
 
 - **Head 1** plays this track.
-- **Head 2** is off until you set its role (on GRAPH or HEAD 1). It has its own rate and start step, and can play **another track** (HEAD 2 › PLAYS).
+- **Head 2** is off until you choose what it does with **HEAD 2** on the GRAPH page. It has its own rate and start step, and can play **another track** (HEAD 2 › PLAYS).
 
-**Roles** split a melody into its parts:
+**HEAD 2** chooses how the two heads share the work. Head 1 always takes the other half, so no setting leaves the track silent:
 
-| Role | What the head does on a step |
-| --- | --- |
-| **NOTES** | Plays the step normally |
-| **PITCH** | Plays nothing; it only sets the pitch for the other head |
-| **GATE** | Plays a note using the pitch the PITCH head last set |
+| HEAD 2 | Head 2 | Head 1 |
+| --- | --- | --- |
+| **OFF** | – | plays the steps it visits |
+| **NOTES** | plays the steps it visits too: two voices on one graph | plays the steps it visits |
+| **MELODY** | picks the notes, plays nothing itself | plays the rhythm, with head 2's latest note |
+| **RHYTHM** | plays the rhythm, with head 1's latest note | picks the notes, plays nothing itself |
 
-Set **head 1 to GATE** and **head 2 to PITCH** and you have rhythm and melody on two different paths at two different speeds, which never quite repeat the same way.
+With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two different speeds, so they never quite line up the same way twice. The picture shows each head's job at the top (H1 and H2).
 
 **MOTION** (Silt's function generators) moves a head's *speed* as it travels.
 

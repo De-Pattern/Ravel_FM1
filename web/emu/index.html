@@ -217,7 +217,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <input type="file" id="infile" accept="audio/*" aria-label="Audio file to play into the input">
         <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="intape"> Record it onto the tape</label>
         <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inmon" checked> Hear it</label>
-        <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can try the tape and the INPUT exciter.</p>
+        <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can try the tape's INPUT source and ring a strike body with the EXT exciter.</p>
       </div>
       <div>
         <h3>Output</h3>
@@ -557,10 +557,10 @@ const GUIDE = {
 <tr><td>TAPE</td><td>a hit jumps the target's tape playhead (or catches the tape)</td></tr>
 <tr><td>CLOCK</td><td>the source's hits clock the target's sequencer, René-style</td></tr>
 <tr><td>RING</td><td>ring modulates the target with the source</td></tr></table>`,
-  "Graph": `<p>SEQ › TRACK › <b>MODE</b> switches a track between the step sequencer and the <b>graph</b>. In graph mode the steps sit in a circle and cords say where a playhead goes next.</p>
-<ul><li><b>GRAPH</b> page: hold a step (or pick it with PRESETS) and set CORD A and CORD B, the steps it can go to next. With two cords, BRANCH picks one: by chance, in turns, by an LFO, or by the head's MOTION.</li>
+  "Graph": `<p>SEQ › TRACK › <b>MODE</b> switches a track between the step sequencer and the <b>graph</b>. In graph mode the steps sit in a circle and cords say where a playhead goes next. It plays <b>the same steps</b>: notes, velocity and locks are set on the STEPS pages in either mode; the graph only changes the order they are visited.</p>
+<ul><li><b>GRAPH</b> page: hold a step (or pick it with PRESETS) and set CORD A and CORD B, the steps it can go to next (1 to the track's LENGTH). With two cords, BRANCH picks one: by chance, in turns, by an LFO, or by the head's MOTION.</li>
 <li><b>Two playheads</b> walk the same graph. HEAD 1 plays this track. HEAD 2 (off by default) can play this track or another (PLAYS), at its own rate and start step.</li>
-<li><b>Roles</b>: NOTES plays the step; PITCH only sets the pitch; GATE plays the pitch the other head set. Head 1 on GATE and head 2 on PITCH separate rhythm from melody, each on its own path and speed.</li>
+<li><b>HEAD 2</b> (on the GRAPH page): OFF; NOTES, a second voice on the same graph; MELODY, head 2 picks the notes and head 1 plays them in its rhythm; RHYTHM, head 2 plays head 1's notes in its own rhythm. Rhythm and melody then walk different paths at different speeds.</li>
 <li><b>MOTION</b> (Silt's function generator): a shape (rise, fall, arch, decay, swell, or LFO 1, LFO 2, dust) that moves the head's rate over CYCLE steps. DEPTH sets how far. COMBINE: <b>× clock</b> multiplies or divides the clock (up to two octaves); <b>+ clock</b> adds to it.</li></ul>`,
   "FX": `<p>Each track sends into five buses; the buses' outputs go to the master. On every FX page the knob called <b>T1 SEND</b> (for the current track) sets how much of this track goes in; ALGORITHM picks the track.</p><table>
 <tr><td>DELAY</td><td>time (free, or synced above the middle), feedback, tone, level · send, stereo spread, wobble, freeze</td></tr>

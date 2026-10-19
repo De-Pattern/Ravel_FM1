@@ -188,7 +188,8 @@ extern rv_project rv;                      /* the project being played */
 typedef struct {
     float meter[RV_TRACKS];                /* track peak, decaying */
     float env[RV_TRACKS];                  /* articulation level of the track's newest voice */
-    float key[RV_TRACKS];                  /* the track's newest note, semitones from C4 */
+    float key[RV_TRACKS];
+    float exc_in[RV_TRACKS];               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
     uint8_t stage[RV_TRACKS];              /* its stage: 0 onset, 1 continuant, 2 termination, 3 off */
     float stage_pos[RV_TRACKS];            /* 0..1 through the stage */
     int16_t step[RV_TRACKS][2];            /* playing step per head, -1 = none */

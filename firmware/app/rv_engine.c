@@ -500,6 +500,13 @@ static void render_sub(float *outl, float *outr, int n)
         if (rv.tp[t][TP_KIND] == KIND_STRIKE && rv.tp[t][TP_S0] == EXC_INPUT)
             for (i = 0; i < n; i++)
                 tr->exc[i] += (in_buf[2 * i] + in_buf[2 * i + 1]) * 0.5f * ingain;
+        {
+            float pk = 0.0f;
+            for (i = 0; i < n; i++)
+                if (fm_fabsf(tr->exc[i]) > pk)
+                    pk = fm_fabsf(tr->exc[i]);
+            rv_live.exc_in[t] = pk > rv_live.exc_in[t] ? pk : rv_live.exc_in[t] * 0.995f;   /* held, falling slowly */
+        }
         for (i = 0; i < n; i++)
             tr->buf[i] = 0.0f;
     }

@@ -13,7 +13,7 @@ static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGH
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
 static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
-static const char *const role_names[] = {"OFF", "NOTES", "GATE", "PITCH"};
+static const char *const role_names[] = {"OFF", "NOTES", "RHYTHM", "MELODY"};   /* head 2: ROLE_GATE, ROLE_PITCH */
 static const char *const role1_names[] = {"NOTES", "GATE", "PITCH"};
 static const char *const fg_names[] = {"OFF", "RISE", "FALL", "ARCH", "DECAY", "SWELL", "LFO 1", "LFO 2", "DUST"};
 static const char *const comb_names[] = {"x CLOCK", "+ CLOCK"};
@@ -46,7 +46,7 @@ static const char *const fm_waves[] = {"SINE", "TRI", "SAW", "SQUARE", "HALF", "
 static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
 static const char *const form_modes[] = {"FILTER", "FOF"};
 static const char *const part_tables[] = {"SINE", "GLASS", "REED", "VOICE", "BELL", "BITS", "NOISE", "DROP"};
-static const char *const exc_names[] = {"CLICK", "NOISE", "METAL", "FM", "DUST", "RAIN", "BOW", "BLOW", "INPUT"};
+static const char *const exc_names[] = {"CLICK", "NOISE", "METAL", "FM", "DUST", "RAIN", "BOW", "BLOW", "EXT"};   /* EXT: only from outside (EXC_INPUT) */
 static const char *const body_names[] = {"PING", "MODAL", "DISC", "STRINGS"};
 static const char *const tape_modes[] = {"MLR", "BEADS", "SLICE"};
 static const char *const tape_rows[] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
@@ -221,7 +221,11 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_CUTREP] = {"REPEATS", 1, 16, 4, PF_NUM, 0},
     [GP_CUTMIX] = {"CUT MIX", 0, 127, 127, PF_NUM, 0},
     [GP_TAPEQUAL] = {"QUALITY", 0, 2, 2, E(qual_names)},
+#ifdef RV_NO_AUDIO_IN
+    [GP_TAPESRC] = {"SOURCE", 0, N(tapesrc_names) - 1, 0, E(tapesrc_names)},   /* no INPUT on the FM-1 */
+#else
     [GP_TAPESRC] = {"SOURCE", 0, N(tapesrc_names), 0, E(tapesrc_names)},
+#endif
     [GP_TAPEMON] = {"INPUT", 0, 127, 0, PF_NUM, 0},
     [GP_RESBARS] = {"RESAMPL", 0, N(resbars_names), 0, E(resbars_names)},
     [GP_ERODE] = {"ERODE", 0, 127, 0, PF_NUM, 0},

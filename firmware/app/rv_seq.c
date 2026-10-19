@@ -24,11 +24,15 @@ static uint64_t turn_bits[RV_TRACKS];
 
 /* ------------------------------------------------- graph mode and heads --- */
 static int is_graph(int t) { return rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH; }
+/* HEAD 2 picks the pair: OFF or NOTES (head 1 plays notes too), MELODY (head 2 sets the pitch,
+ * head 1 plays it: ROLE_PITCH) or RHYTHM (head 2 plays head 1's pitches: ROLE_GATE). Head 1's role
+ * follows, so no setting leaves the track silent. */
 static int head_role(int t, int h)
 {
-    if (h == 0)
-        return is_graph(t) ? clampi(rv.tp[t][TP_H1ROLE], 0, 2) + ROLE_NOTES : ROLE_NOTES;
-    return is_graph(t) ? clampi(rv.tp[t][TP_H2ROLE], 0, 3) : ROLE_OFF;
+    int r2 = is_graph(t) ? clampi(rv.tp[t][TP_H2ROLE], 0, 3) : ROLE_OFF;
+    if (h == 1)
+        return r2;
+    return r2 == ROLE_PITCH ? ROLE_GATE : r2 == ROLE_GATE ? ROLE_PITCH : ROLE_NOTES;
 }
 static const float head_rates[9] = {0.25f, 0.3333f, 0.5f, 0.6667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
 
@@ -207,9 +211,9 @@ static int next_step(int t, int h, int cur)
     }
     case DIR_GRAPH: {
         const rv_step *st = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[cur];
-        int a = st->to[0] ? st->to[0] - 1 : (cur + 1) % len;
+        int a = st->to[0] && st->to[0] <= len ? st->to[0] - 1 : (cur + 1) % len;   /* past LENGTH: NEXT */
         n = a;
-        if (st->to[1]) {
+        if (st->to[1] && st->to[1] <= len) {
             int take2 = 0, br = clampi(rv.tp[t][TP_BRANCH], 0, 4);
             if (br == 0)
                 take2 = xs_uni(&seq_rng) < 0.5f;
