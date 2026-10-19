@@ -958,3 +958,5 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+
+<p align="center"><img src="docs/brand/ravel-logo-footer.jpg" alt="RAVEL · FM-1 custom synth firmware" width="360"></p>
