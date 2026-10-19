@@ -15,6 +15,9 @@ if len(sys.argv) > 1:
     out = pathlib.Path(sys.argv[1])
 out.parent.mkdir(parents=True, exist_ok=True)
 page = page.replace('"__RAVEL_WASM__"', '"' + wasm + '"', 1)
+sys.path.insert(0, str(root / "tools"))
+import ravel_icons
+page = ravel_icons.apply(page)
 try:
     sys.path.insert(0, str(root / "tools"))
     import make_manual

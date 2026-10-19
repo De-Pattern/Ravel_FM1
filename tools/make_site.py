@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SRC / "tools"))
 
 
 def product_of(pkg):
@@ -32,6 +33,8 @@ def main(argv):
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
+    shutil.copy(SRC / "docs" / "brand" / "favicon.ico", out / "favicon.ico")
+    shutil.copy(SRC / "docs" / "brand" / "apple-touch-icon.png", out / "apple-touch-icon.png")
     shutil.copy(emu, out / "index.html")               # the site opens on the emulator
     shutil.copy(emu, out / "emulator.html")            # (and the older address still works)
     manual = emu.parent / "ravel-manual.html"        # made beside the emulator by web/emu/bundle.py
@@ -56,6 +59,7 @@ def main(argv):
         for mark in ("/*LIB*/", "/*META*/"):
             if page.count(mark) != 1:
                 raise SystemExit(f"web/installer/index.html must contain {mark} once")
+        page = __import__("ravel_icons").apply(page)
         (out / "install").mkdir()
         (out / "install" / "index.html").write_text(page.replace("/*LIB*/", lib).replace("/*META*/", meta),
                                                     encoding="utf-8")

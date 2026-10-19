@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="docs/brand/ravel-banner.jpg" alt="Ravel: sound exploration through texture. Custom firmware for the M-VAVE FM-1" width="900">
+</p>
+
+<h3 align="center">▶&nbsp; <a href="https://depattern.github.io/Ravel_FM1/">Open the emulator</a> &nbsp;·&nbsp; play Ravel in your browser</h3>
+<h3 align="center">📖&nbsp; <a href="https://depattern.github.io/Ravel_FM1/manual.html">Read the manual</a> &nbsp;·&nbsp; <a href="https://depattern.github.io/Ravel_FM1/manual.pdf">PDF</a></h3>
+<h3 align="center">⬇&nbsp; <a href="https://depattern.github.io/Ravel_FM1/install/">Install the firmware on an FM-1</a> &nbsp;·&nbsp; <a href="https://github.com/De-Pattern/Ravel_FM1/releases/latest">download the .fwsc</a></h3>
+
 # Ravel
 
 Ravel is a custom firmware for the M-VAVE FM-1. It turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, and cut it up and rebuild it, and the tracks can play, excite and reshape each other.

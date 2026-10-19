@@ -16,6 +16,8 @@ from pathlib import Path
 
 import markdown
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 SRC = Path(__file__).resolve().parents[1]
 DEV = ("What's here", "Building", "The FM-1 build")    # developers' sections: left to the repository
 
@@ -78,6 +80,8 @@ def build(out):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ravel manual</title>
+<link rel="icon" type="image/png" href="__RAVEL_ICON__">
+<link rel="apple-touch-icon" href="__RAVEL_TOUCH__">
 <meta name="description" content="Ravel for the M-VAVE FM-1: every page, knob, button and key, how the parts connect, recipes and a quick reference.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
@@ -209,6 +213,7 @@ blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--re
 </html>
 """
     page = inline_images(page)
+    page = __import__("ravel_icons").apply(page)
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
