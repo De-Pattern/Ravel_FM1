@@ -259,7 +259,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101 | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -267,6 +267,10 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | – |
 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
+
+**MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. Both are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets.
+
+The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
 
 **LPG** is a low-pass gate: the filter closes as the note fades, so sounds get darker as they die away (good for plucks and Buchla-style bongos).
 
@@ -334,18 +338,19 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 | EMIT: 1–3 emitters | FORMANT: the burst's own pitch |
 | RATIO between emitters | SCATTER: timing randomness |
 
-**CHIP:** a glitchy chiptune voice, after the Syntakt's SY CHIP. A SID-style oscillator steps through the note you play and up to three offsets at SPEED, so one voice plays a fast arpeggio, a chord or a "complex voice". After it comes a decompose stage that reduces, crushes and breaks the sound apart.
+**CHIP:** a glitchy chiptune voice, after the Syntakt's SY CHIP. A SID-style oscillator steps through the note you play and up to three offsets at RATE, so one voice plays a fast arpeggio, a chord or a "complex voice". A square sub oscillator sits under it, and a decompose stage after it reduces, crushes and breaks the sound apart.
 
-| SOURCE 1 | SOURCE 2 | SOURCE 3 (decompose) | SOURCE 4 |
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 (decompose) |
 | --- | --- | --- | --- |
-| WAVE: TRI, SAW, PULSE, NOISE (the SID's noise register), SAW&PUL (the SID's combined wave), RING, PWM (the width sweeps by itself), KICK and SNARE (drum tables) | OF2: the arp's second note, in semitones | SRR: sample-rate reduction (aliasing, grit) | OVER: overdrive |
-| PW: pulse width (on RING, the ring partner's ratio; on PWM, how far it sweeps) | OF3: the third note | CRUSH: bits, 16 (clean) down to 1 | SWEEP: a fast pitch drop at the start of each note, like SID drums |
-| SPEED: arp rate, 2–128 steps a second (classic chip arps are around 50) | OF4: the fourth note | DECOMP: how often the sound breaks | VIBRATO: chip vibrato, fading in after a moment |
-| MODE: UP, DOWN, PINGPNG, RANDOM, ONCE (up through the notes, then stays) | STEPS: how many of the root, OF2, OF3 and OF4 the arp walks (1 = no arp) | FRAG: the size of each piece, 1.5–46 ms | SEED: 0 = new breaks every note; otherwise the same breaks each time |
+| WAVE: TRI, SAW, PULSE, NOISE (the SID's noise register), SAW&PUL (the SID's combined wave), RING (a ring-modulated triangle), PWM (the width sweeps by itself), KICK and SNARE (drum tables) | OF2: the arp's second note, in semitones | SUB: a square sub oscillator on the note you play (it does not follow the arp) | SRR: sample-rate reduction (aliasing, grit) |
+| PW: pulse width (on RING, the ring partner's ratio; on PWM, how far it sweeps) | OF3: the third note | SUB OCT: the sub's octave, -3 to +1 | CRUSH: bits, 16 (clean) down to 1 |
+| RATE: how fast the arp steps, 2–128 steps a second (classic chip arps are around 50) | OF4: the fourth note | SYNC: the main oscillator restarts with the sub (hard sync), so as the arp moves the notes, the timbre sweeps | DECOMP: how often the sound breaks |
+| MODE: UP, DOWN, PINGPNG, RANDOM, ONCE (up through the notes, then stays) | STEPS: how many of the root, OF2, OF3 and OF4 the arp walks (1 = no arp) | OVER: overdrive | FRAG: the size of each piece, 1.5–46 ms |
 
-- **The arp:** for a minor chord, set OF2 +3, OF3 +7, OF4 +12 and STEPS 4. Multiples of 12 jump octaves. SPEED, MODE and the offsets grey out while STEPS is 1.
-- **Decompose:** the voice keeps its last 46 ms. At the end of each fragment, DECOMP is the chance that the next one breaks: the last fragment repeats, plays backwards, drops out, has its bits flipped, or plays at double speed. FRAG and SEED grey out while DECOMP is 0.
-- **Presets:** CHIP ARP, SID BASS, CHIP KICK, CHIP SNARE and DECOMPOSED.
+- **The arp:** for a minor chord, set OF2 +3, OF3 +7, OF4 +12 and STEPS 4. Multiples of 12 jump octaves. RATE, MODE and the offsets grey out while STEPS is 1.
+- **Sync:** with SYNC on and SUB OCT at -1, the sub holds the root while the arp's notes become synced, tearing timbres over it (the SYNC ARP preset). SUB OCT greys out while SUB is 0 and SYNC is off.
+- **Decompose:** the voice keeps its last 46 ms. At the end of each fragment, DECOMP is the chance that the next one breaks: the last fragment repeats, plays backwards, drops out, has its bits flipped, or plays at double speed. FRAG greys out while DECOMP is 0.
+- **Presets:** CHIP ARP, SID BASS (through the MS-20 filter), CHIP KICK, CHIP SNARE, DECOMPOSED and SYNC ARP.
 
 ### Strike tracks (SOURCE pages)
 
@@ -495,7 +500,8 @@ The effects last while the key is held. Letting go of FX releases them all.
 | --- | --- | --- | --- |
 | ROOT: C to B | SCALE: CHROMA (off), MAJOR, MINOR, DORIAN, PHRYG, LYDIAN, MIXO, PENTA, MINPENT, WHOLE, HIRAJO, IWATO | TRANSPS: transposes everything that plays from steps (±24) | SIEVE: this track's note sieve (1–12) |
 
-- The scale corrects the notes that the **sequencer** plays. A note outside the scale moves down to the nearest scale note.
+- **The keys fold into the scale** (like Elektron's fold mode). With a scale set, every key plays: the lowest key plays the first scale note at or above F, and each key after it plays the next note of the scale, so the keyboard runs up through the scale across several octaves and no key is wrong or dead. With CHROMA the keys are chromatic again. Notes you record from the keys are recorded as played.
+- **The sequencer snaps** each step's note to the nearest scale note (a note exactly between two goes down).
 - **SIEVE** (per track): a track with sieve N only plays notes whose distance from the root divides by N. For example, sieve 12 keeps only the roots, sieve 7 keeps the root and every seventh semitone above it (the fifth, the ninth…), and sieve 2 keeps every other semitone. Copy one pattern to two tracks with different sieves and they split it between them.
 - **Set the root from the keys:** hold **SCL** and press a key.
 

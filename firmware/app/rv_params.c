@@ -9,7 +9,7 @@ const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLO
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
-static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG"};
+static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101"};
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
 static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
@@ -45,6 +45,7 @@ static const char *const fm_algs[] = {"1>2>3>4", "1>2>3+4", "1>2+3+4", "1>2,3>4"
 static const char *const fm_waves[] = {"SINE", "TRI", "SAW", "SQUARE", "HALF", "ABS", "QUART", "BITS"};
 static const char *const chip_waves[] = {"TRI", "SAW", "PULSE", "NOISE", "SAW&PUL", "RING", "PWM", "KICK", "SNARE"};
 static const char *const chip_modes[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "ONCE"};
+static const char *const chip_suboct[] = {"-3 OCT", "-2 OCT", "-1 OCT", "0 OCT", "+1 OCT"};
 static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
 static const char *const form_modes[] = {"FILTER", "FOF"};
 static const char *const part_tables[] = {"SINE", "GLASS", "REED", "VOICE", "BELL", "BITS", "NOISE", "DROP"};
@@ -105,12 +106,12 @@ static const rv_pinfo SRC_TAPE[16] = {
 /* CHIP: a SID-flavoured voice that arpeggiates through offsets (after the Syntakt's SY CHIP),
  * then a decompose stage: sample-rate reduction, bit crushing and fragments that break apart */
 static const rv_pinfo SRC_CHIP[16] = {
-    {"WAVE", 0, N(chip_waves), CW_PULSE, E(chip_waves)}, {"PW", 0, 127, 64, PF_NUM, 0}, {"SPEED", 0, 127, 80, PF_NUM, 0},
+    {"WAVE", 0, N(chip_waves), CW_PULSE, E(chip_waves)}, {"PW", 0, 127, 64, PF_NUM, 0}, {"RATE", 0, 127, 80, PF_NUM, 0},
     {"MODE", 0, N(chip_modes), 0, E(chip_modes)}, {"OF2", -24, 24, 3, PF_SEMI, 0}, {"OF3", -24, 24, 7, PF_SEMI, 0},
-    {"OF4", -24, 24, 12, PF_SEMI, 0}, {"STEPS", 1, 4, 1, PF_NUM, 0}, {"SRR", 0, 127, 0, PF_NUM, 0},
-    {"CRUSH", 1, 16, 16, PF_NUM, 0}, {"DECOMP", 0, 127, 0, PF_NUM, 0}, {"FRAG", 0, 127, 50, PF_NUM, 0},
-    {"OVER", 0, 127, 0, PF_NUM, 0}, {"SWEEP", 0, 127, 0, PF_NUM, 0}, {"VIBRATO", 0, 127, 0, PF_NUM, 0},
-    {"SEED", 0, 127, 0, PF_NUM, 0}};
+    {"OF4", -24, 24, 12, PF_SEMI, 0}, {"STEPS", 1, 4, 1, PF_NUM, 0}, {"SUB", 0, 127, 0, PF_NUM, 0},
+    {"SUB OCT", 0, N(chip_suboct), 2, E(chip_suboct)}, {"SYNC", 0, 1, 0, PF_ONOFF, 0}, {"OVER", 0, 127, 0, PF_NUM, 0},
+    {"SRR", 0, 127, 0, PF_NUM, 0}, {"CRUSH", 1, 16, 16, PF_NUM, 0}, {"DECOMP", 0, 127, 0, PF_NUM, 0},
+    {"FRAG", 0, 127, 50, PF_NUM, 0}};
 static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_PD, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP};
 
 static const rv_pinfo TRACK[TP_N] = {
@@ -434,6 +435,8 @@ int rv_tp_applies(int t, int p)
         return 0;                                                      /* take velocity as it comes */
     if (p == TP_POLY && tp[TP_KIND] == KIND_TAPE)                      /* a tape track is one playhead */
         return 0;
+    if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT) && tp[TP_KIND] != KIND_SYNTH)
+        return 0;                                                      /* only synth voices have the filter */
     if (tp[TP_KIND] == KIND_STRIKE) {
         int exc = tp[TP_S0], body = tp[TP_S1];
         int grains = exc == EXC_DUST || exc == EXC_RAIN;
@@ -455,7 +458,8 @@ int rv_tp_applies(int t, int p)
         case TP_S2: case TP_S3: case TP_S4: return steps >= 2;             /* SPEED, MODE, OF2 */
         case TP_S5: return steps >= 3;                                      /* OF3 */
         case TP_S6: return steps >= 4;                                      /* OF4 */
-        case TP_S11: case TP_S15: return tp[TP_S10] > 0;                    /* FRAG, SEED: with DECOMP */
+        case TP_S9: return tp[TP_S8] > 0 || tp[TP_S10] > 0;                 /* SUB OCT: with SUB or SYNC */
+        case TP_S15: return tp[TP_S14] > 0;                                 /* FRAG: with DECOMP */
         default: return 1;
         }
     }

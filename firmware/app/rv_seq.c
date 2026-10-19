@@ -118,18 +118,41 @@ static int step_rank(int si)
 
 static const uint16_t scale_masks[12] = {0xFFF, 0xAB5, 0x5AD, 0x6AD, 0x5AB, 0xAD5, 0x6B5, 0x295, 0x4A9, 0x555, 0x18D, 0x463};
 
+static int in_scale(int n)
+{
+    int sc = clampi(rv.gp[GP_SCALE], 0, 11), root = clampi(rv.gp[GP_ROOT], 0, 11);
+    int k = ((n - root) % 12 + 12) % 12;
+    return (scale_masks[sc] >> k) & 1u;              /* the masks hold C in bit 0 */
+}
+
+/* the nearest note of the scale (a tie goes down) */
 int rv_quantize_note(int n)
 {
-    int sc = clampi(rv.gp[GP_SCALE], 0, 11), root = clampi(rv.gp[GP_ROOT], 0, 11), k, d;
-    uint16_t m = scale_masks[sc];
-    if (sc == 0)
+    int d;
+    if (clampi(rv.gp[GP_SCALE], 0, 11) == 0)
         return n;
     for (d = 0; d < 7; d++) {
-        k = ((n - root) % 12 + 12) % 12;
-        if (m & (1u << (11 - k)))
-            return n;
-        n--;                                        /* down to the nearest scale note */
+        if (in_scale(n - d))
+            return n - d;
+        if (in_scale(n + d + 1) && !in_scale(n - d - 1))
+            return n + d + 1;
     }
+    return n;
+}
+
+/* the keys, folded (as Elektron's fold): with a scale set, key k plays the k-th scale note from
+ * the first one at or above the keyboard's lowest key, so every key plays and none is out */
+int rv_fold_key(int base, int k)
+{
+    int n = base, i;
+    if (clampi(rv.gp[GP_SCALE], 0, 11) == 0)
+        return base + k;
+    while (!in_scale(n))
+        n++;
+    for (i = 0; i < k; i++)
+        do
+            n++;
+        while (!in_scale(n));
     return n;
 }
 

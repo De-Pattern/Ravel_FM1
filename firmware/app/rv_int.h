@@ -44,7 +44,7 @@ typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3
 typedef struct { float th[3], since[3], rd[3]; uint8_t on[3]; uint32_t ns; uint32_t count; } part_t;
 #define RV_CHIP_BUF 2048                    /* CHIP's decompose memory: 46 ms of the voice */
 typedef struct {
-    float ph, ph2, pwm, noise, sweep, vib_t, acc, hold, hold_n, drift;
+    float ph, ph2, pwm, pwm2, noise, sweep, vib_t, acc, hold, hold_n, drift;   /* pwm2: the sub's phase */
     uint32_t lfso, ns;                      /* the noise register, the decompose dice */
     int8_t step, dir;                       /* the arpeggio: where it is, which way */
     int16_t buf[RV_CHIP_BUF];

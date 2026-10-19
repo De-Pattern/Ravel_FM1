@@ -100,6 +100,46 @@ static inline float ladder_tick(ladder_t *l, float x)
     return u * (1.0f + l->res * 0.25f);
 }
 
+/* MS-20 style (Korg35 topology): two one-pole lowpasses with positive feedback taken through a
+ * highpass, so the resonance peaks hard and can scream. The input is driven and the feedback
+ * goes through an asymmetric clipper: hot and dirty. s[0..2]: the stages, s[3]: the feedback. */
+static inline float ms20_tick(ladder_t *l, float x)
+{
+    float G = l->g / (1.0f + l->g), K = l->res * (2.05f / 4.2f), v, y1, y2, hp, fb;
+    x = sat(x * 1.6f) * 0.85f;                        /* the input, already pushed */
+    v = (x - l->s[0]) * G;                            /* lowpass 1 */
+    y1 = v + l->s[0];
+    l->s[0] = y1 + v;
+    fb = l->s[3];
+    fb = sat(fb * 1.8f) * (1.0f / 1.8f) + 0.08f * fb * fb;   /* the diodes: soft and lopsided */
+    v = (y1 + K * fb - l->s[1]) * G;                  /* lowpass 2, fed back positively */
+    y2 = v + l->s[1];
+    l->s[1] = y2 + v;
+    v = (y2 - l->s[2]) * G;                           /* the feedback's highpass */
+    hp = y2 - (v + l->s[2]);
+    l->s[2] = l->s[2] + 2.0f * v;
+    l->s[3] = hp;
+    return y2 * (1.0f / (1.0f + K * 0.35f));
+}
+
+/* SH-101 style (the IR3109's four OTA stages): smooth, linear stages, the resonance through a
+ * gentle curve, and the passband's loss made up as resonance rises: round and liquid, with a
+ * resonance that sings rather than bites */
+static inline float sh101_tick(ladder_t *l, float x)
+{
+    float G = l->g / (1.0f + l->g), k = l->res * (3.85f / 4.2f), u, y = 0.0f;
+    int i;
+    u = x * (1.0f + k * 0.45f) - k * sat(l->s[3] * 0.9f) * 1.1f;
+    u = sat(u * 0.8f) * 1.25f;                        /* a very soft input stage */
+    for (i = 0; i < 4; i++) {
+        float v = (u - l->s[i]) * G;
+        y = v + l->s[i];
+        l->s[i] = y + v;
+        u = y;
+    }
+    return y;
+}
+
 /* polyBLEP for band-limited steps: t = phase 0..1, dt = increment */
 static inline float blep(float t, float dt)
 {

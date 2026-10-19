@@ -709,13 +709,16 @@ static void part_render(voice_t *v, const float *eff, float f, float *out, int n
 /* -------------------------------------------------------------- CHIP --- */
 /* After the Syntakt's SY CHIP: a SID-style oscillator (triangle, saw, pulse, the noise shift
  * register, the combined saw&pulse wave, ring, animated PWM and two drum tables) that steps
- * through the played note and up to three offsets (OF2-OF4) at SPEED, so one voice plays a
- * chord. Then a decompose stage: overdrive, sample-rate reduction, bit crushing, and fragments
- * of the voice's own last moments repeated, reversed, dropped, bit-flipped or doubled. */
+ * through the played note and up to three offsets (OF2-OF4) at RATE, so one voice plays a
+ * chord. A square sub oscillator holds the played note (octaves -3..+1), and the main oscillator
+ * can restart with it (SYNC: the arp's notes then sweep a synced timbre). OVER drives it all.
+ * Then a decompose stage:
+ * sample-rate reduction, bit crushing, and fragments of the voice's own last moments repeated,
+ * reversed, dropped, bit-flipped or doubled. */
 static void chip_note(voice_t *v, const float *eff)
 {
     chip_t *c = &v->e.ch;
-    int seed = (int)(eff[TP_S15] + 0.5f);
+    (void)eff;
     c->step = 0;
     c->dir = 1;
     c->acc = 0.0f;
@@ -723,7 +726,8 @@ static void chip_note(voice_t *v, const float *eff)
     c->vib_t = 0.0f;
     if (!c->lfso)
         c->lfso = 0x7FFFF8u;                          /* the SID's noise register starts all ones */
-    c->ns = seed ? 0x9E3779B9u * (uint32_t)seed : (c->ns ? c->ns : v->rng | 1u);   /* SEED: the same breaks each note */
+    if (!c->ns)
+        c->ns = v->rng | 1u;
     c->frag_left = 0;
     c->frag_mode = 0;
 }
@@ -750,11 +754,13 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
     int steps = clampi((int)(eff[TP_S7] + 0.5f), 1, 4), i;
     float pw = 0.05f + eff[TP_S1] * (0.9f / 127.0f), spd = 2.0f * fm_exp2f(eff[TP_S2] * (6.0f / 127.0f));
     float ofs[4] = {0.0f, eff[TP_S4], eff[TP_S5], eff[TP_S6]};
-    float srr = eff[TP_S8] * (1.0f / 127.0f), hold_n = 1.0f + srr * srr * 63.0f;
-    float q = (float)(1 << (clampi((int)(eff[TP_S9] + 0.5f), 1, 16) - 1));
-    float dec = eff[TP_S10] * (1.0f / 127.0f);
-    int flen = 64 + (int)(eff[TP_S11] * ((RV_CHIP_BUF - 80) / 127.0f));
-    float over = eff[TP_S12] * (1.0f / 127.0f), swp = eff[TP_S13] * (48.0f / 127.0f), vib = eff[TP_S14] * (0.8f / 127.0f);
+    float sub = eff[TP_S8] * (1.0f / 127.0f), over = eff[TP_S11] * (1.0f / 127.0f);
+    int sync = eff[TP_S10] > 0.5f;
+    float sdt = clampf(f * fm_exp2f((float)(clampi((int)(eff[TP_S9] + 0.5f), 0, 4) - 3)) * RV_DT, 0.0f, 0.45f);
+    float srr = eff[TP_S12] * (1.0f / 127.0f), hold_n = 1.0f + srr * srr * 63.0f;
+    float q = (float)(1 << (clampi((int)(eff[TP_S13] + 0.5f), 1, 16) - 1));
+    float dec = eff[TP_S14] * (1.0f / 127.0f);
+    int flen = 64 + (int)(eff[TP_S15] * ((RV_CHIP_BUF - 80) / 127.0f));
     float semi, dt, dt2, nclk, drum = 0.0f;
     if ((uint32_t)c->w >= RV_CHIP_BUF)                /* shared memory: never trust a stale index */
         c->w = 0;
@@ -779,20 +785,25 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
     } else {
         c->step = 0;
     }
-    /* pitch: the arp's offset, the SWEEP drop (KICK has its own), vibrato after a moment */
+    /* pitch: the arp's offset, and KICK's own fast drop */
     c->sweep *= fm_expf(-(float)n * RV_DT / (w == CW_KICK ? 0.035f : 0.06f));
     c->vib_t += (float)n * RV_DT;
-    semi = ofs[c->step] + (w == CW_KICK ? 36.0f + swp : swp) * c->sweep;
-    if (vib > 0.0f)
-        semi += vib * clampf(c->vib_t * 3.0f - 0.3f, 0.0f, 1.0f) * sin_lut(c->vib_t * 6.0f);
+    semi = ofs[c->step] + (w == CW_KICK ? 36.0f * c->sweep : 0.0f);
     dt = clampf(f * fm_exp2f(semi * (1.0f / 12.0f)) * RV_DT, 0.0f, 0.45f);
     dt2 = dt * (1.0f + eff[TP_S1] * (3.0f / 127.0f));   /* RING: PW is the partner's ratio */
     nclk = dt * 16.0f;                                /* the noise register clocks 16 times a cycle */
     for (i = 0; i < n; i++) {
-        float x, y;
+        float x, y, sq;
         c->ph += dt;
         if (c->ph >= 1.0f)
             c->ph -= 1.0f;
+        c->pwm2 += sdt;                               /* the sub: a square on the played note */
+        if (c->pwm2 >= 1.0f) {
+            c->pwm2 -= 1.0f;
+            if (sync)                                 /* SYNC: the main oscillator restarts with it */
+                c->ph = c->pwm2 * (dt / sdt);
+        }
+        sq = c->pwm2 < 0.5f ? 1.0f : -1.0f;
         c->drift += nclk;
         while (c->drift >= 1.0f) {                    /* the SID's 23-bit noise register */
             uint32_t b = ((c->lfso >> 22) ^ (c->lfso >> 17)) & 1u;
@@ -824,7 +835,7 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
             break;
         default: x = chip_wave(c, w, c->ph, pw); break;
         }
-        x *= 0.5f;
+        x = (x + sq * sub * 0.8f) * (0.5f / (1.0f + sub * 0.4f));
         if (over > 0.0f)                              /* OVER: driven into a soft wall */
             x = sat(x * (1.0f + over * 7.0f)) * (0.5f + 0.2f * over) / (0.5f + over * 0.3f);
         /* SRR: hold each sample HOLD times (fractional, so the aliasing moves with it) */
@@ -947,7 +958,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         cut = eff[TP_CUT] * v->lpg + 6.0f;
     }
     cut = clampf(cut, 0.0f, 135.0f);
-    if (ft == FT_LADDER)
+    if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
     else
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
@@ -960,6 +971,8 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
             x += xs_bi(&v->rng) * v->a.tailv * 0.35f;
         switch (ft) {
         case FT_LADDER: y = ladder_tick(&v->lad, x); break;
+        case FT_MS20: y = ms20_tick(&v->lad, x); break;
+        case FT_SH101: y = sh101_tick(&v->lad, x); break;
         case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
         case FT_BP: svf_tick(&v->svf, x, &bp, 0); y = bp * (1.0f + res); break;
         case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;

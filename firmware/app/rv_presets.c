@@ -42,19 +42,28 @@ static const int8_t p_swarm[] = {TP_S0, 3, TP_S1, 50, TP_S2, 3, TP_S3, 70, TP_S4
                                   TP_ATK, 50, TP_SUS, 110, TP_REL, 90, TP_GIVE, 40, TP_REVS, 70, TP_LEVEL, 96, END};
 static const int8_t p_dustvoice[] = {TP_S0, 7, TP_S1, 20, TP_S2, 2, TP_S5, 96, TP_S6, 96, TP_FTYPE, FT_BP, TP_CUT, 100, TP_RES, 50,
                                       TP_EFILT, 0, TP_ATK, 0, TP_SUS, 110, TP_REL, 60, TP_DLYS, 60, TP_LEVEL, 110, END};
-/* CHIP: S0 WAVE, S1 PW, S2 SPEED, S3 MODE, S4-S6 OF2-OF4, S7 STEPS, S8 SRR, S9 CRUSH, S10 DECOMP,
- * S11 FRAG, S12 OVER, S13 SWEEP, S14 VIBRATO, S15 SEED */
+/* CHIP: S0 WAVE, S1 PW, S2 RATE, S3 MODE, S4-S6 OF2-OF4, S7 STEPS, S8 SUB, S9 SUB OCT, S10 SYNC,
+ * S11 OVER, S12 SRR, S13 CRUSH, S14 DECOMP, S15 FRAG */
 static const int8_t p_chiparp[] = {TP_S0, CW_PULSE, TP_S1, 40, TP_S2, 92, TP_S3, 0, TP_S4, 3, TP_S5, 7, TP_S6, 12, TP_S7, 4,
                                    TP_CUT, 127, TP_ATK, 0, TP_DEC, 60, TP_SUS, 90, TP_REL, 20, TP_LEVEL, 88, END};
-static const int8_t p_sidbass[] = {TP_S0, CW_SAWPUL, TP_S1, 70, TP_S7, 1, TP_S12, 40, TP_S13, 8, TP_CUT, 92, TP_RES, 30,
-                                   TP_ATK, 0, TP_DEC, 50, TP_SUS, 70, TP_REL, 15, TP_LEVEL, 96, END};
-static const int8_t p_chipkick[] = {TP_S0, CW_KICK, TP_S7, 1, TP_S12, 30, TP_CUT, 127, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0, TP_REL, 10,
-                                    TP_LEVEL, 110, END};
-static const int8_t p_chipsnare[] = {TP_S0, CW_SNARE, TP_S7, 1, TP_S13, 20, TP_CUT, 127, TP_ATK, 0, TP_DEC, 34, TP_SUS, 0, TP_REL, 10,
-                                     TP_LEVEL, 96, END};
-static const int8_t p_decomposed[] = {TP_S0, CW_PWM, TP_S1, 90, TP_S2, 70, TP_S3, 3, TP_S4, 7, TP_S5, 12, TP_S7, 3, TP_S8, 40,
-                                      TP_S9, 6, TP_S10, 70, TP_S11, 40, TP_CUT, 120, TP_ATK, 0, TP_DEC, 70, TP_SUS, 80,
+static const int8_t p_sidbass[] = {TP_S0, CW_SAWPUL, TP_S1, 70, TP_S7, 1, TP_S8, 70, TP_S9, 2, TP_S11, 30, TP_FTYPE, FT_MS20,
+                                   TP_CUT, 74, TP_RES, 70, TP_EFILT, 30, TP_ATK, 0, TP_DEC, 50, TP_SUS, 70, TP_REL, 15,
+                                   TP_LEVEL, 96, END};
+static const int8_t p_chipkick[] = {TP_S0, CW_KICK, TP_S7, 1, TP_S11, 30, TP_CUT, 127, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0,
+                                    TP_REL, 10, TP_LEVEL, 110, END};
+static const int8_t p_chipsnare[] = {TP_S0, CW_SNARE, TP_S7, 1, TP_S13, 8, TP_CUT, 127, TP_ATK, 0, TP_DEC, 34, TP_SUS, 0,
+                                     TP_REL, 10, TP_LEVEL, 96, END};
+static const int8_t p_decomposed[] = {TP_S0, CW_PWM, TP_S1, 90, TP_S2, 70, TP_S3, 3, TP_S4, 7, TP_S5, 12, TP_S7, 3, TP_S12, 40,
+                                      TP_S13, 6, TP_S14, 70, TP_S15, 40, TP_CUT, 120, TP_ATK, 0, TP_DEC, 70, TP_SUS, 80,
                                       TP_REL, 30, TP_LEVEL, 84, TP_REVS, 40, END};
+static const int8_t p_syncarp[] = {TP_S0, CW_SAW, TP_S2, 86, TP_S3, 2, TP_S4, 7, TP_S5, 12, TP_S6, 19, TP_S7, 4, TP_S8, 40,
+                                   TP_S9, 2, TP_S10, 1, TP_FTYPE, FT_SH101, TP_CUT, 96, TP_RES, 40, TP_ATK, 0, TP_DEC, 70,
+                                   TP_SUS, 80, TP_REL, 25, TP_LEVEL, 86, END};
+/* the new filters, on VA */
+static const int8_t p_101bass[] = {TP_FTYPE, FT_SH101, TP_CUT, 58, TP_RES, 64, TP_EFILT, 40, TP_ATK, 0, TP_DEC, 45,
+                                   TP_SUS, 40, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 100, END};
+static const int8_t p_msscream[] = {TP_FTYPE, FT_MS20, TP_CUT, 70, TP_RES, 112, TP_EFILT, 36, TP_ATK, 0, TP_DEC, 60,
+                                    TP_SUS, 60, TP_REL, 30, TP_LEVEL, 84, END};
 static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0,
                                 TP_REL, 40, TP_REVS, 40, TP_LEVEL, 104, END};
 
@@ -90,6 +99,8 @@ static const rv_preset presets[] = {
     {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice},
     {"CHIP ARP", KIND_SYNTH, ENG_CHIP, p_chiparp}, {"SID BASS", KIND_SYNTH, ENG_CHIP, p_sidbass}, {"CHIP KICK", KIND_SYNTH, ENG_CHIP, p_chipkick},
     {"CHIP SNARE", KIND_SYNTH, ENG_CHIP, p_chipsnare}, {"DECOMPOSED", KIND_SYNTH, ENG_CHIP, p_decomposed},
+    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream},
+    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream},
     {"WOOD", KIND_STRIKE, 0, s_wood}, {"METAL", KIND_STRIKE, 0, s_metal}, {"KICK BODY", KIND_STRIKE, 0, s_kick},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare}, {"HAT", KIND_STRIKE, 0, s_hat}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar}, {"STRINGS", KIND_STRIKE, 0, s_strings},

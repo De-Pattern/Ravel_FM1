@@ -18,6 +18,7 @@ void rv_preset_apply(int t, int i);
 int rv_preset_step(int t, int cur, int dir);
 void rv_scene_store(int s);
 int rv_quantize_note(int n);
+int rv_fold_key(int base, int k);
 float rv_time_s(int v);
 float rv_cut_hz(float v);
 
@@ -1059,7 +1060,7 @@ static void key_event(int k, int on)
 {
     uint32_t btn = plat_buttons();
     int wi = white_index(k), bi = black_index(k), t = ui.track;
-    int note = 53 + k + ui.octave * 12;
+    int note = rv_fold_key(53 + ui.octave * 12, k);   /* chromatic, or folded into the scale */
     /* --- a key let go: whatever it started ends, whatever has changed since (the track, the page,
      * a layer held) --- */
     if (!on) {
@@ -1701,6 +1702,7 @@ static float filt_mag(int type, float f, float fc, float res)
 {
     float w = f / fc, q = 0.5f + res * res * 18.0f, re = 1.0f - w * w, im = w / q, m2 = re * re + im * im, m;
     switch (type) {
+    case FT_SH101:
     case FT_LADDER: {
         float q2 = 0.6f + res * 4.0f, im2 = w / q2;
         m = 1.0f / fm_sqrtf(m2 > 1e-6f ? m2 : 1e-6f);
@@ -2094,7 +2096,7 @@ static void pic_scale(void)
     static const char *const nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     int root = rv.gp[GP_ROOT], sc = clampi(rv.gp[GP_SCALE], 0, 11), i, sieve = rv.tp[ui.track][TP_SIEVE];
     for (i = 0; i < 12; i++) {
-        int rel = ((i - root) % 12 + 12) % 12, in = (masks[sc] >> (11 - rel)) & 1, x = 6 + i * 19;
+        int rel = ((i - root) % 12 + 12) % 12, in = (masks[sc] >> rel) & 1, x = 6 + i * 19;   /* C in bit 0 */
         int pass = sieve <= 1 || rel % sieve == 0;
         g_fill(x, PIC_Y + 20, 16, 60, in ? (i == root ? C_TEAL : C_PANEL) : C_BG);
         g_frame(x, PIC_Y + 20, 16, 60, C_LINE);
@@ -2103,6 +2105,8 @@ static void pic_scale(void)
             g_fill(x + 4, PIC_Y + 86, 8, 8, pass ? C_AMBER : C_LINE);
     }
     g_text(8, PIC_Y + 104, &FONT_T, sieve > 1 ? "AMBER: NOTES THIS TRACK'S SIEVE LETS THROUGH" : "SCL + KEY SETS THE ROOT", C_DIM);
+    if (sc)
+        g_text(8, PIC_Y + 116, &FONT_T, "THE KEYS PLAY THE SCALE, FOLDED", C_TEAL);
 }
 
 static void pic_tape(void)
