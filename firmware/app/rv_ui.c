@@ -1899,7 +1899,9 @@ static void pic_matrix(void)
             sx_int(b + (m->amt > 0), m->amt);
             g_text_r(200, y, &FONT_XS, b, C_INK);
             {
-                float v = rv_live.msrc[m->src] * (float)m->amt / 64.0f;
+                float v = m->src == MS_KEY   /* the destination track's note: full bar at 5 octaves */
+                    ? rv_live.key[m->dst < RV_GPID ? m->dst / RV_TP : 0] * (1.0f / 60.0f) * (float)m->amt / 63.0f
+                    : rv_live.msrc[m->src] * (float)m->amt / 64.0f;
                 int w = (int)(clampf(v, -1.0f, 1.0f) * 16.0f);
                 g_hline(204, y + 7, 33, C_LINE);
                 if (w > 0)

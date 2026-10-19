@@ -227,6 +227,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         tape_track_note(tr, note, v);
     }
     tr->lead_vel = v;
+    tr->lead_key = (float)(note - 60);
     rv_live.hit[t]++;
     infl_fire(t, note, vel, chain, now_s);
 }
@@ -382,11 +383,13 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
     int k;
     switch (ins) {
     case INS_COMB: {
-        float fr = 175.0f * fm_exp2f(a * 5.0f), d = clampf(44100.0f / fr, 2.0f, 254.0f), z, y;
-        int32_t i0 = tr->comb_w - (int32_t)d;
+        float fr = 175.0f * fm_exp2f(a * 5.0f), d = clampf(44100.0f / fr - 0.42f, 2.0f, 253.0f), z, y, fd;   /* 0.42: the loop's smoothing delays it */
+        int32_t di = (int32_t)d, i0 = tr->comb_w - di, i1;
+        fd = d - (float)di;                              /* fractional delay: in tune up high */
         if (i0 < 0)
             i0 += 256;
-        z = tr->comb[i0] * (1.0f / 16384.0f);
+        i1 = (i0 - 1) & 255;
+        z = (tr->comb[i0] + (tr->comb[i1] - tr->comb[i0]) * fd) * (1.0f / 16384.0f);
         tr->comb_lp += (z - tr->comb_lp) * 0.7f;
         y = x + tr->comb_lp * b * 0.96f;
         tr->comb[tr->comb_w] = (int16_t)clampf(sat(y) * 16384.0f, -32000.0f, 32000.0f);

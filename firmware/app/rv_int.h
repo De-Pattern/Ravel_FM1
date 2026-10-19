@@ -126,6 +126,7 @@ typedef struct {
     float ring[RV_SUB];
     float ring_amt;
     float lead_env, lead_vel;       /* newest voice's articulation level, velocity */
+    float lead_key;                 /* newest note, semitones from C4 (the KEY source) */
     float meter;
     /* skin */
     float derez_hold, derez_ph;

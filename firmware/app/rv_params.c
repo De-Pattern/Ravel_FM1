@@ -6,7 +6,7 @@
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
 const char *const rv_engine_names[] = {"VA", "PD", "FM", "PHYS", "FORMANT", "PARTICLE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
-const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK"};
+const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
 static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG"};

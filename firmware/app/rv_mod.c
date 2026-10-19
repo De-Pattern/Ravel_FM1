@@ -190,6 +190,23 @@ static float pid_range(int pid)
     return pi->name ? (float)(pi->max - pi->min) : 0.0f;
 }
 
+/* KEY: parameter units per semitone, so AMOUNT +63 follows the keyboard exactly */
+static float key_units(int pid)
+{
+    int t, p;
+    if (pid >= RV_GPID)
+        return 1.0f;
+    t = pid / RV_TP;
+    p = pid % RV_TP;
+    switch (p) {
+    case TP_PITCH: return 1.0f;
+    case TP_FINE: return 100.0f;                         /* cents */
+    case TP_CUT: return 127.0f / 120.0f;                 /* 10 octaves over the knob */
+    case TP_INA: return rv.tp[t][TP_INS] == INS_COMB ? 127.0f / 60.0f : 1.0f;   /* the comb: 5 octaves */
+    default: return 1.0f;                                /* other knobs: one step a key */
+    }
+}
+
 static void eff_compute(void)
 {
     int t, p, i, k;
@@ -211,12 +228,18 @@ static void eff_compute(void)
     src[MS_M3] = rv.gp[GP_MACRO3] * (1.0f / 127.0f);
     src[MS_M4] = rv.gp[GP_MACRO4] * (1.0f / 127.0f);
     src[MS_CLOCK] = clk_env;
+    src[MS_KEY] = trk[0].lead_key * (1.0f / 60.0f);
     /* matrix: ENV and VELO are the destination track's */
     for (i = 0; i < RV_MATRIX; i++) {
         const rv_mslot *m = &rv.mat[i];
         float s, amt = m->amt * (1.0f / 64.0f);
         if (m->src == MS_OFF || m->src >= MS_N || !m->amt || m->dst >= RV_NPID)
             continue;
+        if (m->src == MS_KEY) {                         /* the destination track's note */
+            int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
+            eff_add(m->dst, trk[dt].lead_key * key_units(m->dst) * clampf(m->amt * (1.0f / 63.0f), -1.0f, 1.0f));
+            continue;
+        }
         if (m->src == MS_ENV || m->src == MS_VEL) {
             int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
             s = m->src == MS_ENV ? trk[dt].lead_env : trk[dt].lead_vel;
@@ -276,6 +299,8 @@ static void eff_compute(void)
     }
     for (i = 0; i < MS_N; i++)
         rv_live.msrc[i] = src[i];
+    for (t = 0; t < RV_TRACKS; t++)
+        rv_live.key[t] = trk[t].lead_key;
 }
 
 float rv_param_eff(int t, int p) { return t >= 0 && t < RV_TRACKS && p >= 0 && p < TP_N ? trk[t].eff[p] : 0.0f; }

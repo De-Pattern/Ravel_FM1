@@ -390,6 +390,7 @@ Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can
 - **ENV and VELO:** the *target* track's own envelope and velocity;
 - **MACRO1–4;**
 - **CLOCK:** a pulse on every clock tick;
+- **KEY:** the note the *target* track is playing, centred on C4. At AMOUNT **+63** the parameter follows the keyboard exactly, one semitone per key (see below);
 - **WHEEL:** reserved for MIDI; nothing drives it in this version.
 
 **The matrix:** 8 slots, each "this source moves that parameter by this much".
@@ -399,6 +400,10 @@ Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can
 3. Turn KNOB 2 to pick the track.
 4. Turn KNOB 3 to pick the parameter (only parameters that can move smoothly are offered).
 5. Turn KNOB 4 to set the amount.
+
+**Key tracking with KEY.** At AMOUNT +63, KEY moves these parameters by exactly one semitone a key: the **INSERT TUNE** of a COMB insert, **CUTOFF**, **PITCH** and **FINE**. Any other parameter moves one step a key. Smaller amounts track part of the way, and negative amounts turn the keyboard upside down. KEY reads the target track's newest note, so with several voices the comb follows the last key played.
+
+*Example: a strike track whose comb rings in tune with the keys.* On T5's INSERT page, set INSERT to COMB and TUNE to taste (TUNE now sets the comb's pitch at C4). Then on the MATRIX page: SOURCE **KEY**, TRACK **T5**, PARAM **TUNE**, AMOUNT **+63**. The comb now follows every key you play. Its range is five octaves, so very low or very high notes stop at the ends.
 
 **Macros:** 4 macros, each moving up to 8 destinations at once. Each destination has its own start and end values, curve, and window (FROM % / TO %).
 
