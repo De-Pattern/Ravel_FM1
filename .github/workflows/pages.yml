@@ -1,0 +1,66 @@
+name: pages
+
+# The live site on every push to main: the landing page, the emulator, the web installer with the firmware.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tools
+        run: |
+          sudo apt-get install -y clang lld
+          pip install pillow markdown
+      - name: Build the WebAssembly emulator
+        run: sh web/emu/build.sh
+      - name: Smoke test
+        run: node web/emu/test.mjs
+      - name: One-file page
+        run: python3 web/emu/bundle.py
+      - name: JieLi toolchain and the AC79 SDK files
+        run: |
+          sh tools/get_toolchain.sh "$HOME/.jieli"
+          sh tools/get_ac79_files.sh "$HOME/ac79"
+      - name: The firmware (the latest v* tag's version, or this commit's)
+        run: |
+          git fetch --tags --quiet || true
+          tag="$(git describe --tags --exact-match --match 'v*' 2>/dev/null || true)"
+          if [ -n "$tag" ]; then rel="--release ${tag#v}"; ver="${tag#v}"; else rel=""; ver="dev-$(git rev-parse --short HEAD)"; fi
+          JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/ac79" python3 tools/build_fm1.py $rel
+          echo "RAVEL_VERSION=$ver" >> "$GITHUB_ENV"
+      - name: The manual as a PDF
+        run: |
+          npm install --no-save playwright@1.47.2
+          npx playwright install --with-deps chromium
+          node tools/make_manual_pdf.mjs
+      - name: Assemble the site
+        run: python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc "$RAVEL_VERSION"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,98 @@
+name: release
+
+# Push a tag such as v0.2 to publish a release with the FM-1 firmware and the one-file emulator.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get install -y clang lld
+          pip install pillow markdown
+      - name: Build the WebAssembly emulator
+        run: sh web/emu/build.sh
+      - name: Smoke test
+        run: node web/emu/test.mjs
+      - name: One-file page
+        run: python3 web/emu/bundle.py
+      - name: The manual as a PDF
+        run: |
+          npm install --no-save playwright@1.47.2
+          npx playwright install --with-deps chromium
+          node tools/make_manual_pdf.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emulator
+          path: |
+            build/web/ravel-emulator.html
+            build/web/ravel-manual.pdf
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python packages (font generator)
+        run: pip install pillow markdown
+      - name: JieLi toolchain and the AC79 SDK files
+        run: |
+          sh tools/get_toolchain.sh "$HOME/.jieli"
+          sh tools/get_ac79_files.sh "$HOME/ac79"
+      - name: Build, check and package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/ac79" python3 tools/build_fm1.py --release "${tag#v}"
+      - name: Update-path tests against the package
+        run: |
+          mkdir -p build/fm1test
+          cc -o build/fm1test/ota_test tests/fm1/ota_test.c && build/fm1test/ota_test build/fm1/Ravel-FM1.fwsc
+          python3 tests/fm1/install_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            build/fm1/Ravel-FM1.fwsc
+            build/fm1/report.json
+
+  publish:
+    needs: [emulator, firmware]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum ravel-emulator.html ravel-manual.pdf Ravel-FM1.fwsc > SHA256SUMS.txt
+      - name: Release notes
+        run: |
+          repo="${{ github.server_url }}/${{ github.repository }}"
+          pages="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          cat > notes.md <<NOTES
+          **Ravel ${{ github.ref_name }}** for the M-VAVE FM-1.
+
+          - \`Ravel-FM1.fwsc\`: the FM-1 firmware. **It has not been tested on FM-1 hardware yet.** Install it from the web installer (${pages}install/, Chrome or Edge, over USB) or with \`python3 tools/fm1_install.py Ravel-FM1.fwsc\`. Keep the FM-1 connected for the whole update. The installer page can also put M-VAVE's own firmware back.
+          - \`ravel-emulator.html\`: the emulator in one file. Open it in a browser; no install.
+          - \`ravel-manual.pdf\`: the manual.
+          - \`SHA256SUMS.txt\`: checksums.
+
+          Live emulator: ${pages}emulator.html · Installer: ${pages}install/ · Manual: ${repo}#the-manual
+          NOTES
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          files: |
+            dist/Ravel-FM1.fwsc
+            dist/ravel-emulator.html
+            dist/ravel-manual.pdf
+            dist/SHA256SUMS.txt

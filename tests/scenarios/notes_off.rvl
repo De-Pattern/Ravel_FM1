@@ -1,0 +1,46 @@
+# Notes end: a key let go after the engine, the sound or the track changed; nothing sounds afterwards.
+wait 300
+tap EDIT
+wait 200
+# A: play, release, then change engine
+tapkey 12
+wait 100
+turn K2 1
+wait 6000
+peakreset
+wait 1000
+expect voices 0
+expect peak_db_max -70
+# B: change engine while the key is held
+key 14 down
+wait 200
+turn K2 1
+wait 200
+key 14 up
+wait 6000
+peakreset
+wait 1000
+expect voices 0
+expect peak_db_max -70
+# C: preset while held
+key 16 down
+wait 200
+turn PRESET 1
+wait 200
+key 16 up
+wait 6000
+peakreset
+wait 1000
+expect voices 0
+expect peak_db_max -70
+# D: track change while held
+key 17 down
+wait 200
+turn ALGO 1
+wait 200
+key 17 up
+wait 6000
+peakreset
+wait 1000
+expect voices 0
+expect peak_db_max -70

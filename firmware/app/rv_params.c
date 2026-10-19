@@ -1,0 +1,532 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Ravel: every parameter's name, range, default and display, and the project's defaults. */
+#include "rv.h"
+
+/* ------------------------------------------------------------------ names --- */
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
+const char *const rv_engine_names[] = {"VA", "PD", "FM", "PHYS", "FORMANT", "PARTICLE"};
+const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
+const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK"};
+const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
+const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
+static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG"};
+static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
+static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
+static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
+static const char *const role_names[] = {"OFF", "NOTES", "GATE", "PITCH"};
+static const char *const role1_names[] = {"NOTES", "GATE", "PITCH"};
+static const char *const fg_names[] = {"OFF", "RISE", "FALL", "ARCH", "DECAY", "SWELL", "LFO 1", "LFO 2", "DUST"};
+static const char *const comb_names[] = {"x CLOCK", "+ CLOCK"};
+static const char *const target_names[] = {"THIS", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const rate_names[] = {"1/4", "1/3", "1/2", "2/3", "1", "3/2", "2", "3", "4"};
+static const char *const clksrc_names[] = {"MASTER", "LFO1", "LFO2", "DUST"};
+static const char *const branch_names[] = {"CHANCE", "TURNS", "LFO1", "LFO2", "MOTION"};
+static const char *const onoff_names[] = {"OFF", "ON"};
+static const char *const clkmode_names[] = {"STEADY", "RATE", "SHAPE", "PHASE", "SUM", "AND", "OR", "XOR"};
+static const char *const lock_names[] = {"LOCKED", "FREE"};
+static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", "S&H", "DRIFT"};
+static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
+static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
+static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
+static const char *const qual_names[] = {"DIRTY", "TAPE", "CLEAN"};   /* = bd_res: 8, 12, 16 bit */
+static const char *const tapesrc_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "BUSES", "INPUT"};
+static const char *const resbars_names[] = {"1 BAR", "2 BARS", "4 BARS", "1/2 BAR"};
+static const char *const songmode_names[] = {"PATTERN", "SONG"};
+static const char *const root_names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+static const char *const polys[] = {"MONO", "2", "3", "4"};
+
+/* engines */
+static const char *const va_ratio[] = {"1/2", "1", "3/2", "2", "3", "4", "5", "7"};
+static const char *const pd_waves[] = {"SAW", "SQUARE", "PULSE", "DBLSINE", "SAWPULS", "RESO1", "RESO2", "RESO3"};
+static const char *const fm_algs[] = {"1>2>3>4", "1>2>3+4", "1>2+3+4", "1>2,3>4", "1+2>3>4", "1+2+3>4",
+                                      "1+2,3>4", "1>2>3,4", "STACK3", "ALL+4FB", "ALL", "RING"};
+static const char *const fm_waves[] = {"SINE", "TRI", "SAW", "SQUARE", "HALF", "ABS", "QUART", "BITS"};
+static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
+static const char *const form_modes[] = {"FILTER", "FOF"};
+static const char *const part_tables[] = {"SINE", "GLASS", "REED", "VOICE", "BELL", "BITS", "NOISE", "DROP"};
+static const char *const exc_names[] = {"CLICK", "NOISE", "METAL", "FM", "DUST", "RAIN", "BOW", "BLOW", "INPUT"};
+static const char *const body_names[] = {"PING", "MODAL", "DISC", "STRINGS"};
+static const char *const tape_modes[] = {"MLR", "BEADS", "SLICE"};
+static const char *const tape_rows[] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
+static const char *const tape_rates[] = {"-2X", "-1X", "-1/2X", "-1/4X", "1/4X", "1/2X", "1X", "2X", "4X"};
+static const char *const tape_head2[] = {"OFF", "+1/4", "+1/2", "+3/4", "REV"};
+static const char *const tape_quant[] = {"NOW", "STEP", "BEAT", "BAR"};
+
+#define E(names) PF_ENUM, names
+#define N(a) (int16_t)(sizeof(a) / sizeof(a[0]) - 1)
+
+/* source slots S0..S15 per synth engine, per strike, per tape */
+static const rv_pinfo SRC_VA[16] = {
+    {"WAVE", 0, 127, 0, PF_NUM, 0}, {"PW", 0, 127, 64, PF_NUM, 0}, {"SUPER", 1, 7, 1, PF_NUM, 0},
+    {"DETUNE", 0, 127, 24, PF_NUM, 0}, {"SUB", 0, 127, 0, PF_NUM, 0}, {"NOISE", 0, 127, 0, PF_NUM, 0},
+    {"TZFM", 0, 127, 0, PF_NUM, 0}, {"FMRATIO", 0, N(va_ratio), 1, E(va_ratio)}, {"SYNC", 0, 127, 0, PF_NUM, 0},
+    {"DRIFT", 0, 127, 12, PF_NUM, 0}};
+static const rv_pinfo SRC_PD[16] = {
+    {"WAVE", 0, N(pd_waves), 0, E(pd_waves)}, {"WAVE2", 0, N(pd_waves), 5, E(pd_waves)}, {"MIX", 0, 127, 0, PF_NUM, 0},
+    {"DCW", 0, 127, 64, PF_NUM, 0}, {"DCW ENV", -64, 63, 32, PF_BI, 0}, {"DETUNE", 0, 127, 0, PF_NUM, 0},
+    {"FOAM", 0, 127, 0, PF_NUM, 0}, {"RING", 0, 127, 0, PF_NUM, 0}};
+static const rv_pinfo SRC_FM[16] = {
+    {"ALGO", 0, N(fm_algs), 0, E(fm_algs)}, {"FEEDBK", 0, 127, 0, PF_NUM, 0}, {"RATIO1", 0, 31, 3, PF_NUM, 0},
+    {"RATIO2", 0, 31, 3, PF_NUM, 0}, {"RATIO3", 0, 31, 5, PF_NUM, 0}, {"RATIO4", 0, 31, 3, PF_NUM, 0},
+    {"LEVEL2", 0, 127, 70, PF_NUM, 0}, {"LEVEL3", 0, 127, 40, PF_NUM, 0}, {"LEVEL4", 0, 127, 30, PF_NUM, 0},
+    {"WAVE1", 0, N(fm_waves), 0, E(fm_waves)}, {"WAVE2", 0, N(fm_waves), 0, E(fm_waves)}, {"WAVE3", 0, N(fm_waves), 0, E(fm_waves)},
+    {"WAVE4", 0, N(fm_waves), 0, E(fm_waves)}, {"MOD DEC", 0, 127, 70, PF_NUM, 0}, {"TZFM", 0, 127, 0, PF_NUM, 0},
+    {"VEL MOD", 0, 127, 40, PF_NUM, 0}};
+static const rv_pinfo SRC_PHYS[16] = {
+    {"MODEL", 0, N(phys_models), 0, E(phys_models)}, {"BRIGHT", 0, 127, 80, PF_NUM, 0}, {"DAMP", 0, 127, 40, PF_NUM, 0},
+    {"POSITN", 0, 127, 30, PF_NUM, 0}, {"EXCITE", 0, 127, 90, PF_NUM, 0}, {"INHARM", 0, 127, 0, PF_NUM, 0},
+    {"BODY", 0, 127, 40, PF_NUM, 0}, {"DECAY", 0, 127, 90, PF_NUM, 0}};
+static const rv_pinfo SRC_FORM[16] = {
+    {"VOWEL", 0, 127, 0, PF_NUM, 0}, {"SHIFT", -64, 63, 0, PF_BI, 0}, {"WIDTH", 0, 127, 50, PF_NUM, 0},
+    {"MODE", 0, N(form_modes), 0, E(form_modes)}, {"BREATH", 0, 127, 10, PF_NUM, 0}, {"GLOTTAL", 0, 127, 60, PF_NUM, 0},
+    {"SPREAD", 0, 127, 0, PF_NUM, 0}, {"VIBRATO", 0, 127, 12, PF_NUM, 0}};
+static const rv_pinfo SRC_PART[16] = {
+    {"TABLE", 0, N(part_tables), 0, E(part_tables)}, {"DUTY", 0, 127, 40, PF_NUM, 0}, {"EMIT", 1, 3, 1, PF_NUM, 0},
+    {"RATIO", 0, 127, 40, PF_NUM, 0}, {"COUPLE", 0, 127, 0, PF_NUM, 0}, {"MASK", 0, 127, 0, PF_NUM, 0},
+    {"FORMANT", 0, 127, 64, PF_NUM, 0}, {"SCATTER", 0, 127, 0, PF_NUM, 0}};
+static const rv_pinfo SRC_STRIKE[16] = {
+    {"EXCITER", 0, N(exc_names), 0, E(exc_names)}, {"BODY", 0, N(body_names), 1, E(body_names)}, {"DECAY", 0, 127, 70, PF_NUM, 0},
+    {"TONE", 0, 127, 70, PF_NUM, 0}, {"DAMP", 0, 127, 40, PF_NUM, 0}, {"INHARM", 0, 127, 20, PF_NUM, 0},
+    {"GEOMTRY", 0, 127, 40, PF_NUM, 0}, {"MODES", 2, 8, 6, PF_NUM, 0}, {"ORDER", 0, 127, 64, PF_NUM, 0},
+    {"RATE", 0, 127, 40, PF_NUM, 0}, {"TRANS", 0, 127, 50, PF_NUM, 0}, {"T DECAY", 0, 127, 20, PF_NUM, 0},
+    {"RING F", 0, 127, 60, PF_NUM, 0}, {"RING", 0, 127, 0, PF_NUM, 0}, {"P DROP", 0, 127, 20, PF_NUM, 0},
+    {"SEED", 0, 127, 1, PF_NUM, 0}};
+static const rv_pinfo SRC_TAPE[16] = {
+    {"MODE", 0, N(tape_modes), 0, E(tape_modes)}, {"ROW", 0, 3, 0, E(tape_rows)}, {"RATE", 0, N(tape_rates), 6, E(tape_rates)},
+    {"HEAD 2", 0, N(tape_head2), 0, E(tape_head2)}, {"JUMP", 0, N(tape_quant), 1, E(tape_quant)}, {"XFADE", 0, 127, 20, PF_NUM, 0},
+    {"TIME", 0, 127, 40, PF_NUM, 0}, {"SIZE", 0, 127, 64, PF_NUM, 0}, {"SHAPE", 0, 127, 64, PF_NUM, 0},
+    {"PITCH", -24, 24, 0, PF_SEMI, 0}, {"DENSITY", 0, 127, 40, PF_NUM, 0}, {"FEEDBK", 0, 127, 0, PF_NUM, 0},
+    {"MIX", 0, 127, 127, PF_NUM, 0}, {"RANDOM", 0, 127, 0, PF_NUM, 0}, {"SLICES", 4, 32, 16, PF_NUM, 0},
+    {"SENS", 0, 127, 64, PF_NUM, 0}};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_PD, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART};
+
+static const rv_pinfo TRACK[TP_N] = {
+    [TP_KIND] = {"KIND", 0, KIND_N - 1, 0, E(rv_kind_names)},
+    [TP_ENGINE] = {"ENGINE", 0, ENG_N - 1, 0, E(rv_engine_names)},
+    [TP_PITCH] = {"PITCH", -24, 24, 0, PF_SEMI, 0},
+    [TP_FINE] = {"FINE", -50, 50, 0, PF_CENT, 0},
+    [TP_GLIDE] = {"GLIDE", 0, 127, 0, PF_NUM, 0},
+    [TP_POLY] = {"VOICES", 0, 3, 3, E(polys)},
+    [TP_VELO] = {"VELO", 0, 127, 64, PF_NUM, 0},
+    [TP_ATK] = {"ATTACK", 0, 127, 4, PF_TIME, 0},
+    [TP_ACURVE] = {"CURVE", -64, 63, 0, PF_BI, 0},
+    [TP_OVER] = {"OVERSHT", 0, 127, 0, PF_NUM, 0},
+    [TP_DEC] = {"DECAY", 0, 127, 70, PF_TIME, 0},
+    [TP_SUS] = {"SUSTAIN", 0, 127, 90, PF_NUM, 0},
+    [TP_LOOP] = {"LOOP", 0, 127, 0, PF_NUM, 0},
+    [TP_REL] = {"RELEASE", 0, 127, 60, PF_TIME, 0},
+    [TP_TAIL] = {"TAIL", 0, 127, 0, PF_NUM, 0},
+    [TP_GIVE] = {"GIVE", 0, 127, 0, PF_NUM, 0},
+    [TP_EFILT] = {"ENV>CUT", -64, 63, 20, PF_BI, 0},
+    [TP_EDST1] = {"DEST 1", 0, TP_N - 1, TP_S0, PF_DEST, 0},
+    [TP_EAMT1] = {"AMOUNT 1", -64, 63, 0, PF_BI, 0},
+    [TP_EDST2] = {"DEST 2", 0, TP_N - 1, TP_DRIVE, PF_DEST, 0},
+    [TP_EAMT2] = {"AMOUNT 2", -64, 63, 0, PF_BI, 0},
+    [TP_FTYPE] = {"FILTER", 0, FT_N - 1, FT_LADDER, E(ftype_names)},
+    [TP_CUT] = {"CUTOFF", 0, 127, 90, PF_HZ, 0},
+    [TP_RES] = {"RESO", 0, 127, 20, PF_NUM, 0},
+    [TP_KTRK] = {"KEYTRK", 0, 127, 64, PF_NUM, 0},
+    [TP_DRIVE] = {"DRIVE", 0, 127, 10, PF_NUM, 0},
+    [TP_FOLD] = {"FOLD", 0, 127, 0, PF_NUM, 0},
+    [TP_BITS] = {"BITS", 0, 127, 0, PF_NUM, 0},
+    [TP_DEREZ] = {"DEREZ", 0, 127, 0, PF_NUM, 0},
+    [TP_MASK] = {"BITMASK", 0, 127, 0, PF_NUM, 0},
+    [TP_VOC] = {"VOCODER", 0, 127, 0, PF_NUM, 0},
+    [TP_INS] = {"INSERT", 0, INS_N - 1, INS_OFF, E(ins_names)},
+    [TP_INA] = {"TUNE", 0, 127, 64, PF_NUM, 0},
+    [TP_INB] = {"AMOUNT", 0, 127, 64, PF_NUM, 0},
+    [TP_INMIX] = {"MIX", 0, 127, 64, PF_NUM, 0},
+    [TP_LEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
+    [TP_PAN] = {"PAN", -64, 63, 0, PF_BI, 0},
+    [TP_FBS] = {"FEEDBK", 0, 127, 0, PF_NUM, 0},
+    [TP_PAIRS] = {"PAIR", 0, 127, 0, PF_NUM, 0},
+    [TP_DLYS] = {"DELAY", 0, 127, 0, PF_NUM, 0},
+    [TP_REVS] = {"SPACE", 0, 127, 0, PF_NUM, 0},
+    [TP_LEN] = {"LENGTH", 1, 64, 16, PF_NUM, 0},
+    [TP_RATE] = {"RATE", 0, N(rate_names), 4, E(rate_names)},
+    [TP_DIR] = {"DIRECTN", 0, DIR_SNAKE, DIR_FWD, E(dir_names)},
+    [TP_SIEVE] = {"SIEVE", 1, 12, 1, PF_NUM, 0},
+    [TP_CLKSRC] = {"CLOCK", 0, N(clksrc_names), 0, E(clksrc_names)},
+    [TP_BRANCH] = {"BRANCH", 0, N(branch_names), 1, E(branch_names)},
+    [TP_H2ROLE] = {"HEAD 2", 0, N(role_names), ROLE_OFF, E(role_names)},
+    [TP_H2RATE] = {"H2 RATE", 0, N(rate_names), 2, E(rate_names)},
+    [TP_H2START] = {"H2 START", 1, 64, 9, PF_NUM, 0},
+    [TP_SEQMODE] = {"MODE", 0, N(seqmode_names), SEQ_STEPS, E(seqmode_names)},
+    [TP_H1ROLE] = {"ROLE", 0, N(role1_names), 0, E(role1_names)},
+    [TP_H1SHAPE] = {"SHAPE", 0, N(fg_names), FG_OFF, E(fg_names)},
+    [TP_H1DEPTH] = {"DEPTH", -64, 63, 32, PF_BI, 0},
+    [TP_H1CYCLE] = {"CYCLE", 2, 64, 16, PF_NUM, 0},
+    [TP_H1COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
+    [TP_H1TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
+    [TP_H2TARGET] = {"PLAYS", 0, N(target_names), 0, E(target_names)},
+    [TP_H2SHAPE] = {"SHAPE", 0, N(fg_names), FG_OFF, E(fg_names)},
+    [TP_H2DEPTH] = {"DEPTH", -64, 63, 32, PF_BI, 0},
+    [TP_H2CYCLE] = {"CYCLE", 2, 64, 16, PF_NUM, 0},
+    [TP_H2COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
+    [TP_H2TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
+};
+
+static const rv_pinfo GLOBAL[GP_N] = {
+    [GP_TEMPO] = {"TEMPO", 30, 240, 112, PF_BPM, 0},
+    [GP_SWING] = {"SWING", 0, 75, 0, PF_NUM, 0},
+    [GP_QUANT] = {"QUANTZE", 0, 100, 0, PF_NUM, 0},
+    [GP_CLKMODE] = {"B DOES", 0, N(clkmode_names), 0, E(clkmode_names)},
+    [GP_CLKSHAPE] = {"A SHAPE", 0, 127, 64, PF_NUM, 0},
+    [GP_CLKBRATE] = {"B RATE", 0, 127, 30, PF_NUM, 0},
+    [GP_CLKBSHAPE] = {"B SHAPE", 0, 127, 127, PF_NUM, 0},
+    [GP_CLKDEPTH] = {"DEPTH", 0, 127, 0, PF_NUM, 0},
+    [GP_CLKTHR] = {"THRESH", 0, 127, 0, PF_NUM, 0},
+    [GP_CLKLOCK] = {"TEMPO IS", 0, 1, 0, E(lock_names)},
+    [GP_ROOT] = {"ROOT", 0, 11, 0, E(root_names)},
+    [GP_SCALE] = {"SCALE", 0, N(rv_scale_names), 0, E(rv_scale_names)},
+    [GP_TRANSPOSE] = {"TRANSPS", -24, 24, 0, PF_SEMI, 0},
+    [GP_LFO1RATE] = {"RATE", 0, 127, 40, PF_NUM, 0},
+    [GP_LFO1SHAPE] = {"SHAPE", 0, N(lfo_names), 0, E(lfo_names)},
+    [GP_LFO2RATE] = {"RATE", 0, 127, 20, PF_NUM, 0},
+    [GP_LFO2SHAPE] = {"SHAPE", 0, N(lfo_names), 1, E(lfo_names)},
+    [GP_DUSTRATE] = {"RATE", 0, 127, 40, PF_NUM, 0},
+    [GP_DUSTDECAY] = {"DECAY", 0, 127, 40, PF_NUM, 0},
+    [GP_VOCBODY] = {"BODY", 0, N(vocbody_names), 1, E(vocbody_names)},
+    [GP_VOCTILT] = {"TILT", -64, 63, 0, PF_BI, 0},
+    [GP_VOCREL] = {"RELEASE", 0, 127, 40, PF_NUM, 0},
+    [GP_VOCLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
+    [GP_FBTIME] = {"TIME", 0, 127, 50, PF_NUM, 0},
+    [GP_FBREGEN] = {"REGEN", 0, 127, 70, PF_NUM, 0},
+    [GP_FBPROC] = {"PROCESS", 0, N(fbproc_names), 0, E(fbproc_names)},
+    [GP_FBAMT] = {"AMOUNT", 0, 127, 50, PF_NUM, 0},
+    [GP_FBTUNE] = {"TUNE", 0, 127, 64, PF_NUM, 0},
+    [GP_FBEDGE] = {"EDGE", 0, 1, 1, E(onoff_names)},
+    [GP_FBRET] = {"RETURN", 0, N(fbret_names), 0, E(fbret_names)},
+    [GP_FBLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
+    [GP_FBCUT] = {"CUTOFF", 0, 127, 80, PF_HZ, 0},
+    [GP_PAIRMODE] = {"ROUTING", 0, N(pair_names), 0, E(pair_names)},
+    [GP_PAIRF1] = {"FREQ 1", 0, 127, 60, PF_HZ, 0},
+    [GP_PAIRF2] = {"FREQ 2", 0, 127, 85, PF_HZ, 0},
+    [GP_PAIRRES] = {"RESO", 0, 127, 80, PF_NUM, 0},
+    [GP_PAIRLFO1] = {"LFO 1", 0, 127, 20, PF_NUM, 0},
+    [GP_PAIRLFO2] = {"LFO 2", 0, 127, 33, PF_NUM, 0},
+    [GP_PAIRDEPTH] = {"DEPTH", 0, 127, 40, PF_NUM, 0},
+    [GP_PAIRLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
+    [GP_DLYTIME] = {"TIME", 0, 127, 60, PF_NUM, 0},
+    [GP_DLYFB] = {"FEEDBK", 0, 127, 50, PF_NUM, 0},
+    [GP_DLYTONE] = {"TONE", 0, 127, 70, PF_NUM, 0},
+    [GP_DLYLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
+    [GP_REVSIZE] = {"SIZE", 0, 127, 70, PF_NUM, 0},
+    [GP_REVDAMP] = {"DAMP", 0, 127, 50, PF_NUM, 0},
+    [GP_REVLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
+    [GP_MDRIVE] = {"DRIVE", 0, 127, 20, PF_NUM, 0},
+    [GP_CUTSIZE] = {"CUT SIZE", 0, 127, 50, PF_NUM, 0},
+    [GP_CUTREP] = {"REPEATS", 1, 16, 4, PF_NUM, 0},
+    [GP_CUTMIX] = {"CUT MIX", 0, 127, 127, PF_NUM, 0},
+    [GP_TAPEQUAL] = {"QUALITY", 0, 2, 2, E(qual_names)},
+    [GP_TAPESRC] = {"SOURCE", 0, N(tapesrc_names), 0, E(tapesrc_names)},
+    [GP_TAPEMON] = {"INPUT", 0, 127, 0, PF_NUM, 0},
+    [GP_RESBARS] = {"RESAMPL", 0, N(resbars_names), 0, E(resbars_names)},
+    [GP_ERODE] = {"ERODE", 0, 127, 0, PF_NUM, 0},
+    [GP_ROW1S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW1E] = {"END", 1, 128, 128, PF_NUM, 0},
+    [GP_ROW2S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW2E] = {"END", 1, 128, 64, PF_NUM, 0},
+    [GP_ROW3S] = {"START", 0, 127, 64, PF_NUM, 0}, [GP_ROW3E] = {"END", 1, 128, 128, PF_NUM, 0},
+    [GP_ROW4S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW4E] = {"END", 1, 128, 16, PF_NUM, 0},
+    [GP_MACRO1] = {"MACRO 1", 0, 127, 0, PF_NUM, 0},
+    [GP_MACRO2] = {"MACRO 2", 0, 127, 0, PF_NUM, 0},
+    [GP_MACRO3] = {"MACRO 3", 0, 127, 0, PF_NUM, 0},
+    [GP_MACRO4] = {"MACRO 4", 0, 127, 0, PF_NUM, 0},
+    [GP_SONGMODE] = {"PLAYS", 0, 1, 0, E(songmode_names)},
+    [GP_INPUTLEVEL] = {"IN GAIN", 0, 127, 90, PF_NUM, 0},
+    [GP_DLYSPREAD] = {"SPREAD", 0, 127, 127, PF_NUM, 0},
+    [GP_DLYWOB] = {"WOBBLE", 0, 127, 0, PF_NUM, 0},
+    [GP_DLYFREEZE] = {"FREEZE", 0, 1, 0, E(onoff_names)},
+    [GP_REVMOD] = {"MOTION", 0, 127, 20, PF_NUM, 0},
+    [GP_REVDIFF] = {"DIFFUSE", 0, 127, 85, PF_NUM, 0},
+    [GP_REVLOW] = {"LOW CUT", 0, 127, 0, PF_NUM, 0},
+    [GP_VOCATK] = {"ATTACK", 0, 127, 18, PF_NUM, 0},
+    [GP_VOCSHIFT] = {"SHIFT", -24, 24, 0, PF_SEMI, 0},
+    [GP_VOCQ] = {"NARROW", 0, 127, 64, PF_NUM, 0},
+    [GP_PAIRT1] = {"TYPE 1", 0, N(ptype_names), 0, E(ptype_names)},
+    [GP_PAIRT2] = {"TYPE 2", 0, N(ptype_names), 1, E(ptype_names)},
+};
+
+static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
+
+const rv_pinfo *rv_pinfo_track(int t, int p)
+{
+    if (p >= TP_S0 && p <= TP_S15) {
+        int kind = rv.tp[t & 7][TP_KIND], s = p - TP_S0;
+        const rv_pinfo *tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
+                                                                                   : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
+        return tab[s].name ? &tab[s] : &NONE;
+    }
+    if (p < 0 || p >= TP_N || !TRACK[p].name)
+        return &NONE;
+    if (p == TP_POLY && rv.tp[t & 7][TP_KIND] == KIND_STRIKE) {
+        static const rv_pinfo strike_poly = {"VOICES", 0, 1, 1, PF_ENUM, polys};
+        return &strike_poly;
+    }
+    return &TRACK[p];
+}
+
+const rv_pinfo *rv_pinfo_global(int g) { return g >= 0 && g < GP_N && GLOBAL[g].name ? &GLOBAL[g] : &NONE; }
+
+const rv_pinfo *rv_pinfo_pid(int pid)
+{
+    if (pid < 0 || pid >= RV_NPID)
+        return &NONE;
+    return pid < RV_GPID ? rv_pinfo_track(pid / RV_TP, pid % RV_TP) : rv_pinfo_global(pid - RV_GPID);
+}
+
+int rv_pid_get(int pid)
+{
+    if (pid < 0 || pid >= RV_NPID)
+        return 0;
+    return pid < RV_GPID ? rv.tp[pid / RV_TP][pid % RV_TP] : rv.gp[pid - RV_GPID];
+}
+
+void rv_pid_set(int pid, int v)
+{
+    const rv_pinfo *pi = rv_pinfo_pid(pid);
+    if (!pi->name)
+        return;
+    if (v < pi->min)
+        v = pi->min;
+    if (v > pi->max)
+        v = pi->max;
+    if (pid < RV_GPID)
+        rv.tp[pid / RV_TP][pid % RV_TP] = (int16_t)v;
+    else
+        rv.gp[pid - RV_GPID] = (int16_t)v;
+}
+
+/* ----------------------------------------------------------------- display --- */
+static int put_str(char *o, int i, int max, const char *s)
+{
+    while (*s && i < max - 1)
+        o[i++] = *s++;
+    o[i] = 0;
+    return i;
+}
+
+static int put_int(char *o, int i, int max, int v, int plus)
+{
+    char tmp[12];
+    int n = 0, neg = v < 0;
+    unsigned u = neg ? (unsigned)-v : (unsigned)v;
+    do {
+        tmp[n++] = (char)('0' + u % 10u);
+        u /= 10u;
+    } while (u && n < 11);
+    if (neg && i < max - 1)
+        o[i++] = '-';
+    else if (plus && v > 0 && i < max - 1)
+        o[i++] = '+';
+    while (n && i < max - 1)
+        o[i++] = tmp[--n];
+    o[i] = 0;
+    return i;
+}
+
+/* the time a TIME parameter stands for, in seconds: 0.5 ms .. 8 s */
+float rv_time_s(int v) { return 0.0005f * fm_exp2f((float)v * (13.97f / 127.0f)); }
+float rv_cut_hz(float v) { return 20.0f * fm_exp2f(v * (10.0f / 127.0f)); }
+
+static const char *dest_name(int p)
+{
+    static const rv_pinfo none = {"-", 0, 0, 0, PF_NUM, 0};
+    (void)none;
+    return p >= 0 && p < TP_N && TRACK[p].name ? TRACK[p].name : "-";
+}
+
+void rv_param_format(int pid, int v, char *o, int max)
+{
+    const rv_pinfo *pi = rv_pinfo_pid(pid);
+    int i = 0;
+    o[0] = 0;
+    if (!pi->name)
+        return;
+    switch (pi->fmt) {
+    case PF_ENUM:
+        if (pi->names && v >= pi->min && v <= pi->max)
+            put_str(o, 0, max, pi->names[v - pi->min]);
+        break;
+    case PF_BI:
+    case PF_SEMI:
+        put_int(o, 0, max, v, 1);
+        break;
+    case PF_CENT:
+        i = put_int(o, 0, max, v, 1);
+        put_str(o, i, max, "c");
+        break;
+    case PF_HZ: {
+        float hz = rv_cut_hz((float)v);
+        if (hz >= 1000.0f) {
+            int k10 = (int)(hz / 100.0f + 0.5f);
+            i = put_int(o, 0, max, k10 / 10, 0);
+            if (k10 < 100) {
+                i = put_str(o, i, max, ".");
+                i = put_int(o, i, max, k10 % 10, 0);
+            }
+            put_str(o, i, max, "k");
+        } else {
+            put_int(o, 0, max, (int)(hz + 0.5f), 0);
+        }
+        break;
+    }
+    case PF_TIME: {
+        float s = rv_time_s(v);
+        if (s < 1.0f) {
+            int ms = (int)(s * 1000.0f + 0.5f);
+            i = put_int(o, 0, max, ms, 0);
+            put_str(o, i, max, "ms");
+        } else {
+            int d = (int)(s * 10.0f + 0.5f);
+            i = put_int(o, 0, max, d / 10, 0);
+            i = put_str(o, i, max, ".");
+            i = put_int(o, i, max, d % 10, 0);
+            put_str(o, i, max, "s");
+        }
+        break;
+    }
+    case PF_DEST:
+        put_str(o, 0, max, pid < RV_GPID && v >= TP_S0 && v <= TP_S15 ? rv_pinfo_track(pid / RV_TP, v)->name ? rv_pinfo_track(pid / RV_TP, v)->name : "-" : dest_name(v));
+        break;
+    case PF_BPM:
+    default:
+        put_int(o, 0, max, v, 0);
+        break;
+    }
+}
+
+const char *rv_pid_label(int pid, char *buf, int max)
+{
+    int i = 0;
+    const rv_pinfo *pi = rv_pinfo_pid(pid);
+    buf[0] = 0;
+    if (pid < RV_GPID) {
+        i = put_str(buf, 0, max, "T");
+        i = put_int(buf, i, max, pid / RV_TP + 1, 0);
+        i = put_str(buf, i, max, " ");
+    }
+    put_str(buf, i, max, pi->name ? pi->name : "-");
+    return buf;
+}
+
+/* parameters modulation may move: continuous ones (an engine's numbered slots too) */
+int rv_is_moddest(int p)
+{
+    switch (p) {
+    case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
+    case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_ATK: case TP_DEC:
+    case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
+        return 1;
+    default:
+        return p >= TP_S0 && p <= TP_S15;
+    }
+}
+
+int rv_moddest_next(int p, int dir)
+{
+    int i;
+    for (i = 0; i < TP_N; i++) {
+        p += dir;
+        if (p < 0)
+            p = TP_N - 1;
+        if (p >= TP_N)
+            p = 0;
+        if (rv_is_moddest(p))
+            return p;
+    }
+    return p;
+}
+
+/* ---------------------------------------------------------------- defaults --- */
+static void track_src_defaults(int t)
+{
+    int s;
+    for (s = 0; s < 16; s++) {
+        const rv_pinfo *pi = rv_pinfo_track(t, TP_S0 + s);
+        rv.tp[t][TP_S0 + s] = pi->name ? pi->def : 0;
+    }
+}
+
+void rv_track_defaults(int t, int kind, int engine)
+{
+    int p;
+    for (p = 0; p < TP_N; p++)
+        rv.tp[t][p] = TRACK[p].name ? TRACK[p].def : 0;
+    rv.tp[t][TP_KIND] = (int16_t)kind;
+    rv.tp[t][TP_ENGINE] = (int16_t)engine;
+    track_src_defaults(t);
+    if (kind == KIND_STRIKE) {
+        rv.tp[t][TP_POLY] = 1;
+        rv.tp[t][TP_ATK] = 0;
+        rv.tp[t][TP_DEC] = 110;
+        rv.tp[t][TP_SUS] = 127;
+        rv.tp[t][TP_REL] = 80;
+        rv.tp[t][TP_CUT] = 127;
+        rv.tp[t][TP_RES] = 0;
+        rv.tp[t][TP_EFILT] = 0;
+        rv.tp[t][TP_FTYPE] = FT_LP;
+        rv.tp[t][TP_KTRK] = 0;
+        rv.tp[t][TP_DRIVE] = 0;
+    } else if (kind == KIND_TAPE) {
+        rv.tp[t][TP_POLY] = 0;
+        rv.tp[t][TP_ATK] = 6;
+        rv.tp[t][TP_DEC] = 80;
+        rv.tp[t][TP_SUS] = 127;
+        rv.tp[t][TP_REL] = 50;
+        rv.tp[t][TP_CUT] = 127;
+        rv.tp[t][TP_RES] = 0;
+        rv.tp[t][TP_EFILT] = 0;
+        rv.tp[t][TP_FTYPE] = FT_LP;
+        rv.tp[t][TP_KTRK] = 0;
+        rv.tp[t][TP_DRIVE] = 0;
+    }
+}
+
+void rv_project_init(void)
+{
+    int t, g, i, s;
+    uint8_t *p = (uint8_t *)&rv;
+    for (i = 0; i < (int)sizeof(rv); i++)
+        p[i] = 0;
+    rv.magic = RV_MAGIC;
+    rv.format = RV_FORMAT;
+    put_str(rv.name, 0, 12, "INIT");
+    for (t = 0; t < RV_TRACKS; t++)
+        rv_track_defaults(t, t < 4 ? KIND_SYNTH : t < 6 ? KIND_STRIKE : KIND_TAPE, t < 4 ? t : 0);
+    for (g = 0; g < GP_N; g++)
+        rv.gp[g] = GLOBAL[g].name ? GLOBAL[g].def : 0;
+    for (t = 0; t < RV_TRACKS; t++) {
+        for (i = 0; i < 16; i++)
+            rv.arcs[t][i] = 100;
+        for (s = 0; s < RV_PATTERNS; s++)
+            for (i = 0; i < RV_STEPS; i++) {
+                rv_step *st = &rv.pat[t][s].s[i];
+                st->note = 60;
+                st->vel = 100;
+                st->len = 4;
+                st->chance = 100;
+            }
+    }
+    /* the envelope library: 256 shapes from three values each (attack shape, body, death),
+     * laid out so neighbours are related: the low nibble walks attack and body, the high death */
+    for (i = 0; i < RV_LIB; i++) {
+        int a = i & 7, b = (i >> 3) & 3, d = (i >> 5) & 7;
+        rv.lib[i][0] = (uint8_t)(a * 18);                  /* attack: instant .. slow swell */
+        rv.lib[i][1] = (uint8_t)(b * 42);                  /* body: percussive .. held */
+        rv.lib[i][2] = (uint8_t)(d * 18);                  /* death: cut .. long tail */
+    }
+    for (i = 0; i < RV_MATRIX; i++)
+        rv.mat[i].src = MS_OFF;
+    for (i = 0; i < RV_MACROS; i++)
+        for (s = 0; s < RV_MACRO_DESTS; s++) {
+            rv.macro[i].d[s].dst = 0xFFFF;
+            rv.macro[i].d[s].end = 63;
+            rv.macro[i].d[s].hi = 100;
+        }
+    rv.arr_len = 1;
+    rv.arr[0].scene = 0;
+    rv.arr[0].bars = 4;
+}

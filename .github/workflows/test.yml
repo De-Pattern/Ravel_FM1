@@ -1,0 +1,96 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  beads:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python packages
+        run: pip install numpy
+      - name: Fetch the original Beads source (for the reference)
+        working-directory: tests/beads
+        run: make fetch
+      - name: Compare the port against the original
+        working-directory: tests/beads
+        run: make test
+      - name: Build for a 32-bit embedded target (no C library)
+        run: |
+          sudo apt-get install -y clang
+          clang --target=armv7m-none-eabi -mcpu=cortex-m4 -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -c core/beads/bd.c -o /tmp/bd.o
+          clang --target=riscv32-unknown-elf -march=rv32imc -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -c core/beads/bd.c -o /tmp/bd_rv.o
+          clang --target=armv7m-none-eabi -mcpu=cortex-m4 -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -DBD_NO_DELAY -DBD_READER_ONLY -c core/beads/bd.c -o /tmp/bd_slim.o
+      - name: Keep the renders for listening
+        uses: actions/upload-artifact@v4
+        with:
+          name: beads-renders
+          path: tests/beads/out/*.wav
+
+  simulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python packages (font generator)
+        run: pip install pillow markdown
+      - name: Build the simulator
+        run: sh host/build_host.sh
+      - name: Run the scenarios
+        run: |
+          mkdir -p build/scenarios
+          for s in tests/scenarios/*.rvl; do ./build/host/ravel_host "$s" build/scenarios; done
+      - name: Keep the screenshots and audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-output
+          path: build/scenarios/
+
+  emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get install -y clang lld
+          pip install pillow markdown
+      - name: Build the WebAssembly emulator
+        run: sh web/emu/build.sh
+      - name: Smoke test
+        run: node web/emu/test.mjs
+      - name: One-file page
+        run: python3 web/emu/bundle.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ravel-emulator
+          path: build/web/ravel-emulator.html
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python packages (font generator)
+        run: pip install pillow markdown
+      - name: JieLi toolchain
+        run: sh tools/get_toolchain.sh "$HOME/.jieli"
+      - name: AC79 SDK files for the package
+        run: sh tools/get_ac79_files.sh "$HOME/ac79"
+      - name: Build, check and package
+        run: JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/ac79" python3 tools/build_fm1.py
+      - name: Update-path tests (Felucca's) against the package
+        run: |
+          mkdir -p build/fm1test
+          cc -o build/fm1test/ota_test tests/fm1/ota_test.c && build/fm1test/ota_test build/fm1/Ravel-FM1.fwsc
+          head -c 200000 build/fm1/ravel.bin > build/fm1test/old_app.bin
+          AC79_SDK="$HOME/ac79" python3 tools/fm1pkg_make.py build/fm1test/old_app.bin build/fm1/loader/ota.bin build/fm1test/old.fwsc
+          cc -o build/fm1test/ldr_test tests/fm1/ldr_test.c && build/fm1test/ldr_test build/fm1test/old.fwsc build/fm1/Ravel-FM1.fwsc
+          python3 tests/fm1/install_test.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ravel-fm1
+          path: |
+            build/fm1/Ravel-FM1.fwsc
+            build/fm1/ravel.elf
+            build/fm1/report.json

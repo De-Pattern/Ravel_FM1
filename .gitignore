@@ -1,0 +1,8 @@
+tests/beads/build/
+tests/beads/out/
+tests/beads/out16/
+build/
+__pycache__/
+web/emu/ravel.wasm
+__pycache__/
+node_modules/

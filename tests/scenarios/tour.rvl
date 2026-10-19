@@ -1,0 +1,190 @@
+# Ravel tour: boot into the demo, play it, visit every section and page.
+wait 300
+shot 00_home.png
+wav tour.wav
+tap PLAY
+wait 4000
+shot 01_home_playing.png
+tap HOME
+wait 400
+shot 02_HOME_0.png
+turn SELECT 1
+wait 400
+shot 03_HOME_1.png
+turn SELECT 1
+tap EDIT
+wait 400
+shot 04_EDIT_0.png
+turn SELECT 1
+wait 400
+shot 05_EDIT_1.png
+turn SELECT 1
+wait 400
+shot 06_EDIT_2.png
+turn SELECT 1
+wait 400
+shot 07_EDIT_3.png
+turn SELECT 1
+wait 400
+shot 08_EDIT_4.png
+turn SELECT 1
+wait 400
+shot 09_EDIT_5.png
+turn SELECT 1
+wait 400
+shot 10_EDIT_6.png
+turn SELECT 1
+wait 400
+shot 11_EDIT_7.png
+turn SELECT 1
+wait 400
+shot 12_EDIT_8.png
+turn SELECT 1
+wait 400
+shot 13_EDIT_9.png
+turn SELECT 1
+wait 400
+shot 14_EDIT_10.png
+turn SELECT 1
+wait 400
+shot 15_EDIT_11.png
+turn SELECT 1
+tap ENV
+wait 400
+shot 16_ENV_0.png
+turn SELECT 1
+wait 400
+shot 17_ENV_1.png
+turn SELECT 1
+wait 400
+shot 18_ENV_2.png
+turn SELECT 1
+wait 400
+shot 19_ENV_3.png
+turn SELECT 1
+wait 400
+shot 20_ENV_4.png
+turn SELECT 1
+tap LFO
+wait 400
+shot 21_LFO_0.png
+turn SELECT 1
+wait 400
+shot 22_LFO_1.png
+turn SELECT 1
+wait 400
+shot 23_LFO_2.png
+turn SELECT 1
+wait 400
+shot 24_LFO_3.png
+turn SELECT 1
+wait 400
+shot 25_LFO_4.png
+turn SELECT 1
+wait 400
+shot 26_LFO_5.png
+turn SELECT 1
+tap FX
+wait 400
+shot 27_FX_0.png
+turn SELECT 1
+wait 400
+shot 28_FX_1.png
+turn SELECT 1
+wait 400
+shot 29_FX_2.png
+turn SELECT 1
+wait 400
+shot 30_FX_3.png
+turn SELECT 1
+wait 400
+shot 31_FX_4.png
+turn SELECT 1
+wait 400
+shot 32_FX_5.png
+turn SELECT 1
+wait 400
+shot 33_FX_6.png
+turn SELECT 1
+wait 400
+shot 34_FX_7.png
+turn SELECT 1
+wait 400
+shot 35_FX_8.png
+turn SELECT 1
+tap SCL
+wait 400
+shot 36_SCL_0.png
+turn SELECT 1
+tap ARP
+wait 400
+shot 37_ARP_0.png
+turn SELECT 1
+wait 400
+shot 38_ARP_1.png
+turn SELECT 1
+wait 400
+shot 39_ARP_2.png
+turn SELECT 1
+wait 400
+shot 40_ARP_3.png
+turn SELECT 1
+wait 400
+shot 41_ARP_4.png
+turn SELECT 1
+wait 400
+shot 42_ARP_5.png
+turn SELECT 1
+wait 400
+shot 43_ARP_6.png
+turn SELECT 1
+tap SEQ
+wait 400
+shot 44_SEQ_0.png
+turn SELECT 1
+wait 400
+shot 45_SEQ_1.png
+turn SELECT 1
+wait 400
+shot 46_SEQ_2.png
+turn SELECT 1
+wait 400
+shot 47_SEQ_3.png
+turn SELECT 1
+wait 400
+shot 48_SEQ_4.png
+turn SELECT 1
+wait 400
+shot 49_SEQ_5.png
+turn SELECT 1
+tap GLO
+wait 400
+shot 50_GLO_0.png
+turn SELECT 1
+wait 400
+shot 51_GLO_1.png
+turn SELECT 1
+wait 400
+shot 52_GLO_2.png
+turn SELECT 1
+wait 400
+shot 53_GLO_3.png
+turn SELECT 1
+wait 400
+shot 54_GLO_4.png
+turn SELECT 1
+wait 400
+shot 55_GLO_5.png
+turn SELECT 1
+wait 400
+shot 56_GLO_6.png
+turn SELECT 1
+wait 400
+shot 57_GLO_7.png
+turn SELECT 1
+tap SAVE
+wait 400
+shot 58_SAVE_0.png
+turn SELECT 1
+expect peak_db_min -20
+wavstop

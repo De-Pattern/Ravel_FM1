@@ -1,0 +1,749 @@
+<meta charset="utf-8">
+<title>Ravel Emulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a workbench. Side panel (project, track, sound, tape, input) beside the FM-1 drawn as it is
+   (MASTER/SELECT/PRESETS/ALGORITHM left, the screen, KNOB 1-4 and two button rows right, black keys over
+   white); the guide below. One dark look on purpose: it is the device's own world, in Ravel's palette. */
+:root {
+  /* greyscale, with deep red as the only colour */
+  --room: #0b0b0b;        /* page */
+  --panel: #151515;       /* side panel, cards */
+  --body: #262626;        /* the device's face */
+  --face2: #303030;       /* raised parts */
+  --line: #3a3a3a;
+  --ink: #e4e4e4;
+  --muted: #8f8f8f;
+  --dim: #5c5c5c;
+  --amber: #c9c9c9;       /* secondary emphasis: light grey */
+  --teal: #a3161c;        /* the highlight: deep red */
+  --red: #a3161c;
+  --red-hi: #c8242b;
+  --key: #4a4a4a;         /* silicone keys */
+  --key-hi: #6a6a6a;
+  --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--room); color: var(--ink); }
+body { font-family: var(--display); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.logo { font-size: 26px; font-weight: 700; letter-spacing: 0.2em; }
+.logo small { font-size: 13px; color: var(--muted); letter-spacing: 0.08em; margin-left: 8px; font-weight: 500; }
+.status { font: 400 12px var(--mono); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+.dot.on { background: var(--red-hi); box-shadow: 0 0 6px var(--red); }
+.spacer { flex: 1; }
+.hbtn { font: 600 13px var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.hbtn:hover { border-color: var(--muted); }
+.hbtn.prime { background: #2a2a2a; border-color: #555; color: #f0f0f0; }
+.hbtn.on { background: var(--red); color: #fff; border-color: var(--red-hi); }
+.hbtn.warn.on { background: #d8d8d8; border-color: #d8d8d8; color: #111; }
+:focus-visible { outline: 2px solid var(--red-hi); outline-offset: 2px; }
+
+.main { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; align-items: start; }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.side h3 { font: 600 11px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.proj { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+select, .side input[type=file] { width: 100%; font: 500 13px var(--display); background: #0e0e0e; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; min-width: 0; }
+.big { font-size: 18px; padding: 14px 8px; }
+.note { font: 400 11px/1.45 var(--mono); color: var(--muted); margin: 6px 0 0; }
+.tracks8 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.tbtn { font: 700 13px var(--display); padding: 7px 0 5px; border-radius: 5px; border: 1px solid var(--line); background: #0e0e0e; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tbtn span { font: 500 9px var(--mono); color: var(--muted); }
+.tbtn.cur { border-color: var(--red-hi); background: #2a0d0e; }
+.k-synth { color: #f2f2f2; } .k-strike { color: #a8a8a8; } .k-tape { color: #d4565b; }
+.meter { height: 6px; background: #080808; border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #9a9a9a, #e0e0e0 85%, var(--red-hi)); }
+
+/* ---- the FM-1 ---- */
+.device { background: linear-gradient(#2b2b2b, #222); border: 1px solid #3c3c3c; border-radius: 18px; padding: 18px 22px 22px; box-shadow: 0 24px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); display: grid; gap: 16px; min-width: 0; }
+.dhead { display: flex; justify-content: space-between; font: 500 10px var(--mono); letter-spacing: 0.22em; color: var(--muted); }
+.dhead b { color: var(--ink); font-weight: 500; letter-spacing: 0.3em; }
+.upper { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 22px; align-items: start; }
+.lefthand { display: grid; grid-template-columns: repeat(2, 78px); gap: 14px 12px; justify-items: center; }
+.screenwrap { background: #090909; padding: 9px; border-radius: 8px; border: 1px solid #000; box-shadow: inset 0 0 0 1px #1f1f1f; }
+canvas#screen { width: 300px; height: 300px; image-rendering: pixelated; display: block; background: #000; max-width: 100%; }
+.righthand { display: grid; gap: 16px; min-width: 0; }
+.knobs4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; justify-items: center; }
+.btns { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.enc { display: flex; flex-direction: column; align-items: center; gap: 6px; touch-action: none; user-select: none; cursor: ns-resize; }
+.cap { width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 38% 30%, #626262, #3c3c3c 55%, #262626); border: 1px solid #141414; box-shadow: 0 4px 8px rgba(0,0,0,0.45); position: relative; }
+.cap::after { content: ""; position: absolute; left: 50%; top: 6px; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: #ececec; }
+.enc .lbl, .btn .lbl { font: 600 10px var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+.fn { font: 400 9px var(--mono); color: var(--muted); letter-spacing: 0.02em; text-align: center; }
+.btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 50px; border-radius: 6px; background: linear-gradient(#474747, #393939); border: 1px solid #1a1a1a; box-shadow: 0 3px 5px rgba(0,0,0,0.4); color: var(--ink); cursor: pointer; user-select: none; touch-action: none; position: relative; font-family: var(--display); padding: 0; }
+.btn.lit { background: linear-gradient(#7a7a7a, #626262); box-shadow: 0 0 8px rgba(255,255,255,0.12), 0 3px 5px rgba(0,0,0,0.4); }
+.btn.lit.play { background: linear-gradient(#d6d6d6, #b4b4b4); }
+.btn.lit.play .lbl { color: #111; } .btn.lit.play .fn { color: #444; }
+.btn.lit.rec { background: linear-gradient(#a3161c, #7e1015); box-shadow: 0 0 10px rgba(200,36,43,0.4), 0 3px 5px rgba(0,0,0,0.4); }
+.btn.down { transform: translateY(1px); filter: brightness(0.92); }
+.btn.latched::after { content: "HELD"; position: absolute; top: -7px; right: -4px; font: 500 8px var(--mono); background: var(--red); color: #fff; padding: 1px 3px; border-radius: 3px; }
+.oct { height: 38px; width: 78px; }
+.keybed { background: #1c1c1c; border-radius: 12px; padding: 14px 16px 16px; border: 1px solid #131313; display: grid; gap: 10px; }
+.krow { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 7px; }
+.key { height: 92px; border-radius: 16px; background: linear-gradient(#5c5c5c, #474747); border: 1px solid #111; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 3px 6px rgba(0,0,0,0.4); position: relative; cursor: pointer; user-select: none; touch-action: none; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7px; }
+.key::before { content: ""; position: absolute; top: 12px; bottom: 26px; left: 50%; width: 2px; margin-left: -1px; background: rgba(0,0,0,0.25); border-radius: 1px; }
+.key.b { height: 78px; background: linear-gradient(#3e3e3e, #313131); }
+.key.gap { visibility: hidden; }
+.key span { font: 500 9px var(--mono); color: #c2c2c2; text-align: center; line-height: 1.1; pointer-events: none; }
+.key.lit { background: linear-gradient(#8e8e8e, #747474); }
+.key.dim { background: linear-gradient(#505050, #424242); }
+.key.down { background: linear-gradient(#b3202a, #8c1419); }
+.key.lit span { color: #111; } .key.down span { color: #fff; }
+
+.lower { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h2 { font: 700 15px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin: 0 0 10px; }
+.card p, .card li, .card td { font: 400 12.5px/1.55 var(--mono); color: #bdbdbd; }
+.card p { margin: 0 0 8px; max-width: 70ch; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 4px 8px 4px 0; vertical-align: top; border-top: 1px solid #252525; }
+td:first-child { color: var(--ink); white-space: nowrap; font-weight: 500; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tab { font: 600 12px var(--display); letter-spacing: 0.06em; text-transform: uppercase; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 5px 9px; cursor: pointer; }
+.tab.on { color: #fff; background: var(--red); border-color: var(--red-hi); }
+.tlist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tcard { border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: grid; gap: 5px; cursor: pointer; background: #121212; }
+.tcard.cur { border-color: var(--red-hi); }
+.tcard .tn { font: 700 14px var(--display); display: flex; justify-content: space-between; }
+.tcard .ts { font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mute { font: 500 9px var(--mono); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.mute.on { background: var(--red); color: #fff; border-color: var(--red); }
+kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; color: var(--ink); }
+.hint { font: 400 11.5px var(--mono); color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .upper { grid-template-columns: auto minmax(0, 1fr); }
+  .righthand { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr; }
+  .device { order: -1; }
+  .lower { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .device { padding: 12px; border-radius: 12px; }
+  .upper { grid-template-columns: 1fr; justify-items: center; }
+  .lefthand { grid-template-columns: repeat(4, 64px); }
+  .lefthand .oct { width: 64px; }
+  .cap { width: 42px; height: 42px; }
+  canvas#screen { width: min(300px, calc(100vw - 80px)); height: auto; aspect-ratio: 1; }
+  .btns { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+  .btn { height: 42px; }
+  .btn .fn { display: none; }
+  .krow { gap: 3px; }
+  .key { height: 64px; border-radius: 9px; }
+  .key.b { height: 54px; }
+  .key span { font-size: 7px; }
+  .tlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .btn.down { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="logo">RAVEL <small id="ver">FM-1 EMULATOR</small></div>
+    <div class="status"><span class="dot" id="sdot"></span><span id="status">Loading…</span></div>
+    <div class="spacer"></div>
+    <button class="hbtn" id="manualbtn" title="The full manual, in a new tab">Manual</button>
+    <button class="hbtn" id="panic" title="Stop the sequencer and release every note">Panic / stop all</button>
+  </header>
+
+  <div class="main">
+    <aside class="side" aria-label="Workbench">
+      <div>
+        <h3>Project</h3>
+        <div class="proj" id="proj">RAVEL</div>
+        <div class="row2" style="margin-top:8px">
+          <select id="demo" aria-label="Demo project">
+            <option value="0">Demo: Ravel</option>
+            <option value="1">Demo: Dust</option>
+            <option value="3">Demo: Graph</option>
+            <option value="2">Blank project</option>
+          </select>
+          <button class="hbtn" id="loaddemo">Load</button>
+        </div>
+      </div>
+      <div class="row2">
+        <button class="hbtn prime big" id="play">Play</button>
+        <button class="hbtn big" id="rec" title="Arm recording on the current track (REC)">Record</button>
+      </div>
+      <div class="status" id="pos" style="margin-top:-6px">Stopped</div>
+
+      <div>
+        <h3>Track</h3>
+        <div class="tracks8" id="tracks8"></div>
+      </div>
+      <div>
+        <h3>Sound</h3>
+        <div class="row2">
+          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="2">Tape</option></select>
+          <select id="engine" aria-label="Engine"></select>
+        </div>
+        <select id="preset" aria-label="Preset" style="margin-top:6px"></select>
+        <div class="row2" style="margin-top:6px">
+          <button class="hbtn" id="pprev">← Previous</button>
+          <button class="hbtn" id="pnext">Next →</button>
+        </div>
+      </div>
+      <div>
+        <h3>Go to</h3>
+        <div class="row2" id="gotos"></div>
+      </div>
+      <div>
+        <h3>Tape</h3>
+        <div class="row2">
+          <button class="hbtn warn" id="catch" title="Keep what the tape holds (REC + OCT-)">Catch</button>
+          <button class="hbtn" id="resample" title="Record the next bars into row 1 (REC + OCT+)">Resample</button>
+        </div>
+        <p class="note" id="tapestate">Listening</p>
+      </div>
+      <div>
+        <h3>Audio in</h3>
+        <input type="file" id="infile" accept="audio/*" aria-label="Audio file to play into the input">
+        <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="intape"> Record it onto the tape</label>
+        <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inmon" checked> Hear it</label>
+        <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can try the tape and the INPUT exciter.</p>
+      </div>
+      <div>
+        <h3>Output</h3>
+        <div class="meter"><i id="outm"></i></div>
+        <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px">Volume <input type="range" id="vol" min="0" max="100" value="70" style="flex:1"></label>
+      </div>
+    </aside>
+
+    <section class="device" aria-label="M-VAVE FM-1 running Ravel">
+      <div class="dhead"><span><b>FM-1</b> · RAVEL</span><span>SYNTHESIZE · CATCH · REBUILD</span></div>
+      <div class="upper">
+        <div class="lefthand" id="lefthand"></div>
+        <div class="screenwrap"><canvas id="screen" width="240" height="240" aria-label="The FM-1's screen"></canvas></div>
+        <div class="righthand">
+          <div class="knobs4" id="knobs4"></div>
+          <div class="btns" id="btnrow1"></div>
+          <div class="btns" id="btnrow2"></div>
+        </div>
+      </div>
+      <div class="keybed" aria-label="Keys, F3 to G5">
+        <div class="krow" id="blackrow"></div>
+        <div class="krow" id="whiterow"></div>
+      </div>
+      <div class="hint">Drag or scroll the knobs. Click a button to press it; <b>right-click or shift-click</b> holds it down (for the hold layers), click again to let go. Keys: your mouse, touch, or <kbd>A</kbd>…<kbd>;</kbd> on the keyboard.</div>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="card" aria-label="Controls guide">
+      <h2>Controls guide <button class="hbtn" id="manualbtn2" style="float:right">Full manual</button></h2>
+      <div class="tabs" id="gtabs"></div>
+      <div id="gbody"></div>
+    </section>
+    <section class="card" aria-label="Eight tracks">
+      <h2>Eight tracks</h2>
+      <div class="tlist" id="tlist"></div>
+      <p class="note" style="margin-top:10px">Click a track to work on it. T1–T4 synthesize, T5–T6 strike, T7–T8 play the tape. Any track can be any kind.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+const WASM_B64 = "__RAVEL_WASM__";
+const MANUAL_B64 = "__RAVEL_MANUAL__";          /* the manual page, from README.md (web/emu/bundle.py) */
+/* buttons in Ravel's order (plat.h) */
+const BTN = ["OCT-","OCT+","FX","SCL","ENV","LFO","EDIT","GLO","HOME","SAVE","ARP","SEQ","PLAY","REC"];
+const BTN_FN = {FX:"buses",SCL:"scale",ENV:"articulate",LFO:"mod",EDIT:"voice",GLO:"song",HOME:"tracks",SAVE:"save",ARP:"tape",SEQ:"steps",PLAY:"start",REC:"record"};
+const ROW1 = ["FX","SCL","ENV","LFO","EDIT","GLO"], ROW2 = ["HOME","SAVE","ARP","SEQ","PLAY","REC"];
+const ENC = ["SELECT","ALGORITHM","KNOB 1","KNOB 2","KNOB 3","KNOB 4","PRESETS"];
+const ENC_FN = {SELECT:"page",ALGORITHM:"track",PRESETS:"sounds"};
+const NOTE = ["F","F#","G","G#","A","A#","B","C","C#","D","D#","E"];
+const WHITE = [0,2,4,6,7,9,11,12,14,16,18,19,21,23,24,26], BLACK = [1,3,5,8,10,13,15,17,20,22,25];
+const KIND_CLS = ["k-synth","k-strike","k-tape"];
+const ENGINES = ["VA","PD","FM","PHYS","FORMANT","PARTICLE"];
+const SEC = {HOME:0,VOICE:1,ARTIC:2,MOD:3,BUS:4,SCALE:5,TAPE:6,SEQ:7,SONG:8,SAVE:9};
+const $ = id => document.getElementById(id);
+const later = (t0, fn) => { const left = 50 - (performance.now() - t0); if (left > 0) setTimeout(fn, left); else fn(); };
+
+let rv = null, held_btn = 0, latched = 0, held_keys = 0, kb_keys = 0, lastWrites = 0;
+const dec = new TextDecoder();
+const cstr = p => { const m = new Uint8Array(rv.memory.buffer, p); let n = 0; while (m[n]) n++; return dec.decode(m.subarray(0, n)); };
+
+/* ------------------------------------------------------------- the panel */
+function makeEnc(role, parent, label) {
+  const el = document.createElement("div");
+  el.className = "enc"; el.tabIndex = 0;
+  el.setAttribute("role", "slider"); el.setAttribute("aria-label", label);
+  el.innerHTML = `<div class="lbl">${label}</div><div class="cap"></div>` + (ENC_FN[label] ? `<div class="fn">${ENC_FN[label]}</div>` : `<div class="fn">&nbsp;</div>`);
+  const cap = el.children[1]; let angle = 0, y0 = 0, acc = 0, active = false;
+  const turn = d => { if (!d || !rv) return; if (role >= 0) rv.rv_enc(role, d); angle += d * 15; cap.style.transform = `rotate(${angle}deg)`; };
+  el.turn = turn;
+  el.addEventListener("pointerdown", e => { active = true; y0 = e.clientY; acc = 0; el.setPointerCapture(e.pointerId); e.preventDefault(); });
+  /* SELECT, ALGORITHM and PRESETS step through pages, tracks and lists: they need a firmer turn per
+     click than the value knobs, or one trackpad swipe skips several pages */
+  const selector = role === 0 || role === 1 || role === 6, dragPx = selector ? 22 : 7, wheelPx = selector ? 90 : 30;
+  let wacc = 0;
+  el.addEventListener("pointermove", e => { if (!active) return; acc += y0 - e.clientY; y0 = e.clientY; const d = Math.trunc(acc / dragPx); if (d) { acc -= d * dragPx; turn(d); } });
+  const end = () => { active = false; };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  el.addEventListener("wheel", e => {
+    e.preventDefault();
+    const px = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    wacc -= px;
+    const d = Math.trunc(wacc / wheelPx);
+    if (d) { wacc -= d * wheelPx; turn(Math.max(-3, Math.min(3, d))); }
+  }, { passive: false });
+  el.addEventListener("keydown", e => { if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); } if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); } });
+  parent.appendChild(el);
+  return el;
+}
+/* the master knob is the FM-1's analogue volume: 0..4096 */
+let masterVal = 3200;
+{
+  const lh = $("lefthand");
+  const m = makeEnc(-1, lh, "MASTER");
+  m.turn = d => { masterVal = Math.max(0, Math.min(4096, masterVal + d * 128)); if (rv) rv.rv_set_master(masterVal); m.children[1].style.transform = `rotate(${(masterVal / 4096 - 0.5) * 270}deg)`; };
+  m.children[1].style.transform = `rotate(${(masterVal / 4096 - 0.5) * 270}deg)`;
+  m.querySelector(".fn").textContent = "volume";
+  ["pointermove"].forEach(() => {});
+  m.addEventListener("wheel", e => { e.preventDefault(); e.stopImmediatePropagation(); m.turn(e.deltaY < 0 ? 1 : -1); }, { capture: true, passive: false });
+  let my = 0, mact = false, macc = 0;
+  m.addEventListener("pointerdown", e => { mact = true; my = e.clientY; macc = 0; }, { capture: true });
+  m.addEventListener("pointermove", e => { if (!mact) return; e.stopImmediatePropagation(); macc += my - e.clientY; my = e.clientY; const d = Math.trunc(macc / 7); if (d) { macc -= d * 7; m.turn(d); } }, { capture: true });
+  m.addEventListener("pointerup", () => { mact = false; }, { capture: true });
+  makeEnc(0, lh, "SELECT");
+  makeEnc(6, lh, "PRESETS");
+  makeEnc(1, lh, "ALGORITHM");
+}
+const knobEls = [];
+for (let i = 0; i < 4; i++) knobEls.push(makeEnc(2 + i, $("knobs4"), `KNOB ${i + 1}`));
+
+const btnEls = {};
+function makeBtn(name, parent, extra) {
+  const i = BTN.indexOf(name), b = document.createElement("button");
+  b.className = "btn" + (extra ? " " + extra : "") + (name === "PLAY" ? " play" : name === "REC" ? " rec" : "");
+  b.innerHTML = `<span class="lbl">${name}</span>` + (BTN_FN[name] ? `<span class="fn">${BTN_FN[name]}</span>` : "");
+  let t0 = 0;
+  const bit = 1 << i;
+  const down = e => {
+    if (e.button === 2 || e.shiftKey) { latched ^= bit; b.classList.toggle("latched", !!(latched & bit)); e.preventDefault(); return; }
+    held_btn |= bit; t0 = performance.now(); b.classList.add("down"); if (e.pointerId !== undefined) b.setPointerCapture(e.pointerId); e.preventDefault();
+  };
+  const up = () => later(t0, () => { held_btn &= ~bit; b.classList.remove("down"); });
+  b.addEventListener("pointerdown", down); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+  b.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) down(e); });
+  b.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") up(); });
+  parent.appendChild(b);
+  btnEls[name] = b;
+  return b;
+}
+ROW1.forEach(n => makeBtn(n, $("btnrow1")));
+ROW2.forEach(n => makeBtn(n, $("btnrow2")));
+makeBtn("OCT-", $("lefthand"), "oct");
+makeBtn("OCT+", $("lefthand"), "oct");
+function tapBtn(name) { const bit = 1 << BTN.indexOf(name); held_btn |= bit; setTimeout(() => { held_btn &= ~bit; }, 60); }
+
+/* keys: the black row over the white, with gaps where the FM-1 has none */
+const keyEls = new Array(27);
+{
+  const blackSlots = [1,2,3,5,6,8,9,10,12,13,15];   /* over white key gaps: F#,G#,A# _ C#,D# _ F#,G#,A# _ C#,D# _ F# */
+  const br = $("blackrow"), wr = $("whiterow");
+  let bi = 0;
+  for (let s = 0; s < 16; s++) {
+    const el = document.createElement("div");
+    if (blackSlots.includes(s)) { el.className = "key b"; el.dataset.k = BLACK[bi++]; } else { el.className = "key b gap"; }
+    br.appendChild(el);
+  }
+  for (let s = 0; s < 16; s++) { const el = document.createElement("div"); el.className = "key"; el.dataset.k = WHITE[s]; wr.appendChild(el); }
+  document.querySelectorAll(".key[data-k]").forEach(el => {
+    const k = +el.dataset.k; keyEls[k] = el; el.innerHTML = "<span></span>";
+    let t0 = 0;
+    const down = e => { held_keys |= 1 << k; t0 = performance.now(); el.setPointerCapture(e.pointerId); e.preventDefault(); };
+    const up = () => later(t0, () => { held_keys &= ~(1 << k); });
+    el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  });
+}
+
+/* what the keys do on the page in view: their labels */
+function keyLabels() {
+  const sec = rv.web_section(), t = rv.web_track(), kind = rv.web_kind(t), hb = held_btn | latched;
+  const has = n => !!(hb & (1 << BTN.indexOf(n)));
+  const oct = 0;
+  let w = null, b = null;
+  if (has("FX")) { w = ["LOOP","REV","STUT","FRZ","LP","HP","THRW","FILL"]; }
+  else if (has("GLO")) { w = ["M1","M2","M3","M4","M5","M6","M7","M8","S1","S2","S3","S4","S5","S6","S7","S8"]; b = ["TAP"]; }
+  else if (has("SAVE")) { w = Array.from({length:16}, (_, i) => "ST" + (i + 1)); }
+  else if (has("SCL")) { w = WHITE.map(k => "ROOT " + NOTE[k % 12]); }
+  else if (has("SEQ") || sec === SEC.SEQ) { w = Array.from({length:16}, (_, i) => String(i + 1)); b = ["PAT A","PAT B","","","","","","","","","CLEAR"]; }
+  else if (sec === SEC.TAPE) {
+    if (kind === 2 && rv.web_src0(t) === 0) { w = Array.from({length:16}, (_, i) => "POS " + (i + 1)); b = ["ROW 1","ROW 2","ROW 3","ROW 4","REV","1/2","X2","HOLD","CATCH","RESMP",""]; }
+    else b = ["","","","","","","","","CATCH","RESMP",""];
+  } else if (sec === SEC.SONG && rv.web_page_title && cstr(rv.web_page_title()) === "SCENES") { w = Array.from({length:16}, (_, i) => "SC " + (i + 1)); b = ["PAT A","PAT B"]; }
+  for (let k = 0; k < 27; k++) {
+    const wi = WHITE.indexOf(k), bi = BLACK.indexOf(k), sp = keyEls[k].firstChild;
+    let txt;
+    if (wi >= 0 && w) txt = w[wi] || "";
+    else if (bi >= 0 && b) txt = b[bi] || "";
+    else { const n = k + 5; txt = NOTE[k % 12] + (3 + Math.floor((k + 5) / 12)); }
+    if (sp.textContent !== txt) sp.textContent = txt;
+  }
+  void oct;
+}
+
+/* computer keyboard */
+const KB = { a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
+addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k in KB) { kb_keys |= 1 << KB[k]; e.preventDefault(); }
+  else if (k === "[" && !e.repeat) tapBtn("OCT-");
+  else if (k === "]" && !e.repeat) tapBtn("OCT+");
+  else if (k === " " && !e.repeat && e.target === document.body) { tapBtn("PLAY"); e.preventDefault(); }
+  else if (/^[1-8]$/.test(k) && rv) rv.web_set_track(+k - 1);
+  else if (k === "arrowleft" && rv) rv.rv_enc(0, -1);
+  else if (k === "arrowright" && rv) rv.rv_enc(0, 1);
+  else if (k === "escape") { latched = 0; Object.values(btnEls).forEach(b => b.classList.remove("latched")); }
+});
+addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); });
+addEventListener("blur", () => { kb_keys = 0; held_keys = 0; held_btn = 0; Object.values(btnEls).forEach(b => b.classList.remove("down")); });
+
+/* ------------------------------------------------------------- the side */
+function fillEngines() {
+  const sel = $("engine"), t = rv.web_track(), kind = rv.web_kind(t);
+  sel.innerHTML = "";
+  if (kind === 0) ENGINES.forEach((n, i) => sel.add(new Option(n, i)));
+  else sel.add(new Option(kind === 1 ? "Exciter → body" : "Tape playback", 0));
+  sel.disabled = kind !== 0;
+  if (kind === 0) sel.value = rv.web_engine(t);
+}
+function fillPresets() {
+  const sel = $("preset"), t = rv.web_track(), kind = rv.web_kind(t), n = rv.web_preset_count();
+  sel.innerHTML = "";
+  sel.add(new Option("Choose a sound…", -1));
+  for (let i = 0; i < n; i++) if (rv.web_preset_kind(i) === kind) sel.add(new Option(cstr(rv.web_preset_name(i)), i));
+}
+function sideSync() {
+  const t = rv.web_track();
+  $("kind").value = rv.web_kind(t);
+  fillEngines(); fillPresets();
+}
+function tracksUi() {
+  const box = $("tracks8"); box.innerHTML = "";
+  for (let t = 0; t < 8; t++) {
+    const b = document.createElement("button");
+    b.className = "tbtn"; b.id = "tb" + t;
+    b.innerHTML = `T${t + 1}<span></span>`;
+    b.addEventListener("click", () => { rv.web_set_track(t); sideSync(); });
+    box.appendChild(b);
+  }
+  const list = $("tlist"); list.innerHTML = "";
+  for (let t = 0; t < 8; t++) {
+    const c = document.createElement("div");
+    c.className = "tcard"; c.id = "tc" + t;
+    c.innerHTML = `<div class="tn"><span>T${t + 1}</span><button class="mute" title="Mute">M</button></div><div class="ts"></div><div class="meter"><i></i></div>`;
+    c.addEventListener("click", e => { if (e.target.classList.contains("mute")) return; rv.web_set_track(t); sideSync(); });
+    c.querySelector(".mute").addEventListener("click", () => { rv.web_set_mute(rv.web_mute() ^ (1 << t)); });
+    list.appendChild(c);
+  }
+}
+$("kind").addEventListener("change", e => { const t = rv.web_track(); rv.web_set_kind(t, +e.target.value, 0); sideSync(); });
+$("engine").addEventListener("change", e => { const t = rv.web_track(); if (rv.web_kind(t) === 0) { rv.web_set_kind(t, 0, +e.target.value); sideSync(); } });
+$("preset").addEventListener("change", e => { const i = +e.target.value; if (i >= 0) rv.web_preset_apply(rv.web_track(), i); });
+function presetStep(d) {
+  const sel = $("preset"); let i = sel.selectedIndex + d;
+  if (i < 1) i = sel.options.length - 1; if (i >= sel.options.length) i = 1;
+  sel.selectedIndex = i; const v = +sel.value; if (v >= 0) rv.web_preset_apply(rv.web_track(), v);
+}
+$("pprev").addEventListener("click", () => presetStep(-1));
+$("pnext").addEventListener("click", () => presetStep(1));
+$("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
+$("rec").addEventListener("click", () => tapBtn("REC"));
+$("panic").addEventListener("click", () => { if (!rv) return; rv.web_transport(0); rv.web_all_off(); });
+$("catch").addEventListener("click", () => rv && rv.web_catch());
+$("resample").addEventListener("click", () => { if (!rv) return; rv.web_resample(); if (!rv.web_playing()) rv.web_transport(1); });
+$("loaddemo").addEventListener("click", () => { rv.web_demo(+$("demo").value); sideSync(); });
+{
+  const g = $("gotos");
+  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Tape",6,0],["Steps",7,0],["Mod",3,0],["Buses",4,0],["Song",8,2],["Save",9,0]].forEach(([n, s, p]) => {
+    const b = document.createElement("button"); b.className = "hbtn"; b.textContent = n;
+    b.addEventListener("click", () => rv && rv.web_goto(s, p)); g.appendChild(b);
+  });
+}
+
+/* ------------------------------------------------------------ the manual */
+let manualUrl = null;
+function openManual(hash) {
+  if (!manualUrl) {
+    if (MANUAL_B64.startsWith("__")) manualUrl = "manual.html";   /* not bundled: the site's page beside it */
+    else {
+      const bytes = Uint8Array.from(atob(MANUAL_B64), c => c.charCodeAt(0));
+      manualUrl = URL.createObjectURL(new Blob([bytes], { type: "text/html" }));
+    }
+  }
+  window.open(manualUrl + (hash || ""), "_blank", "noopener");
+}
+$("manualbtn").addEventListener("click", () => openManual());
+$("manualbtn2").addEventListener("click", () => openManual());
+
+/* ------------------------------------------------------------- the guide */
+const GUIDE = {
+  "Start": `<p>Press <b>Play</b> (or PLAY on the panel). The demo synthesizes for two bars, <b>resamples them onto the tape</b>, and then T7 and T8 rebuild them: T7's playhead jumps when T5 strikes, T8 grains the tape.</p>
+<ul><li><b>ALGORITHM</b> picks the track, T1–T8. The keys play it.</li>
+<li>Each button opens its section; <b>SELECT</b> (or tapping the button again) walks its pages.</li>
+<li><b>KNOB 1–4</b> set the four values at the top of the screen.</li>
+<li><b>PRESETS</b> browses what the page holds: sounds on the voice pages, patterns on SEQ, scenes, slots, rows.</li>
+<li>The footer says what the controls do right now.</li></ul>`,
+  "Buttons": `<table>
+<tr><td>HOME</td><td>Tracks overview, then the 8 × 8 influence grid</td></tr>
+<tr><td>EDIT</td><td>Voice: sound, source pages, pitch, filter, skin, insert, mix, sends</td></tr>
+<tr><td>ENV</td><td>Articulation: onset, continuant, termination, destinations, the shape library</td></tr>
+<tr><td>LFO</td><td>Mod: matrix, LFO 1 and 2, dust, macros</td></tr>
+<tr><td>FX</td><td>Buses: delay, space, feedback, filter pair, vocoder, master. Each bus page shows the current track's <b>SEND</b> into it.</td></tr>
+<tr><td>SCL</td><td>Scale, root, transpose and the track's note sieve</td></tr>
+<tr><td>ARP</td><td>Tape: capture, rows, and the tape track's playback (MLR, Beads, slices)</td></tr>
+<tr><td>SEQ</td><td>Steps, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
+<tr><td>GLO</td><td>Song: mixers, scenes, arrangement, density arcs, clock</td></tr>
+<tr><td>SAVE</td><td>Projects: choose an action with KNOB 1, press SAVE twice to do it</td></tr>
+<tr><td>PLAY · REC</td><td>Start/stop · arm recording on the track (keys, knob moves and tape jumps)</td></tr></table>`,
+  "Hold": `<p>Hold a button (right-click or shift-click here to keep it held) for its layer:</p><table>
+<tr><td>SEQ</td><td>The white keys are steps on any page. Hold a step and turn a knob: a <b>parameter lock</b>.</td></tr>
+<tr><td>LFO</td><td>KNOB 1–4 are the four macros.</td></tr>
+<tr><td>FX</td><td>White keys 1–8: loop, reverse, stutter, delay freeze, low pass, high pass, throw, fill.</td></tr>
+<tr><td>ARP</td><td>The keys jump the tape track's playhead from any page.</td></tr>
+<tr><td>GLO</td><td>White keys mute (1–8) and solo (9–16); the first black key taps the tempo.</td></tr>
+<tr><td>SAVE</td><td>A white key stores the current state as that scene.</td></tr>
+<tr><td>SCL</td><td>A key sets the root.</td></tr>
+<tr><td>REC</td><td>OCT− catches the tape, OCT+ resamples on the next bar.</td></tr>
+<tr><td>ENV</td><td>With a step held, KNOB 1 picks its shape from the library.</td></tr></table>`,
+  "Tape": `<p><b>The tape</b> is one short loop of audio (1.4 s clean, up to 5.5 s DIRTY) that every tape track plays from. It always listens to its source (the master by default: ARP › CAPTURE, KNOB 2). Two ways to keep something on it:</p>
+<ul><li><b>Catch</b> (hold REC, press OCT−): freeze what it holds right now.</li>
+<li><b>Resample</b> (hold REC, press OCT+): at the next bar it records one bar (CAPTURE › BARS) into row 1, then freezes.</li></ul>
+<p>The tape is split into four <b>rows</b> (ARP › ROWS sets where each starts and ends). T7 and T8 are tape tracks; ARP opens the TAPE section on one of them.</p>
+<p><b>MLR</b> (a tape track's MODE): the row is laid across the 16 white keys.</p>
+<ul><li>Tap a key: the playhead jumps to that sixteenth of the row and plays on from there (on the step, beat or bar: PLAYBACK › JUMP).</li>
+<li>Hold two keys: it loops between them. Release to play on.</li>
+<li>Black keys 1–4 switch row; 5–8 reverse, half speed, double speed, hold; 9 catches, 10 resamples.</li>
+<li>From any other page, hold ARP and press white keys to jump.</li>
+<li>Steps on a tape track jump too: a step's note picks the position, so a pattern can cut the loop up.</li></ul>
+<li>In <b>Beads</b>: keys play pitched grain clouds from the tape; TIME, SIZE, SHAPE, PITCH, DENSITY.</li>
+<li>In <b>Slice</b>: the row is cut at its onsets and the keys and steps play the slices.</li>
+<li><b>Audio in</b>: play a file into the input and pick INPUT as the tape's source to catch it.</li></ul>`,
+  "Influence": `<p>HOME › INFLUENCE: the current track is the row (source), PRESETS picks the column (target), KNOB 1 the route:</p><table>
+<tr><td>MOD</td><td>the source's envelope moves one of the target's knobs</td></tr>
+<tr><td>TRIG</td><td>a hit plays the target, after a delay in steps, with an optional chance</td></tr>
+<tr><td>EXCITE</td><td>the source's audio rings the target's body or string</td></tr>
+<tr><td>TAPE</td><td>a hit jumps the target's tape playhead (or catches the tape)</td></tr>
+<tr><td>CLOCK</td><td>the source's hits clock the target's sequencer, René-style</td></tr>
+<tr><td>RING</td><td>ring modulates the target with the source</td></tr></table>`,
+  "Graph": `<p>SEQ › TRACK › <b>MODE</b> switches a track between the step sequencer and the <b>graph</b>. In graph mode the steps sit in a circle and cords say where a playhead goes next.</p>
+<ul><li><b>GRAPH</b> page: hold a step (or pick it with PRESETS) and set CORD A and CORD B, the steps it can go to next. With two cords, BRANCH picks one: by chance, in turns, by an LFO, or by the head's MOTION.</li>
+<li><b>Two playheads</b> walk the same graph. HEAD 1 plays this track. HEAD 2 (off by default) can play this track or another (PLAYS), at its own rate and start step.</li>
+<li><b>Roles</b>: NOTES plays the step; PITCH only sets the pitch; GATE plays the pitch the other head set. Head 1 on GATE and head 2 on PITCH separate rhythm from melody, each on its own path and speed.</li>
+<li><b>MOTION</b> (Silt's function generator): a shape (rise, fall, arch, decay, swell, or LFO 1, LFO 2, dust) that moves the head's rate over CYCLE steps. DEPTH sets how far. COMBINE: <b>× clock</b> multiplies or divides the clock (up to two octaves); <b>+ clock</b> adds to it.</li></ul>`,
+  "FX": `<p>Each track sends into five buses; the buses' outputs go to the master. On every FX page the knob called <b>T1 SEND</b> (for the current track) sets how much of this track goes in; ALGORITHM picks the track.</p><table>
+<tr><td>DELAY</td><td>time (free, or synced above the middle), feedback, tone, level · send, stereo spread, wobble, freeze</td></tr>
+<tr><td>SPACE</td><td>size, damping, level, send · motion, diffusion, low cut</td></tr>
+<tr><td>FEEDBACK</td><td>a delay loop with a process inside (filter, comb, smear, shift, fold, crush), returned to the master or into a track</td></tr>
+<tr><td>FILTER PAIR</td><td>two filters (low, band or high pass) in series, parallel or feedback, each moved by its own LFO</td></tr>
+<tr><td>VOCODER</td><td>the track's sound shapes a body (dust, drops, noise, the tape or another track): attack, release, shift, narrow</td></tr>
+<tr><td>MASTER</td><td>drive and the microcuts</td></tr></table>
+<p>Hold FX for punch-ins on the white keys: loop, reverse, stutter, delay freeze, low pass, high pass, throw (everything into delay and space), fill.</p>`,
+  "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
+<p>TRACK sets the MODE (steps or graph), length, rate and the clock (master, LFOs, dust); DIRECTION plays forward, reverse, ping-pong or snake. PRESETS or the first two black keys switch patterns A and B.</p>`,
+};
+{
+  const tabs = $("gtabs"), body = $("gbody");
+  Object.keys(GUIDE).forEach((k, i) => {
+    const b = document.createElement("button"); b.className = "tab" + (i ? "" : " on"); b.textContent = k;
+    b.addEventListener("click", () => { tabs.querySelectorAll(".tab").forEach(x => x.classList.remove("on")); b.classList.add("on"); body.innerHTML = GUIDE[k]; });
+    tabs.appendChild(b);
+  });
+  body.innerHTML = GUIDE.Start;
+}
+
+/* ------------------------------------------------- flash kept in the browser */
+function storeLoad() {
+  try {
+    for (let o = 0; o < rv.rv_store_slots(); o++) {
+      const s = localStorage.getItem("ravel2.slot." + o); if (!s) continue;
+      const bytes = Uint8Array.from(atob(s), c => c.charCodeAt(0)), n = Math.min(bytes.length, rv.rv_store_max());
+      new Uint8Array(rv.memory.buffer, rv.rv_store(o), n).set(bytes.subarray(0, n));
+      rv.rv_store_set_len(o, n);
+    }
+  } catch (e) { /* no storage: start fresh */ }
+}
+function storeSave() {
+  try {
+    for (let o = 0; o < rv.rv_store_slots(); o++) {
+      const n = rv.rv_store_len(o); if (n < 0) continue;
+      const b = new Uint8Array(rv.memory.buffer, rv.rv_store(o), n); let s = "";
+      for (let i = 0; i < n; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, Math.min(n, i + 8192)));
+      localStorage.setItem("ravel2.slot." + o, btoa(s));
+    }
+  } catch (e) { /* storage refused: projects last until the page closes */ }
+}
+
+/* ------------------------------------------------------------ audio in */
+let inData = null, inPos = 0;
+$("infile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  soundStart();
+  try {
+    const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    const len = Math.ceil(buf.duration * 44100), off = new OfflineAudioContext(2, len, 44100), src = off.createBufferSource();
+    src.buffer = buf; src.connect(off.destination); src.start();
+    const r = await off.startRendering();
+    const L = r.getChannelData(0), R = r.numberOfChannels > 1 ? r.getChannelData(1) : L, inter = new Float32Array(len * 2);
+    for (let i = 0; i < len; i++) { inter[2 * i] = L[i]; inter[2 * i + 1] = R[i]; }
+    inData = inter; inPos = 0; rv.web_in_clear();
+    applyInputRouting();
+    setStatus(`Playing ${f.name} into the input`);
+  } catch (err) { setStatus("That file could not be read as audio."); }
+});
+function applyInputRouting() {
+  if (!rv) return;
+  rv.web_gp_set(rv.web_gp_tapesrc(), $("intape").checked ? 10 : 0);
+  rv.web_gp_set(rv.web_gp_tapemon(), $("inmon").checked ? 100 : 0);
+}
+$("intape").addEventListener("change", applyInputRouting);
+$("inmon").addEventListener("change", applyInputRouting);
+function feedInput(frames) {
+  if (!inData) return;
+  const space = rv.web_in_space(), ring = rv.web_in_ring(), mem = new Float32Array(rv.memory.buffer, rv.web_in_ptr(), ring * 2);
+  let n = Math.min(frames, space, (inData.length >> 1) - inPos), w = rv.web_in_write_pos();
+  for (let i = 0; i < n; i++) { mem[2 * w] = inData[2 * inPos]; mem[2 * w + 1] = inData[2 * inPos + 1]; w = (w + 1) % ring; inPos++; }
+  rv.web_in_commit(n);
+  if (inPos >= (inData.length >> 1)) inPos = 0;              /* loops */
+}
+
+/* ------------------------------------------------------------ running */
+const FIFO = 1 << 16, MASK = FIFO - 1, fl = new Float32Array(FIFO), fr = new Float32Array(FIFO);
+let wpos = 0, rpos = 0, ctx = null, node = null, gain = null, ratio = 1, peak = 0, stuck = 0;
+
+function run(ms) {
+  rv.rv_set_buttons(held_btn | latched); rv.rv_set_keys(held_keys | kb_keys);
+  feedInput(Math.ceil(ms * 44.1) + 64);
+  const n = rv.rv_run(ms), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2);
+  for (let i = 0; i < n; i++, wpos++) { fl[wpos & MASK] = a[2 * i]; fr[wpos & MASK] = a[2 * i + 1]; }
+  const w = rv.rv_store_writes(); if (w !== lastWrites) { lastWrites = w; storeSave(); }
+}
+
+function onAudio(e) {
+  const L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1), N = L.length;
+  const need = Math.ceil(N * ratio) + 2;
+  while (wpos - rpos < need) run(4);
+  if (wpos - rpos > need + 8000) rpos = wpos - need;
+  let pk = 0, sum = 0;
+  for (let i = 0; i < N; i++) {
+    const i0 = Math.floor(rpos), f = rpos - i0, j0 = i0 & MASK, j1 = (i0 + 1) & MASK;
+    let l = fl[j0] + (fl[j1] - fl[j0]) * f, r = fr[j0] + (fr[j1] - fr[j0]) * f;
+    /* safety: nothing non-finite, nothing past -0.2 dB, whatever the engine does */
+    if (!Number.isFinite(l)) l = 0; if (!Number.isFinite(r)) r = 0;
+    L[i] = l > 0.98 ? 0.98 : l < -0.98 ? -0.98 : l; R[i] = r > 0.98 ? 0.98 : r < -0.98 ? -0.98 : r;
+    const a = Math.abs(L[i]); if (a > pk) pk = a;
+    sum += L[i] + R[i];
+    rpos += ratio;
+  }
+  peak = Math.max(pk, peak * 0.9);
+  /* a watchdog: output pinned to one side (a stuck offset) for half a second resets the sound */
+  stuck = Math.abs(sum / (2 * N)) > 0.5 ? stuck + N : 0;
+  if (stuck > ctx.sampleRate / 2) { stuck = 0; rv.web_all_off(); fl.fill(0); fr.fill(0); setStatus("Safety: the output was stuck, sound reset"); }
+}
+
+/* browsers allow sound only after the viewer interacts: it starts with the first touch, click or key */
+function soundStart() {
+  if (!rv) return;
+  if (!ctx) {
+    ctx = new AudioContext();
+    ratio = 44100 / ctx.sampleRate;
+    /* volume, then a brick-wall limiter at -1 dB before your speakers */
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.1;
+    lim.connect(ctx.destination);
+    gain = ctx.createGain(); gain.gain.value = $("vol").value / 100; gain.connect(lim);
+    node = ctx.createScriptProcessor(1024, 0, 2); node.onaudioprocess = onAudio; node.connect(gain);
+    rpos = wpos;
+  }
+  if (ctx.state !== "running") ctx.resume().catch(() => {});
+}
+for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, soundStart, { capture: true });
+$("vol").addEventListener("input", e => { if (gain) gain.gain.value = e.target.value / 100; });
+
+function setStatus(s) { $("status").textContent = s; }
+
+const cv = $("screen"), g = cv.getContext("2d"), img = g.createImageData(240, 240), px = new Uint32Array(img.data.buffer);
+let lastT = 0, frameN = 0;
+function frame(t) {
+  if (!(ctx && ctx.state === "running")) {
+    const ms = lastT ? Math.min(100, Math.round(t - lastT)) : 16;
+    if (ms > 0) { run(ms); rpos = wpos; }
+  }
+  lastT = t;
+  const fb = new Uint16Array(rv.memory.buffer, rv.rv_fb(), 240 * 240);
+  for (let i = 0; i < 57600; i++) {
+    const p = fb[i], r = (p >> 11) & 31, gg = (p >> 5) & 63, bb = p & 31;
+    px[i] = 0xff000000 | (((bb << 3) | (bb >> 2)) << 16) | (((gg << 2) | (gg >> 4)) << 8) | ((r << 3) | (r >> 2));
+  }
+  g.putImageData(img, 0, 0);
+  const lb = rv.rv_leds_buttons(), lk = rv.rv_leds_keys(), hk = held_keys | kb_keys, hb = held_btn | latched;
+  BTN.forEach((n, i) => { const b = btnEls[n]; if (!b) return; b.classList.toggle("lit", !!(lb & (1 << i))); b.classList.toggle("down", !!(hb & (1 << i)) && !(latched & (1 << i))); });
+  for (let k = 0; k < 27; k++) { const el = keyEls[k]; el.classList.toggle("lit", !!(lk & (1 << k)) && !(hk & (1 << k))); el.classList.toggle("down", !!(hk & (1 << k))); }
+  if ((frameN++ & 3) === 0) slowUpdate();
+  requestAnimationFrame(frame);
+}
+
+let lastTrack = -1, lastKinds = "";
+function slowUpdate() {
+  const t = rv.web_track(), playing = rv.web_playing();
+  keyLabels();
+  $("proj").textContent = cstr(rv.web_project_name());
+  $("play").textContent = playing ? "Stop" : "Play";
+  $("play").classList.toggle("on", !!playing);
+  $("rec").classList.toggle("on", !!rv.web_armed());
+  $("sdot").classList.toggle("on", !!playing);
+  $("pos").textContent = playing ? `Bar ${rv.web_bar() + 1} · beat ${rv.web_beat() + 1} · ${rv.web_gp(rv.web_gp_tempo())} BPM · ${cstr(rv.web_page_title())}` : `Stopped · ${cstr(rv.web_page_title())}`;
+  const frozen = rv.web_frozen();
+  $("catch").classList.toggle("on", !!frozen);
+  $("catch").textContent = frozen ? "Caught" : "Catch";
+  $("tapestate").textContent = (frozen ? "Caught: " : "Listening: ") + rv.web_tape_seconds().toFixed(1) + " s of tape";
+  $("outm").style.width = Math.min(100, Math.sqrt(Math.max(rv.web_master_l(), rv.web_master_r())) * 100) + "%";
+  let kinds = "";
+  for (let i = 0; i < 8; i++) {
+    const k = rv.web_kind(i), b = $("tb" + i), c = $("tc" + i);
+    kinds += k + cstr(rv.web_sound_name(i));
+    b.classList.toggle("cur", i === t);
+    b.lastChild.textContent = ["SYN","STK","TAP"][k];
+    b.lastChild.className = KIND_CLS[k];
+    c.classList.toggle("cur", i === t);
+    c.querySelector(".ts").textContent = ["Synth","Strike","Tape"][k] + " · " + cstr(rv.web_sound_name(i));
+    c.querySelector(".tn span").className = KIND_CLS[k];
+    c.querySelector(".mute").classList.toggle("on", !!(rv.web_mute() & (1 << i)));
+    c.querySelector(".meter i").style.width = Math.min(100, Math.sqrt(rv.web_meter(i)) * 100) + "%";
+  }
+  if (t !== lastTrack || kinds !== lastKinds) { lastTrack = t; lastKinds = kinds; sideSync(); }
+}
+
+(async () => {
+  try {
+    const bytes = WASM_B64.startsWith("__")
+      ? new Uint8Array(await (await fetch("ravel.wasm")).arrayBuffer())
+      : Uint8Array.from(atob(WASM_B64), c => c.charCodeAt(0));
+    rv = (await WebAssembly.instantiate(bytes, {})).instance.exports;
+    storeLoad();
+    rv.rv_boot();
+    rv.rv_set_master(masterVal);
+    lastWrites = rv.rv_store_writes();
+    tracksUi(); sideSync();
+    setStatus("Ready. Press Play, or play the keys. Sound starts with your first click.");
+    requestAnimationFrame(frame);
+  } catch (e) {
+    setStatus("The emulator could not start: " + e.message);
+  }
+})();
+</script>

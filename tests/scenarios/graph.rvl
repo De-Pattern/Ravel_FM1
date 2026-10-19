@@ -1,0 +1,53 @@
+# The graph sequencer: switch T1 to GRAPH, give head 1 a motion shape, turn head 2 on to play T4.
+wait 300
+tap PLAY
+wait 500
+tap SEQ
+turn SELECT 3
+wait 200
+expect page TRACK
+turn K1 1
+wait 200
+expect tp 1 MODE 1
+turn SELECT 1
+wait 200
+expect page GRAPH
+turn K4 1
+wait 200
+shot g1_graph.png
+turn SELECT 1
+wait 200
+expect page HEAD 1
+shot g2_head1.png
+turn SELECT 1
+wait 200
+expect page HEAD 1 MOTION
+turn K1 1
+wait 200
+turn K2 20
+wait 1500
+shot g3_motion1.png
+turn SELECT 1
+wait 200
+expect page HEAD 2
+turn K1 4
+wait 1000
+shot g4_head2.png
+turn SELECT 1
+wait 200
+expect page HEAD 2 MOTION
+turn K1 6
+wait 1500
+shot g5_motion2.png
+tap FX
+wait 300
+shot f1_delay.png
+turn SELECT 1
+wait 200
+shot f2_delay2.png
+turn SELECT 11
+wait 200
+shot f3_voc2.png
+tap ARP
+wait 400
+shot t1_tape.png
