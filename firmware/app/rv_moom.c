@@ -24,7 +24,7 @@ enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, S
 typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
 typedef struct {
     uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title */
-    float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t;
+    float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t, spin, held;   /* spin: turning speed; held: how long a turn key has been down */
     uint32_t last_ms, prev_btn, prev_keys;
     int open, total;
     char map[MM_W * MM_W];
@@ -297,10 +297,14 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         side -= 1.0f;
     if (keys & (1u << 4))
         side += 1.0f;
-    if (keys & ((1u << 14) | (1u << 3)))               /* G4 (left), G#3: turn left */
-        mm.dir -= 2.4f * dt;
-    if (keys & ((1u << 18) | (1u << 5)))               /* B4 (right), A#3: turn right */
-        mm.dir += 2.4f * dt;
+    {   /* turning like an analog stick: it eases in, builds while held, and glides to a stop */
+        int want = ((keys & ((1u << 18) | (1u << 5))) ? 1 : 0) - ((keys & ((1u << 14) | (1u << 3))) ? 1 : 0);   /* B4 / A#3 right, G4 / G#3 left */
+        float target;
+        mm.held = want ? mm.held + dt : 0.0f;
+        target = (float)want * (0.9f + 1.3f * fm_minf(mm.held / 0.4f, 1.0f));   /* 0.9 rad/s at first, 2.2 rad/s after 0.4 s */
+        mm.spin += (target - mm.spin) * fm_minf(dt * (want ? 9.0f : 10.0f), 1.0f);
+        mm.dir += mm.spin * dt;
+    }
     cx = fm_cosf(mm.dir);
     cy = fm_sinf(mm.dir);
     if (fwd != 0.0f || side != 0.0f)
