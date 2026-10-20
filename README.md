@@ -16,7 +16,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
 
-<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the kit sequencer, a perc machine lane, the graph sequencer and its function generator, CZ envelopes, WAVE warps, Z-plane and SEM filters, a physical model, a strike voice, the influence grid and the shape envelopes" width="900"></p>
+<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the kit sequencer, a perc machine lane, the graph sequencer and its function generator, CZ envelopes, the WAVE wavetables, Z-plane and SEM filters, a physical model, a strike voice, the influence grid and the filter envelope" width="900"></p>
 <p align="center"><sub>More screens in <a href="docs/showcase/">docs/showcase</a>.</sub></p>
 
 ## What it is
@@ -1321,6 +1321,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
 - XAOC Devices' Zadar, whose library of morphing shapes the WAVE engine's WAVE ENV follows (the shapes are Ravel's own).
+- The screen is set in Space Grotesk (SIL Open Font License 1.1, `assets/fonts`). Its drawn, colour-per-knob look takes a cue from teenage engineering's OP-1.
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Maxime Denuc's Nachthorn and Dorian Concept's SH-101 playing, which the ORGAN and MONO engines are made to sound like (Ravel's own synthesis; no recordings used).

@@ -2049,6 +2049,14 @@ static uint16_t kind_col(int t)
     return k == KIND_SYNTH ? C_SYNTH : k == KIND_STRIKE ? C_STRIKE : k == KIND_PERC ? C_PERC : C_TAPE;
 }
 
+/* the badge's colour: the kind's own, deeper */
+static uint16_t kind_dcol(int t)
+{
+    int k = rv.tp[t][TP_KIND];
+    return k == KIND_SYNTH ? C_SYNTH_D : k == KIND_STRIKE ? C_STRIKE_D : k == KIND_PERC ? C_PERC_D : C_TAPE_D;
+}
+static const uint16_t knob_col[4] = {C_K1, C_K2, C_K3, C_K4};
+
 static const char *sound_name(int t)
 {
     int k = rv.tp[t][TP_KIND];
@@ -2071,20 +2079,50 @@ static void draw_top(void)
     char b[24];
     const page_t *pg = cur_page();
     int t = ui.track, x;
-    g_fill(0, 0, 240, 22, C_PANEL);
-    g_fill(3, 3, 24, 16, kind_col(t));
+    g_fill(0, 0, 240, 22, C_BG);
+    g_rbox(4, 3, 21, 16, 4, kind_dcol(t), 1);         /* the track's badge, in its kind's deep colour */
     b[0] = 'T';
     b[1] = (char)('1' + t);
     b[2] = 0;
-    g_text_c(15, 3, &FONT_B, b, C_BG);
+    g_text_c(14, 4, &FONT_B, b, g_mix(kind_dcol(t), C_INK, 0.6f));
     if (ui.msg_until && (int32_t)(ui.msg_until - plat_ms()) > 0) {
-        g_text(32, 3, &FONT_B, ui.msg, C_WHITE);
+        g_text(31, 4, &FONT_B, ui.msg, C_WHITE);
         return;
     }
-    x = g_text(32, 5, &FONT_XS, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, KIND_N - 1)], kind_col(t));
-    x = g_text(x + 4, 5, &FONT_XS, sound_name(t), C_MID);
+    x = g_text(31, 7, &FONT_T, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, KIND_N - 1)], C_MID);
+    x = g_text(x + 4, 7, &FONT_T, sound_name(t), C_MID);
     (void)x;
-    g_text_r(236, 3, &FONT_B, pg->title, C_INK);
+    g_text_r(236, 4, &FONT_B, pg->title, C_INK);
+}
+
+/* one knob: a small dial in its colour, its name, its value, and a bar in its colour (bipolar ones
+ * from the middle); greyed when it does nothing as the track is set */
+static void knob_draw(int i, const char *name, const char *val, int v, int mn, int mx, uint16_t lc, uint16_t vc, int grey)
+{
+    int x = i * 60;
+    uint16_t kc = grey ? C_LINE : knob_col[i], ring = grey ? C_LINE : g_mix(C_BG, kc, 0.45f);
+    float frac = mx > mn ? (float)(v - mn) / (float)(mx - mn) : 0.0f, an = (135.0f + 270.0f * clampf(frac, 0.0f, 1.0f)) * (3.14159265f / 180.0f);
+    const rv_font_t *fv = &FONT_B;
+    g_ring(x + 10.0f, 29.5f, 4.6f, 1.2f, ring);
+    g_seg(x + 10.0f + fm_cosf(an) * 1.6f, 29.5f + fm_sinf(an) * 1.6f, x + 10.0f + fm_cosf(an) * 4.8f, 29.5f + fm_sinf(an) * 4.8f, 1.5f, kc);
+    g_text(x + 18, 25, &FONT_T, name, lc);
+    if (g_text_w(fv, val) > 54)
+        fv = &FONT_XS;
+    if (g_text_w(fv, val) > 56)
+        fv = &FONT_T;
+    g_text_c(x + 30, fv == &FONT_B ? 38 : fv == &FONT_XS ? 40 : 42, fv, val, vc);
+    g_rbox(x + 6, 60, 48, 2, 1, C_LINE, 1);
+    if (grey || mx <= mn)
+        return;
+    if (mn < 0 && mx > 0) {
+        int mid = x + 30, w = 24 * v / (v < 0 ? -mn : mx);
+        if (w >= 0)
+            g_fill(mid, 60, w, 2, kc);
+        else
+            g_fill(mid + w, 60, -w, 2, kc);
+        g_vline(mid, 58, 6, C_MID);
+    } else if (frac > 0.0f)
+        g_rbox(x + 6, 60, (int)(48.0f * frac) > 2 ? (int)(48.0f * frac) : 2, 2, 1, kc, 1);
 }
 
 static void draw_knobs(void)
@@ -2096,21 +2134,18 @@ static void draw_knobs(void)
     int held = held_step();
     g_fill(0, 22, 240, 52, C_BG);
     for (i = 0; i < 4; i++) {
-        int x = i * 60, cx = x + 30, v, frac_w;
+        int v;
         kb_t k = page_knob(pg, i);
         kinfo_t in;
         char val[16];
-        uint16_t vc = C_INK, lc = C_DIM;
+        uint16_t vc = C_INK, lc = C_MID;
         if (btn & (1u << B_LFO)) {            /* macros on the knobs */
             char nm[10] = "MACRO ";
             nm[6] = (char)('1' + i);
             nm[7] = 0;
             v = rv.gp[GP_MACRO1 + i];
-            g_text_c(cx, 25, &FONT_T, nm, C_TEAL);
             sx_int(val, v);
-            g_text_c(cx, 38, &FONT_B, val, C_WHITE);
-            g_fill(x + 6, 62, 48, 3, C_LINE);
-            g_fill(x + 6, 62, 48 * v / 127, 3, C_TEAL);
+            knob_draw(i, nm, val, v, 0, 127, knob_col[i], C_WHITE, 0);
             continue;
         }
         in = kb_info(k);
@@ -2124,11 +2159,7 @@ static void draw_knobs(void)
                 val[0] = '-';
                 val[1] = 0;
             }
-            g_text_c(cx, 25, &FONT_T, in.name, C_LINE);
-            g_text_c(cx, 38, g_text_w(&FONT_B, val) > 56 ? &FONT_XS : &FONT_B, val, C_LINE);
-            g_fill(x + 6, 62, 48, 3, C_LINE);
-            if (i)
-                g_vline(x, 26, 40, C_LINE);
+            knob_draw(i, in.name, val, v, in.min, in.max, C_LINE, g_mix(C_BG, C_DIM, 0.6f), 1);
             continue;
         }
         v = kb_get(k);
@@ -2145,29 +2176,11 @@ static void draw_knobs(void)
             vc = C_AMBER;
         }
         if (now - ui.turned_ms[i] < 600)
-            lc = C_TEAL;
-        g_text_c(cx, 25, &FONT_T, in.name, lc);
+            lc = knob_col[i];                         /* just turned: its name lights in its colour */
         kb_format(k, v, val);
-        g_text_c(cx, 38, g_text_w(&FONT_B, val) > 56 ? &FONT_XS : &FONT_B, val, vc);
-        /* position bar: bipolar from the middle */
-        g_fill(x + 6, 62, 48, 3, C_LINE);
-        if (in.max > in.min) {
-            if (in.min < 0 && in.max > 0) {
-                int mid = x + 30, w = 24 * v / (v < 0 ? -in.min : in.max);
-                if (w >= 0)
-                    g_fill(mid, 62, w, 3, vc == C_DIM ? C_LINE : C_TEAL);
-                else
-                    g_fill(mid + w, 62, -w, 3, vc == C_DIM ? C_LINE : C_TEAL);
-                g_vline(mid, 60, 7, C_MID);
-            } else {
-                frac_w = 48 * (v - in.min) / (in.max - in.min);
-                g_fill(x + 6, 62, frac_w, 3, vc == C_AMBER ? C_AMBER : C_TEAL);
-            }
-        }
-        if (i)
-            g_vline(x, 26, 40, C_LINE);
+        knob_draw(i, in.name, val, v, in.min, in.max, lc, vc, 0);
     }
-    g_hline(0, 73, 240, C_LINE);
+    g_hline(6, 72, 228, C_LINE);
 }
 
 static void draw_footer(void)
@@ -2178,7 +2191,7 @@ static void draw_footer(void)
     const char *hint = "PRESETS: SOUNDS";
     const page_t *pg = cur_page();
     g_fill(0, FOOT_Y - 2, 240, 26, C_BG);
-    g_hline(0, FOOT_Y - 2, 240, C_LINE);
+    g_hline(6, FOOT_Y - 2, 228, C_LINE);
     switch (pg->pr) {
     case PR_ROUTE: hint = "PRESETS: TARGET  ALGO: SOURCE"; break;
     case PR_MAT: hint = "PRESETS: SLOT"; break;
@@ -2227,7 +2240,7 @@ static void draw_footer(void)
         else if (pg->pic == PIC_MOTION)
             hint = "SHAPE MOVES THE HEAD'S SPEED";
         else if (ui.sec == SEC_BUS)
-            hint = "SEND: THIS TRACK INTO THE BUS";
+            hint = "SEND: THIS TRACK INTO IT";
         break;
     }
     if (rv_live.countin) {
@@ -2251,10 +2264,24 @@ static void draw_footer(void)
         hint = "KEYS JUMP THE TAPE TRACK";
     else if (btn & (1u << B_SCL))
         hint = "KEY: ROOT";
-    g_text(4, FOOT_Y + 5, &FONT_T, hint, C_DIM);
     x = 237 - n * 5;
-    for (i = 0; i < n; i++)
-        g_fill(x + i * 5, FOOT_Y + 9, 3, 3, i == ui.page[ui.sec] ? C_TEAL : C_LINE);
+    {   /* the hint, cut short if it would run into the dots and the transport */
+        char hb[48];
+        int k = 0, room = x - (rv_live.playing ? 16 : 0) - (ui.armed ? 10 : 0) - 10;
+        while (hint[k] && k < 47)
+            hb[k] = hint[k], k++;
+        hb[k] = 0;
+        while (k > 0 && g_text_w(&FONT_T, hb) > room) {   /* whole words go */
+            hb[--k] = 0;
+            while (k > 0 && hb[k - 1] != ' ')
+                hb[--k] = 0;
+            while (k > 0 && hb[k - 1] == ' ')
+                hb[--k] = 0;
+        }
+        g_text(6, FOOT_Y + 6, &FONT_T, hb, g_mix(C_DIM, C_MID, 0.35f));
+    }
+    for (i = 0; i < n; i++)                           /* the section's pages: dots, this one lit */
+        g_discf((float)(x + i * 5) + 1.5f, (float)FOOT_Y + 10.5f, 1.25f, i == ui.page[ui.sec] ? C_INK : C_DIM);
     /* transport */
     if (rv_live.playing) {
         g_fill(x - 14, FOOT_Y + 7, 3, 8, C_TEAL);
@@ -2524,18 +2551,18 @@ static void pic_source(void)
         if (is_kit_ui(t)) {                           /* a kit: its six lanes */
             int l;
             g_text(8, PIC_Y + 6, &FONT_B, "KIT", C_PERC);
-            g_text(8, PIC_Y + 30, &FONT_T, "SIX LANES: EDIT > LANE, SEQ > DRUM", C_MID);
+            g_text(8, PIC_Y + 30, &FONT_T, "SIX LANES: EDIT > LANE, SEQ > DRUM", C_O_MID);
             for (l = 0; l < RV_LANES; l++) {
                 char nb[4] = {(char)('1' + l), 0, 0, 0};
                 int x = 8 + (l % 3) * 78, y = PIC_Y + 50 + (l / 3) * 30;
-                g_text(x, y, &FONT_T, nb, C_DIM);
+                g_text(x, y, &FONT_T, nb, C_O_DIM);
                 g_text(x + 12, y, &FONT_B, perc_mnames[rv.kit[t].mach[l] % PM_N], l == ui.lane[t] % RV_LANES ? C_PERC : C_INK);
             }
             pic_scope(t, PIC_Y + 112, 14, C_PERC);
             return;
         }
         g_text(8, PIC_Y + 6, &FONT_B, perc_mnames[m], C_PERC);
-        g_text(8, PIC_Y + 30, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_MID);
+        g_text(8, PIC_Y + 30, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_MID);
         pic_scope(t, PIC_Y + 44, 90, C_PERC);
     } else if (kind == KIND_TAPE) {
         g_text_c(120, PIC_Y + 10, &FONT_B, "A TAPE TRACK: SEE ARP / TAPE", C_TAPE);
@@ -2547,6 +2574,31 @@ static void pic_source(void)
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
                                                 "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
+        if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
+            const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);
+            int t1 = clampi(rv.tp[t][TP_S0], 0, WT_TABLES - 1), pos = clampi((int)rv_param_eff(t, TP_S1), 0, 63), f, j, cur = pos * 15 / 63;
+            char pb[16];
+            for (f = 15; f >= 0; f--) {
+                float kp = (float)f * (7.0f / 15.0f), ox = 14.0f + (float)f * 6.2f, oy = (float)PIC_Y + 104.0f - (float)f * 4.6f, px = 0.0f, py = 0.0f;
+                uint16_t c = f == cur ? C_K2 : g_mix(C_BG, C_MID, 0.75f - 0.03f * (float)f);
+                if (oy - 24.0f > (float)g_y1 || oy + 24.0f < (float)g_y0)
+                    continue;                         /* (not in this band) */
+                for (j = 0; j <= 48; j++) {
+                    float u = (float)j / 48.0f, x = ox + u * 118.0f, y = oy - wtab_read(t1, kp, u * 0.999f, 0.0f, 0) * 18.0f;
+                    if (j)
+                        g_seg(px, py, x, y, f == cur ? 1.8f : 0.8f, c);
+                    px = x;
+                    py = y;
+                }
+            }
+            g_seg(14.0f, (float)PIC_Y + 126.0f, 14.0f + 15.0f * 6.2f, (float)PIC_Y + 126.0f - 15.0f * 4.6f, 0.8f, C_LINE);
+            pb[0] = 0;
+            sx_int(pb + sx_cat(pb, "POS "), pos);
+            sx_cat(pb, " / 63");
+            g_text(8, PIC_Y + 2, &FONT_T, pb, C_DIM);
+            g_text_r(232, PIC_Y + 2, &FONT_T, tn->names ? tn->names[t1] : "", C_DIM);
+            return;
+        }
         g_text(8, PIC_Y + 6, &FONT_B, rv_engine_names[e], C_SYNTH);
         g_text(8, PIC_Y + 30, &FONT_T, desc[e], C_MID);
         pic_scope(t, PIC_Y + 44, 90, C_TEAL);
@@ -2722,7 +2774,7 @@ static void pic_fenv(void)
             u = (float)(i - x[4]) / (float)(x[5] - x[4] > 0 ? x[5] - x[4] : 1), y = sus * (1.0f - fe_bend(u, kd));
         py = base - (int)(clampf(y, 0.0f, 1.0f) * (float)(base - top));
         if (i > 8)
-            g_line(i - 1, prev, i, py, i < x[3] ? C_TEAL : i < x[4] ? C_INK : C_AMBER);
+            g_line(i - 1, prev, i, py, i < x[0] ? C_DIM : i < x[1] ? C_K1 : i < x[2] ? C_DIM : i < x[3] ? C_K2 : i < x[4] ? C_K3 : C_K4);   /* each stage in its knob's colour */
         prev = py;
     }
     if (loop) {                                        /* the loop: from the end of the decay back to the delay */
@@ -3231,7 +3283,7 @@ static void pic_drum(void)
     int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
     for (l = 0; l < RV_LANES; l++) {
         int y = PIC_Y + 6 + l * 20, len = kt->len[l] ? kt->len[l] : tlen;
-        uint16_t lc = l == sel ? C_PERC : C_DIM;
+        uint16_t lc = l == sel ? C_PERC : C_O_DIM;
         char nb[8];
         const char *mn = perc_mnames[kt->mach[l] % PM_N];
         int j = 0;
@@ -3243,15 +3295,15 @@ static void pic_drum(void)
         nb[3] = mn[j] && mn[j + 1] ? mn[j + 2] : 0;
         nb[4] = 0;
         if (l == sel)
-            g_fill(0, y - 2, 240, 19, C_PANEL);
+            g_fill(0, y - 2, 240, 19, C_O_PANEL);
         g_text(4, y + 2, &FONT_XS, nb, lc);
         for (i = 0; i < 16; i++) {
             int si = ui.step_page * 16 + i, x = 40 + i * 12;
             const rv_step *s = &p->s[si];
             int on = (s->flags & ST_ON) && ((s->note >> l) & 1), acc = on && ((s->env >> l) & 1);
-            uint16_t c = si >= len ? C_BG : on ? (acc ? C_WHITE : lc == C_DIM ? C_MID : C_PERC) : ((i & 3) ? C_LINE : C_DIM);
+            uint16_t c = si >= len ? C_BG : on ? (acc ? C_WHITE : lc == C_O_DIM ? C_O_MID : C_PERC) : ((i & 3) ? C_O_LINE : C_O_DIM);
             if (si >= len)
-                g_frame(x, y, 10, 14, C_LINE);
+                g_frame(x, y, 10, 14, C_O_LINE);
             else
                 g_fill(x, y + (on ? 0 : 5), 10, on ? 14 : 4, c);
             if (on && ((s->len >> l) & 1))
@@ -3279,11 +3331,11 @@ static void pic_lane(void)
     for (i = 0; i < RV_LANES; i++) {                  /* the tabs */
         char nb[2] = {(char)('1' + i), 0};
         int x = 4 + i * 39;
-        g_fill(x, PIC_Y + 2, 36, 14, i == l ? C_PERC : C_PANEL);
-        g_text_c(x + 18, PIC_Y + 5, &FONT_XS, nb, i == l ? C_WHITE : C_DIM);
+        g_fill(x, PIC_Y + 2, 36, 14, i == l ? C_PERC : C_O_PANEL);
+        g_text_c(x + 18, PIC_Y + 5, &FONT_XS, nb, i == l ? C_WHITE : C_O_DIM);
     }
     g_text(8, PIC_Y + 22, &FONT_B, perc_mnames[m], C_PERC);
-    g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_DIM);
+    g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
     for (i = 0; i < 11; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH */
         int row = i < 4 ? 0 : i < 8 ? 1 : 2, col = i % 2, x = 6 + col * 118, y = PIC_Y + 46 + (i / 2) * 13;
         int lit = row == ui.lane_row % 3, v, mx = 127;
@@ -3304,15 +3356,15 @@ static void pic_lane(void)
             char kn[2] = {(char)('1' + (i < 8 ? i % 4 : i - 8)), 0};
             g_text(x, y, &FONT_XS, kn, C_TEAL);
         }
-        g_text(x + 9, y, &FONT_XS, nm, lit ? C_INK : C_DIM);
-        g_fill(x + 52, y + 3, 40, 3, C_LINE);
-        g_fill(x + 52, y + 3, v * 40 / (mx ? mx : 1), 3, lit ? C_PERC : C_MID);
+        g_text(x + 9, y, &FONT_XS, nm, lit ? C_INK : C_O_DIM);
+        g_fill(x + 52, y + 3, 40, 3, C_O_LINE);
+        g_fill(x + 52, y + 3, v * 40 / (mx ? mx : 1), 3, lit ? C_PERC : C_O_MID);
         vb[0] = 0;
         if (i == 10 && v == 0)
             sx_cat(vb, "TRK");
         else
             sx_int(vb, v);
-        g_text_r(x + 114, y, &FONT_XS, vb, lit ? C_INK : C_DIM);
+        g_text_r(x + 114, y, &FONT_XS, vb, lit ? C_INK : C_O_DIM);
     }
 }
 
@@ -3324,22 +3376,28 @@ static void pic_steps(void)
     /* the 64-step overview */
     for (i = 0; i < 64; i++) {
         int x = 8 + (i % 16) * 14 + (i / 16) * 0, y = PIC_Y + 2 + (i / 16) * 6;
-        uint16_t c = i >= len ? C_BG : (p->s[i].flags & ST_ON) ? C_TEAL_D : C_LINE;
+        uint16_t c = i >= len ? C_BG : (p->s[i].flags & ST_ON) ? kind_dcol(t) : C_LINE;
         if (i / 16 == ui.step_page && i < len)
-            c = (p->s[i].flags & ST_ON) ? C_TEAL : C_DIM;
+            c = (p->s[i].flags & ST_ON) ? g_mix(kind_dcol(t), C_INK, 0.5f) : C_DIM;
         if (i == play)
             c = C_WHITE;
-        g_fill(x, y, 12, 4, c);
+        g_rbox(x, y, 12, 3, 1, c, 1);
     }
     /* the 16 keys' steps, large */
     for (i = 0; i < 16; i++) {
         int si = ui.step_page * 16 + i, x = 8 + (i % 8) * 28, y = PIC_Y + 30 + (i / 8) * 46;
         const rv_step *s = &p->s[si];
-        uint16_t bg = si >= len ? C_BG : (s->flags & ST_ON) ? C_PANEL : C_BG;
-        g_fill(x, y, 26, 42, bg);
+        uint16_t lt = g_mix(kind_dcol(t), C_INK, 0.55f);
         if (si >= len)
             continue;
-        g_frame(x, y, 26, 42, si == play || si == play2 ? C_WHITE : si == ui.step_cur ? C_TEAL : C_LINE);
+        if (s->flags & ST_ON)                         /* a step that plays: filled in the track's colour */
+            g_rbox(x, y, 25, 42, 4, kind_dcol(t), 1);
+        else
+            g_rbox(x, y, 25, 42, 4, C_LINE, 0);
+        if (si == play || si == play2)
+            g_rbox(x, y, 25, 42, 4, C_WHITE, 0);
+        if (si == ui.step_cur)                        /* the step the knobs edit: ringed in KNOB 1's colour */
+            g_rbox(x - 2, y - 2, 29, 46, 5, C_K1, 0);
         if (s->flags & ST_ON) {
             int vh = s->vel * 20 / 127;
             if (s->flags & ST_JUMP) {
@@ -3349,8 +3407,8 @@ static void pic_steps(void)
             } else {
                 sx_note(b, s->note);
             }
-            g_text_c(x + 13, y + 2, &FONT_T, b, C_INK);
-            g_fill(x + 3, y + 38 - vh, 4, vh, C_TEAL);
+            g_text_c(x + 13, y + 3, &FONT_T, b, C_INK);
+            g_rbox(x + 4, y + 38 - vh, 2, vh > 2 ? vh : 2, 1, lt, 1);   /* its velocity */
             if (s->lp[0] || s->lp[1])
                 g_fill(x + 20, y + 16, 3, 3, C_AMBER);
             if (s->ratchet & 7) {
