@@ -96,6 +96,10 @@ static const int8_t p_syncarp[] = {TP_S0, CW_SAW, TP_S2, 86, TP_S3, 2, TP_S4, 7,
 /* the new filters, on VA */
 static const int8_t p_101bass[] = {TP_FTYPE, FT_SH101, TP_CUT, 58, TP_RES, 64, TP_EFILT, 40, TP_ATK, 0, TP_DEC, 45,
                                    TP_SUS, 40, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 100, END};
+static const int8_t p_sembrass[] = {TP_FTYPE, FT_SEM, TP_FMODE, 0, TP_CUT, 52, TP_RES, 46, TP_EFILT, 44, TP_KTRK, 40, TP_ATK, 20,
+                                    TP_DEC, 62, TP_SUS, 80, TP_REL, 40, TP_LEVEL, 92, END};
+static const int8_t p_semnotch[] = {TP_FTYPE, FT_SEM, TP_FMODE, 64, TP_CUT, 66, TP_RES, 70, TP_EFILT, 20, TP_ATK, 70,
+                                    TP_SUS, 110, TP_REL, 80, TP_REVS, 50, TP_LEVEL, 88, END};
 static const int8_t p_msscream[] = {TP_FTYPE, FT_MS20, TP_CUT, 70, TP_RES, 112, TP_EFILT, 36, TP_ATK, 0, TP_DEC, 60,
                                     TP_SUS, 60, TP_REL, 30, TP_LEVEL, 84, END};
 static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0,
@@ -267,7 +271,7 @@ static const rv_preset presets[] = {
     {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice, 0},
     {"CHIP ARP", KIND_SYNTH, ENG_CHIP, p_chiparp, 0}, {"SID BASS", KIND_SYNTH, ENG_CHIP, p_sidbass, 0}, {"CHIP KICK", KIND_SYNTH, ENG_CHIP, p_chipkick, 0},
     {"CHIP SNARE", KIND_SYNTH, ENG_CHIP, p_chipsnare, 0}, {"DECOMPOSED", KIND_SYNTH, ENG_CHIP, p_decomposed, 0},
-    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp, 0}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass, 0}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream, 0},
+    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp, 0}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass, 0}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream, 0}, {"SEM BRASS", KIND_SYNTH, ENG_VA, p_sembrass, 0}, {"SEM NOTCH", KIND_SYNTH, ENG_VA, p_semnotch, 0},
     {"SQ PIANO", KIND_SYNTH, ENG_SQ, q_piano, 0}, {"SQ VOX", KIND_SYNTH, ENG_SQ, q_vox, 0}, {"SQ BELLS", KIND_SYNTH, ENG_SQ, q_bells, 0},
     {"SQ BASS", KIND_SYNTH, ENG_SQ, q_bass, 0}, {"SQ SYNC", KIND_SYNTH, ENG_SQ, q_sync, 0}, {"SQ PAD", KIND_SYNTH, ENG_SQ, q_pad, 0},
     {"SQ ORGAN", KIND_SYNTH, ENG_SQ, q_organ, 0},
@@ -304,6 +308,7 @@ static const rv_preset presets[] = {
 
 int rv_preset_count(void) { return NPRESETS; }
 const char *rv_preset_name(int i) { return i >= 0 && i < NPRESETS ? presets[i].name : ""; }
+int rv_preset_is_kit(int i) { return i >= 0 && i < NPRESETS && presets[i].kind == KIND_PERC && presets[i].engine == 1; }
 int rv_preset_kind(int i) { return i >= 0 && i < NPRESETS ? presets[i].kind : -1; }
 
 /* KIND changed on the track: its defaults (a PERC track starts as a KIT; a synth keeps its engine),

@@ -47,7 +47,7 @@ enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_M
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP };
@@ -94,6 +94,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCA 2", {CZE(1, CZE_DCA, CZF_RATE), CZE(1, CZE_DCA, CZF_LEVEL), CZE(1, CZE_DCA, CZF_SUS), CZE(1, CZE_DCA, CZF_END)}},
     {SEC_VOICE, V_ALL, PIC_SOURCE, PR_SOUND, "PITCH", {TP(TP_PITCH), TP(TP_FINE), TP(TP_GLIDE), NO}},
     {SEC_VOICE, V_ALL, PIC_FILTER, PR_SOUND, "FILTER", {TP(TP_FTYPE), TP(TP_CUT), TP(TP_RES), TP(TP_KTRK)}},
+    {SEC_VOICE, V_SEM, PIC_FILTER, PR_SOUND, "SEM", {TP(TP_FMODE), TP(TP_FBP), TP(TP_CUT), TP(TP_RES)}},
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN", {TP(TP_DRIVE), TP(TP_FOLD), TP(TP_BITS), TP(TP_DEREZ)}},
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_VOC), NO, NO}},
     {SEC_VOICE, V_ALL, PIC_INSERT, PR_SOUND, "INSERT", {TP(TP_INS), TP(TP_INA), TP(TP_INB), TP(TP_INMIX)}},
@@ -203,6 +204,8 @@ static struct {
     uint32_t frame;
     uint8_t dust_hist[60];
     uint8_t dust_w;
+    uint8_t conf_what;                       /* a destructive action waiting for its second try */
+    uint32_t conf_at;
 } ui;
 
 static const uint8_t white_keys[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
@@ -232,6 +235,34 @@ static void msg(const char *s)
         ui.msg[i] = s[i];
     ui.msg[i] = 0;
     ui.msg_until = plat_ms() + 1400;
+}
+
+int rv_preset_is_kit(int i);
+static int track_has_steps(int t)
+{
+    int p, i;
+    for (p = 0; p < RV_PATTERNS; p++)
+        for (i = 0; i < RV_STEPS; i++)
+            if (rv.pat[t][p].s[i].flags & ST_ON)
+                return 1;
+    return 0;
+}
+/* an action that destroys steps: the first try only warns; the same action again, after a pause
+ * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET };
+static int confirmed(int what, const char *warn)
+{
+    uint32_t now = plat_ms(), dt = now - ui.conf_at;
+    if (ui.conf_what == what && dt < 2500) {
+        if (dt < 300)
+            return 0;
+        ui.conf_what = 0;
+        return 1;
+    }
+    ui.conf_what = (uint8_t)what;
+    ui.conf_at = now;
+    msg(warn);
+    return 0;
 }
 
 static int sx_int(char *o, int v)
@@ -292,10 +323,25 @@ static int src_page_visible(int t, int pg)
     return 0;
 }
 
+/* a page every knob of which does nothing as the track is set (ENV on a drum machine, FILTER on strike) */
+static int page_all_dead(int i, int t)
+{
+    int k, any = 0;
+    for (k = 0; k < 4; k++) {
+        kb_t b = pages[i].k[k];
+        if (b.kind == K_NONE)
+            continue;
+        if (b.kind != K_TP || rv_tp_applies(t, b.id))
+            return 0;
+        any = 1;
+    }
+    return any;
+}
+
 static int page_visible(int i)
 {
     int t = ui.track, kind = rv.tp[t][TP_KIND], mode = rv.tp[t][TP_S0];
-    if (kind == KIND_PERC && pages[i].pic == PIC_FILTER)   /* only synth voices have the filter (a PERC track has FLTF/FLTW) */
+    if ((pages[i].sec == SEC_ARTIC || pages[i].pic == PIC_FILTER) && page_all_dead(i, t))
         return 0;
     if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
         return 0;
@@ -319,23 +365,25 @@ static int page_visible(int i)
     case V_NOTCZ: return !(kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ);
     case V_KIT: return is_kit_ui(t);
     case V_NOTKIT: return !is_kit_ui(t);
+    case V_SEM: return kind == KIND_SYNTH && rv.tp[t][TP_FTYPE] == FT_SEM;
     default: return 1;
     }
 }
 
 /* the visible pages of a section, in order */
+#define SEC_PAGES_MAX 32                 /* the most pages one section can show (FX has 18, a two-line CZ's EDIT 20) */
 static int sec_page_list(int sec, uint8_t *out)
 {
     int i, n = 0;
     for (i = 0; i < NPAGES; i++)
-        if (pages[i].sec == sec && page_visible(i))
+        if (pages[i].sec == sec && page_visible(i) && n < SEC_PAGES_MAX)
             out[n++] = (uint8_t)i;
     return n;
 }
 
 static const page_t *cur_page(void)
 {
-    uint8_t list[16];
+    uint8_t list[SEC_PAGES_MAX];
     int n = sec_page_list(ui.sec, list);
     if (!n)
         return &pages[0];
@@ -690,6 +738,8 @@ static void kb_set(kb_t k, int v)
     switch (k.kind) {
     case K_TP:
         if (k.id == TP_KIND && v != rv.tp[ui.track][TP_KIND]) {
+            if (is_kit_ui(ui.track) != (v == KIND_PERC) && track_has_steps(ui.track) && !confirmed(CONF_KIND, "TURN AGAIN: CLEARS STEPS"))
+                return;
             rv_track_set_kind(ui.track, v);
             ui.preset_idx[ui.track] = -1;
             return;
@@ -719,8 +769,15 @@ static void kb_set(kb_t k, int v)
             return;
         }
         if (k.id == TP_ENGINE && rv.tp[ui.track][TP_KIND] == KIND_PERC && v != rv.tp[ui.track][TP_ENGINE]) {
-            int pt = rv.pat_cur[ui.track];               /* notes mean nothing to lanes, or lanes to notes: start clean */
+            int pt = rv.pat_cur[ui.track], p;            /* notes mean nothing to lanes, or lanes to notes: start clean */
+            if (track_has_steps(ui.track) && !confirmed(CONF_MODE, "TURN AGAIN: CLEARS STEPS"))
+                return;
             rv.tp[ui.track][TP_ENGINE] = (int16_t)v;
+            if (!v)                                       /* SINGLE: the machine starts from its own defaults */
+                for (p = TP_S1; p <= TP_S8; p++) {
+                    const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
+                    rv.tp[ui.track][p] = pi->name ? pi->def : 0;
+                }
             for (rv.pat_cur[ui.track] = 0; rv.pat_cur[ui.track] < RV_PATTERNS; rv.pat_cur[ui.track]++)
                 rv_pattern_clear(ui.track);
             rv.pat_cur[ui.track] = (uint8_t)pt;
@@ -1186,6 +1243,8 @@ static void preset_turn(int d)
         int n = d > 0 ? d : -d;
         for (i = 0; i < n; i++)
             cur = rv_preset_step(t, cur, d > 0 ? 1 : -1);
+        if (rv_preset_is_kit(cur) != is_kit_ui(t) && track_has_steps(t) && !confirmed(CONF_PRESET, "TURN AGAIN: CLEARS STEPS"))
+            break;
         rv_preset_apply(t, cur);
         ui.preset_idx[t] = (int16_t)cur;
         msg(rv_preset_name(cur));
@@ -1274,7 +1333,7 @@ static void save_do(void)
 static void section_open(int s)
 {
     if (ui.sec == s) {                        /* tapping the section's button again: the next page */
-        uint8_t list[16];
+        uint8_t list[SEC_PAGES_MAX];
         int n = sec_page_list(s, list);
         ui.page[s] = (uint8_t)(n ? (ui.page[s] + 1) % n : 0);
     } else {
@@ -1300,7 +1359,7 @@ static void section_open(int s)
 /* open a kit lane's EDIT page */
 static void lane_open(int t, int l)
 {
-    uint8_t list[16];
+    uint8_t list[SEC_PAGES_MAX];
     int n = sec_page_list(SEC_VOICE, list), i;
     ui.lane[t] = (uint8_t)l;
     for (i = 0; i < n; i++)
@@ -1466,6 +1525,8 @@ static void key_event(int k, int on)
                     rv.pat_cur[t] = (uint8_t)bi;
                 msg(bi == 0 ? "PATTERN A" : "PATTERN B");
             } else if (bi == 10) {
+                if (track_has_steps(t) && !confirmed(CONF_CLEAR, "PRESS AGAIN TO CLEAR"))
+                    return;
                 rv_pattern_clear(t);
                 msg("PATTERN CLEARED");
             }
@@ -1630,7 +1691,7 @@ void ui_input_only(void)
     ui.prev_keys = keys;
     d = plat_enc(EN_SELECT);
     if (d) {
-        uint8_t list[16];
+        uint8_t list[SEC_PAGES_MAX];
         int n = sec_page_list(ui.sec, list);
         if (n)
             ui.page[ui.sec] = (uint8_t)clampi(ui.page[ui.sec] + d, 0, n - 1);
@@ -1736,6 +1797,10 @@ static void draw_knobs(void)
         if (k.kind == K_TP && !rv_tp_applies(ui.track, k.id)) {   /* does nothing as the track is set: greyed */
             v = kb_get(k);
             kb_format(k, v, val);
+            if (k.id == TP_ENGINE) {                 /* a strike or tape track has no engine to name */
+                val[0] = '-';
+                val[1] = 0;
+            }
             g_text_c(cx, 25, &FONT_T, in.name, C_LINE);
             g_text_c(cx, 38, g_text_w(&FONT_B, val) > 56 ? &FONT_XS : &FONT_B, val, C_LINE);
             g_fill(x + 6, 62, 48, 3, C_LINE);
@@ -1784,7 +1849,7 @@ static void draw_knobs(void)
 
 static void draw_footer(void)
 {
-    uint8_t list[16];
+    uint8_t list[SEC_PAGES_MAX];
     int n = sec_page_list(ui.sec, list), i, x;
     uint32_t btn = plat_buttons();
     const char *hint = "PRESETS: SOUNDS";
@@ -2137,6 +2202,8 @@ static void pic_source(void)
     (void)b;
 }
 
+static float pic_sem_m;
+static int pic_sem_bp;
 /* the response of the track's filter at f (approximate, for the picture) */
 static float filt_mag(int type, float f, float fc, float res)
 {
@@ -2155,6 +2222,10 @@ static float filt_mag(int type, float f, float fc, float res)
     case FT_XBP24: { float b = (w / q) / fm_sqrtf(m2 + 1e-6f); return b * b * (1.0f + res * 2.0f); }
     case FT_XLP24: { float im2 = w / 0.55f; return 1.0f / fm_sqrtf(m2 + 1e-6f) / fm_sqrtf(re * re + im2 * im2 + 1e-6f); }
     case FT_XSH: case FT_XSHAPE: return 1.0f;
+    case FT_SEM: {
+        float q3 = 0.55f + res * res * 11.0f, im3 = w / q3, d = fm_sqrtf(re * re + im3 * im3 + 1e-6f);
+        return pic_sem_bp ? im3 / d * fm_sqrtf(q3) : fm_fabsf((1.0f - pic_sem_m) - pic_sem_m * w * w) / d;
+    }
     case FT_BP: return (w / q) / fm_sqrtf(m2 + 1e-6f) * (1.0f + res);
     default: return 1.0f / fm_sqrtf(m2 + 1e-6f);
     }
@@ -2165,13 +2236,13 @@ static void pic_filter(void)
     int t = ui.track, i, prev = 0, type = rv.tp[t][TP_FTYPE];
     float fc = rv_cut_hz(rv_param_eff(t, TP_CUT)), res = rv_param_eff(t, TP_RES) / 127.0f, fx;
     char b[20];
-    for (i = 0; i < 4; i++) {
-        int x = 8 + i * 56;
-        g_vline(x, PIC_Y + 6, 112, C_LINE);
-    }
+    pic_sem_m = clampf(rv_param_eff(t, TP_FMODE) / 127.0f, 0.0f, 1.0f);
+    pic_sem_bp = rv.tp[t][TP_FBP] != 0;
+    for (i = 0; i < 3; i++)                                   /* 100 Hz, 1 kHz, 10 kHz: 20 Hz to 20 kHz over 224 px */
+        g_vline(8 + (int)(224.0f * (2.3219f + 3.3219f * (float)i) / 10.0f), PIC_Y + 6, 112, C_LINE);
     for (i = 0; i <= 224; i += 2) {
         float f = 20.0f * fm_exp2f((float)i / 224.0f * 10.0f);
-        float m = type >= FT_ZVOWEL ? zp_mag(type - FT_ZVOWEL, rv_param_eff(t, TP_CUT) / 127.0f, res, f)
+        float m = FT_IS_Z(type) ? zp_mag(type - FT_ZVOWEL, rv_param_eff(t, TP_CUT) / 127.0f, res, f)
                                     : filt_mag(type == FT_LPG ? FT_LP : type, f, fc, res);
         float db = 20.0f * fm_log2f(m + 1e-6f) * 0.30103f;
         int y = PIC_Y + 50 - (int)(db * 2.2f);
@@ -2187,7 +2258,9 @@ static void pic_filter(void)
     g_vline((int)fx, PIC_Y + 4, 114, C_AMBER_D);
     rv_param_format(PID_T(t, TP_CUT), rv.tp[t][TP_CUT], b, 20);
     g_text((int)fx + 4 > 190 ? (int)fx - 40 : (int)fx + 4, PIC_Y + 6, &FONT_T, b, C_AMBER);
-    g_text(8, PIC_Y + 122, &FONT_T, "100     1K       10K", C_DIM);
+    g_text(52, PIC_Y + 122, &FONT_T, "100", C_DIM);
+    g_text(130, PIC_Y + 122, &FONT_T, "1K", C_DIM);
+    g_text(201, PIC_Y + 122, &FONT_T, "10K", C_DIM);
 }
 
 static void pic_skin(void)
@@ -2296,7 +2369,7 @@ static void pic_env(void)
     if (rv.tp[t][TP_KIND] == KIND_PERC) {
         g_text_c(120, PIC_Y + 40, &FONT_B, "THE MACHINE MAKES", C_PERC);
         g_text_c(120, PIC_Y + 62, &FONT_B, "ITS OWN ENVELOPE", C_PERC);
-        g_text_c(120, PIC_Y + 92, &FONT_T, "SET ITS DECAY ON THE SOURCE PAGES", C_DIM);
+        g_text_c(120, PIC_Y + 92, &FONT_T, rv.tp[t][TP_ENGINE] == 1 ? "SET DECAYS ON EDIT > LANE 1-6" : "SET ITS DECAY ON THE SOURCE PAGES", C_DIM);
         return;
     }
     if (rv.tp[t][TP_ESHAPE] > 0) {

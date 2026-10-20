@@ -314,7 +314,7 @@ static void kit_fire(int t, int si, uint32_t when)
             continue;
         if (density < 100 && (float)step_rank(li) >= density * 0.16f)
             continue;
-        sw = (li & 1) ? rv.gp[GP_SWING] - 50 : 0;
+        sw = ((sq[t].travelled[0] - 1u) & 1u) ? rv.gp[GP_SWING] - 50 : 0;   /* the offbeat in time, not the step's number */
         e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
         e.track = (uint8_t)t;
         e.chain = (uint16_t)(1u << t);
@@ -382,7 +382,8 @@ static void step_fire(int t, int h, int si, uint32_t when)
     if (density < 100 && (float)step_rank(si) >= density * 0.16f)
         return;
     micro = (float)s->micro * (1.0f - quant);
-    sw = (si & 1) ? rv.gp[GP_SWING] - 50 : 0;   /* SWING: the offbeat at SWING% of the pair (50 even, 66 a triplet feel) */
+    sw = ((sq[t].travelled[h] - 1u) & 1u) ? rv.gp[GP_SWING] - 50 : 0;   /* SWING: every second step in time sits at SWING% of the pair
+                                                                        (50 even, 66 a triplet feel), whatever the direction or LENGTH */
     e.when = when + (uint32_t)(((float)LATENCY_TICKS + micro) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
     e.track = (uint8_t)tt;
     e.chain = (uint16_t)(1u << tt);
@@ -460,6 +461,13 @@ static int track_clocked_by_route(int t)
 static void head_advance(int t, int h, uint32_t when)
 {
     seqtrk_t *s = &sq[t];
+    if (h == 0 && pend_pat[t] >= 0 && !is_graph(t)
+        && (s->step[0] < 0 || s->travelled[0] % (uint32_t)clampi(rv.tp[t][TP_LEN], 1, RV_STEPS) == 0)) {
+        rv.pat_cur[t] = (uint8_t)(pend_pat[t] % RV_PATTERNS);   /* a launched pattern waits for this one's end, then starts at its top */
+        pend_pat[t] = -1;
+        s->passes = 0;
+        s->step[0] = s->step[1] = -1;
+    }
     s->step[h] = (int16_t)next_step(t, h, s->step[h]);
     s->travelled[h]++;
     if (h == 0) {
@@ -488,20 +496,10 @@ static void track_advance(int t, uint32_t when)
     }
 }
 
-/* the bar: scenes, patterns and the arrangement switch here */
-static void bar_boundary(void)
+/* a scene waiting to be applied, and the graph tracks' launched patterns (step tracks switch at their own end) */
+static void apply_pending(void)
 {
     int t;
-    song_bar++;
-    if (rv.gp[GP_SONGMODE] == 1 && rv.arr_len) {
-        if (arr_bar_left > 0)
-            arr_bar_left--;
-        if (arr_bar_left == 0) {
-            arr_row = (uint8_t)((arr_row + 1) % rv.arr_len);
-            arr_bar_left = rv.arr[arr_row].bars ? rv.arr[arr_row].bars : 1;
-            pend_scene = (int8_t)rv.arr[arr_row].scene;
-        }
-    }
     if (pend_scene >= 0) {
         const rv_scene *sc = &rv.scene[pend_scene & 15];
         if (sc->used) {
@@ -526,29 +524,45 @@ static void bar_boundary(void)
         pend_scene = -1;
     }
     for (t = 0; t < RV_TRACKS; t++)
-        if (pend_pat[t] >= 0) {
+        if (pend_pat[t] >= 0 && is_graph(t)) {
             rv.pat_cur[t] = (uint8_t)(pend_pat[t] % RV_PATTERNS);
             pend_pat[t] = -1;
             sq[t].passes = 0;
         }
 }
 
+/* the bar: scenes, graph patterns and the arrangement switch here */
+static void bar_boundary(void)
+{
+    song_bar++;
+    if (rv.gp[GP_SONGMODE] == 1 && rv.arr_len) {
+        if (arr_bar_left > 0)
+            arr_bar_left--;
+        if (arr_bar_left == 0) {
+            arr_row = (uint8_t)((arr_row + 1) % rv.arr_len);
+            arr_bar_left = rv.arr[arr_row].bars ? rv.arr[arr_row].bars : 1;
+            pend_scene = (int8_t)rv.arr[arr_row].scene;
+        }
+    }
+    apply_pending();
+}
+
 /* a master pulse at sample offset off in this control step */
 static void seq_pulse(int off)
 {
     int t;
-    uint32_t base = now_s + (uint32_t)off;
+    uint32_t base = now_s + (uint32_t)off, lat = (uint32_t)((float)LATENCY_TICKS / 24.0f * clk_period * RV_FS);   /* the click lands with the notes */
     if (!playing)
         return;
     if (countin_left > 0) {                           /* the count-in: clicks on the beats, nothing plays */
         if ((countin_left & 3) == 0)
-            click_at(base, (countin_left & 15) == 0, 1);
+            click_at(base + lat, (countin_left & 15) == 0, 1);
         countin_left--;
         rv_live.countin = (uint8_t)((countin_left + 3) / 4);
         return;
     }
     if ((mpulse & 3) == 0)
-        click_at(base, (mpulse & 15) == 0, 0);
+        click_at(base + lat, (mpulse & 15) == 0, 0);
     if ((mpulse & 15) == 0 && mpulse)
         bar_boundary();
     rv_live.beat = (uint8_t)((mpulse >> 2) & 3);
@@ -621,8 +635,8 @@ static void seq_start(void)
         sq[t].pitch_set = 0;
         turn_bits[t] = 0;
     }
-    if (pend_scene >= 0)
-        bar_boundary();
+    if (pend_scene >= 0)                              /* row 1's scene now, without counting a bar */
+        apply_pending();
     countin_left = rv_live.recording && rv.gp[GP_COUNTIN] > 0 ? 16 * rv.gp[GP_COUNTIN] : 0;   /* recording: count in first */
     rv_live.countin = (uint8_t)((countin_left + 3) / 4);
     playing = 1;
@@ -759,8 +773,7 @@ static void scene_launch_now(int s)
 {
     if (!playing) {
         pend_scene = (int8_t)(s & 15);
-        bar_boundary();
-        song_bar = 0;
+        apply_pending();
         return;
     }
     pend_scene = (int8_t)(s & 15);
@@ -902,9 +915,22 @@ static void record_note(int t, int note, int vel)
     rv_step *s;
     if (!playing || !rv_live.recording || rv_live.rec_track != t)
         return;
-    si = live_step_pos(t, &micro);
+    if (countin_left > 0) {                           /* the count-in: only a note just before the top counts, on step 1 */
+        if (countin_left > 1 || vel == 0)
+            return;
+        si = 0;
+        micro = 0;
+    } else
+        si = live_step_pos(t, &micro);
     s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
     if (is_kit(t)) {                                  /* a kit: the key's lane plays on this step */
+        int lane = perc_lane_of(note), tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
+        int llen = rv.kit[t].len[lane] ? clampi(rv.kit[t].len[lane], 1, RV_STEPS) : tlen;
+        if (llen != tlen && countin_left == 0 && sq[t].step[0] >= 0) {   /* a lane with its own LENGTH: its own step */
+            uint32_t ahead = si != sq[t].step[0] ? 1u : 0u;
+            si = (int)((sq[t].travelled[0] - 1u + ahead) % (uint32_t)llen);
+            s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+        }
         if (vel > 0) {
             if (!(s->flags & ST_ON)) {
                 s->note = 0;

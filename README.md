@@ -261,7 +261,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) and five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -284,6 +284,8 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **Z METAL** | one set of clangorous, inharmonic peaks to another | from struck to long and ringing |
 
 Try the TALK BOX, PHASE PAD, Z VOX and Z SWEEP presets. The Z filters are on synth tracks, on any engine.
+
+**SEM** is after the Oberheim SEM: a single 12 dB state-variable filter, open and creamy rather than fat, whose resonance rises to a vocal peak but never quite self-oscillates. Choosing it adds a **SEM** page after FILTER: **LP-HP** sweeps continuously from low pass (0) through a notch (64) to high pass (127), and the matrix and LFOs can move it; **BP** switches to its band pass, which grows louder as RESO rises (LP-HP is then greyed); CUTOFF and RESO are repeated there. Try the SEM BRASS and SEM NOTCH presets.
 
 **The XT filters** are digital filters in the manner of the Waldorf Microwave II/XT's: **XT LP24** is a clean four-pole lowpass whose resonance rings sharp and glassy, **XT BP24** a four-pole bandpass, **XT NOTCH** cuts a hole at CUTOFF (RESO widens and deepens it), **XT S&H** samples and holds the sound at a rate CUTOFF sets (a sample-rate reducer that follows the keys with KEYTRK; RESO keeps more of the raw steps) and **XT SHAPE** is a wave shaper, CUTOFF driving it and RESO folding it further. They suit the WAVE engine but work on every synth engine.
 
@@ -533,7 +535,7 @@ A PERC track has two MODEs (EDIT › SOUND, KNOB 2). It starts as a **KIT**: six
 - **P-I:** HARD a harder hit, HAMR a softer mallet, TENS the pitch bend of a tight skin hit hard, DAMP damping, TUNE how the skin is tuned, SIZE the drum's size, POS where it is struck (centre to edge), RING metal that rings on, RVOL and RDEC the snare wires, GRNS and GLEN the maracas' grains and their length, CLSN the two hats touching, AG and AU more or fewer highs, BR the lows, CLOS and GRAB when the hat closes or a hand grabs the cymbal (127: never).
 ### Kits: six drums on one track
 
-A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit, starts its steps clean: notes and lane hits can't read each other.)
+A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit by KIND or a preset, starts its steps clean, since notes and lane hits can't read each other; if the track has steps, the first turn only warns, and turning again after a moment does it.)
 
 **Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. Outside SEQ, **black keys 3–8** jump straight to lanes 1–6 (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE and LENGTH, each with its bar and value.
 
@@ -722,7 +724,7 @@ The effects last while the key is held. Letting go of FX releases them all.
 
 - **The keys fold into the scale** (like Elektron's fold mode). With a scale set, every key plays: the lowest key plays the first scale note at or above F, and each key after it plays the next note of the scale, so the keyboard runs up through the scale across several octaves and no key is wrong or dead. With CHROMA the keys are chromatic again. Notes you record from the keys are recorded as played.
 - **The sequencer snaps** each step's note to the nearest scale note (a note exactly between two goes down).
-- **INTERVAL** (per track): a track with interval N only plays notes that are a multiple of N semitones from the root; other notes are skipped. INTERVAL 1 plays everything, 12 only the roots, 7 the root and the notes a fifth apart (stacked fifths: the fifth, the ninth…), 2 every other semitone. Copy one pattern to two tracks with different intervals and they split it between them.
+- **INTERVAL** (per track): a track with interval N only plays notes that are a multiple of N semitones from the root; other notes are skipped. INTERVAL 1 plays everything, 12 only the roots, 7 the root and the notes a fifth apart (stacked fifths: the fifth, the ninth…), 2 every other semitone. Give two tracks the same notes with different intervals and they split them between them.
 - **Set the root from the keys:** hold **SCL** and press a key.
 
 ## 11. ARP: the tape
@@ -799,8 +801,8 @@ The picture shows the whole tape, the four rows (the current one bright), the pl
 Every track has its own sequencer, with **two patterns (A and B)** of up to **64 steps**.
 
 - **PRESETS** switches pattern while on SEQ pages, and so do black keys **1** and **2**.
-- **Black key 11** clears the pattern.
-- Pattern changes while playing happen on the next bar.
+- **Black key 11** clears the pattern: press it twice (the first press asks).
+- A pattern launched while playing waits for the current one to finish (its LENGTH, at its RATE), then starts from its first step, so patterns of any length change cleanly. (A GRAPH track has no end, so it changes on the next bar.) Scenes change on the next bar.
 
 ### The step keys
 
@@ -918,7 +920,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
 
-**Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Without REC, PLAY starts at once.
+**Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 
 **Scenes** are snapshots of every track's pattern (A/B), levels, influence routes, mutes and macros.
 

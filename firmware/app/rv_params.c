@@ -13,7 +13,7 @@ const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLO
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
-static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "SQ-80", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE"};
+static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "SQ-80", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE", "SEM"};
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
 static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
@@ -320,6 +320,8 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_ETIME] = {"TIME", 0, 127, 90, PF_TIME, 0},
     [TP_EMODE] = {"PLAY", 0, N(emode_names), SHM_GATED, E(emode_names)},
     [TP_EWARP] = {"WARP", -64, 63, 0, PF_BI, 0},
+    [TP_FMODE] = {"LP-HP", 0, 127, 0, PF_NUM, 0},   /* 0 low pass, 64 notch, 127 high pass */
+    [TP_FBP] = {"BP", 0, 1, 0, PF_ONOFF, 0},
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -443,7 +445,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
     }
     if (p < 0 || p >= TP_N || !TRACK[p].name)
         return &NONE;
-    if ((p == TP_CUT || p == TP_RES) && rv.tp[t & 7][TP_FTYPE] >= FT_ZVOWEL) {   /* Z filters: two axes */
+    if ((p == TP_CUT || p == TP_RES) && FT_IS_Z(rv.tp[t & 7][TP_FTYPE])) {   /* Z filters: two axes */
         static const rv_pinfo morph = {"MORPH", 0, 127, 90, PF_NUM, 0}, xform = {"XFORM", 0, 127, 20, PF_NUM, 0};
         return p == TP_CUT ? &morph : &xform;
     }
@@ -552,6 +554,9 @@ void rv_param_format(int pid, int v, char *o, int max)
         if (pi->names && v >= pi->min && v <= pi->max)
             put_str(o, 0, max, pi->names[v - pi->min]);
         break;
+    case PF_ONOFF:
+        put_str(o, 0, max, v ? "ON" : "OFF");
+        break;
     case PF_BI:
     case PF_SEMI:
         put_int(o, 0, max, v, 1);
@@ -634,8 +639,12 @@ int rv_tp_applies(int t, int p)
     }                                                      /* take velocity as it comes */
     if (p == TP_POLY && tp[TP_KIND] == KIND_TAPE)                      /* a tape track is one playhead */
         return 0;
-    if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT) && tp[TP_KIND] != KIND_SYNTH)
+    if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT || p == TP_FMODE || p == TP_FBP) && tp[TP_KIND] != KIND_SYNTH)
         return 0;                                                      /* only synth voices have the filter */
+    if (p == TP_FMODE)                                                 /* the SEM's sweep; its band pass replaces it */
+        return tp[TP_FTYPE] == FT_SEM && !tp[TP_FBP];
+    if (p == TP_FBP)
+        return tp[TP_FTYPE] == FT_SEM;
     if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ && (p == TP_ESHAPE || p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP))
         return 0;                                                      /* the CZ's DCA envelopes are its level */
     if (tp[TP_ESHAPE] > 0 && !(tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ)) {   /* SHAPE replaces the classic articulation */
@@ -749,7 +758,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:

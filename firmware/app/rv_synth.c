@@ -1775,6 +1775,8 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
 #include "rv_zplane.h"
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
+static float sem_m;
+static int sem_bp;
 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
 {
     const float *eff = tr->eff;
@@ -1816,16 +1818,20 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         cut = eff[TP_CUT] * v->lpg + 6.0f;
     }
     cut = clampf(cut, 0.0f, 135.0f);
-    if (ft >= FT_XLP24) {                             /* the XT filters */
+    if (FT_IS_XT(ft)) {                               /* the XT filters */
         float q = 0.5f + res * res * 24.0f;
         svf_set(&v->svf, rv_cut_hz(cut), ft == FT_XNOTCH ? 0.5f + res * 6.0f : q);
         svf_set(&v->svf2, rv_cut_hz(cut), ft == FT_XLP24 || ft == FT_XBP24 ? 0.55f : q);
-    } else if (ft >= FT_ZVOWEL)                       /* MORPH and XFORM */
+    } else if (FT_IS_Z(ft))                           /* MORPH and XFORM */
         zp_design(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
     else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101 || ft == FT_SQ80)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
+    else if (ft == FT_SEM)                            /* 12 dB, its resonance stops short of oscillating */
+        svf_set(&v->svf, rv_cut_hz(cut), 0.55f + res * res * 11.0f);
     else
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
+    sem_m = clampf(eff[TP_FMODE] * (1.0f / 127.0f), 0.0f, 1.0f);
+    sem_bp = eff[TP_FBP] > 0.5f;
     lvl = 0.0f;
     for (i = 0; i < n; i++) {
         float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */
@@ -1864,6 +1870,12 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         case FT_XSHAPE: {                             /* a wave shaper: CUTOFF drives it, RESO folds it */
             float g = 1.0f + cut * (6.0f / 127.0f);
             y = fm_sinf(x * g * (1.0f + res * 2.0f)) * (0.7f + 0.3f / g);
+            break;
+        }
+        case FT_SEM: {                                /* Oberheim SEM: one state variable, LP to notch to HP, or BP */
+            float lp = svf_tick(&v->svf, x, &bp, &hp);
+            v->svf.ic1 = 2.0f * sat(v->svf.ic1 * 0.5f);   /* the OTA integrators round off when it rings */
+            y = sem_bp ? bp * fm_sqrtf(v->svf.k) : lp + (hp - lp) * sem_m;   /* BP rises with RESO, as the SEM's does */
             break;
         }
         case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;

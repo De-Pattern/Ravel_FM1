@@ -72,6 +72,7 @@ enum {
     TP_BANDS,                       /* (format 5) the send into the BANDS bus */
     /* (format 6) SHAPE: the articulation from a library of complex shapes, after the XAOC Zadar */
     TP_ESHAPE, TP_EMORPH, TP_ETIME, TP_EMODE, TP_EWARP,
+    TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
     TP_N
 };
 #define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
@@ -121,7 +122,9 @@ enum { PM_TRX_BD, PM_TRX_B2, PM_TRX_SD, PM_TRX_XT, PM_TRX_CP, PM_TRX_RS, PM_TRX_
 enum { WX_OFF, WX_SYNC, WX_RING, WX_FM, WX_SYNCFM };   /* WAVE: osc 1 on osc 2 */
 enum { WW_OFF, WW_SYNC, WW_BEND, WW_PWM, WW_MIRROR, WW_REMAP2, WW_REMAP4, WW_SQUEEZE, WW_FLIP, WW_QUANT, WW_N };   /* WAVE: phase warps */
 enum { CW_TRI, CW_SAW, CW_PULSE, CW_NOISE, CW_SAWPUL, CW_RING, CW_PWM, CW_KICK, CW_SNARE, CW_N };   /* CHIP waves */
-enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_SQ80, FT_ZVOWEL, FT_ZTALK, FT_ZPHASER, FT_ZPEAKS, FT_ZSWEEP, FT_ZMETAL, FT_XLP24, FT_XBP24, FT_XNOTCH, FT_XSH, FT_XSHAPE, FT_N };   /* Z: morphing; X: digital (XT) */
+enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_SQ80, FT_ZVOWEL, FT_ZTALK, FT_ZPHASER, FT_ZPEAKS, FT_ZSWEEP, FT_ZMETAL, FT_XLP24, FT_XBP24, FT_XNOTCH, FT_XSH, FT_XSHAPE, FT_SEM, FT_N };   /* Z: morphing; X: digital (XT) */
+#define FT_IS_Z(f) ((f) >= FT_ZVOWEL && (f) <= FT_ZMETAL)
+#define FT_IS_XT(f) ((f) >= FT_XLP24 && (f) <= FT_XSHAPE)
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
 enum { DIR_FWD, DIR_REV, DIR_PING, DIR_SNAKE, DIR_GRAPH, DIR_N };   /* DIR_GRAPH: old projects; now TP_SEQMODE */
 enum { SEQ_STEPS, SEQ_GRAPH };
