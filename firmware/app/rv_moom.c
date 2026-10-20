@@ -186,6 +186,7 @@ void moom_start(void)
 static void moom_stop(void)
 {
     mm.on = 0;
+    moom_music = 0;
     ui.prev_btn = plat_buttons();          /* no button or key edge leaks into the synth */
     ui.prev_keys = plat_keys();
     if (mm.was_playing)
@@ -730,7 +731,11 @@ static void mm_draw_title(void)
                 if (!up)
                     g_hline(bx, by, S, RGB(255, 246, 200));   /* a lit top edge */
             }
-    g_text_c(120, 116, &FONT_B, "MAJOR INCIDENT EDITION", C_TEAL);
+    {   /* what MOOM stands for, in the largest type that fits */
+        static const char *const tag = "MAJOR OUTAGE & OFFENSE MITIGATOR";
+        const rv_font_t *f = g_text_w(&FONT_B, tag) <= 234 ? &FONT_B : g_text_w(&FONT_XS, tag) <= 234 ? &FONT_XS : &FONT_T;
+        g_text_c(120, 116, f, tag, C_TEAL);
+    }
     g_text_c(120, 140, &FONT_T, "THE BRIDGE IS OPEN. THE BUGS ARE IN.", C_MID);
     if (((int)(mm.t * 2.0f) & 1) == 0)
         g_text_c(120, 196, &FONT_T, "PRESS PLAY TO JOIN THE CALL", C_AMBER);
@@ -759,6 +764,7 @@ void moom_frame(void)
     mm.prev_btn = btn;
     mm.prev_keys = keys;
     mm_update(dt, keys, down_keys, btn, down_btn, turn);
+    moom_music = mm.state == 0 ? (uint8_t)(mm.level + 1) : 0;   /* the soundtrack under play only */
     if (mm.state == 3) {
         for (b = 0; b < PLAT_H; b += GB_H) {
             g_band(b);

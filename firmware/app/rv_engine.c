@@ -16,6 +16,44 @@ static float click_env, click_ph, click_hz;
 /* MOOM's sound effects (rv_moom.c asks with moom_sfx_req): a click and zap, a hit, a resolved chime,
  * a hurt buzz, a pickup, a win, a fall; square waves and noise, after the limiter like the click */
 static volatile uint8_t moom_sfx_req;
+/* MOOM's soundtrack (moom_music: 0 off, else the level + 1): an original loop at 128 BPM in 16ths, a
+ * driving bass in A minor, kick, snare and hats from noise, and a small square hook every other bar;
+ * level 2 sits a fourth higher. Quiet, under the effects. */
+static volatile uint8_t moom_music;
+static float mus_t, mus_ph, mus_ph2, mus_lp;
+static uint32_t mus_rng = 0xBEEFu;
+static float mus_tick(void)
+{
+    static const int8_t bass[32] = {33, 33, 45, 33, 33, 33, 43, 45, 33, 33, 45, 33, 36, 36, 38, 40,
+                                    33, 33, 45, 33, 33, 33, 43, 45, 29, 29, 41, 29, 31, 31, 43, 32};
+    static const int8_t hook[16] = {69, 0, 72, 0, 76, 0, 74, 72, 69, 0, 67, 0, 69, 0, 0, 0};
+    const float st = 60.0f / 128.0f / 4.0f;
+    int k = (int)(mus_t / st), s = k & 31, tr = moom_music > 1 ? 5 : 0;
+    float loc = mus_t - (float)k * st, y = 0.0f, n, hz;
+    mus_t += RV_DT;
+    if (mus_t > st * 64.0f)
+        mus_t -= st * 64.0f;
+    hz = 440.0f * fm_exp2f(((float)(bass[s] + tr) - 69.0f) * (1.0f / 12.0f));   /* the bass: a dark, plucked saw */
+    mus_ph += hz * RV_DT;
+    mus_ph -= fm_floorf(mus_ph);
+    mus_lp += ((2.0f * mus_ph - 1.0f) - mus_lp) * 0.08f;
+    y += mus_lp * 0.11f * fm_expf(-loc * 7.0f);
+    mus_rng = mus_rng * 1664525u + 1013904223u;
+    n = (float)(mus_rng >> 9) * (2.0f / 8388608.0f) - 1.0f;
+    if ((s & 7) == 0)                                 /* kick: a falling sine */
+        y += fm_sinf(6.2831853f * (55.0f + 90.0f * fm_expf(-loc * 40.0f)) * loc) * 0.16f * fm_expf(-loc * 9.0f);
+    if ((s & 7) == 4)                                 /* snare */
+        y += n * 0.07f * fm_expf(-loc * 22.0f);
+    if (s & 1)                                        /* hats */
+        y += (n - mus_lp * 0.0f) * 0.018f * fm_expf(-loc * 60.0f);
+    if ((k & 32) && hook[s & 15]) {                   /* the hook, every other bar pair */
+        hz = 440.0f * fm_exp2f(((float)(hook[s & 15] + tr) - 69.0f) * (1.0f / 12.0f));
+        mus_ph2 += hz * RV_DT;
+        mus_ph2 -= fm_floorf(mus_ph2);
+        y += (mus_ph2 < 0.25f ? 1.0f : -0.33f) * 0.035f * fm_expf(-loc * 5.0f);
+    }
+    return y;
+}
 static uint8_t sfx_kind;
 static float sfx_t, sfx_ph;
 static uint32_t sfx_rng = 0x5EEDu;
@@ -1015,6 +1053,12 @@ static void render_sub(float *outl, float *outr, int n)
                 sfx_t = 0.0f;
                 sfx_ph = 0.0f;
             }
+            if (moom_music) {                         /* MOOM's soundtrack, under its effects */
+                float m = mus_tick();
+                outl[i] = clampf(outl[i] + m, -0.98f, 0.98f);
+                outr[i] = clampf(outr[i] + m, -0.98f, 0.98f);
+            } else
+                mus_t = 0.0f;
             if (sfx_kind) {
                 float c = sfx_tick();
                 if (sfx_kind == 1 && sfx_t < 0.012f)
