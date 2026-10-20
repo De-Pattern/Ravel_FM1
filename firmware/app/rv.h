@@ -284,6 +284,7 @@ void rv_param_format(int pid, int v, char *out, int max);
 const char *rv_pid_label(int pid, char *buf, int max);   /* "T3 CUT" */
 int rv_is_moddest(int p);                       /* a track parameter that modulation may move */
 int rv_tp_applies(int t, int p);                /* 0: in the track's current setup this knob does nothing */
+int rv_moddest_next_t(int t, int p, int dir);
 int rv_moddest_next(int p, int dir);
 extern const char *const rv_kind_names[], *const rv_engine_names[], *const rv_route_names[];
 extern const char *const rv_msrc_names[], *const rv_cond_names[];

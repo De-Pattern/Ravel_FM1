@@ -327,7 +327,7 @@ static const rv_pinfo TRACK[TP_N] = {
 static const rv_pinfo GLOBAL[GP_N] = {
     [GP_TEMPO] = {"TEMPO", 30, 240, 112, PF_BPM, 0},
     [GP_SWING] = {"SWING", 50, 100, 50, PF_PCT, 0},   /* where the offbeat sits in each pair of steps: 50% even */
-    [GP_QUANT] = {"QUANTZE", 0, 100, 0, PF_NUM, 0},
+    [GP_QUANT] = {"QUANTZE", 0, 100, 0, PF_PCT, 0},
     [GP_CLKMODE] = {"B DOES", 0, N(clkmode_names), 0, E(clkmode_names)},
     [GP_CLKSHAPE] = {"A SHAPE", 0, 127, 64, PF_NUM, 0},
     [GP_CLKBRATE] = {"B RATE", 0, 127, 30, PF_NUM, 0},
@@ -722,10 +722,10 @@ int rv_tp_applies(int t, int p)
         }
     }
     if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_WAVE) {
-        int two = tp[TP_S6] > 0 || tp[TP_S8] != WX_OFF;
+        int two = tp[TP_S6] > 0 || tp[TP_S8] == WX_RING;                    /* osc 2 is heard: with MIX, or rung into osc 1 */
         switch (p) {
-        case TP_S2: case TP_S3: case TP_S4: case TP_S5: return two;          /* osc 2: with MIX or XMOD */
-        case TP_S9: return tp[TP_S8] != WX_OFF;                             /* XM AMT */
+        case TP_S2: case TP_S3: case TP_S4: case TP_S5: return two;          /* osc 2 */
+        case TP_S9: return tp[TP_S8] != WX_OFF && two;                     /* XM AMT: SYNC and FM change osc 2, heard with MIX */
         case TP_S11: return tp[TP_S10] != WW_OFF;                           /* WARP AMT */
         case TP_S13: case TP_S14: return tp[TP_S12] > 0;                    /* the wave envelope */
         default: return 1;
@@ -764,6 +764,22 @@ int rv_is_moddest(int p)
     default:
         return p >= TP_S0 && p <= TP_S15;
     }
+}
+
+/* the next destination that does something on track t (named, and active as the track is set) */
+int rv_moddest_next_t(int t, int p, int dir)
+{
+    int i;
+    for (i = 0; i < TP_N; i++) {
+        p += dir;
+        if (p < 0)
+            p = TP_N - 1;
+        if (p >= TP_N)
+            p = 0;
+        if (rv_is_moddest(p) && rv_pinfo_track(t, p)->name && rv_tp_applies(t, p))
+            return p;
+    }
+    return rv_moddest_next(p, dir);
 }
 
 int rv_moddest_next(int p, int dir)

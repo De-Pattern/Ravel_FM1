@@ -1202,7 +1202,7 @@ static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
     w[1] = clampi((int)(eff[TP_S1] + 0.5f), 0, SQ_NWAVES - 1);
     w[2] = clampi((int)(eff[TP_S2] + 0.5f), 0, SQ_NWAVES - 1);
     /* ENV 2 and its decay: per block */
-    if (v->gate) {
+    if (v->a.gate) {                                /* (the key: the articulation's gate) */
         s->e2 = sus + (s->e2 - sus) * fm_expf(-dt / dec);
     } else {
         s->e2 *= fm_expf(-dt / (dec * 0.7f + 0.01f));
@@ -1357,7 +1357,7 @@ static void wave_render(voice_t *v, const float *eff, float f, float *out, int n
     if (wenv > 0 && !w->wdone) {
         w->wu += (float)n * RV_DT / rv_time_f(eff[TP_S14]);
         if (w->wu >= 1.0f) {
-            if (v->gate)
+            if (v->a.gate)
                 w->wu -= fm_floorf(w->wu);
             else {
                 w->wu = 1.0f;
@@ -1531,9 +1531,10 @@ static void logic_render(voice_t *v, const float *eff, float f, float *out, int 
                     ;
                 if (k < 4) {
                     float per = 1.0f / (f > 20.0f ? f : 20.0f), len = per * (0.15f + grain * 3.85f);
-                    float back = (per * (1.0f + spray * 6.0f * (xs_bi(&l->ns) * 0.5f + 0.5f))) * (float)RV_FS;
-                    if (back + len * gp * (float)RV_FS > (float)(RV_LOGIC_BUF - 8))
-                        back = (float)(RV_LOGIC_BUF - 8) - len * gp * (float)RV_FS;
+                    float room = (float)(RV_LOGIC_BUF - 8) - len * gp * (float)RV_FS, back = per * (float)RV_FS;
+                    if (back > room)
+                        back = room;
+                    back += spray * (xs_bi(&l->ns) * 0.5f + 0.5f) * (room - back);   /* SPRAY: within the room the buffer has, at any pitch */
                     l->gpos[k] = (float)l->w - clampf(back, 4.0f, (float)(RV_LOGIC_BUF - 8));
                     l->gt[k] = 0.0f;
                     l->gdt[k] = RV_DT / clampf(len, 0.0005f, 0.02f);

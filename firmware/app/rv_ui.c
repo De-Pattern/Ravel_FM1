@@ -843,7 +843,7 @@ static void kb_set(kb_t k, int v)
             r->amt = (int8_t)v;
         else if (k.id == RF_ARG) {
             if (r->type == RT_MOD)
-                r->arg = (uint8_t)rv_moddest_next(r->arg, v > r->arg ? 1 : -1);
+                r->arg = (uint8_t)rv_moddest_next_t(ui.cur_route & 7, r->arg, v > r->arg ? 1 : -1);
             else
                 r->arg = (uint8_t)v;
         } else
@@ -863,7 +863,7 @@ static void kb_set(kb_t k, int v)
                 m->dst = (uint16_t)PID_G(g);
             } else {
                 int cur = m->dst % RV_TP;
-                m->dst = (uint16_t)PID_T(m->dst / RV_TP, rv_moddest_next(cur, v > cur ? 1 : -1));
+                m->dst = (uint16_t)PID_T(m->dst / RV_TP, rv_moddest_next_t(m->dst / RV_TP, cur, v > cur ? 1 : -1));
             }
         } else
             m->amt = (int8_t)v;
