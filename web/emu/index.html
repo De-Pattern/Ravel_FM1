@@ -49,6 +49,9 @@ a.hbtn { text-decoration: none; display: inline-block; }
 :focus-visible { outline: 2px solid var(--red-hi); outline-offset: 2px; }
 
 .main { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; align-items: start; }
+.main > .side { grid-row: span 2; }        /* the workbench runs down the left; the guide and tracks sit under the device */
+.main > .lower { grid-column: 2; }
+.main { grid-template-rows: auto 1fr; }
 .side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 .side h3 { font: 600 11px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
 .proj { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; }
@@ -129,6 +132,9 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
 }
 @media (max-width: 860px) {
   .main { grid-template-columns: 1fr; }
+  .main > .side { grid-row: auto; }
+  .main > .lower { grid-column: auto; }
+  .main { grid-template-rows: none; }
   .device { order: -1; }
   .lower { grid-template-columns: 1fr; }
 }
@@ -191,7 +197,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
       <div>
         <h3>Sound</h3>
         <div class="row2">
-          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="2">Tape</option></select>
+          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="2">Tape</option><option value="3">Perc</option></select>
           <select id="engine" aria-label="Engine"></select>
         </div>
         <select id="preset" aria-label="Preset" style="margin-top:6px"></select>
@@ -250,7 +256,6 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
       </div>
       <div class="hint">Drag or scroll the knobs. Click a button to press it; <b>right-click or shift-click</b> holds it down (for the hold layers), click again to let go. Keys: your mouse, touch, or <kbd>A</kbd>…<kbd>;</kbd> on the keyboard.</div>
     </section>
-  </div>
 
   <div class="lower">
     <section class="card" aria-label="Controls guide">
@@ -261,8 +266,9 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
     <section class="card" aria-label="Eight tracks">
       <h2>Eight tracks</h2>
       <div class="tlist" id="tlist"></div>
-      <p class="note" style="margin-top:10px">Click a track to work on it. T1–T4 synthesize, T5–T6 strike, T7–T8 play the tape. Any track can be any kind.</p>
+      <p class="note" style="margin-top:10px">Click a track to work on it. T1–T4 synthesize, T5–T6 strike, T7–T8 play the tape. Any track can be any kind, PERC drum machines included.</p>
     </section>
+  </div>
   </div>
 </div>
 
@@ -432,7 +438,7 @@ function fillEngines() {
   const sel = $("engine"), t = rv.web_track(), kind = rv.web_kind(t);
   sel.innerHTML = "";
   if (kind === 0) ENGINES.forEach((n, i) => sel.add(new Option(n, i)));
-  else sel.add(new Option(kind === 1 ? "Exciter → body" : "Tape playback", 0));
+  else sel.add(new Option(kind === 1 ? "Exciter → body" : kind === 3 ? "Drum machine (SOURCE 1)" : "Tape playback", 0));
   sel.disabled = kind !== 0;
   if (kind === 0) sel.value = rv.web_engine(t);
 }
@@ -746,7 +752,7 @@ function slowUpdate() {
     b.lastChild.textContent = ["SYN","STK","TAP"][k];
     b.lastChild.className = KIND_CLS[k];
     c.classList.toggle("cur", i === t);
-    c.querySelector(".ts").textContent = ["Synth","Strike","Tape"][k] + " · " + cstr(rv.web_sound_name(i));
+    c.querySelector(".ts").textContent = ["Synth","Strike","Tape","Perc"][k] + " · " + cstr(rv.web_sound_name(i));
     c.querySelector(".tn span").className = KIND_CLS[k];
     c.querySelector(".mute").classList.toggle("on", !!(rv.web_mute() & (1 << i)));
     c.querySelector(".meter i").style.width = Math.min(100, Math.sqrt(rv.web_meter(i)) * 100) + "%";
