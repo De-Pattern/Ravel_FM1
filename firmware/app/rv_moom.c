@@ -9,8 +9,9 @@
  * stops while it runs and starts again afterwards (if it was playing). Its state lives outside the
  * RAM pool (RV_RAMBSS).
  *
- * Keys: C#4 forward, D4 back, C4 / E4 sideways (the left hand: F#3 forward, G3 back, F3 / A3);
- * SELECT or any knob turns; PLAY or any key from C5 up clicks. */
+ * Keys, like arrow keys: G4 turn left, G#4 forward, A4 back, B4 turn right (C#4 forward too; the left
+ * hand: F#3 forward, G3 back, F3 / A3 sideways, G#3 / A#3 turn). Fire: C4, D4, E4, F4, PLAY or any key
+ * from C5 up. SELECT or any knob turns too. HOME leaves (the emulator: Esc, or its MOOM button). */
 
 #define MM_W 16
 #define MM_VY0 16                      /* the view: rows 16..199 */
@@ -183,6 +184,14 @@ void moom_start(void)
     mm_sfx(SFX_TITLE);
 }
 
+static void moom_stop(void);
+int moom_active(void) { return mm.on; }
+void moom_exit(void)
+{
+    if (mm.on)
+        moom_stop();
+}
+
 static void moom_stop(void)
 {
     mm.on = 0;
@@ -280,18 +289,18 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     }
     mm.mttr += dt;
     mm.dir += (float)turn * 0.085f;
-    if (keys & ((1u << 8) | (1u << 1)))
+    if (keys & ((1u << 15) | (1u << 8) | (1u << 1)))   /* G#4 (up), C#4, F#3: forward */
         fwd += 1.0f;
-    if (keys & ((1u << 9) | (1u << 2)))
+    if (keys & ((1u << 16) | (1u << 2)))               /* A4 (down), G3: back */
         fwd -= 1.0f;
-    if (keys & ((1u << 7) | (1u << 0)))
+    if (keys & (1u << 0))                              /* F3 / A3: sideways */
         side -= 1.0f;
-    if (keys & ((1u << 11) | (1u << 4)))
+    if (keys & (1u << 4))
         side += 1.0f;
-    if (keys & (1u << 3))
-        mm.dir -= 2.2f * dt;                           /* G#3 / A#3: turn without a knob */
-    if (keys & (1u << 5))
-        mm.dir += 2.2f * dt;
+    if (keys & ((1u << 14) | (1u << 3)))               /* G4 (left), G#3: turn left */
+        mm.dir -= 2.4f * dt;
+    if (keys & ((1u << 18) | (1u << 5)))               /* B4 (right), A#3: turn right */
+        mm.dir += 2.4f * dt;
     cx = fm_cosf(mm.dir);
     cy = fm_sinf(mm.dir);
     if (fwd != 0.0f || side != 0.0f)
@@ -299,7 +308,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     mm.fire_cool -= dt;
     mm.recoil *= fm_expf(-dt * 9.0f);
     mm.hurt -= dt;
-    if (mm.fire_cool <= 0.0f && ((down_btn & (1u << B_PLAY)) || (down_keys & 0xFFF80000u)))
+    if (mm.fire_cool <= 0.0f && ((down_btn & (1u << B_PLAY)) || (down_keys & (0xFFF80000u | (1u << 7) | (1u << 9) | (1u << 11) | (1u << 12)))))   /* PLAY, C4 D4 E4 F4, C5 up */
         mm_fire();
     (void)btn;
     for (i = 0; i < MM_NENT; i++) {
@@ -669,6 +678,7 @@ static void mm_draw_hud(void)
     g_text(118, MM_VY1 + 15, &FONT_T, b, C_MID);
     g_text_r(234, MM_VY1 + 3, &FONT_T, "MOOM", C_TEAL);
     g_text_r(234, MM_VY1 + 15, &FONT_T, mm.level ? "LVL 2" : "LVL 1", C_DIM);
+    g_text_r(234, MM_VY1 + 28, &FONT_T, "HOME: EXIT", C_DIM);
     g_text(4, MM_VY1 + 28, &FONT_T, mm.log[1], mm.log_col[1] ? mm.log_col[1] : C_DIM);
     if (mm.hurt > 0.0f) {                                             /* hit: the view's edge goes red */
         g_fill(0, MM_VY0, PLAT_W, 4, C_RED);
@@ -739,7 +749,7 @@ static void mm_draw_title(void)
     g_text_c(120, 140, &FONT_T, "THE BRIDGE IS OPEN. THE BUGS ARE IN.", C_MID);
     if (((int)(mm.t * 2.0f) & 1) == 0)
         g_text_c(120, 196, &FONT_T, "PRESS PLAY TO JOIN THE CALL", C_AMBER);
-    g_text_c(120, 222, &FONT_T, "SEV1  /  MTTR STARTS NOW", C_DIM);
+    g_text_c(120, 222, &FONT_T, "HOME (ESC): BACK TO RAVEL", C_DIM);
 }
 
 /* one frame: input, the world, then the picture band by band */

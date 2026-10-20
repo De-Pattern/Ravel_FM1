@@ -251,6 +251,8 @@ extern rv_project rv;                      /* the project being played */
 #define RV_RAMBSS
 #endif
 void moom_start(void);                     /* the hidden game (rv_moom.c) */
+int moom_active(void);
+void moom_exit(void);
 
 /* ------------------------------------------------------------- live state --- */
 /* what the screen reads (written by the audio side, read by the control side: stale is fine) */
