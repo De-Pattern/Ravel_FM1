@@ -594,16 +594,18 @@ DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVE
 
 ### SHAPE
 
-SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above. While a shape is chosen, ONSET, CONTINUANT and TERMINATION are hidden and SHAPE 2 appears with what still applies; at OFF it is the other way round, so no knob is ever in two places.
+SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above. While a shape is chosen, ONSET, CONTINUANT and TERMINATION are hidden and SHAPE 2 and SHAPE 3 appear with what still applies; at OFF it is the other way round, so no knob is ever in two places.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **SHAPE** | SHAPE: OFF, or one of 24 shapes | MORPH: crossfades toward the next shape in the list | TIME: how long the whole shape takes (0.5 ms to 8 s) | PLAY: ONESHOT, GATED, LOOP, CYCLE |
+| **SHAPE** | SHAPE: OFF, or one of 32 shapes | MORPH: crossfades toward the next shape in the list | TIME: how long the whole shape takes (0.5 ms to 8 s) | PLAY: ONESHOT, GATED, LOOP, CYCLE |
 | **SHAPE 2** | WARP: bends time inside the shape (+ lingers at the start, − rushes through it) | RELEASE (used by LOOP) | GIVE (the same spring) | ENV>CUT |
+| **SHAPE 3** | BEND: bends the level (+ fuller, the shape swells toward the top; − leaner, only its peaks stay) | REVERSE: plays the shape backwards (a pluck becomes a swell) | REPEAT: OFF, or 2X to 16X plays | PHASE: where in the shape it starts (0 to 100 %) |
 
-- **The shapes:** PLUCK, HIT, DOUBLE, TRIPLE, BOUNCE, STUTTER, PULSES, STAIRS UP, STAIRS DN, RAMP UP, REVERSE, SWELL, HUMP, TWIN HUMP, SWELL HIT, ADSR, ORGAN, TREMOLO, WOBBLE, FLUTTER, SAW BURST, SPIKES, DRIP and BREATH. Neighbours are related, so MORPH between them makes sense: DOUBLE into TRIPLE adds a hit, STUTTER into PULSES evens out the rhythm, TREMOLO into WOBBLE slows the ripple.
+- **The shapes:** PLUCK, HIT, DOUBLE, TRIPLE, BOUNCE, STUTTER, PULSES, STAIRS UP, STAIRS DN, RAMP UP, REVERSE, SWELL, HUMP, TWIN HUMP, SWELL HIT, ADSR, ORGAN, TREMOLO, WOBBLE, FLUTTER, SAW BURST, SPIKES, DRIP, BREATH, SNAP BACK (a slow rise that snaps down to a low tail), CHIRP (gates that speed up), RATCHET (four hits, each louder), EUCLID (five gates out of eight), DAMPED (a ringing decay), PLATEAU, RANDOM (smoothed random steps) and PUMP (four sidechain-style ducks). Neighbours are related, so MORPH between them makes sense: DOUBLE into TRIPLE adds a hit, STUTTER into PULSES evens out the rhythm, TREMOLO into WOBBLE slows the ripple.
 - **PLAY:** ONESHOT plays the whole shape whatever the key does. GATED plays to the shape's hold point (the line in the picture), waits there while the key is held, then plays the rest. LOOP repeats the shape while held and lets go with RELEASE. CYCLE repeats it while held, then finishes the cycle it is in.
-- **Moving it:** MORPH, TIME and WARP are modulation destinations. An LFO on MORPH, or a macro, sweeps the shape between its neighbours, note to note or while it plays.
+- **REPEAT and PHASE:** REPEAT plays a ONESHOT shape that many times in a row, and stops a LOOP or CYCLE after that many rounds instead of going on while held (OFF keeps the old behaviour). GATED waits at its hold point instead, so REPEAT greys out there. PHASE starts the shape partway in, for example skipping a swell to land on its peak; the picture marks it with an amber line.
+- **Moving it:** MORPH, TIME, WARP, BEND and PHASE are modulation destinations. An LFO on MORPH, or a macro, sweeps the shape between its neighbours, note to note or while it plays.
 - **Everywhere:** SHAPE works on synth, strike and tape tracks. It drives the level, the filter envelope (ENV>CUT) and the ENV source in the matrix, and the DESTINATIONS follow it too. CZ tracks keep their own DCA envelopes, so SHAPE greys out there. A step that recalls a LIBRARY envelope plays the classic envelope for that step.
 - The knobs SHAPE doesn't use grey out while it's on.
 

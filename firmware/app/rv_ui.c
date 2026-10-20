@@ -108,6 +108,7 @@ static const page_t pages[] = {
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "DESTINATIONS", {TP(TP_EDST1), TP(TP_EAMT1), TP(TP_EDST2), TP(TP_EAMT2)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE", {TP(TP_ESHAPE), TP(TP_EMORPH), TP(TP_ETIME), TP(TP_EMODE)}},
     {SEC_ARTIC, V_SHAPED, PIC_ENV, PR_SOUND, "SHAPE 2", {TP(TP_EWARP), TP(TP_REL), TP(TP_GIVE), TP(TP_EFILT)}},
+    {SEC_ARTIC, V_SHAPED, PIC_ENV, PR_SOUND, "SHAPE 3", {TP(TP_EBEND), TP(TP_EREV), TP(TP_EREP), TP(TP_EPHASE)}},   /* more of the Zadar's tools */
     {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, NO}},
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
@@ -453,6 +454,16 @@ static const page_t *cur_page(void)
     if (pages[list[ui.page[ui.sec]]].pic == PIC_LANE)   /* a LANE page is its lane */
         ui.lane[ui.track] = (uint8_t)((pages[list[ui.page[ui.sec]]].title[5] - '1') % RV_LANES);
     return &pages[list[ui.page[ui.sec]]];
+}
+
+/* a change that shows or hides pages (SHAPE on hides ONSET...) keeps you on the page you were on */
+static void page_follow(int gp)
+{
+    uint8_t list[SEC_PAGES_MAX];
+    int n = sec_page_list(ui.sec, list), i;
+    for (i = 0; i < n; i++)
+        if (list[i] == gp)
+            ui.page[ui.sec] = (uint8_t)i;
 }
 
 /* ------------------------------------------------------ the step edited --- */
@@ -1360,7 +1371,11 @@ static void knob_turn(int i, int d)
     }
     if (k.kind == K_STEP && held >= 0)
         ui.step_turned = 1;
-    kb_set(k, kb_get(k) + d);
+    {
+        int gp = (int)(cur_page() - pages);
+        kb_set(k, kb_get(k) + d);
+        page_follow(gp);
+    }
     ui.turned_ms[i] = plat_ms();
 }
 
@@ -1956,8 +1971,11 @@ void ui_input_only(void)
         ui.track = (uint8_t)nt;
     }
     d = plat_enc(EN_PRESET);
-    if (d)
+    if (d) {
+        int gp = (int)(cur_page() - pages);
         preset_turn(d);
+        page_follow(gp);                              /* (a sound of another kind may hide or show pages) */
+    }
     for (i = 0; i < 4; i++) {
         d = plat_enc(EN_K1 + i);
         if (d)
@@ -2604,19 +2622,29 @@ static void pic_shape(int t)
     c.shape = (uint8_t)clampi(rv.tp[t][TP_ESHAPE], 1, SHP_N);
     c.morph = clampf(rv_param_eff(t, TP_EMORPH) / 127.0f, 0.0f, 1.0f);
     c.warp = clampf(rv_param_eff(t, TP_EWARP) / 64.0f, -1.0f, 1.0f);
+    c.bend = (int8_t)clampi((int)fm_floorf(rv_param_eff(t, TP_EBEND) + 0.5f), -64, 63);
+    c.rev = rv.tp[t][TP_EREV] != 0;
+    c.reps = (uint8_t)rv.tp[t][TP_EREP];
+    c.phase = (uint8_t)clampi((int)(rv_param_eff(t, TP_EPHASE) + 0.5f), 0, 99);
     c.smode = (uint8_t)rv.tp[t][TP_EMODE];
     hold = shp_hold_u(&c);
     g_hline(8, base, 224, C_LINE);
     if (c.smode == SHM_GATED)
         g_vline(8 + (int)(hold * 224.0f), top - 6, base - top + 6, C_TEAL_D);
     for (i = 0; i <= 224; i++) {
-        float y = shp_eval(c.shape, c.morph, c.warp, (float)i / 224.0f);
+        float y = shp_eval_c(&c, (float)i / 224.0f);
         int py = base - (int)(clampf(y, 0.0f, 1.0f) * (float)(base - top));
         if (i)
             g_line(8 + i - 1, prev, 8 + i, py, C_TEAL);
         prev = py;
     }
+    if (c.phase)                                       /* PHASE: where it starts */
+        g_vline(8 + c.phase * 224 / 100, top - 6, base - top + 6, C_AMBER_D);
     rv_param_format(PID_T(t, TP_ETIME), rv.tp[t][TP_ETIME], b, 24);
+    if (c.reps && c.smode != SHM_GATED) {
+        sx_cat(b, "  ");
+        sx_cat(b, rv_pinfo_track(t, TP_EREP)->names[c.reps]);
+    }
     g_text(10, base + 4, &FONT_T, b, C_DIM);
     g_text_r(232, base + 4, &FONT_T, c.smode == SHM_GATED ? "HOLDS AT THE LINE" : c.smode == SHM_LOOP ? "LOOPS WHILE HELD" : c.smode == SHM_CYCLE ? "LOOPS, ENDS ITS CYCLE" : "PLAYS THROUGH", C_DIM);
     if (rv_live.stage[t] != AS_OFF && rv_live.env[t] > 0.001f) {

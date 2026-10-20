@@ -20,6 +20,10 @@ static void artic_cfg_track(artic_cfg_t *c, const float *eff)
     c->morph = clampf(eff[TP_EMORPH] * (1.0f / 127.0f), 0.0f, 1.0f);
     c->stime = rv_time_f(eff[TP_ETIME]);
     c->warp = clampf(eff[TP_EWARP] * (1.0f / 64.0f), -1.0f, 1.0f);
+    c->bend = (int8_t)clampi((int)fm_floorf(eff[TP_EBEND] + 0.5f), -64, 63);
+    c->rev = eff[TP_EREV] >= 0.5f;
+    c->reps = (uint8_t)clampi((int)(eff[TP_EREP] + 0.5f), 0, 15);
+    c->phase = (uint8_t)clampi((int)(eff[TP_EPHASE] + 0.5f), 0, 99);
 }
 
 /* a library shape: attack shape, body, death (Avenir's Envion idea: three values make an envelope) */
@@ -59,11 +63,28 @@ static float shp_eval(int shape, float morph, float warp, float u)
     b = shp_tab[s1][i] + (shp_tab[s1][i + 1] - shp_tab[s1][i]) * fr;
     return (a + (b - a) * morph) * (1.0f / 255.0f);
 }
+/* a track's shape at u: warped, maybe reversed (with a short fade so it ends at rest), its level bent */
+static float shp_eval_c(const artic_cfg_t *c, float u)
+{
+    float y;
+    u = clampf(u, 0.0f, 1.0f);
+    if (c->rev) {
+        float w = c->warp > 0.01f || c->warp < -0.01f ? fm_powf(u, fm_exp2f(c->warp)) : u;
+        y = shp_eval(c->shape, c->morph, 0.0f, 1.0f - w) * clampf((1.0f - u) * 40.0f, 0.0f, 1.0f);
+    } else
+        y = shp_eval(c->shape, c->morph, c->warp, u);
+    if (c->bend && y > 0.0f)
+        y = fm_powf(y, fm_exp2f((float)c->bend * (-2.0f / 64.0f)));   /* > 0: fuller, < 0: leaner and spikier */
+    return y;
+}
+
 /* where a GATED shape waits: the morphed shapes' hold points (in shape time, before the warp) */
 static float shp_hold_u(const artic_cfg_t *c)
 {
     float h0 = shp_hold[(c->shape - 1) % SHP_N], h1 = shp_hold[c->shape % SHP_N];
     float h = (h0 + (h1 - h0) * c->morph) * (1.0f / (float)(SHP_LEN - 1));
+    if (c->rev)
+        h = 1.0f - h;                            /* reversed: the hold point mirrors */
     if (c->warp > 0.01f || c->warp < -0.01f)
         h = fm_powf(h, fm_exp2f(-c->warp));   /* the time that maps onto it */
     return h;
@@ -74,7 +95,8 @@ static inline float shape_down(float u) { float r = 1.0f - u; return 1.0f - r * 
 
 static void artic_start(artic_t *a, const artic_cfg_t *c)
 {
-    a->sp = 0.0f;
+    a->sp = c->shape ? (float)c->phase * 0.01f : 0.0f;   /* SHAPE: PHASE picks where it starts */
+    a->plays = 0;
     a->stage = AS_ONSET;
     a->gate = 1;
     a->looping = 0;
@@ -116,18 +138,20 @@ static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
                 a->sp = hold;                        /* held: wait at the hold point */
             break;
         case SHM_LOOP:
-        case SHM_CYCLE:
-            if (a->sp >= 1.0f && a->gate)
+        case SHM_CYCLE:                              /* round again while held, up to REPEAT's plays */
+            if (a->sp >= 1.0f && a->gate && (!c->reps || ++a->plays <= c->reps))
                 a->sp -= 1.0f;
             break;
-        default:
+        default:                                     /* ONESHOT: REPEAT plays it again, held or not */
+            if (a->sp >= 1.0f && c->reps && ++a->plays <= c->reps)
+                a->sp -= 1.0f;
             break;
         }
         if (a->sp >= 1.0f) {
             a->p = 0.0f;
             a->stage = AS_OFF;
         } else {
-            a->p = shp_eval(c->shape, c->morph, c->warp, a->sp);
+            a->p = shp_eval_c(c, a->sp);
             a->stage = AS_CONT;
         }
         a->u = a->sp;

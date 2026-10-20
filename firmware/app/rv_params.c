@@ -35,6 +35,7 @@ static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const eshape_names[] = {"OFF", SHP_NAMES};
 static const char *const emode_names[] = {"ONESHOT", "GATED", "LOOP", "CYCLE"};
+static const char *const erep_names[] = {"OFF", "2X", "3X", "4X", "5X", "6X", "7X", "8X", "9X", "10X", "11X", "12X", "13X", "14X", "15X", "16X"};
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
@@ -324,6 +325,10 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_FMODE] = {"LP-HP", 0, 127, 0, PF_NUM, 0},   /* 0 low pass, 64 notch, 127 high pass */
     [TP_FBP] = {"BP", 0, 1, 0, PF_ONOFF, 0},
     [TP_OSC1] = {"OSC LVL", 0, 127, 127, PF_NUM, 0},
+    [TP_EBEND] = {"BEND", -64, 63, 0, PF_BI, 0},           /* the shape's level: > 0 fuller, < 0 leaner */
+    [TP_EREV] = {"REVERSE", 0, 1, 0, PF_ONOFF, 0},
+    [TP_EREP] = {"REPEAT", 0, 15, 0, E(erep_names)},       /* OFF: once (a loop, while held); 2X..16X: that many plays */
+    [TP_EPHASE] = {"PHASE", 0, 100, 0, PF_PCT, 0},         /* where in the shape it starts */
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -646,6 +651,7 @@ int rv_tp_applies(int t, int p)
         switch (p) {
         case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_REL: case TP_TAIL:
         case TP_GIVE: case TP_ESHAPE: case TP_EMORPH: case TP_ETIME: case TP_EMODE: case TP_EWARP:
+        case TP_EBEND: case TP_EREV: case TP_EREP: case TP_EPHASE:
             return 0;
         default: break;
         }
@@ -660,16 +666,18 @@ int rv_tp_applies(int t, int p)
         return tp[TP_FTYPE] == FT_SEM && !tp[TP_FBP];
     if (p == TP_FBP)
         return tp[TP_FTYPE] == FT_SEM;
-    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ && (p == TP_ESHAPE || p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP))
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ && (p == TP_ESHAPE || p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP ||
+                                                                 p == TP_EBEND || p == TP_EREV || p == TP_EREP || p == TP_EPHASE))
         return 0;                                                      /* the CZ's DCA envelopes are its level */
     if (tp[TP_ESHAPE] > 0 && !(tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ)) {   /* SHAPE replaces the classic articulation */
         switch (p) {
         case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_TAIL:
             return 0;
         case TP_REL: return tp[TP_EMODE] == SHM_LOOP;                  /* LOOP lets go the classic way */
+        case TP_EREP: return tp[TP_EMODE] != SHM_GATED;                /* a gated shape waits instead */
         default: break;
         }
-    } else if (p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP) {
+    } else if (p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP || p == TP_EBEND || p == TP_EREV || p == TP_EREP || p == TP_EPHASE) {
         return 0;
     }
     if (tp[TP_KIND] == KIND_STRIKE) {
@@ -773,7 +781,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_EBEND: case TP_EPHASE: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:

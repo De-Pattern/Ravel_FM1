@@ -24,11 +24,15 @@ typedef struct {
     float loop;                     /* loop period, seconds; 0 = no loop */
     float give;                     /* 0..1 */
     float tail;                     /* 0..1 release texture */
-    uint8_t shape, smode;           /* SHAPE: library shape + 1 (0 = the classic articulation), how it plays */
+    uint8_t shape;                  /* SHAPE: library shape + 1 (0 = the classic articulation) */
+    uint8_t smode : 2, rev : 1, reps : 5;   /* how it plays; reversed; extra plays (0: once, or a loop while held) */
+    uint8_t phase;                  /* where it starts, 0..99 % */
+    int8_t bend;                    /* the level's response, -64..63 (these four fill what was padding: the pool is tight) */
     float morph, stime, warp;       /* toward the next shape 0..1, seconds for the whole shape, -1..1 */
 } artic_cfg_t;
 typedef struct {
     uint8_t stage, gate, looping;
+    uint8_t plays;                  /* SHAPE: plays finished (REPEAT) */
     float u, du;                    /* progress through the segment */
     float from, to;                 /* the segment's ends */
     float p;                        /* the path */

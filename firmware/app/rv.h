@@ -74,6 +74,9 @@ enum {
     TP_ESHAPE, TP_EMORPH, TP_ETIME, TP_EMODE, TP_EWARP,
     TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
     TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
+    /* SHAPE, more of the Zadar's tools: BEND (the level's response), REVERSE, REPEAT (how many
+     * plays), PHASE (where it starts); all 0 = as before, so older projects load unchanged */
+    TP_EBEND, TP_EREV, TP_EREP, TP_EPHASE,
     TP_N
 };
 #define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
