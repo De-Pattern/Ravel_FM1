@@ -247,6 +247,26 @@ wait 150
 expect page PROJECT
 wait 600
 shot save.png
+turn SELECT 20
+wait 100
+expect page SOUNDS
+turn K1 1
+tap SAVE
+turn PRESET 1
+turn ALGO 4
+tap SAVE
+turn PRESET 1
+turn ALGO 2
+tap SAVE
+turn PRESET 1
+turn ALGO 1
+tap SAVE
+turn PRESET -2
+turn ALGO -7
+turn K1 -1
+wait 2600
+shot save-sounds.png
+turn SELECT -20
 tap HOME
 press SEQ
 wait 300

@@ -26,7 +26,9 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px);
 
 /* storage: numbered slots of up to PLAT_SLOT_MAX bytes */
 #define PLAT_SLOT_MAX (64u * 1024u)
-#define PLAT_SLOTS 8
+#define PLAT_SLOTS 8                    /* the projects */
+#define PLAT_BANK PLAT_SLOTS            /* one more slot after them: the sound bank */
+#define PLAT_STORES (PLAT_SLOTS + 1)
 int plat_load(int slot, void *dst, uint32_t max);          /* copies up to max; returns the stored length, < 0 = empty */
 int plat_save(int slot, const void *src, uint32_t len);    /* 0 = saved */
 

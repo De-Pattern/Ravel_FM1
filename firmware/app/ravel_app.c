@@ -12,6 +12,7 @@
 #include "rv_engine.c"
 #include "rv_presets.c"
 #include "rv_project.c"
+#include "rv_bank.c"
 #include "rv_ui.c"
 
 /* start: always a blank project */
@@ -19,5 +20,6 @@ void ravel_start(void)
 {
     rv_demo(2);                     /* a blank project; saved ones stay in their slots (SAVE > LOAD) */
     rv_engine_init();
+    rv_bank_init();                 /* your sounds (SAVE > SOUNDS) */
     ui_init();
 }

@@ -124,15 +124,15 @@ EXPORT(rv_leds_keys) uint32_t rv_leds_keys(void) { return lit_keys; }
 EXPORT(rv_sample_rate) uint32_t rv_sample_rate(void) { return 44100u; }
 
 /* flash slots, so the page can keep them between visits */
-EXPORT(rv_store) uint8_t *rv_store(uint32_t s) { return s < PLAT_SLOTS ? store[s] : 0; }
-EXPORT(rv_store_len) int rv_store_len(uint32_t s) { return s < PLAT_SLOTS ? store_len[s] : -1; }
+EXPORT(rv_store) uint8_t *rv_store(uint32_t s) { return s < PLAT_STORES ? store[s] : 0; }
+EXPORT(rv_store_len) int rv_store_len(uint32_t s) { return s < PLAT_STORES ? store_len[s] : -1; }
 EXPORT(rv_store_set_len) void rv_store_set_len(uint32_t s, int n)
 {
-    if (s < PLAT_SLOTS && n <= (int)PLAT_SLOT_MAX)
+    if (s < PLAT_STORES && n <= (int)PLAT_SLOT_MAX)
         store_len[s] = n;
 }
 EXPORT(rv_store_writes) uint32_t rv_store_writes(void) { return store_writes; }
-EXPORT(rv_store_slots) uint32_t rv_store_slots(void) { return PLAT_SLOTS; }
+EXPORT(rv_store_slots) uint32_t rv_store_slots(void) { return PLAT_STORES; }   /* the projects and the sound bank */
 EXPORT(rv_store_max) uint32_t rv_store_max(void) { return PLAT_SLOT_MAX; }
 
 /* ------------------------------------------------------ the instrument --- */
@@ -185,6 +185,23 @@ EXPORT(web_preset_count) int web_preset_count(void) { return rv_preset_count(); 
 EXPORT(web_preset_name) const char *web_preset_name(int i) { return rv_preset_name(i); }
 EXPORT(web_preset_kind) int web_preset_kind(int i) { return rv_preset_kind(i); }
 EXPORT(web_preset_apply) void web_preset_apply(int t, int i) { rv_preset_apply(t & 7, i); }
+
+/* the sound bank (SAVE > SOUNDS): list, load into a track, keep a track's sound under a name */
+int rv_bank_used(int i);
+const char *rv_bank_name(int i);
+const char *rv_bank_kind_label(int i);
+int rv_bank_store(int t, int i, const char *name);
+int rv_bank_apply(int t, int i);
+int rv_bank_clear(int i);
+static char bank_name_buf[16];
+EXPORT(web_bank_n) int web_bank_n(void) { return 32; }
+EXPORT(web_bank_used) int web_bank_used(int i) { return rv_bank_used(i); }
+EXPORT(web_bank_name) const char *web_bank_name(int i) { return rv_bank_name(i); }
+EXPORT(web_bank_kind_label) const char *web_bank_kind_label(int i) { return rv_bank_kind_label(i); }
+EXPORT(web_bank_load) int web_bank_load(int t, int i) { return rv_bank_apply(t & 7, i); }
+EXPORT(web_bank_name_buf) char *web_bank_name_buf(void) { return bank_name_buf; }   /* the page writes a name here, */
+EXPORT(web_bank_store) int web_bank_store(int t, int i) { bank_name_buf[11] = 0; return rv_bank_store(t & 7, i, bank_name_buf); }   /* then stores */
+EXPORT(web_bank_clear) int web_bank_clear(int i) { return rv_bank_clear(i); }
 extern int rv_fault_count, rv_fault_where, rv_fault_track;
 EXPORT(web_fault_track) int web_fault_track(void) { return rv_fault_track; }
 EXPORT(web_fault_count) int web_fault_count(void) { return rv_fault_count; }

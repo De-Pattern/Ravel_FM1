@@ -1,0 +1,38 @@
+# SAVE > SOUNDS: keep a track's sound, name it, load it on another track (its kind with it), across a reboot.
+wait 300
+tap HOME
+turn SELECT -20
+turn K3 3
+wait 200
+expect tp 1 KIND 3
+tap SAVE
+wait 100
+turn SELECT 20
+wait 100
+expect page SOUNDS
+turn K1 1
+tap SAVE
+wait 200
+turn K2 1
+turn K3 20
+wait 2000
+turn PRESET 1
+turn ALGO 1
+wait 100
+expect tp 2 KIND 0
+turn K1 -1
+turn PRESET -1
+tap SAVE
+wait 300
+expect tp 2 KIND 3
+shot bank.png
+reboot
+wait 300
+tap SAVE
+wait 100
+turn SELECT 20
+turn ALGO 2
+wait 100
+tap SAVE
+wait 300
+expect tp 3 KIND 3

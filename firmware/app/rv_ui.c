@@ -28,7 +28,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC };   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK };   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -44,13 +44,13 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE };
+       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_CLASSIC, V_SHAPED, V_OSCMIX };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
-       PR_CZSTEP, PR_LFOROW };
+       PR_CZSTEP, PR_LFOROW, PR_BANK };
 
 typedef struct {
     uint8_t sec, vis, pic, pr;
@@ -175,6 +175,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, NO, NO, NO}},
+    {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, NO}},   /* your own sounds, any kind */
 };
 #define NPAGES ((int)(sizeof(pages) / sizeof(pages[0])))
 
@@ -202,6 +203,8 @@ static struct {
     uint32_t turned_ms[4];
     uint8_t armed;
     uint8_t save_confirm;
+    uint8_t cur_sound, bank_action, bank_cursor, bank_dirty;   /* SOUNDS: the slot, LOAD/SAVE/CLEAR, the name's cursor */
+    uint32_t bank_edit_ms;                   /* a name edited: kept in flash once the naming pauses */
     char slot_names[PLAT_SLOTS][13];
     uint8_t slot_used[PLAT_SLOTS];
     uint32_t mlr_held;                       /* white keys held on the tape page */
@@ -469,6 +472,7 @@ static int held_step(void)
 static const char *const rcurve_names[] = {"EVEN", "FASTER", "SLOWER", "EVEN-F", "FAST-F", "SLOW-F"};
 static const char *const cut_names[] = {"NONE", "LOOP", "REVERSE", "STUTTER"};
 static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "DEMO 3", "INIT"};
+static const char *const bank_actions[] = {"LOAD", "SAVE", "CLEAR"};
 static const char *const curve_names[] = {"LINEAR", "EXP", "LOG", "S"};
 static const char *const lib_names[] = {"ATTACK", "BODY", "DEATH"};
 
@@ -628,6 +632,18 @@ static kinfo_t kb_info(kb_t k)
         r.max = 5;
         r.fmt = PF_ENUM;
         r.names = save_actions;
+        break;
+    case K_BANK:                              /* SOUNDS: the action, then the name (a used slot's) */
+        if (k.id == 0) {
+            r.name = "ACTION";
+            r.max = 2;
+            r.fmt = PF_ENUM;
+            r.names = bank_actions;
+        } else if (rv_bank_used(ui.cur_sound)) {
+            r.name = k.id == 1 ? "CURSOR" : "LETTER";
+            r.min = k.id == 1 ? 1 : 0;
+            r.max = k.id == 1 ? RV_BANK_NAME - 1 : rv_bank_nchars() - 1;
+        }
         break;
     case K_LANE: {
         static const char *const lanes[RV_LANES] = {"1", "2", "3", "4", "5", "6"};
@@ -796,6 +812,9 @@ static int kb_get(kb_t k)
         }
     }
     case K_SAVE: return ui.save_action;
+    case K_BANK:
+        return k.id == 0 ? ui.bank_action : k.id == 1 ? ui.bank_cursor + 1
+             : rv_bank_char_index(rv_bank_name(ui.cur_sound)[ui.bank_cursor % (RV_BANK_NAME - 1)]);
     default: return 0;
     }
 }
@@ -1042,6 +1061,18 @@ static void kb_set(kb_t k, int v)
         ui.save_action = (uint8_t)v;
         ui.save_confirm = 0;
         break;
+    case K_BANK:
+        if (k.id == 0)
+            ui.bank_action = (uint8_t)v;
+        else if (k.id == 1)
+            ui.bank_cursor = (uint8_t)(v - 1);
+        else {
+            rv_bank_set_char(ui.cur_sound, ui.bank_cursor, v);
+            ui.bank_dirty = 1;
+            ui.bank_edit_ms = plat_ms();
+        }
+        ui.save_confirm = 0;
+        break;
     default:
         break;
     }
@@ -1060,6 +1091,14 @@ static void kb_format(kb_t k, int v, char *o)
     }
     if (k.kind == K_TP && k.id == TP_INA && rv.tp[ui.track][TP_INS] == INS_COMB) {
         sx_note(o, 60 + v - 64);                    /* the comb's pitch: 64 = C4 */
+        return;
+    }
+    if (k.kind == K_BANK && k.id == 2) {      /* the letter at the cursor */
+        static const char bc[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+#&'.";
+        if (v <= 0)
+            sx_cat(o, "SPACE");
+        else
+            o[0] = bc[v % (int)(sizeof bc - 1)], o[1] = 0;
         return;
     }
     if (k.kind == K_TP) {
@@ -1313,6 +1352,78 @@ static void knob_turn(int i, int d)
     ui.turned_ms[i] = plat_ms();
 }
 
+/* SOUNDS: a name being edited goes to flash once the naming pauses (or the slot changes) */
+static void bank_keep(void)
+{
+    if (ui.bank_dirty) {
+        ui.bank_dirty = 0;
+        rv_bank_flush();
+    }
+}
+
+/* SOUNDS: SAVE does the action. LOAD and SAVE into an empty slot at once; overwriting, clearing, or
+ * a load that would clear the track's steps (between a kit and notes) want a second press */
+static void bank_do(void)
+{
+    int t = ui.track, i = ui.cur_sound, used = rv_bank_used(i);
+    char b[24];
+    bank_keep();
+    switch (ui.bank_action) {
+    case 0:
+        if (!used) {
+            msg("SLOT EMPTY");
+            break;
+        }
+        if (rv_bank_is_kit(i) != is_kit_ui(t) && track_has_steps(t) && !ui.save_confirm) {
+            ui.save_confirm = 1;
+            msg("AGAIN: CLEARS STEPS");
+            return;
+        }
+        rv_bank_apply(t, i);
+        ui.preset_idx[t] = -1;
+        msg(rv_bank_name(i)[0] ? rv_bank_name(i) : "LOADED");
+        break;
+    case 1:
+        if (used && !ui.save_confirm) {
+            ui.save_confirm = 1;
+            msg("AGAIN: REPLACE IT");
+            return;
+        }
+        if (used)
+            rv_bank_store(t, i, 0);               /* (an overwritten slot keeps its name) */
+        else {
+            int kind = rv.tp[t][TP_KIND], e = rv.tp[t][TP_ENGINE];
+            b[0] = 0;
+            if (ui.preset_idx[t] >= 0)
+                sx_cat(b, rv_preset_name(ui.preset_idx[t]));
+            else {
+                sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[e % 12] : kind == KIND_STRIKE ? "STRIKE"
+                          : kind == KIND_TAPE ? "TAPE" : e == 1 ? "KIT" : "PERC");
+                sx_int(b + sx_cat(b, " "), i + 1);
+            }
+            b[RV_BANK_NAME - 1] = 0;
+            rv_bank_store(t, i, b);
+            ui.bank_cursor = 0;
+        }
+        msg("SOUND SAVED");
+        break;
+    default:
+        if (!used) {
+            msg("SLOT EMPTY");
+            break;
+        }
+        if (!ui.save_confirm) {
+            ui.save_confirm = 1;
+            msg("AGAIN: CLEAR IT");
+            return;
+        }
+        rv_bank_clear(i);
+        msg("SOUND CLEARED");
+        break;
+    }
+    ui.save_confirm = 0;
+}
+
 static void preset_turn(int d)
 {
     const page_t *pg = cur_page();
@@ -1359,6 +1470,12 @@ static void preset_turn(int d)
     case PR_ARC: ui.cur_arc = (uint8_t)clampi(ui.cur_arc + d, 0, 15); break;
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_LIB - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
+    case PR_BANK:
+        bank_keep();
+        ui.cur_sound = (uint8_t)clampi(ui.cur_sound + d, 0, RV_BANK_N - 1);
+        ui.save_confirm = 0;
+        ui.bank_cursor = 0;
+        break;
     case PR_STEPCUR: ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, clampi(rv.tp[t][TP_LEN], 1, 64) - 1); break;
     default: break;
     }
@@ -1770,7 +1887,9 @@ static void buttons(uint32_t now_btn)
     for (s = 0; s < NSEC; s++) {
         b = sec_button[s];
         if ((up & (1u << b)) && !ui.layer_used[b] && ms - ui.btn_down_ms[b] < 600) {
-            if (s == SEC_SAVE && ui.sec == SEC_SAVE) {
+            if (s == SEC_SAVE && ui.sec == SEC_SAVE && cur_page()->pr == PR_BANK) {
+                bank_do();
+            } else if (s == SEC_SAVE && ui.sec == SEC_SAVE) {
                 if (ui.save_confirm)
                     save_do();
                 else
@@ -1987,6 +2106,11 @@ static void draw_footer(void)
     case PR_LIB: hint = "PRESETS: SHAPE"; break;
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
+    case PR_BANK:
+        hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM"
+               : rv_bank_used(ui.cur_sound) ? "PRESETS: SLOT  2,3: NAME  SAVE: DO IT"
+               : "PRESETS: SLOT  SAVE: DO IT";
+        break;
     case PR_CZSTEP: {
         static const char *const rh[5] = {"OCT+: STAGES 3-4", "OCT+: STAGES 5-6", "OCT+: STAGES 7-8", "OCT+: SUS, END", "OCT+: STAGES 1-2"};
         hint = rh[ui.cz_row % 5];
@@ -3284,6 +3408,43 @@ static void pic_save(void)
     }
 }
 
+/* SOUNDS: nine slots around the chosen one, each with its kind on the right */
+static void pic_bank(void)
+{
+    int r, top = clampi(ui.cur_sound - 4, 0, RV_BANK_N - 9);
+    for (r = 0; r < 9; r++) {
+        int i = top + r, y = PIC_Y + 2 + r * 15, used = rv_bank_used(i);
+        char b[20];
+        if (i == ui.cur_sound)
+            g_fill(0, y - 1, 240, 14, ui.save_confirm ? C_AMBER_D : C_PANEL);
+        b[0] = 0;
+        sx_int(b, i + 1);
+        g_text(6, y, &FONT_XS, b, C_DIM);
+        if (!used) {
+            g_text(28, y, &FONT_XS, "EMPTY", C_LINE);
+            continue;
+        }
+        {
+            const char *nm = rv_bank_name(i);
+            int kind = rv_bank_kind(i);
+            uint16_t kc = rv_bank_is_kit(i) || kind == KIND_PERC ? C_PERC : kind == KIND_STRIKE ? C_STRIKE
+                          : kind == KIND_TAPE ? C_TAPE : C_SYNTH;
+            g_text(28, y, &FONT_XS, nm[0] ? nm : "-", C_INK);
+            if (i == ui.cur_sound && ui.sec == SEC_SAVE) {   /* the name's cursor */
+                int k, x;
+                for (k = 0; k < ui.bank_cursor && k < RV_BANK_NAME - 1; k++)
+                    b[k] = nm[k] ? nm[k] : ' ';
+                b[k] = 0;
+                x = 28 + g_text_w(&FONT_XS, b);
+                g_fill(x, y + 11, 7, 2, C_AMBER);
+            }
+            if (kind == KIND_SYNTH)
+                g_text(138, y + 2, &FONT_T, rv_engine_names[rv_bank_engine(i) % 12], C_DIM);
+            g_text_r(234, y, &FONT_XS, rv_bank_kind_label(i), kc);
+        }
+    }
+}
+
 static void draw_picture(void)
 {
     g_fill(0, PIC_Y - 2, 240, PIC_H + 2, C_BG);
@@ -3324,6 +3485,7 @@ static void draw_picture(void)
     case PIC_CZENV: pic_czenv(); break;
     case PIC_DRUM: pic_drum(); break;
     case PIC_LANE: pic_lane(); break;
+    case PIC_BANK: pic_bank(); break;
     default: break;
     }
 }
@@ -3373,6 +3535,8 @@ void ui_frame(void)
         return;
     }
     ui_input_only();
+    if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || ui.sec != SEC_SAVE))
+        bank_keep();                                  /* a renamed sound, kept once the naming pauses */
     ui.frame++;
     for (i = 0; i < RV_TRACKS; i++)
         for (j = 0; j < RV_TRACKS; j++)

@@ -2,6 +2,7 @@
 // Smoke test for the browser emulator: boot, play the demo, play a note, edit a step, catch the
 // tape, save a project. node web/emu/test.mjs
 import { readFileSync } from 'node:fs';
+const cstr = p => { const m = new Uint8Array(rv.memory.buffer, p); let n = 0; while (m[n]) n++; return new TextDecoder().decode(m.subarray(0, n)); };
 const wasm = readFileSync(new URL('./ravel.wasm', import.meta.url));
 const mod = new WebAssembly.Module(wasm);
 if (WebAssembly.Module.imports(mod).length) throw new Error('unexpected imports');
@@ -39,6 +40,15 @@ rv.rv_set_keys(1 << 2); run(120); rv.rv_enc(2, 5); run(60); rv.rv_set_keys(0); r
 check(true, 'held a step and turned KNOB 1');
 rv.web_goto(9, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
 check(rv.rv_store_len(0) > 20000, `saved a project (${rv.rv_store_len(0)} bytes)`);
+{                                                           // the sound bank: keep T1's sound, load it on T2 as a perc kit
+  rv.web_set_kind(2, 3, 0); run(20);
+  const nb = new Uint8Array(rv.memory.buffer, rv.web_bank_name_buf(), 16); nb.fill(0);
+  [...'MY KIT'].forEach((c, k) => nb[k] = c.charCodeAt(0));
+  rv.web_bank_store(2, 0);
+  rv.web_bank_load(1, 0); run(20);
+  check(rv.web_kind(1) === 3 && rv.rv_store_len(8) > 10000 && cstr(rv.web_bank_name(0)) === 'MY KIT' && cstr(rv.web_bank_kind_label(0)) === 'KIT',
+        `a sound kept in the bank (${rv.rv_store_len(8)} bytes) loads with its kind`);
+}
 rv.rv_set_buttons(bit('REC') | bit('OCT-')); run(80); rv.rv_set_buttons(0); run(60);
 check(rv.web_frozen() === 0, 'REC + OCT- releases the catch');
 const fb = new Uint16Array(rv.memory.buffer, rv.rv_fb(), 240 * 240);

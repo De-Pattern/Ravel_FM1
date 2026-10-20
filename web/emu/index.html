@@ -212,6 +212,10 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
           <button class="hbtn" id="pprev">← Previous</button>
           <button class="hbtn" id="pnext">Next →</button>
         </div>
+        <div class="row2" style="margin-top:6px">
+          <button class="hbtn" id="bsave" title="Keep this track's sound in your bank (SAVE › SOUNDS on the panel)">Save sound…</button>
+          <button class="hbtn" id="bclear" title="Remove one of your sounds">Delete sound…</button>
+        </div>
       </div>
       <div>
         <h3>Page</h3>
@@ -486,12 +490,61 @@ function fillEngines() {
   sel.disabled = kind !== 0;
   if (kind === 0) sel.value = rv.web_engine(t);
 }
+/* your sounds (the bank, SAVE › SOUNDS): every kind, labelled; one of another kind turns the track into it */
+const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", TAPE: "Tape", PERC: "Perc", KIT: "Kit" };
+function bankList() {
+  const out = [];
+  for (let i = 0; i < rv.web_bank_n(); i++)
+    if (rv.web_bank_used(i)) out.push({ i, name: cstr(rv.web_bank_name(i)) || "(no name)", kind: cstr(rv.web_bank_kind_label(i)) });
+  return out;
+}
 function fillPresets() {
   const sel = $("preset"), t = rv.web_track(), kind = rv.web_kind(t), n = rv.web_preset_count();
   sel.innerHTML = "";
   sel.add(new Option("Choose a sound…", -1));
-  for (let i = 0; i < n; i++) if (rv.web_preset_kind(i) === kind) sel.add(new Option(cstr(rv.web_preset_name(i)), i));
+  const mine = bankList();
+  if (mine.length) {
+    const g = document.createElement("optgroup"); g.label = "My sounds";
+    const w = Math.max(...mine.map(s => s.name.length)) + 3;
+    mine.forEach(s => g.appendChild(new Option(`${s.i + 1}. ${s.name}`.padEnd(w + 4, "\u00a0") + `[${BANK_KIND[s.kind] || s.kind}]`, "b" + s.i)));
+    sel.appendChild(g);
+  }
+  const f = document.createElement("optgroup"); f.label = "Factory";
+  for (let i = 0; i < n; i++) if (rv.web_preset_kind(i) === kind) f.appendChild(new Option(cstr(rv.web_preset_name(i)), i));
+  sel.appendChild(f);
 }
+function applyChoice(v) {
+  const t = rv.web_track();
+  if (typeof v === "string" && v[0] === "b") {
+    rv.web_bank_load(t, +v.slice(1));
+    const keep = v; sideSync(); $("preset").value = keep;   /* the track may now be another kind */
+  } else if (+v >= 0) rv.web_preset_apply(t, +v);
+}
+const BANK_OK = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+#&'.";
+$("bsave").addEventListener("click", () => {
+  const t = rv.web_track(), sel = $("preset"), o = sel.options[sel.selectedIndex];
+  const guess = o && o.value !== "-1" && o.value[0] !== "b" ? o.text : (o && o.value[0] === "b" ? cstr(rv.web_bank_name(+o.value.slice(1))) : "");
+  let slot = -1;
+  for (let i = 0; i < rv.web_bank_n(); i++) if (!rv.web_bank_used(i)) { slot = i; break; }
+  const ask = prompt(`Slot (1-${rv.web_bank_n()})${slot >= 0 ? ", first empty is " + (slot + 1) : ""}:`, slot >= 0 ? slot + 1 : 1);
+  if (ask === null) return;
+  slot = Math.min(rv.web_bank_n(), Math.max(1, parseInt(ask, 10) || 1)) - 1;
+  if (rv.web_bank_used(slot) && !confirm(`Replace "${cstr(rv.web_bank_name(slot))}" in slot ${slot + 1}?`)) return;
+  let name = prompt("Name (up to 11 letters):", guess.slice(0, 11));
+  if (name === null) return;
+  name = [...name.toUpperCase()].filter(c => BANK_OK.includes(c)).join("").slice(0, 11).trimEnd();
+  const buf = new Uint8Array(rv.memory.buffer, rv.web_bank_name_buf(), 16); buf.fill(0);
+  for (let k = 0; k < name.length; k++) buf[k] = name.charCodeAt(k);
+  rv.web_bank_store(t, slot);
+  fillPresets(); $("preset").value = "b" + slot;
+});
+$("bclear").addEventListener("click", () => {
+  const mine = bankList(); if (!mine.length) { alert("No sounds of your own yet."); return; }
+  const ask = prompt("Delete which sound? Slot number:\n" + mine.map(s => `${s.i + 1}. ${s.name} [${BANK_KIND[s.kind] || s.kind}]`).join("\n"));
+  if (ask === null) return;
+  const i = (parseInt(ask, 10) || 0) - 1;
+  if (i >= 0 && rv.web_bank_used(i) && confirm(`Delete "${cstr(rv.web_bank_name(i))}"?`)) { rv.web_bank_clear(i); fillPresets(); }
+});
 function sideSync() {
   const t = rv.web_track();
   $("kind").value = rv.web_kind(t);
@@ -518,11 +571,11 @@ function tracksUi() {
 }
 $("kind").addEventListener("change", e => { const t = rv.web_track(); rv.web_set_kind(t, +e.target.value, 0); sideSync(); });
 $("engine").addEventListener("change", e => { const t = rv.web_track(); if (rv.web_kind(t) === 0) { rv.web_set_kind(t, 0, +e.target.value); sideSync(); } });
-$("preset").addEventListener("change", e => { const i = +e.target.value; if (i >= 0) rv.web_preset_apply(rv.web_track(), i); });
+$("preset").addEventListener("change", e => applyChoice(e.target.value));
 function presetStep(d) {
   const sel = $("preset"); let i = sel.selectedIndex + d;
   if (i < 1) i = sel.options.length - 1; if (i >= sel.options.length) i = 1;
-  sel.selectedIndex = i; const v = +sel.value; if (v >= 0) rv.web_preset_apply(rv.web_track(), v);
+  sel.selectedIndex = i; applyChoice(sel.value);
 }
 $("pprev").addEventListener("click", () => presetStep(-1));
 $("pageback").addEventListener("click", () => rv && rv.rv_enc(0, -1));   /* SELECT, as on the panel */
@@ -713,7 +766,12 @@ function run(ms) {
   feedInput(Math.ceil(ms * 44.1) + 64);
   const n = rv.rv_run(ms), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2);
   for (let i = 0; i < n; i++, wpos++) { fl[wpos & MASK] = a[2 * i]; fr[wpos & MASK] = a[2 * i + 1]; }
-  const w = rv.rv_store_writes(); if (w !== lastWrites) { lastWrites = w; storeSave(); }
+  const w = rv.rv_store_writes();
+  if (w !== lastWrites) {
+    lastWrites = w; storeSave();
+    const sel = $("preset");                              /* a sound kept or cleared on the panel: the list follows */
+    if (document.activeElement !== sel) { const v = sel.value; fillPresets(); sel.value = v; if (sel.selectedIndex < 0) sel.selectedIndex = 0; }
+  }
 }
 
 function onAudio(e) {

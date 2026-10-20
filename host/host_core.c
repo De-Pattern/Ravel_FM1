@@ -56,13 +56,13 @@ void plat_midi_out(const uint8_t *msg, int n) { (void)msg, (void)n; }
 int plat_audio_in(float *lr, int frames) { return host_audio_in(lr, frames); }
 
 /* storage: slots in memory, kept across a simulated reboot */
-static uint8_t store[PLAT_SLOTS][PLAT_SLOT_MAX];
-static int32_t store_len[PLAT_SLOTS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static uint8_t store[PLAT_STORES][PLAT_SLOT_MAX];
+static int32_t store_len[PLAT_STORES] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
 static uint32_t store_writes;
 int plat_load(int slot, void *dst, uint32_t max)
 {
     int32_t n, i;
-    if (slot < 0 || slot >= PLAT_SLOTS || (n = store_len[slot]) < 0)
+    if (slot < 0 || slot >= PLAT_STORES || (n = store_len[slot]) < 0)
         return -1;
     for (i = 0; i < n && (uint32_t)i < max; i++)
         ((uint8_t *)dst)[i] = store[slot][i];
@@ -71,7 +71,7 @@ int plat_load(int slot, void *dst, uint32_t max)
 int plat_save(int slot, const void *src, uint32_t len)
 {
     uint32_t i;
-    if (slot < 0 || slot >= PLAT_SLOTS || len > PLAT_SLOT_MAX)
+    if (slot < 0 || slot >= PLAT_STORES || len > PLAT_SLOT_MAX)
         return -1;
     for (i = 0; i < len; i++)
         store[slot][i] = ((const uint8_t *)src)[i];

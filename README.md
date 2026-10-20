@@ -52,7 +52,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 11. [ARP: the tape](#11-arp-the-tape)
 12. [SEQ: steps and the graph](#12-seq-steps-and-the-graph)
 13. [GLO: song, scenes and clock](#13-glo-song-scenes-and-clock)
-14. [SAVE: projects](#14-save-projects)
+14. [SAVE: projects and sounds](#14-save-projects-and-sounds)
 15. [Hold layers (every button held)](#15-hold-layers)
 16. [Recording](#16-recording)
 17. [Recipes, step by step](#17-recipes-step-by-step)
@@ -122,7 +122,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | **MASTER** | Output volume |
 | **SELECT** | Moves to the next page (turn right) or back to the previous one (turn left) in the section you are in |
 | **ALGORITHM** | Picks the track you are working on, **T1 to T8**. The keys play this track. |
-| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE, rows on TAPE, steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
+| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE (projects or sounds), rows on TAPE, steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
 | **KNOB 1–4** | Change the four values in the row at the top of the screen, left to right |
 | **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). On pages with more settings than knobs they move the knobs to the next row instead; those pages show the rows on screen, number the knobs, and the footer says what OCT brings next: a kit's **LANE** pages (machine parameters, then LEVEL, CHANCE, LENGTH), the CZ's **DCO, DCW and DCA** envelopes (two stages at a time, then SUS and END), and **LFO SHAPE** (LFO 1 or LFO 2). |
 | **10 section buttons** | Each one opens a section (a group of pages). Tap it again for the section's next page. |
@@ -143,7 +143,7 @@ The ten sections:
 | **ARP** | Tape | Capture, rows, and how a tape track plays the tape |
 | **SEQ** | Steps | Steps, step timing and shape, track settings, direction, graph and playheads |
 | **GLO** | Song | Mixers, scenes, arrangement, density arcs, clock |
-| **SAVE** | Projects | Save, load, demos, new project |
+| **SAVE** | Projects and sounds | Save, load, demos, new project; your own sound bank |
 
 > **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#15-hold-layers).
 
@@ -981,7 +981,11 @@ Without an END row the song loops back to row 1. Give the last row the scene END
 - **Tap tempo:** hold **GLO** and tap black key **1**.
 - **Mute and solo:** hold **GLO** and press white keys **1–8** to mute tracks 1–8, or **9–16** to solo tracks 1–8.
 
-## 14. SAVE: projects
+## 14. SAVE: projects and sounds
+
+SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sound at a time). Turn **SELECT** to go from one to the other.
+
+### Projects
 
 <p align="center"><img src="docs/manual/save.png" alt="SAVE" width="320"></p>
 
@@ -1004,6 +1008,30 @@ Without an END row the song loops back to row 1. Give the last row the scene END
 Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
 
 A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the envelope library. **It does not hold the tape audio.** Catch or resample again after loading.
+
+### Sounds: your own bank
+
+<p align="center"><img src="docs/manual/save-sounds.png" alt="SAVE › SOUNDS" width="320"></p>
+
+32 slots for your own sounds, of any kind: a synth on any engine, a strike, a perc machine, a whole kit, or a tape track's settings. Each has a name, and its kind is shown on the right of the list (**SYNTH**, **STRIKE**, **PERC**, **KIT**, **TAPE**; a synth also shows its engine). The bank is shared by every project and stays when you load another project or switch off.
+
+A sound is the track's voice: its kind and engine, every sound setting (source, filter, skin, envelopes, insert, sends, the CZ patch, a kit's lanes). It is not the track's steps, sequencer settings or pan.
+
+1. Press **SAVE**, then turn **SELECT** to **SOUNDS**.
+2. Turn **PRESETS** to a slot.
+3. Turn **KNOB 1 (ACTION)**:
+
+   | Action | What pressing **SAVE** does |
+   | --- | --- |
+   | LOAD | Puts the sound on the current track. A sound of another kind turns the track into that kind (a PERC sound on a synth track makes it a perc track). |
+   | SAVE | Keeps the current track's sound in the slot. An empty slot saves at once, named after the factory preset it came from (or its engine and slot number). Over a used slot, press **SAVE** twice; the slot keeps its name. |
+   | CLEAR | Empties the slot (press **SAVE** twice) |
+
+4. **Name it:** on a used slot, **KNOB 2 (CURSOR)** picks a letter position (1–11) and **KNOB 3 (LETTER)** changes the letter (A–Z, 0–9, space and `- + # & ' .`). The cursor is the amber line under the name. The name is kept a moment after you stop turning.
+
+Loading a sound that changes a track between a kit and notes (lanes and notes don't read each other's steps) clears that track's steps, so it asks first: press **SAVE** again.
+
+**In the emulator**, your sounds are at the top of the sound menu under **My sounds**, each with its kind in brackets after the name. Choosing one loads it into the current track, switching its kind if needed. **Save sound…** keeps the current track's sound (it asks for a slot and a name), and **Delete sound…** removes one. The panel's SAVE › SOUNDS page works too.
 
 ## 15. Hold layers
 
@@ -1098,6 +1126,13 @@ Turning ALGORITHM while armed moves recording to the new track.
 1. **SAVE**, **PRESETS** to a slot, **KNOB 1** = SAVE.
 2. Press **SAVE**, then **SAVE** again.
 
+**Keep a sound and use it on another track**
+
+1. Pick the track with the sound. **SAVE**, **SELECT** to SOUNDS.
+2. **PRESETS** to an empty slot, **KNOB 1** = SAVE, press **SAVE**.
+3. Name it with **KNOB 2** (position) and **KNOB 3** (letter).
+4. ALGORITHM to another track, **KNOB 1** = LOAD, press **SAVE**. The track becomes the sound's kind if it wasn't already.
+
 ## 18. Quick reference
 
 | I want to… | Press / turn |
@@ -1121,6 +1156,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Punch-in effects | Hold FX + white 1–8 |
 | Record | Tap REC, then PLAY |
 | Save | SAVE, choose slot and action, SAVE twice |
+| Keep or load a sound | SAVE › SOUNDS (SELECT), PRESETS to a slot, KNOB 1 = SAVE or LOAD, SAVE |
 
 ## 19. Questions people ask
 

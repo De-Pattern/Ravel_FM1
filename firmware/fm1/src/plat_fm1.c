@@ -93,21 +93,25 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px)
 }
 
 /* projects: eight slots of 32 KB in Felucca's data area (0x97000 .. 0xD7000; the panel calibration
- * is at 0xDC000, the updater's staging at 0xE0000). A header, then the data; the header is written
+ * is at 0xDC000, the updater's staging at 0xE0000), then the sound bank (0xD7000 .. 0xDC000). A header, then the data; the header is written
  * last, so a slot cut short by a power loss reads as empty. Writing pauses the sound (the code runs
  * from the same flash). */
 #define SLOT_BASE 0x00097000u
 #define SLOT_SIZE 0x8000u
 #define SLOT_MAGIC 0x4C535652u                  /* "RVSL" */
 typedef struct { uint32_t magic, len, crc, rsv; } slot_head;
+/* the sound bank (PLAT_BANK) follows the projects: 0xD7000 up to the panel calibration at 0xDC000,
+ * so 20 KB, never more */
+#define BANK_SIZE 0x5000u
+static uint32_t slot_room(int slot) { return slot == PLAT_BANK ? BANK_SIZE : SLOT_SIZE; }
 
 int plat_load(int slot, void *dst, uint32_t max)
 {
     slot_head h;
     uint32_t base = SLOT_BASE + (uint32_t)slot * SLOT_SIZE, n;
-    if (!flash_ok || slot < 0 || slot >= PLAT_SLOTS)
+    if (!flash_ok || slot < 0 || slot >= PLAT_STORES)
         return -1;
-    if (st_read(base, &h, sizeof h) || h.magic != SLOT_MAGIC || h.len > SLOT_SIZE - 256u)
+    if (st_read(base, &h, sizeof h) || h.magic != SLOT_MAGIC || h.len > slot_room(slot) - 256u)
         return -1;
     n = h.len < max ? h.len : max;
     if (st_read(base + 256u, dst, n))
@@ -121,7 +125,7 @@ int plat_save(int slot, const void *src, uint32_t len)
 {
     slot_head h;
     uint32_t base = SLOT_BASE + (uint32_t)slot * SLOT_SIZE, off;
-    if (!flash_ok || slot < 0 || slot >= PLAT_SLOTS || len > SLOT_SIZE - 256u)
+    if (!flash_ok || slot < 0 || slot >= PLAT_STORES || len > slot_room(slot) - 256u)   /* (the bank stops short of the calibration) */
         return -1;
     for (off = 0; off < len + 256u; off += 0x1000u)
         if (st_erase(base + off))
