@@ -1419,6 +1419,153 @@ static void wave_render(voice_t *v, const float *eff, float f, float *out, int n
     }
 }
 
+/* -------------------------------------------------------------- LOGIC --- */
+/* Oscillators from function blocks, after Kurzweil's VAST (whose FUNs compute a function of two
+ * inputs) and E-mu's patch-cord functions. Three sources: A on the note, B and C at a ratio of it
+ * (B DRIFT pulls B off the ratio, so the pattern slowly turns). OP 1 combines A and B, OP 2 that
+ * result with C (OP 2 AMT blends it in): arithmetic (A+B, A*B, MIN, MAX, DIFF), bit logic on BITS-
+ * bit words (AND, OR, XOR, NAND), a comparator (A>B), GATE (A where B is high), QUANT (A in steps B
+ * sets), MOD (A wrapped by B), SIN(A+B), and A(B) (A's wave read at B). Run at twice the rate and
+ * smoothed (SMOOTH) to tame the edges. Then GRAIN: pitch-synchronous grains of the voice's own last
+ * moments, GRAIN long (short: pulsar-like gaps; long: overlapping clouds), sprayed and transposed. */
+static inline float lg_src(int wv, float ph, float pw, uint32_t *ns)
+{
+    switch (wv) {
+    case LW_TRI: return ph < 0.5f ? 4.0f * ph - 1.0f : 3.0f - 4.0f * ph;
+    case LW_SQR: return ph < 0.5f ? 1.0f : -1.0f;
+    case LW_SINE: return fm_sin_turns(ph);
+    case LW_PULSE: return ph < pw ? 1.0f : -1.0f;
+    case LW_NOISE: return xs_bi(ns);
+    default: return 2.0f * ph - 1.0f;
+    }
+}
+
+static inline float lg_op(int op, float x, float y, int bits, int wa, float pw, uint32_t *ns)
+{
+    float top = (float)((1 << bits) - 1);
+    int ux, uy;
+    switch (op) {
+    case LO_ADD: return (x + y) * 0.5f;
+    case LO_MULT: return x * y;
+    case LO_MIN: return x < y ? x : y;
+    case LO_MAX: return x > y ? x : y;
+    case LO_AND: case LO_OR: case LO_XOR: case LO_NAND: {
+        int r;
+        ux = (int)((x * 0.5f + 0.5f) * top + 0.5f);
+        uy = (int)((y * 0.5f + 0.5f) * top + 0.5f);
+        r = op == LO_AND ? (ux & uy) : op == LO_OR ? (ux | uy) : op == LO_XOR ? (ux ^ uy) : ~(ux & uy) & ((1 << bits) - 1);
+        return (float)r * (2.0f / top) - 1.0f;
+    }
+    case LO_COMP: return x > y ? 1.0f : -1.0f;
+    case LO_GATE: return y > 0.0f ? x : 0.0f;
+    case LO_DIFF: return fm_fabsf(x - y) - 1.0f;
+    case LO_QUANT: {
+        float st = 1.0f + (y * 0.5f + 0.5f) * top;
+        return fm_floorf(x * st + 0.5f) / st;
+    }
+    case LO_MOD: {
+        float m = 0.1f + (y * 0.5f + 0.5f) * 1.9f, u = x + 1.0f;
+        return (u - fm_floorf(u / m) * m) * (2.0f / m) - 1.0f;
+    }
+    case LO_SINE: return fm_sin_turns((x + y) * 0.5f);
+    default: return lg_src(wa, y * 0.5f + 0.5f, pw, ns);   /* A(B): A's wave at B */
+    }
+}
+
+static const float lg_ratio[20] = {0.25f, 0.3333333f, 0.5f, 0.6666667f, 0.75f, 1.0f, 1.25f, 1.3333333f, 1.5f, 1.6666667f,
+                                   2.0f, 2.5f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 11.0f, 16.0f};
+
+static void logic_note(voice_t *v, const float *eff)
+{
+    logic_t *l = &v->e.lg;
+    (void)eff;
+    l->ph[0] = l->ph[1] = l->ph[2] = 0.0f;           /* the pattern starts the same each note */
+    if (!l->ns)
+        l->ns = v->rng | 1u;
+}
+
+static void logic_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    logic_t *l = &v->e.lg;
+    int wa = clampi((int)(eff[TP_S0] + 0.5f), 0, LW_N - 1), wb = clampi((int)(eff[TP_S2] + 0.5f), 0, LW_N - 1);
+    int wc = clampi((int)(eff[TP_S4] + 0.5f), 0, LW_N - 1), op1 = clampi((int)(eff[TP_S5] + 0.5f), 0, LO_N - 1);
+    int op2 = clampi((int)(eff[TP_S6] + 0.5f), 0, LO_N - 1), bits = clampi((int)(eff[TP_S8] + 0.5f), 1, 12), i, s, k;
+    float rb = lg_ratio[clampi((int)(eff[TP_S1] + 0.5f), 0, 19)] * fm_exp2f(eff[TP_S10] * (30.0f / 127.0f / 1200.0f));   /* B DRIFT: up to 30 cents off */
+    float rc = lg_ratio[clampi((int)(eff[TP_S3] + 0.5f), 0, 19)], amt2 = eff[TP_S7] * (1.0f / 127.0f);
+    float pw = 0.05f + eff[TP_S9] * (0.9f / 127.0f), dry = eff[TP_S11] * (1.0f / 127.0f);
+    float sm = 1.0f - 0.97f * eff[TP_S12] * (1.0f / 127.0f), grain = eff[TP_S13] * (1.0f / 127.0f);
+    float spray = eff[TP_S14] * (1.0f / 127.0f), gp = fm_exp2f(eff[TP_S15] * (1.0f / 12.0f));
+    float dt = clampf(f * RV_DT * 0.5f, 0.0f, 0.24f);   /* half a sample's step: twice the rate */
+    for (i = 0; i < n; i++) {
+        float acc = 0.0f, y;
+        int wrapped = 0;
+        for (s = 0; s < 2; s++) {
+            float a, b, c, r;
+            l->ph[0] += dt;
+            if (l->ph[0] >= 1.0f) {
+                l->ph[0] -= 1.0f;
+                wrapped = 1;
+            }
+            l->ph[1] += dt * rb;
+            l->ph[1] -= fm_floorf(l->ph[1]);
+            l->ph[2] += dt * rc;
+            l->ph[2] -= fm_floorf(l->ph[2]);
+            a = lg_src(wa, l->ph[0], pw, &l->ns);
+            b = lg_src(wb, l->ph[1], pw, &l->ns);
+            r = lg_op(op1, a, b, bits, wa, pw, &l->ns);
+            if (amt2 > 0.001f) {
+                c = lg_src(wc, l->ph[2], pw, &l->ns);
+                r += (lg_op(op2, r, c, bits, wa, pw, &l->ns) - r) * amt2;
+            }
+            acc += r + (a - r) * dry;
+        }
+        l->lp += (acc * 0.5f - l->lp) * sm;
+        y = l->lp;
+        /* the grains: the voice's last moments, one grain a period */
+        l->buf[l->w] = (int16_t)clampf(y * 16000.0f, -32000.0f, 32000.0f);
+        l->w = (l->w + 1) & (RV_LOGIC_BUF - 1);
+        if (grain > 0.001f) {
+            float gsum = 0.0f;
+            if (wrapped) {
+                for (k = 0; k < 4 && l->gon[k]; k++)
+                    ;
+                if (k < 4) {
+                    float per = 1.0f / (f > 20.0f ? f : 20.0f), len = per * (0.15f + grain * 3.85f);
+                    float back = (per * (1.0f + spray * 6.0f * (xs_bi(&l->ns) * 0.5f + 0.5f))) * (float)RV_FS;
+                    if (back + len * gp * (float)RV_FS > (float)(RV_LOGIC_BUF - 8))
+                        back = (float)(RV_LOGIC_BUF - 8) - len * gp * (float)RV_FS;
+                    l->gpos[k] = (float)l->w - clampf(back, 4.0f, (float)(RV_LOGIC_BUF - 8));
+                    l->gt[k] = 0.0f;
+                    l->gdt[k] = RV_DT / clampf(len, 0.0005f, 0.02f);
+                    l->ginc[k] = gp;
+                    l->gon[k] = 1;
+                }
+            }
+            for (k = 0; k < 4; k++) {
+                float p, wdw, fr;
+                int32_t i0;
+                if (!l->gon[k])
+                    continue;
+                p = l->gpos[k];
+                while (p < 0.0f)
+                    p += (float)RV_LOGIC_BUF;
+                i0 = (int32_t)p;
+                fr = p - (float)i0;
+                wdw = 4.0f * l->gt[k] * (1.0f - l->gt[k]);
+                gsum += (l->buf[i0 & (RV_LOGIC_BUF - 1)] + (l->buf[(i0 + 1) & (RV_LOGIC_BUF - 1)] - l->buf[i0 & (RV_LOGIC_BUF - 1)]) * fr) * (1.0f / 16000.0f) * wdw;
+                l->gpos[k] += l->ginc[k];
+                if (l->gpos[k] >= (float)RV_LOGIC_BUF)
+                    l->gpos[k] -= (float)RV_LOGIC_BUF;
+                l->gt[k] += l->gdt[k];
+                if (l->gt[k] >= 1.0f)
+                    l->gon[k] = 0;
+            }
+            y += (gsum * 1.2f - y) * clampf(grain * 3.0f, 0.0f, 1.0f);
+        }
+        out[i] = y * 0.5f;
+    }
+}
+
 static void voice_engine_reset(voice_t *v, int eng)
 {
     __builtin_memset(&v->e, 0, sizeof(v->e));
@@ -1481,6 +1628,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
     case ENG_SQ: sq_render(v, eff, f, buf, n); break;
     case ENG_WAVE: wave_render(v, eff, f, buf, n); break;
+    case ENG_LOGIC: logic_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the articulation (CZ: its DCA), the key */

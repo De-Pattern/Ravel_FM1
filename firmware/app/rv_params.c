@@ -7,7 +7,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -64,6 +64,9 @@ static const char *const wt_names[] = {WT_NAMES};
 static const char *const wx_names[] = {"OFF", "SYNC", "RING", "FM", "SYNC+FM"};
 static const char *const ww_names[] = {"OFF", "SYNC", "BEND", "PWM", "MIRROR", "REMAP 2", "REMAP 4", "SQUEEZE", "FLIP", "QUANT"};
 static const char *const wenv_names[] = {"OFF", SHP_NAMES};
+static const char *const lw_names[] = {"SAW", "TRI", "SQUARE", "SINE", "PULSE", "NOISE"};
+static const char *const lr_names[] = {"1/4", "1/3", "1/2", "2/3", "3/4", "1", "5/4", "4/3", "3/2", "5/3", "2", "5/2", "3", "4", "5", "6", "7", "8", "11", "16"};
+static const char *const lo_names[] = {"A+B", "A*B", "MIN", "MAX", "AND", "OR", "XOR", "NAND", "A>B", "GATE", "DIFF", "QUANT", "MOD", "SIN(A+B)", "A(B)"};
 static const char *const sq_mods[] = {"OFF", "SYNC", "AM", "SYNC+AM"};
 static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
 static const char *const form_modes[] = {"FILTER", "FOF"};
@@ -156,7 +159,18 @@ static const rv_pinfo SRC_WAVE[16] = {
     {"WARP", 0, N(ww_names), 0, E(ww_names)}, {"WARP AMT", 0, 127, 40, PF_NUM, 0},
     {"WAVE ENV", 0, SHP_N, 0, E(wenv_names)}, {"WE AMT", -64, 63, 40, PF_BI, 0}, {"WE TIME", 0, 127, 95, PF_TIME, 0},
     {"ASIC", 0, 127, 0, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE};
+/* LOGIC: oscillators built from function blocks, after Kurzweil's VAST FUNs and E-mu's patch-cord
+ * functions: three sources (A on the note, B and C at ratios) meet in OP 1 (A with B), then OP 2
+ * (that with C); then a pitch-synchronous grain stage */
+static const rv_pinfo SRC_LOGIC[16] = {
+    {"A WAVE", 0, N(lw_names), LW_SAW, E(lw_names)}, {"B RATIO", 0, N(lr_names), 10, E(lr_names)},
+    {"B WAVE", 0, N(lw_names), LW_TRI, E(lw_names)}, {"C RATIO", 0, N(lr_names), 2, E(lr_names)},
+    {"C WAVE", 0, N(lw_names), LW_TRI, E(lw_names)}, {"OP 1", 0, N(lo_names), LO_XOR, E(lo_names)},
+    {"OP 2", 0, N(lo_names), LO_MULT, E(lo_names)}, {"OP 2 AMT", 0, 127, 0, PF_NUM, 0},
+    {"BITS", 1, 12, 6, PF_NUM, 0}, {"PW", 0, 127, 64, PF_NUM, 0}, {"B DRIFT", 0, 127, 0, PF_NUM, 0},
+    {"DRY A", 0, 127, 0, PF_NUM, 0}, {"SMOOTH", 0, 127, 30, PF_NUM, 0}, {"GRAIN", 0, 127, 0, PF_NUM, 0},
+    {"G SPRAY", 0, 127, 20, PF_NUM, 0}, {"G PITCH", -24, 24, 0, PF_SEMI, 0}};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC};
 
 static const rv_pinfo TRACK[TP_N] = {
     [TP_KIND] = {"KIND", 0, KIND_N - 1, 0, E(rv_kind_names)},
@@ -564,6 +578,17 @@ int rv_tp_applies(int t, int p)
         case TP_S6: return steps >= 4;                                      /* OF4 */
         case TP_S9: return tp[TP_S8] > 0 || tp[TP_S10] > 0;                 /* SUB OCT: with SUB or SYNC */
         case TP_S15: return tp[TP_S14] > 0;                                 /* FRAG: with DECOMP */
+        default: return 1;
+        }
+    }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_LOGIC) {
+        int bitop = tp[TP_S5] >= LO_AND && tp[TP_S5] <= LO_NAND, bitop2 = tp[TP_S6] >= LO_AND && tp[TP_S6] <= LO_NAND;
+        int quant = tp[TP_S5] == LO_QUANT || tp[TP_S6] == LO_QUANT, c = tp[TP_S7] > 0;
+        switch (p) {
+        case TP_S3: case TP_S4: case TP_S6: return c;                       /* C and OP 2: with OP 2 AMT */
+        case TP_S8: return bitop || quant || (c && bitop2);                 /* BITS: for the bit operators */
+        case TP_S9: return tp[TP_S0] == LW_PULSE || tp[TP_S2] == LW_PULSE || (c && tp[TP_S4] == LW_PULSE);
+        case TP_S14: case TP_S15: return tp[TP_S13] > 0;                    /* the grains */
         default: return 1;
         }
     }

@@ -69,6 +69,15 @@ typedef struct {
 typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
 /* WAVE: two wavetable oscillators and the wave envelope (where in its shape, 0..1) */
 typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
+/* LOGIC: three sources, the smoothing, and the grains' memory (the voice's own last 23 ms) */
+#define RV_LOGIC_BUF 1024
+typedef struct {
+    float ph[3], lp, gpos[4], gt[4], ginc[4], gdt[4];
+    uint32_t ns;
+    int16_t buf[RV_LOGIC_BUF];
+    int32_t w;
+    uint8_t gon[4];
+} logic_t;
 
 /* a Z filter (rv_zplane.h): six sections' coefficients, their state, the level hold */
 typedef struct { float c[6][5], s[6][2], g; } zp_t;
@@ -90,7 +99,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; } e;
 } voice_t;
 
 /* strike: exciter into body, with a transient layer */

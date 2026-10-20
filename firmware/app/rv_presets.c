@@ -152,6 +152,21 @@ static const int8_t w_remap[] = {TP_S0, 12, TP_S1, 30, TP_S10, WW_REMAP4, TP_S11
                                  TP_FTYPE, FT_XSH, TP_CUT, 100, TP_RES, 20, TP_ATK, 0, TP_DEC, 60, TP_SUS, 80, TP_REL, 30,
                                  TP_LEVEL, 92, END};
 
+/* LOGIC: S0 A WAVE, S1 B RATIO (0 1/4, 1 1/3, 2 1/2, 3 2/3, 4 3/4, 5 1, 6 5/4, 7 4/3, 8 3/2, 9 5/3, 10 2,
+ * 11 5/2, 12 3, 13 4, 14 5, 15 6, 16 7, 17 8, 18 11, 19 16), S2 B WAVE, S3 C RATIO, S4 C WAVE, S5 OP 1,
+ * S6 OP 2, S7 OP 2 AMT, S8 BITS, S9 PW, S10 B DRIFT, S11 DRY A, S12 SMOOTH, S13 GRAIN, S14 G SPRAY,
+ * S15 G PITCH */
+static const int8_t l_xor[] = {TP_S0, LW_SAW, TP_S1, 8, TP_S2, LW_TRI, TP_S5, LO_XOR, TP_S8, 6, TP_S12, 40, TP_FTYPE, FT_XLP24,
+                               TP_CUT, 96, TP_RES, 30, TP_EFILT, 20, TP_ATK, 0, TP_DEC, 70, TP_SUS, 80, TP_REL, 30, TP_LEVEL, 92, END};
+static const int8_t l_comp[] = {TP_S0, LW_SINE, TP_S1, 5, TP_S2, LW_TRI, TP_S5, LO_COMP, TP_S10, 40, TP_S12, 50, TP_FTYPE, FT_LP,
+                                TP_CUT, 90, TP_RES, 20, TP_ATK, 30, TP_SUS, 110, TP_REL, 70, TP_POLY, 3, TP_REVS, 40, TP_LEVEL, 88, END};
+static const int8_t l_grainvox[] = {TP_S0, LW_SAW, TP_S1, 10, TP_S2, LW_SINE, TP_S5, LO_MULT, TP_S13, 60, TP_S14, 30, TP_S15, 12,
+                                    TP_FTYPE, FT_ZVOWEL, TP_CUT, 30, TP_RES, 50, TP_EFILT, 40, TP_KTRK, 0, TP_ATK, 40, TP_SUS, 110,
+                                    TP_REL, 70, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 96, END};
+static const int8_t l_crunch[] = {TP_S0, LW_SAW, TP_S1, 16, TP_S2, LW_SAW, TP_S3, 2, TP_S4, LW_TRI, TP_S5, LO_NAND, TP_S6, LO_MOD,
+                                  TP_S7, 60, TP_S8, 3, TP_S12, 20, TP_FTYPE, FT_MS20, TP_CUT, 80, TP_RES, 50, TP_EFILT, 30,
+                                  TP_ATK, 0, TP_DEC, 50, TP_SUS, 50, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 92, END};
+
 /* the Z filters: CUTOFF is MORPH, RESO is XFORM */
 static const int8_t p_talkbox[] = {TP_S0, 30, TP_S2, 3, TP_S3, 30, TP_FTYPE, FT_ZTALK, TP_CUT, 10, TP_RES, 70, TP_EFILT, 60,
                                    TP_KTRK, 0, TP_ATK, 30, TP_DEC, 70, TP_SUS, 70, TP_REL, 40, TP_POLY, 0, TP_GLIDE, 20,
@@ -207,6 +222,8 @@ static const rv_preset presets[] = {
     {"PPG PAD", KIND_SYNTH, ENG_WAVE, w_ppgpad, 0}, {"WAVE BELLS", KIND_SYNTH, ENG_WAVE, w_bells, 0},
     {"MW SYNC", KIND_SYNTH, ENG_WAVE, w_mwsync, 0}, {"DIGI BASS", KIND_SYNTH, ENG_WAVE, w_digibass, 0},
     {"VOX SWEEP", KIND_SYNTH, ENG_WAVE, w_voxsweep, 0}, {"REMAP STEP", KIND_SYNTH, ENG_WAVE, w_remap, 0},
+    {"LOGIC XOR", KIND_SYNTH, ENG_LOGIC, l_xor, 0}, {"COMPARATOR", KIND_SYNTH, ENG_LOGIC, l_comp, 0},
+    {"GRAIN VOX", KIND_SYNTH, ENG_LOGIC, l_grainvox, 0}, {"BIT CRUNCH", KIND_SYNTH, ENG_LOGIC, l_crunch, 0},
     {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},

@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), nine engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope).
+- **Synth tracks** (T1 to T4), ten engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
@@ -189,7 +189,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with nine engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with ten engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 
@@ -222,7 +222,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -291,7 +291,7 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The nine synth engines (SOURCE pages)
+### The ten synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -419,6 +419,20 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **The wave envelope** loops while the key is held, then finishes its pass. Pair it with a slow WE TIME for evolving pads, or a fast one with STUTTER or STAIRS UP for rhythmic wave sequences. POS 1 and POS 2 are modulation destinations too: an LFO on POS is the classic PPG sweep.
 - **Greyed knobs:** osc 2's knobs grey out while MIX is 0 and XMOD is off; XM AMT while XMOD is off; WARP AMT while WARP is off; WE AMT and WE TIME while WAVE ENV is off.
 - **Presets:** PPG PAD, WAVE BELLS, MW SYNC, DIGI BASS, VOX SWEEP and REMAP STEP.
+
+**LOGIC:** oscillators built out of function blocks, after Kurzweil's VAST, whose FUNs compute a function of two signals, and E-mu's patch-cord functions. Three simple sources play: **A** on the note, **B** and **C** at musical ratios of it. **OP 1** combines A and B, then **OP 2** combines that with C. The functions range from arithmetic to bit logic, so the result can be anything from a soft sum to a broken digital pattern that repeats at the sources' common period. A pitch-synchronous grain stage can then turn it into a granular wave: every cycle it plays a grain of the voice's own last few milliseconds.
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- |
+| A WAVE: SAW, TRI, SQUARE, SINE, PULSE, NOISE | C WAVE | BITS: the word size the bit operators and QUANT work in, 1–12 (fewer is cruder) | SMOOTH: rounds off the hard edges (the engine also runs at twice the rate to keep them cleaner) |
+| B RATIO: 1/4 to 16 times A | OP 1: how A and B combine | PW: the width of any PULSE source | GRAIN: 0 off; short grains leave gaps (pulsar-like), long ones overlap into a cloud |
+| B WAVE | OP 2: how OP 1's result and C combine | B DRIFT: B up to 30 cents off its ratio, so the pattern slowly turns | G SPRAY: how far back, at random, each grain starts |
+| C RATIO | OP 2 AMT: how much of OP 2 (0 = OP 1 alone) | DRY A: mixes A itself back in | G PITCH: the grains' content transposed, ±24 semitones (the period stays on the note) |
+
+- **The functions:** A+B (a sum), A\*B (ring modulation), MIN and MAX (the lower or higher of the two), AND, OR, XOR and NAND (the two as BITS-bit numbers, combined bit by bit), A>B (a comparator: high where A is above B, so two slightly detuned sources make a pulse whose width sweeps), GATE (A only while B is high), DIFF (how far apart they are), QUANT (A in steps that B sets), MOD (A wrapped around a size B sets), SIN(A+B) (a sine of the sum: phase modulation) and A(B) (A's wave read at the position B gives: waveshaping).
+- **Where to start:** XOR or NAND between a SAW and a TRI at a ratio of 3/2 or 2, then fewer BITS for a cruder pattern. A>B between a SINE and a TRI at ratio 1 with a little B DRIFT gives a slowly breathing pulse. Ratios that aren't whole numbers make the pattern repeat at a lower common period, so the pitch can drop: 3/2 sounds an octave down, for example.
+- **Greyed knobs:** C, OP 2 and C RATIO grey out while OP 2 AMT is 0; BITS while no bit operator or QUANT is in use; PW while no source is PULSE; G SPRAY and G PITCH while GRAIN is 0.
+- **Presets:** LOGIC XOR, COMPARATOR, GRAIN VOX and BIT CRUNCH.
 
 ### Strike tracks (SOURCE pages)
 
@@ -1097,6 +1111,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
+- Kurzweil's VAST and E-mu's patch-cord functions, whose idea of building sound from function blocks the LOGIC engine follows.
 - Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
