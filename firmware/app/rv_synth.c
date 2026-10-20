@@ -248,80 +248,266 @@ static void va_render(voice_t *v, const float *eff, float f, float *out, int n)
     }
 }
 
-/* ---------------------------------------------------------------- PD --- */
-/* Casio CZ phase distortion: a cosine read through a bent phase. d = 0 is a sine. */
-static inline float pd_wave(int w, float x, float d)
+/* ---------------------------------------------------------------- CZ --- */
+/* The Casio CZ (CZ-101/1000/3000/5000/CZ-1): what its NEC uPD933 chip does, as worked out in
+ * MAME's uPD933 device (BSD-3-Clause, Devin Acker), driven the way the CZ's firmware drives it,
+ * with the panel-to-chip conversions from the CZ's MIDI tone format.
+ *
+ * A line is one chip voice: a cosine read through a phase transfer that DCW bends (eight waves,
+ * the resonant three a sine at 1 + DCW/64 times the pitch, hard-synced, under a saw, triangle or
+ * trapezoid window). Two waves alternate cycle by cycle (the CZ's octave-down cascade). Each
+ * line has three 8-step envelopes in the chip's units: DCO adds pitch (6.25-cent steps up to
+ * level 63, then 2-semitone steps), DCW sets the bend (0..1016), DCA the level on the chip's
+ * logarithmic curve (78 dB). A step's rate code (8 | r & 7) << (r >> 3) is how far it moves
+ * each 40 kHz chip sample. Line 2 can be ring-modulated by line 1 or have its pitch kicked by
+ * noise (0 or +32 semitones every 8 chip samples), as the chip does. */
+static const uint16_t cz_vib_delay[100] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 67, 71, 75, 79, 83, 87, 91, 95, 99, 103, 107, 111, 115, 119, 123, 127, 135, 143, 151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239, 247, 255, 271, 287, 303, 319, 335, 351, 367, 383, 399, 415, 431, 447, 463, 479, 495, 511, 543, 575, 607, 639};
+static const uint16_t cz_vib_rate[100] = {32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992, 1024, 1120, 1184, 1248, 1312, 1376, 1440, 1504, 1568, 1632, 1696, 1760, 1824, 1888, 1952, 2016, 2080, 2272, 2400, 2528, 2656, 2784, 2912, 3040, 3168, 3296, 3424, 3552, 3680, 3808, 3936, 4064, 4192, 4576, 4832, 5088, 5344, 5600, 5856, 6112, 6368, 6624, 6880, 7136, 7392, 7648, 7904, 8160, 8416, 9184, 9696, 10208, 10720, 11232, 11744, 12256, 12768, 13280, 13792, 14304, 14816, 15328, 15840, 16352, 16864, 18400, 19424, 20448, 21472};
+static const uint16_t cz_vib_depth[100] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 71, 75, 79, 83, 87, 91, 95, 99, 103, 107, 111, 115, 119, 123, 127, 131, 143, 151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239, 247, 255, 263, 287, 303, 319, 335, 351, 367, 383, 399, 415, 431, 447, 463, 479, 495, 511, 527, 575, 607, 639, 768};
+
+static const uint8_t cz_kf_dca[10] = {0x00, 0x08, 0x11, 0x1A, 0x24, 0x2F, 0x3A, 0x45, 0x52, 0x5F};
+static const uint8_t cz_kf_dcw[10] = {0x00, 0x1F, 0x2C, 0x39, 0x46, 0x53, 0x60, 0x6E, 0x92, 0xFF};
+#define CZ_CHIP_STEP (40000.0f / RV_FS)                 /* chip samples per Ravel sample */
+
+static float cz_rate_units(int which, int r)
 {
-    float m, p;
-    d = clampf(d, 0.0f, 0.98f);
-    switch (w) {
-    case 0:                                           /* saw */
-        m = 0.5f - d * 0.49f;
-        p = x < m ? x * (0.5f / m) : 0.5f + (x - m) * (0.5f / (1.0f - m));
-        return -sin_lut(p + 0.25f);
-    case 1: {                                         /* square */
-        float x2 = x * 2.0f, w2 = 1.0f - d;
-        if (x < 0.5f)
-            p = 0.5f * fm_minf(1.0f, x2 / w2);
-        else
-            p = 0.5f + 0.5f * fm_minf(1.0f, (x2 - 1.0f) / w2);
-        return -sin_lut(p + 0.25f);
-    }
-    case 2:                                           /* pulse */
-        m = 1.0f - d * 0.97f;
-        p = x < m ? x / m : 1.0f;
-        return -sin_lut(p + 0.25f);
-    case 3: {                                         /* double sine */
-        float y = x * 2.0f;
-        y -= fm_floorf(y);
-        m = 0.5f - d * 0.45f;
-        p = y < m ? y * (0.5f / m) : 0.5f + (y - m) * (0.5f / (1.0f - m));
-        return (x < 0.5f ? -1.0f : 1.0f) * sin_lut(p * 0.5f);
-    }
-    case 4:                                           /* saw-pulse */
-        if (x < 0.5f)
-            return pd_wave(0, x * 2.0f, d);
-        return pd_wave(2, (x - 0.5f) * 2.0f, d);
-    case 5:                                           /* resonance, saw window */
-        return sin_lut(x * (1.0f + d * 15.0f)) * (1.0f - x) * 1.3f;
-    case 6: {                                         /* resonance, triangle window */
-        float win = x < 0.5f ? x * 2.0f : 2.0f - x * 2.0f;
-        return sin_lut(x * (1.0f + d * 15.0f)) * win * 1.3f;
-    }
-    default: {                                        /* resonance, trapezoid window */
-        float win = x < 0.25f ? x * 4.0f : x > 0.75f ? (1.0f - x) * 4.0f : 1.0f;
-        return sin_lut(x * (1.0f + d * 15.0f)) * win;
-    }
+    int c;
+    r = clampi(r, 0, 99);
+    c = which == CZE_DCO ? 127 * r / 99 : which == CZE_DCW ? 119 * r / 99 + 8 : 119 * r / 99;
+    return (float)((8 | (c & 7)) << (c >> 3));
+}
+
+static float cz_level_units(int which, int l)
+{
+    l = clampi(l, 0, 99);
+    if (which == CZE_DCO)                             /* 0..63: 6.25 cents; 64..99: 2 semitones from 8 */
+        return l <= 63 ? (float)(l << 16) : (float)((l - 60) << 21);
+    return (float)((127 * l / 99) << (which == CZE_DCW ? 19 : 18));
+}
+
+static void cz_env_aim(czenv_t *e, const rv_czenv *p, int which, float kf)
+{
+    int s = clampi(e->step, 0, 7);
+    e->target = cz_level_units(which, p->level[s]);
+    e->rate = cz_rate_units(which, p->rate[s]) * kf;
+    e->run = 1;
+}
+
+static void cz_env_start(czenv_t *e, const rv_czenv *p, int which, float kf)
+{
+    e->cur = 0.0f;
+    e->step = 0;
+    cz_env_aim(e, p, which, kf);
+}
+
+/* the key went up: on to the step after the sustain point (if it was not passed yet) */
+static void cz_env_release(czenv_t *e, const rv_czenv *p, int which, float kf)
+{
+    int sus = clampi(p->sus, 0, 8), end = clampi(p->end, 1, 8);
+    if (sus && e->step < sus && sus < end) {
+        e->step = (int8_t)sus;
+        cz_env_aim(e, p, which, kf);
+    } else if (e->run == 2) {
+        e->run = e->step + 1 < end ? 1 : 0;
+        if (e->run) {
+            e->step++;
+            cz_env_aim(e, p, which, kf);
+        }
     }
 }
 
-static void pd_render(voice_t *v, const float *eff, float f, float *out, int n)
+/* n Ravel samples: towards the step's level, then the next step, the sustain point or the end */
+static void cz_env_tick(czenv_t *e, const rv_czenv *p, int which, float kf, int gate, int n)
 {
-    pd_t *s = &v->e.pd;
-    int w1 = clampi((int)(eff[TP_S0] + 0.5f), 0, 7), w2 = clampi((int)(eff[TP_S1] + 0.5f), 0, 7), i;
-    float mix = eff[TP_S2] * (1.0f / 127.0f);
-    float d = eff[TP_S3] * (1.0f / 127.0f) + eff[TP_S4] * (1.0f / 64.0f) * v->a.out;
-    float dt1 = f * RV_DT, dt2 = dt1 * fm_exp2f(eff[TP_S5] * (0.5f / 127.0f / 12.0f));   /* up to 50 cents */
-    float foam = eff[TP_S6] * (1.0f / 127.0f), ring = eff[TP_S7] * (1.0f / 127.0f);
-    d = clampf(d, 0.0f, 1.0f);
-    for (i = 0; i < n; i++) {
-        float a, b, x;
-        s->ph1 += dt1;
-        if (s->ph1 >= 1.0f)
-            s->ph1 -= 1.0f;
-        s->ph2 += dt2;
-        if (s->ph2 >= 1.0f)
-            s->ph2 -= 1.0f;
-        a = pd_wave(w1, s->ph1, d);
-        b = mix > 0.001f || ring > 0.001f ? pd_wave(w2, s->ph2, d) : 0.0f;
-        x = lerpf(a, b, mix);
-        x = lerpf(x, a * b * 1.5f, ring);
-        if (foam > 0.001f) {                          /* only the sidebands: take the fundamental away */
-            float fund = -sin_lut(s->ph1 + 0.25f) * (1.0f - d * 0.5f);
-            float sb = (x - fund) * (1.0f + foam * 3.0f);
-            x = lerpf(x, sb, foam);
+    int sus = clampi(p->sus, 0, 8), end = clampi(p->end, 1, 8);
+    float mv;
+    if (e->run != 1)
+        return;
+    mv = e->rate * (float)n * CZ_CHIP_STEP;
+    if (fm_fabsf(e->target - e->cur) <= mv) {
+        e->cur = e->target;
+        if (sus && e->step == sus - 1 && gate)
+            e->run = 2;
+        else if (e->step >= end - 1)
+            e->run = 0;
+        else {
+            e->step++;
+            cz_env_aim(e, p, which, kf);
         }
-        out[i] = x * 0.5f;
+    } else {
+        e->cur += e->target > e->cur ? mv : -mv;
+    }
+}
+
+static int cz_chip_wave(int w) { static const uint8_t m[9] = {0, 0, 1, 2, 4, 5, 6, 6, 6}; return m[clampi(w, 0, 8)]; }
+
+/* one line's sample: pos 0..4096 (two cycles), dcw 0..1023, window 0..3; 0..1 before the DCA */
+static inline float cz_line_sample(int w0, int w1, int win, float pos, float dcw)
+{
+    float p = pos >= 2048.0f ? pos - 2048.0f : pos, ph = 0.0f, pv = 1024.0f - dcw, wv = 0.0f, s;
+    int w = pos >= 2048.0f ? w1 : w0;
+    if (pv < 1.0f)
+        pv = 1.0f;
+    switch (w) {
+    case 0: ph = p < pv ? p * 1024.0f / pv : 1024.0f + (p - pv) * 1024.0f / (2048.0f - pv); break;   /* saw */
+    case 1: {                                                                                       /* square */
+        float q = p >= 1024.0f ? p - 1024.0f : p;
+        ph = (q < pv ? q * 1024.0f / pv : 1023.0f) + (p >= 1024.0f ? 1024.0f : 0.0f);
+        break;
+    }
+    case 2: ph = p < pv * 2.0f ? p * 2048.0f / (pv * 2.0f) : 2047.0f; break;                          /* pulse */
+    case 4: ph = p < pv ? p * 2048.0f / pv : (p - pv) * 2048.0f / (2048.0f - pv); break;               /* double sine */
+    case 5: ph = p < 1024.0f ? p : p < pv + 1024.0f ? 1024.0f + (p - 1024.0f) * 1024.0f / pv : 2047.0f; break;   /* saw pulse */
+    case 6: ph = p + p * dcw * (1.0f / 64.0f); ph -= 2048.0f * fm_floorf(ph * (1.0f / 2048.0f)); break;    /* resonance */
+    default: break;
+    }
+    switch (win) {                                    /* the resonant waves' windows */
+    case 1: wv = p; break;                                                    /* saw: falls over the cycle */
+    case 2: wv = p < 1024.0f ? 2048.0f - p * 2.0f : (p - 1024.0f) * 2.0f; break; /* triangle */
+    case 3: wv = p >= 1024.0f ? (p - 1024.0f) * 2.0f : 0.0f; break;           /* trapezoid: falls in the second half */
+    default: break;
+    }
+    s = 0.5f - 0.5f * sin_lut(ph * (1.0f / 2048.0f) + 0.25f);   /* the chip's 0..1 cosine */
+    return s * (1.0f - wv * (1.0f / 2048.0f));
+}
+
+static void cz_note(voice_t *v, const float *eff, int t)
+{
+    cz_t *c = &v->e.cz;
+    int l, k, note = v->note, mode = clampi((int)(eff[TP_S0] + 0.5f), 0, 3);
+    for (l = 0; l < 2; l++) {
+        const rv_czline *pl = &rv.cz[t & 7].line[mode == 1 ? 1 : mode == 3 ? l : 0];
+        float kfa = fm_exp2f((float)cz_kf_dca[clampi(pl->kf_dca, 0, 9)] * (1.0f / 95.0f) * (float)(note - 60) * (1.0f / 12.0f));
+        c->l[l].pos = 0.0f;                           /* the CZ restarts the oscillator on each note */
+        for (k = 0; k < 3; k++)
+            cz_env_start(&c->l[l].env[k], &pl->env[k], k, k == CZE_DCA ? kfa : 1.0f);
+    }
+    c->vib_t = 0.0f;
+    c->gate = 1;
+    c->done = 0;
+    if (!c->ns)
+        c->ns = v->rng | 1u;
+}
+
+static void cz_render(voice_t *v, const float *eff, float f, float *out, int n, int t)
+{
+    cz_t *c = &v->e.cz;
+    const rv_cz *pz = &rv.cz[t & 7];
+    int mode = clampi((int)(eff[TP_S0] + 0.5f), 0, 3), oct = clampi((int)(eff[TP_S1] + 0.5f), 0, 2) - 1;
+    int mod = clampi((int)(eff[TP_S2] + 0.5f), 0, 2), lines = mode >= 2 ? 2 : 1, i, l, k;
+    int gate = v->a.gate, note = v->note;
+    float det = ((float)clampi((int)(eff[TP_S5] + 0.5f), 0, 3) * 12.0f + (float)clampi((int)(eff[TP_S6] + 0.5f), 0, 11)
+                 + eff[TP_S7] * (1.0f / 60.0f)) * (eff[TP_S4] > 0.5f ? -1.0f : 1.0f);
+    float vib = 0.0f, foam = eff[TP_S13] * (1.0f / 127.0f), dcwoff = eff[TP_S12] * 8.0f;
+    float veld = (float)clampi((int)(eff[TP_S14] + 0.5f), 0, 9) * (1.0f / 9.0f), lev = 0.0f;
+    float dt[2], dcw[2], a0[2], a1[2];
+    int w0[2], w1[2], win[2];
+    /* the key went up */
+    if (c->gate && !gate) {
+        for (l = 0; l < 2; l++) {
+            const rv_czline *pl = &pz->line[mode == 1 ? 1 : mode == 3 ? l : 0];
+            float kfa = fm_exp2f((float)cz_kf_dca[clampi(pl->kf_dca, 0, 9)] * (1.0f / 95.0f) * (float)(note - 60) * (1.0f / 12.0f));
+            for (k = 0; k < 3; k++)
+                cz_env_release(&c->l[l].env[k], &pl->env[k], k, k == CZE_DCA ? kfa : 1.0f);
+        }
+    }
+    c->gate = (uint8_t)gate;
+    /* vibrato: after its delay, at its rate and depth, in one of four shapes */
+    c->vib_t += (float)n * RV_DT;
+    if (eff[TP_S11] > 0.5f && c->vib_t >= (float)cz_vib_delay[clampi((int)(eff[TP_S9] + 0.5f), 0, 99)] * 0.01f) {
+        float x;
+        int vw = clampi((int)(eff[TP_S8] + 0.5f), 0, 3);
+        c->vib_ph += (float)cz_vib_rate[clampi((int)(eff[TP_S10] + 0.5f), 0, 99)] * 0.00085f * (float)n * RV_DT;
+        c->vib_ph -= fm_floorf(c->vib_ph);
+        x = vw == 0 ? (c->vib_ph < 0.5f ? 4.0f * c->vib_ph - 1.0f : 3.0f - 4.0f * c->vib_ph)
+          : vw == 1 ? (c->vib_ph < 0.5f ? 1.0f : -1.0f) : vw == 2 ? 2.0f * c->vib_ph - 1.0f : 1.0f - 2.0f * c->vib_ph;
+        vib = x * (float)cz_vib_depth[clampi((int)(eff[TP_S11] + 0.5f), 0, 99)] * (12.0f / 768.0f);
+    }
+    /* each line's settings and envelopes for this block */
+    for (l = 0; l < lines; l++) {
+        int src = mode == 1 ? 1 : mode == 3 ? l : 0;   /* 1, 2, 1+1' (line 1 twice), 1+2' */
+        const rv_czline *pl = &pz->line[src];
+        czline_t *ln = &c->l[l];
+        float kfa = fm_exp2f((float)cz_kf_dca[clampi(pl->kf_dca, 0, 9)] * (1.0f / 95.0f) * (float)(note - 60) * (1.0f / 12.0f));
+        float kfw = (float)cz_kf_dcw[clampi(pl->kf_dcw, 0, 9)] * (1.0f / 255.0f), semi, fl, lim, d;
+        int wa = clampi(pl->wave1, 1, 8), wb = clampi(pl->wave2, 0, 8);
+        if (wa >= 6 && wb >= 6)                        /* the CZ cannot cascade two resonant waves */
+            wb = 0;
+        w0[l] = cz_chip_wave(wa);
+        w1[l] = wb ? cz_chip_wave(wb) : w0[l];
+        win[l] = wa >= 6 ? wa - 5 : wb >= 6 ? wb - 5 : 0;
+        a0[l] = ln->env[CZE_DCA].cur;
+        for (k = 0; k < 3; k++)
+            cz_env_tick(&ln->env[k], &pl->env[k], k, k == CZE_DCA ? kfa : 1.0f, gate, n);
+        a1[l] = ln->env[CZE_DCA].cur;
+        semi = ln->env[CZE_DCO].cur * (1.0f / 1048576.0f) + (float)oct * 12.0f + vib + (l == 1 ? det : 0.0f);
+        fl = f * fm_exp2f(semi * (1.0f / 12.0f));
+        dt[l] = clampf(fl * 4096.0f * 0.5f * RV_DT, 0.0f, 1900.0f);   /* 2048 units a cycle */
+        d = ln->env[CZE_DCW].cur * (1.0f / 65536.0f);
+        d *= clampf(1.0f - kfw * (float)(note - 36) * (1.0f / 48.0f), 0.0f, 1.0f);   /* DCW key follow: duller up high */
+        d *= 1.0f - veld * (1.0f - v->vel) * 0.9f;                                      /* VEL DCW (CZ-1 style) */
+        d += dcwoff;                                                                    /* DCW +- (modulatable) */
+        lim = 1024.0f - clampf(fl * (8192.0f / 40000.0f), 0.0f, 1024.0f);              /* the chip's high-note limit */
+        dcw[l] = clampf(d, 0.0f, lim > 0.0f ? lim : 0.0f);
+        for (k = 0; k < 3; k++)
+            rv_live.cz_step[t & 7][l * 3 + k] = (int8_t)(ln->env[k].run ? ln->env[k].step : -1);
+    }
+    /* the DCA as amplitude, on the chip's log curve (index 0..508 of 511 over 13 bits) */
+    for (l = 0; l < lines; l++) {
+        float i0 = a0[l] * (1.0f / 65536.0f), i1 = a1[l] * (1.0f / 65536.0f);
+        a0[l] = i0 < 1.0f ? 0.0f : fm_exp2f(i0 * (13.0f / 511.0f) - 13.0f);
+        a1[l] = i1 < 1.0f ? 0.0f : fm_exp2f(i1 * (13.0f / 511.0f) - 13.0f);
+    }
+    for (i = 0; i < n; i++) {
+        float u = (float)i / (float)n, y = 0.0f, sa = 0.0f;
+        for (l = 0; l < lines; l++) {
+            czline_t *ln = &c->l[l];
+            float amp = a0[l] + (a1[l] - a0[l]) * u, s, step = dt[l];
+            if (l == 1 && mod == 2) {                  /* noise: line 2's pitch kicked every 8 chip samples */
+                if (++c->pm_n >= 9) {
+                    c->pm_n = 0;
+                    c->pm = (xs_uni(&c->ns) < 0.5f) ? 0.0f : 1.0f;
+                }
+                if (c->pm > 0.5f)
+                    step *= 6.3496f;                   /* +32 semitones */
+            }
+            s = (cz_line_sample(w0[l], w1[l], win[l], ln->pos, dcw[l]) - 0.5f) * 2.0f * amp;
+            if (l == 1 && mod == 1)                     /* ring: line 2 times line 1, as the chip multiplies */
+                s *= sa;
+            ln->pos += step;
+            if (ln->pos >= 4096.0f)
+                ln->pos -= 4096.0f;
+            if (l == 0) {
+                sa = s;
+                if (foam > 0.0f) {                      /* FOAM: the fundamental taken out, the sidebands left */
+                    float p = ln->pos >= 2048.0f ? ln->pos - 2048.0f : ln->pos;
+                    s -= foam * 0.8f * amp * -sin_lut(p * (1.0f / 2048.0f) + 0.25f);
+                }
+            }
+            y += s;
+        }
+        out[i] = y * (lines == 2 ? 0.4f : 0.5f);
+    }
+    /* the level the rest of Ravel sees (the filter's envelope, influence, the matrix's ENV) */
+    for (l = 0; l < lines; l++)
+        if (a1[l] > lev)
+            lev = a1[l];
+    c->level = fm_sqrtf(lev);
+    /* done: every line's DCA has stopped at nothing, or the key is up and it has nowhere to go */
+    {
+        int alive = 0;
+        for (l = 0; l < lines; l++) {
+            czenv_t *e = &c->l[l].env[CZE_DCA];
+            if (e->run == 0 && !gate && e->cur > 0.0f) {   /* ended above zero with the key up: fade out */
+                e->target = 0.0f;
+                e->rate = cz_rate_units(CZE_DCA, 70);
+                e->run = 1;
+                e->step = 7;
+            }
+            if (e->run || e->cur >= 65536.0f)
+                alive = 1;
+        }
+        c->done = (uint8_t)!alive;
     }
 }
 
@@ -939,15 +1125,15 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         voice_engine_reset(v, eng);
     switch (eng) {
     case ENG_VA: va_render(v, eff, f, buf, n); break;
-    case ENG_PD: pd_render(v, eff, f, buf, n); break;
+    case ENG_CZ: cz_render(v, eff, f, buf, n, v->track); break;
     case ENG_FM: fm_render(v, eff, f, buf, n); break;
     case ENG_PHYS: phys_render(v, eff, f, tr->exc, buf, n); break;
     case ENG_FORMANT: form_render(v, eff, f, buf, n); break;
     case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
-    /* the filter: cutoff from its knob, the articulation, the key */
-    lvl0 = v->a.out;
+    /* the filter: cutoff from its knob, the articulation (CZ: its DCA), the key */
+    lvl0 = eng == ENG_CZ ? v->e.cz.level : v->a.out;
     ktrk = eff[TP_KTRK] * (1.0f / 127.0f);
     env_amt = eff[TP_EFILT] * (1.0f / 64.0f);
     cut = eff[TP_CUT] + env_amt * 64.0f * lvl0 + ktrk * ((float)v->note - 60.0f) * (127.0f / 120.0f);
@@ -964,7 +1150,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
     lvl = 0.0f;
     for (i = 0; i < n; i++) {
-        float a = artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;
+        float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */
         if (eng != ENG_PHYS)
             x += tr->exc[i] * 0.5f;
         if (v->a.tailv > 0.0005f)
@@ -983,6 +1169,11 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         out[i] += y;
         v->last = y;
         lvl = a;
+    }
+    if (eng == ENG_CZ) {
+        if (v->e.cz.done)
+            v->on = 0;
+        return v->e.cz.level;
     }
     if (v->a.stage == AS_OFF && v->a.tailv < 0.0005f)
         v->on = 0;

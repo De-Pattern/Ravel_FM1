@@ -4,7 +4,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
-const char *const rv_engine_names[] = {"VA", "PD", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -39,7 +39,12 @@ static const char *const polys[] = {"MONO", "2", "3", "4"};
 
 /* engines */
 static const char *const va_ratio[] = {"1/2", "1", "3/2", "2", "3", "4", "5", "7"};
-static const char *const pd_waves[] = {"SAW", "SQUARE", "PULSE", "DBLSINE", "SAWPULS", "RESO1", "RESO2", "RESO3"};
+static const char *const cz_lines[] = {"1", "2", "1+1'", "1+2'"};
+static const char *const cz_octs[] = {"-1", "0", "+1"};
+static const char *const cz_mods[] = {"OFF", "RING", "NOISE"};
+static const char *const cz_chorus[] = {"OFF", "I", "II", "I+II"};
+static const char *const cz_signs[] = {"+", "-"};
+static const char *const cz_vibw[] = {"TRI", "SQUARE", "UP", "DOWN"};
 static const char *const fm_algs[] = {"1>2>3>4", "1>2>3+4", "1>2+3+4", "1>2,3>4", "1+2>3>4", "1+2+3>4",
                                       "1+2,3>4", "1>2>3,4", "STACK3", "ALL+4FB", "ALL", "RING"};
 static const char *const fm_waves[] = {"SINE", "TRI", "SAW", "SQUARE", "HALF", "ABS", "QUART", "BITS"};
@@ -66,10 +71,13 @@ static const rv_pinfo SRC_VA[16] = {
     {"DETUNE", 0, 127, 24, PF_NUM, 0}, {"SUB", 0, 127, 0, PF_NUM, 0}, {"NOISE", 0, 127, 0, PF_NUM, 0},
     {"TZFM", 0, 127, 0, PF_NUM, 0}, {"FMRATIO", 0, N(va_ratio), 1, E(va_ratio)}, {"SYNC", 0, 127, 0, PF_NUM, 0},
     {"DRIFT", 0, 127, 12, PF_NUM, 0}};
-static const rv_pinfo SRC_PD[16] = {
-    {"WAVE", 0, N(pd_waves), 0, E(pd_waves)}, {"WAVE2", 0, N(pd_waves), 5, E(pd_waves)}, {"MIX", 0, 127, 0, PF_NUM, 0},
-    {"DCW", 0, 127, 64, PF_NUM, 0}, {"DCW ENV", -64, 63, 32, PF_BI, 0}, {"DETUNE", 0, 127, 0, PF_NUM, 0},
-    {"FOAM", 0, 127, 0, PF_NUM, 0}, {"RING", 0, 127, 0, PF_NUM, 0}};
+/* CZ: the tone's general settings (the per-line waves, key follow and envelopes are rv.cz) */
+static const rv_pinfo SRC_CZ[16] = {
+    {"LINE", 0, N(cz_lines), 0, E(cz_lines)}, {"OCTAVE", 0, N(cz_octs), 1, E(cz_octs)}, {"MOD", 0, N(cz_mods), 0, E(cz_mods)},
+    {"CHORUS", 0, N(cz_chorus), 0, E(cz_chorus)}, {"DETUNE", 0, N(cz_signs), 0, E(cz_signs)}, {"DT OCT", 0, 3, 0, PF_NUM, 0},
+    {"DT NOTE", 0, 11, 0, PF_NUM, 0}, {"DT FINE", 0, 60, 4, PF_NUM, 0}, {"VIB WAV", 0, N(cz_vibw), 0, E(cz_vibw)},
+    {"DELAY", 0, 99, 0, PF_NUM, 0}, {"RATE", 0, 99, 0, PF_NUM, 0}, {"DEPTH", 0, 99, 0, PF_NUM, 0},
+    {"DCW +-", -64, 63, 0, PF_BI, 0}, {"FOAM", 0, 127, 0, PF_NUM, 0}, {"VEL DCW", 0, 9, 0, PF_NUM, 0}};
 static const rv_pinfo SRC_FM[16] = {
     {"ALGO", 0, N(fm_algs), 0, E(fm_algs)}, {"FEEDBK", 0, 127, 0, PF_NUM, 0}, {"RATIO1", 0, 31, 3, PF_NUM, 0},
     {"RATIO2", 0, 31, 3, PF_NUM, 0}, {"RATIO3", 0, 31, 5, PF_NUM, 0}, {"RATIO4", 0, 31, 3, PF_NUM, 0},
@@ -112,7 +120,7 @@ static const rv_pinfo SRC_CHIP[16] = {
     {"SUB OCT", 0, N(chip_suboct), 2, E(chip_suboct)}, {"SYNC", 0, 1, 0, PF_ONOFF, 0}, {"OVER", 0, 127, 0, PF_NUM, 0},
     {"SRR", 0, 127, 0, PF_NUM, 0}, {"CRUSH", 1, 16, 16, PF_NUM, 0}, {"DECOMP", 0, 127, 0, PF_NUM, 0},
     {"FRAG", 0, 127, 50, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_PD, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP};
 
 static const rv_pinfo TRACK[TP_N] = {
     [TP_KIND] = {"KIND", 0, KIND_N - 1, 0, E(rv_kind_names)},
@@ -451,6 +459,17 @@ int rv_tp_applies(int t, int p)
         default: return 1;
         }
     }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ) {
+        int two = tp[TP_S0] >= 2;                                          /* 1+1' or 1+2' */
+        switch (p) {
+        case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_GIVE: case TP_DEC: case TP_SUS:
+        case TP_LOOP: case TP_REL: case TP_TAIL:
+            return 0;                                                      /* the CZ's DCA envelopes are the level */
+        case TP_S2: case TP_S4: case TP_S5: case TP_S6: case TP_S7: return two;   /* MOD, detune: two lines */
+        case TP_S8: case TP_S9: case TP_S10: return tp[TP_S11] > 0;         /* vibrato: with DEPTH */
+        default: return 1;
+        }
+    }
     if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CHIP) {
         int w = tp[TP_S0], steps = tp[TP_S7];
         switch (p) {
@@ -512,6 +531,19 @@ static void track_src_defaults(int t)
         rv.tp[t][TP_S0 + s] = pi->name ? pi->def : 0;
     }
 }
+void rv_track_src_defaults(int t) { track_src_defaults(t); }
+
+/* a plain CZ tone: line 1 a saw whose DCW opens and settles, DCA up, held, released */
+void rv_cz_init(int t)
+{
+    static const rv_czline plain = {
+        1, 0, 0, 0,
+        {{{99, 99, 99, 99, 99, 99, 99, 99}, {0, 0, 0, 0, 0, 0, 0, 0}, 0, 1},              /* DCO: flat */
+         {{90, 60, 70, 99, 99, 99, 99, 99}, {80, 45, 0, 0, 0, 0, 0, 0}, 2, 3},            /* DCW: open, settle, close */
+         {{99, 70, 60, 99, 99, 99, 99, 99}, {99, 85, 0, 0, 0, 0, 0, 0}, 2, 3}}};          /* DCA: up, hold, release */
+    rv.cz[t & 7].line[0] = plain;
+    rv.cz[t & 7].line[1] = plain;
+}
 
 void rv_track_defaults(int t, int kind, int engine)
 {
@@ -521,6 +553,8 @@ void rv_track_defaults(int t, int kind, int engine)
     rv.tp[t][TP_KIND] = (int16_t)kind;
     rv.tp[t][TP_ENGINE] = (int16_t)engine;
     track_src_defaults(t);
+    if (kind == KIND_SYNTH && engine == ENG_CZ)
+        rv_cz_init(t);
     if (kind == KIND_STRIKE) {
         rv.tp[t][TP_POLY] = 1;
         rv.tp[t][TP_ATK] = 0;
@@ -557,8 +591,10 @@ void rv_project_init(void)
     rv.magic = RV_MAGIC;
     rv.format = RV_FORMAT;
     put_str(rv.name, 0, 12, "INIT");
-    for (t = 0; t < RV_TRACKS; t++)
+    for (t = 0; t < RV_TRACKS; t++) {
+        rv_cz_init(t);                              /* every track has a CZ patch ready */
         rv_track_defaults(t, t < 4 ? KIND_SYNTH : t < 6 ? KIND_STRIKE : KIND_TAPE, t < 4 ? t : 0);
+    }
     for (g = 0; g < GP_N; g++)
         rv.gp[g] = GLOBAL[g].name ? GLOBAL[g].def : 0;
     for (t = 0; t < RV_TRACKS; t++) {

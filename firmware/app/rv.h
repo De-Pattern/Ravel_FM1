@@ -99,7 +99,7 @@ enum {
 #define PID_G(g) (RV_GPID + (g))
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_N };
-enum { ENG_VA, ENG_PD, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_N };
+enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_N };   /* ENG_CZ: was PD */
 enum { CW_TRI, CW_SAW, CW_PULSE, CW_NOISE, CW_SAWPUL, CW_RING, CW_PWM, CW_KICK, CW_SNARE, CW_N };   /* CHIP waves */
 enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_N };
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
@@ -164,7 +164,21 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 3                 /* 3: graph mode and heads, more bus controls (2 loads and is upgraded) */
+#define RV_FORMAT 4                 /* 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+
+/* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
+ * envelopes, all in the CZ's own panel units */
+enum { CZE_DCO, CZE_DCW, CZE_DCA };
+typedef struct {
+    uint8_t rate[8], level[8];      /* 0..99 */
+    uint8_t sus, end;               /* sustain step 1..8 (0 = none), end step 1..8 */
+} rv_czenv;
+typedef struct {
+    uint8_t wave1, wave2;           /* 1..8 (SAW, SQUARE, PULSE, DBL SINE, SAW PULSE, RESO 1-3); wave2 0 = none */
+    uint8_t kf_dca, kf_dcw;         /* key follow 0..9 */
+    rv_czenv env[3];                /* DCO (pitch), DCW (waveform), DCA (level) */
+} rv_czline;
+typedef struct { rv_czline line[2]; } rv_cz;
 typedef struct {
     uint32_t magic, format;
     char name[12];
@@ -180,6 +194,7 @@ typedef struct {
     uint8_t arcs[RV_TRACKS][16];           /* density per bar, 0..100 (100 = every step) */
     uint8_t lib[RV_LIB][3];                /* envelope library: attack shape, body, death */
     rv_pattern pat[RV_TRACKS][RV_PATTERNS];
+    rv_cz cz[RV_TRACKS];                   /* (format 4) last, so older projects load in front of it */
 } rv_project;
 
 extern rv_project rv;                      /* the project being played */
@@ -190,7 +205,8 @@ typedef struct {
     float meter[RV_TRACKS];                /* track peak, decaying */
     float env[RV_TRACKS];                  /* articulation level of the track's newest voice */
     float key[RV_TRACKS];
-    float exc_in[RV_TRACKS];               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
+    float exc_in[RV_TRACKS];
+    int8_t cz_step[RV_TRACKS][6];          /* the newest CZ voice: each envelope's step (line 1 DCO DCW DCA, line 2) */               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
     uint8_t stage[RV_TRACKS];              /* its stage: 0 onset, 1 continuant, 2 termination, 3 off */
     float stage_pos[RV_TRACKS];            /* 0..1 through the stage */
     int16_t step[RV_TRACKS][2];            /* playing step per head, -1 = none */
@@ -230,6 +246,8 @@ extern const char *const rv_msrc_names[], *const rv_cond_names[];
 extern const char *const rv_scale_names[];
 #define RV_NCOND 14
 void rv_track_defaults(int t, int kind, int engine);
+void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
+void rv_cz_init(int t);                         /* a plain CZ patch on track t */
 void rv_project_init(void);
 
 /* rv_engine.c: the audio side */

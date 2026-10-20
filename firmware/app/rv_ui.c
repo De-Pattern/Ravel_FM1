@@ -28,7 +28,9 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE };
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ };
+/* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
+enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END };
 enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB };
 enum { RF_TYPE, RF_AMT, RF_ARG, RF_CHANCE };
 enum { MF_SRC, MF_TRACK, MF_PARAM, MF_AMT };
@@ -39,12 +41,14 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
-       PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE };
+       PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
+       PIC_CZWAVE, PIC_CZENV };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2 };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ };
 /* what PRESETS does on the page */
-enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR };
+enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR,
+       PR_CZSTEP };
 
 typedef struct {
     uint8_t sec, vis, pic, pr;
@@ -59,6 +63,8 @@ typedef struct {
 #define MF(p) {K_MAT, p}
 #define XF(p) {K_MACRO, p}
 #define NO {K_NONE, 0}
+#define CZW(l, f) {K_CZ, (uint16_t)((l) << 8 | (f))}
+#define CZE(l, e, f) {K_CZ, (uint16_t)((l) << 8 | (e) << 4 | (f))}
 
 static const page_t pages[] = {
     {SEC_HOME, V_ALL, PIC_TRACKS, PR_SOUND, "TRACKS", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_KIND), TP(TP_ENGINE)}},
@@ -69,6 +75,15 @@ static const page_t pages[] = {
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
     {SEC_VOICE, V_SRC3, PIC_SOURCE, PR_SOUND, "SOURCE 4", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
+    /* the CZ engine's lines: waves and key follow, then the three 8-step envelopes each */
+    {SEC_VOICE, V_CZL1, PIC_CZWAVE, PR_SOUND, "LINE 1", {CZW(0, CZF_WAVE1), CZW(0, CZF_WAVE2), CZW(0, CZF_KFA), CZW(0, CZF_KFW)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCO 1", {CZE(0, CZE_DCO, CZF_RATE), CZE(0, CZE_DCO, CZF_LEVEL), CZE(0, CZE_DCO, CZF_SUS), CZE(0, CZE_DCO, CZF_END)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCW 1", {CZE(0, CZE_DCW, CZF_RATE), CZE(0, CZE_DCW, CZF_LEVEL), CZE(0, CZE_DCW, CZF_SUS), CZE(0, CZE_DCW, CZF_END)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCA 1", {CZE(0, CZE_DCA, CZF_RATE), CZE(0, CZE_DCA, CZF_LEVEL), CZE(0, CZE_DCA, CZF_SUS), CZE(0, CZE_DCA, CZF_END)}},
+    {SEC_VOICE, V_CZL2, PIC_CZWAVE, PR_SOUND, "LINE 2", {CZW(1, CZF_WAVE1), CZW(1, CZF_WAVE2), CZW(1, CZF_KFA), CZW(1, CZF_KFW)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCO 2", {CZE(1, CZE_DCO, CZF_RATE), CZE(1, CZE_DCO, CZF_LEVEL), CZE(1, CZE_DCO, CZF_SUS), CZE(1, CZE_DCO, CZF_END)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCW 2", {CZE(1, CZE_DCW, CZF_RATE), CZE(1, CZE_DCW, CZF_LEVEL), CZE(1, CZE_DCW, CZF_SUS), CZE(1, CZE_DCW, CZF_END)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCA 2", {CZE(1, CZE_DCA, CZF_RATE), CZE(1, CZE_DCA, CZF_LEVEL), CZE(1, CZE_DCA, CZF_SUS), CZE(1, CZE_DCA, CZF_END)}},
     {SEC_VOICE, V_ALL, PIC_SOURCE, PR_SOUND, "PITCH", {TP(TP_PITCH), TP(TP_FINE), TP(TP_GLIDE), NO}},
     {SEC_VOICE, V_ALL, PIC_FILTER, PR_SOUND, "FILTER", {TP(TP_FTYPE), TP(TP_CUT), TP(TP_RES), TP(TP_KTRK)}},
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN", {TP(TP_DRIVE), TP(TP_FOLD), TP(TP_BITS), TP(TP_DEREZ)}},
@@ -150,6 +165,7 @@ static struct {
     uint8_t layer_used[NB];
     uint8_t step_page;                       /* SEQ: which 16 steps the keys show */
     int16_t step_cur;                        /* the step the step pages edit */
+    uint8_t cz_step;                         /* the step the CZ envelope pages edit, 0..7 */
     uint32_t step_key_held;                  /* step keys held (bit = white key index) */
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
@@ -263,6 +279,9 @@ static int page_visible(int i)
     case V_STEPSMODE: return rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH;
     case V_GRAPH: return rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH;
     case V_GRAPH2: return (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH) && rv.tp[t][TP_H2ROLE] != ROLE_OFF;
+    case V_CZL1: return kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ && rv.tp[t][TP_S0] != 1;   /* not LINE = 2 */
+    case V_CZL2: return kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ && (rv.tp[t][TP_S0] == 1 || rv.tp[t][TP_S0] == 3);
+    case V_NOTCZ: return !(kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ);
     default: return 1;
     }
 }
@@ -456,6 +475,27 @@ static kinfo_t kb_info(kb_t k)
         r.fmt = PF_ENUM;
         r.names = save_actions;
         break;
+    case K_CZ: {
+        static const char *const fn[] = {"WAVE 1", "WAVE 2", "DCA KF", "DCW KF", "RATE", "LEVEL", "SUS", "END"};
+        static const char *const w1[] = {"SAW", "SQUARE", "PULSE", "DBL SIN", "SAW PLS", "RESO 1", "RESO 2", "RESO 3"};
+        static const char *const w2[] = {"OFF", "SAW", "SQUARE", "PULSE", "DBL SIN", "SAW PLS", "RESO 1", "RESO 2", "RESO 3"};
+        static const char *const sus[] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8"};
+        int f = k.id & 15, l = (k.id >> 8) & 1;
+        r.name = fn[f];
+        switch (f) {
+        case CZF_WAVE1: r.min = 1; r.max = 8; r.fmt = PF_ENUM; r.names = w1; break;
+        case CZF_WAVE2:                              /* two resonant waves cannot be cascaded */
+            r.max = rv.cz[ui.track].line[l].wave1 >= 6 ? 5 : 8;
+            r.fmt = PF_ENUM;
+            r.names = w2;
+            break;
+        case CZF_KFA: case CZF_KFW: r.max = 9; break;
+        case CZF_RATE: case CZF_LEVEL: r.max = 99; break;
+        case CZF_SUS: r.max = 8; r.fmt = PF_ENUM; r.names = sus; break;
+        default: r.min = 1; r.max = 8; break;
+        }
+        break;
+    }
     default:
         break;
     }
@@ -541,6 +581,20 @@ static int kb_get(kb_t k)
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
     case K_LIB: return rv.lib[ui.cur_lib & 255][k.id];
+    case K_CZ: {
+        const rv_czline *pl = &rv.cz[ui.track].line[(k.id >> 8) & 1];
+        const rv_czenv *e = &pl->env[clampi((k.id >> 4) & 15, 0, 2)];
+        switch (k.id & 15) {
+        case CZF_WAVE1: return pl->wave1;
+        case CZF_WAVE2: return pl->wave2;
+        case CZF_KFA: return pl->kf_dca;
+        case CZF_KFW: return pl->kf_dcw;
+        case CZF_RATE: return e->rate[ui.cz_step & 7];
+        case CZF_LEVEL: return e->level[ui.cz_step & 7];
+        case CZF_SUS: return e->sus;
+        default: return e->end;
+        }
+    }
     case K_SAVE: return ui.save_action;
     default: return 0;
     }
@@ -568,6 +622,8 @@ static void kb_set(kb_t k, int v)
                 const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
                 rv.tp[ui.track][p] = pi->name ? pi->def : 0;
             }
+            if (v == ENG_CZ)
+                rv_cz_init(ui.track);
             return;
         }
         rv_pid_set(PID_T(ui.track, k.id), v);
@@ -689,6 +745,31 @@ static void kb_set(kb_t k, int v)
     case K_LIB:
         rv.lib[ui.cur_lib & 255][k.id] = (uint8_t)v;
         break;
+    case K_CZ: {
+        rv_czline *pl = &rv.cz[ui.track].line[(k.id >> 8) & 1];
+        rv_czenv *e = &pl->env[clampi((k.id >> 4) & 15, 0, 2)];
+        switch (k.id & 15) {
+        case CZF_WAVE1:
+            pl->wave1 = (uint8_t)v;
+            if (v >= 6 && pl->wave2 >= 6)
+                pl->wave2 = 0;
+            break;
+        case CZF_WAVE2: pl->wave2 = (uint8_t)v; break;
+        case CZF_KFA: pl->kf_dca = (uint8_t)v; break;
+        case CZF_KFW: pl->kf_dcw = (uint8_t)v; break;
+        case CZF_RATE: e->rate[ui.cz_step & 7] = (uint8_t)v; break;
+        case CZF_LEVEL: e->level[ui.cz_step & 7] = (uint8_t)v; break;
+        case CZF_SUS: e->sus = (uint8_t)(v > e->end ? e->end : v); break;   /* the sustain step is never after the end */
+        default:
+            e->end = (uint8_t)v;
+            if (e->sus > e->end)
+                e->sus = e->end;
+            if (ui.cz_step >= v)
+                ui.cz_step = (uint8_t)(v - 1);
+            break;
+        }
+        break;
+    }
     case K_SAVE:
         ui.save_action = (uint8_t)v;
         ui.save_confirm = 0;
@@ -968,6 +1049,7 @@ static void preset_turn(int d)
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_LIB - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
     case PR_STEPCUR: ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, clampi(rv.tp[t][TP_LEN], 1, 64) - 1); break;
+    case PR_CZSTEP: ui.cz_step = (uint8_t)clampi(ui.cz_step + d, 0, 7); break;
     default: break;
     }
 }
@@ -1477,6 +1559,7 @@ static void draw_footer(void)
     case PR_LIB: hint = "PRESETS: SHAPE"; break;
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
+    case PR_CZSTEP: hint = "PRESETS: STEP 1-8"; break;
     default:
         if (ui.sec == SEC_TAPE)
             hint = rv.tp[ui.track][TP_KIND] != KIND_TAPE ? "BLACK 9 CATCH  10 RESAMPLE"
@@ -1662,6 +1745,89 @@ static void pic_infl(void)
     }
 }
 
+/* the CZ page's line: which line a page edits (from its title), and its two cycles at the DCW
+ * envelope's highest level, drawn with the engine's own waveform function */
+static int cz_page_line(void) { const char *tt = cur_page()->title; while (*tt && *tt != ' ') tt++; return tt[0] && tt[1] == '2'; }
+
+static void pic_czwave(void)
+{
+    int t = ui.track, l = cz_page_line(), i, prev = 0, mx = 0, wa, wb, win;
+    const rv_czline *pl = &rv.cz[t].line[l];
+    char b[40];
+    for (i = 0; i < clampi(pl->env[CZE_DCW].end, 1, 8); i++)
+        if (pl->env[CZE_DCW].level[i] > mx)
+            mx = pl->env[CZE_DCW].level[i];
+    wa = clampi(pl->wave1, 1, 8);
+    wb = clampi(pl->wave2, 0, 8);
+    if (wa >= 6 && wb >= 6)
+        wb = 0;
+    win = wa >= 6 ? wa - 5 : wb >= 6 ? wb - 5 : 0;
+    g_hline(10, PIC_Y + 60, 220, C_LINE);
+    for (i = 0; i <= 220; i++) {
+        float s = cz_line_sample(cz_chip_wave(wa), wb ? cz_chip_wave(wb) : cz_chip_wave(wa), win, (float)i * (4096.0f / 221.0f),
+                                 (float)((127 * mx / 99) << 3));
+        int y = PIC_Y + 104 - (int)(s * 88.0f);
+        if (i)
+            g_line(10 + i - 1, prev, 10 + i, y, C_SYNTH);
+        prev = y;
+    }
+    b[0] = 0;
+    sx_cat(b, "DCW AT ITS PEAK ");
+    sx_int(b + 16, mx);
+    g_text(8, PIC_Y + 6, &FONT_T, b, C_DIM);
+    if (wb)
+        g_text_r(232, PIC_Y + 6, &FONT_T, "TWO WAVES: AN OCTAVE DOWN", C_DIM);
+}
+
+/* an 8-step envelope: the levels, SUS and END, the step being edited and where the voice is */
+static void pic_czenv(void)
+{
+    int t = ui.track, l = cz_page_line(), which, i, x0 = 14, w = 26, prevx = 14, prevy, live;
+    const char *tt = cur_page()->title;
+    const rv_czenv *e;
+    char b[40];
+    which = tt[2] == 'O' ? CZE_DCO : tt[2] == 'W' ? CZE_DCW : CZE_DCA;
+    e = &rv.cz[t].line[l].env[which];
+    live = rv_live.cz_step[t][l * 3 + which];
+    prevy = PIC_Y + 104;
+    g_hline(x0, PIC_Y + 104, 8 * w, C_LINE);
+    for (i = 0; i < 8; i++) {
+        int x = x0 + (i + 1) * w, y = PIC_Y + 104 - e->level[i] * 88 / 99, on = i < e->end;
+        uint16_t c = !on ? C_LINE : i == ui.cz_step ? C_WHITE : C_SYNTH;
+        g_line(prevx, prevy, x, y, c);
+        g_disc(x, y, i == ui.cz_step ? 3 : 2, c);
+        if (i == live)
+            g_disc(x, PIC_Y + 112, 2, C_AMBER);
+        b[0] = (char)('1' + i);
+        b[1] = 0;
+        g_text_c(x, PIC_Y + 116, &FONT_T, b, on ? C_DIM : C_LINE);
+        if (e->sus == i + 1) {
+            g_vline(x, PIC_Y + 14, 90, C_TEAL);
+            if (e->end != i + 1)
+                g_text_c(x, PIC_Y + 4, &FONT_T, "SUS", C_TEAL);
+        }
+        if (e->end == i + 1)
+            g_text_c(x, PIC_Y + 4, &FONT_T, e->sus == i + 1 ? "SUS+END" : "END", C_AMBER);
+        prevx = x;
+        prevy = y;
+    }
+    b[0] = 0;
+    sx_cat(b, "STEP ");
+    sx_int(b + 5, ui.cz_step + 1);
+    if (which == CZE_DCO) {                            /* what the DCO level means */
+        int lv = e->level[ui.cz_step & 7], n;
+        n = sx_cat(b, lv <= 63 ? "  +" : "  +");
+        if (lv <= 63) {
+            n = sx_int(b + n, lv * 625 / 100);
+            sx_cat(b, " CENTS");
+        } else {
+            sx_int(b + n, (lv - 60) * 2);
+            sx_cat(b, " SEMITONES");
+        }
+    }
+    g_text(8, PIC_Y + 126, &FONT_T, b, C_DIM);
+}
+
 static void pic_source(void)
 {
     int t = ui.track, kind = rv.tp[t][TP_KIND];
@@ -1685,7 +1851,7 @@ static void pic_source(void)
         g_text_c(120, PIC_Y + 10, &FONT_B, "A TAPE TRACK: SEE ARP / TAPE", C_TAPE);
         pic_scope(t, PIC_Y + 34, 96, C_TAPE);
     } else {
-        static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO-STYLE PHASE DISTORTION",
+        static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO CZ: 2 LINES, 8-STEP DCO DCW DCA",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE"};
@@ -2508,6 +2674,8 @@ static void draw_picture(void)
     case PIC_ARCS: pic_arcs(); break;
     case PIC_CLOCK: pic_clock(); break;
     case PIC_SAVE: pic_save(); break;
+    case PIC_CZWAVE: pic_czwave(); break;
+    case PIC_CZENV: pic_czenv(); break;
     default: break;
     }
 }

@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), seven engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **PD** (Casio-style phase distortion, 8 waves, foam sidebands, ring), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart).
+- **Synth tracks** (T1 to T4), seven engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
@@ -189,7 +189,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with seven engines: VA, PD, FM, PHYS, FORMANT, PARTICLE, CHIP. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with seven engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 
@@ -222,7 +222,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, PD, FM, PHYS, FORMANT, PARTICLE, CHIP |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -287,16 +287,39 @@ Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRES
 | SUPER: 1–7 stacked oscillators (supersaw) | TZFM: through-zero FM depth | |
 | DETUNE: spread of the stack | FMRATIO: modulator ratio (1/2 to 7) | |
 
-**PD (phase distortion, after Casio CZ):** a sine bent into other shapes. DCW is how bent it is, like a filter cutoff.
+**CZ:** a full Casio CZ (the CZ-101, 1000, 3000, 5000 and CZ-1 all share this voice). It works as the CZ's own sound chip does: a cosine read through a bent phase, where **DCW** is how bent it is (at 0 every wave is a sine). Each note plays one or two **lines**, and each line has two waves and three 8-step envelopes: **DCO** (pitch), **DCW** (waveform) and **DCA** (level). Ravel's filter, skin, inserts, LFOs and matrix all still work on top.
 
-| SOURCE 1 | SOURCE 2 |
-| --- | --- |
-| WAVE: SAW, SQUARE, PULSE, DBLSINE, SAWPULS, RESO1–3 | DCW ENV: how much the envelope opens DCW (±) |
-| WAVE2: the second wave | DETUNE between the two |
-| MIX of the two waves | FOAM: sideband fizz |
-| DCW: the amount of distortion | RING: ring modulation of the two |
+General settings, on the SOURCE pages:
 
-The RESO waves are the CZ's resonant shapes, which sound like a swept resonant filter with no filter.
+| SOURCE 1 | SOURCE 2 (detune: line 2) | SOURCE 3 (vibrato) | SOURCE 4 |
+| --- | --- | --- | --- |
+| LINE: **1**, **2**, **1+1'** (line 1 twice, the second detuned), **1+2'** (both lines, line 2 detuned) | DETUNE: + or - | VIB WAV: TRI, SQUARE, UP, DOWN | DCW +-: shifts both lines' DCW; give it an LFO in the matrix to sweep the timbre (the CZ itself could not) |
+| OCTAVE: -1, 0, +1 | DT OCT: 0–3 octaves | DELAY before it starts (0–99) | FOAM: takes the fundamental out, leaves the sidebands |
+| MOD: OFF, RING (line 2 times line 1), NOISE (line 2's pitch kicked by noise) | DT NOTE: 0–11 semitones | RATE (0–99) | VEL DCW: how much a softer touch closes DCW (0–9, CZ-1 style) |
+| CHORUS: OFF, I, II, I+II (Juno-60 style) | DT FINE: 0–60 (60 = a semitone) | DEPTH (0–99; 0 = none) | – |
+
+Then, per line (LINE 1, LINE 2):
+
+| KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- |
+| WAVE 1: SAW, SQUARE, PULSE, DBL SIN, SAW PLS, RESO 1 (saw window), RESO 2 (triangle), RESO 3 (trapezoid) | WAVE 2: OFF, or a second wave | DCA KF: the level envelope runs faster on higher notes (0–9) | DCW KF: higher notes are duller (0–9) |
+
+And the envelopes, DCO 1, DCW 1, DCA 1 (and DCO 2, DCW 2, DCA 2):
+
+| PRESETS | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| the step, 1–8 | RATE: how fast the step moves (0–99) | LEVEL it moves to (0–99) | SUS: the step the envelope holds while the key is down (OFF, 1–8) | END: its last step (1–8) |
+
+- **How an envelope runs:** from step 1, each step moves at its RATE to its LEVEL, then the next step starts. At the SUS step it waits while the key is held; when you let go it goes on from the step after SUS. It stops at END. Rates and levels follow the CZ's own curves: rate 99 is a few milliseconds, rate 0 almost forever; DCA levels are on the CZ's logarithmic scale.
+- **DCO levels:** up to 63 the pitch rises in 6.25-cent steps (63 is almost 4 semitones); from 64 it jumps in 2-semitone steps (64 is 8 semitones, 99 is 78). The DCO envelope can only raise the pitch, as on the CZ.
+- **Two waves on a line** alternate cycle by cycle, so the note sounds an octave lower with a mix of both characters (the CZ's "cascade"). Two RESO waves cannot be combined, as on the CZ.
+- **RESO waves** are a sine whose frequency rises with DCW, restarting every cycle under a falling window: like sweeping a resonant filter, with no filter.
+- **High notes** narrow DCW automatically, as the CZ does, so thin pulses stay audible.
+- **The DCA is the level envelope.** On a CZ track the ARTICULATION pages' shape knobs are greyed out; ENV>CUT, the envelope's DESTINATIONS and the influence routes follow the DCA instead.
+- **The pictures:** LINE pages draw the line's two cycles at its brightest DCW. Envelope pages draw the 8 steps, the SUS and END points, the step you are editing (white) and where the playing note is (amber dots).
+- **Presets:** CZ BRASS, CZ BELL (ring-modulated lines a twelfth apart), CZ STRINGS, RESO SWEEP, CZ BASS, NOISE HIT and FOAM.
+- **Projects from before the CZ** load with each CZ track set to a plain CZ tone.
+
 
 **FM:** 4 operators.
 
@@ -378,7 +401,7 @@ Ravel's envelope is in three stages, named after how speech is described: the **
 | **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±) | GIVE (the same spring) |
 | **DESTINATIONS** | DEST 1: any parameter of this track | AMOUNT 1 (±) | DEST 2 | AMOUNT 2 (±) |
 
-DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVEL2 or PD's DCW, so the timbre changes with the note.
+DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVEL2 or CZ's DCW +-, so the timbre changes with the note.
 
 ### LIBRARY
 
@@ -793,10 +816,10 @@ Turning ALGORITHM while armed moves recording to the new track.
 **Make a first sound**
 
 1. Turn **ALGORITHM** to T1.
-2. Press **EDIT** (SOUND page). Turn **KNOB 2** to **PD**.
-3. Turn **PRESETS** to hear PD's sounds; play the keys.
-4. Turn **SELECT** to SOURCE 1. Turn **KNOB 4 (DCW)** to bend the sound brighter.
-5. Press **ENV**. Turn **KNOB 1 (ATTACK)** for a slow swell and **KNOB 3 (OVERSHT)** for a bite.
+2. Press **EDIT** (SOUND page). Turn **KNOB 2** to **CZ**.
+3. Turn **PRESETS** to hear the CZ sounds (CZ BRASS, CZ BELL, CZ STRINGS…); play the keys.
+4. Turn **SELECT** to **DCW 1**. Turn **PRESETS** to step 1 and turn **KNOB 2 (LEVEL)** up to make the attack brighter.
+5. **SELECT** to **DCA 1**. On step 1, turn **KNOB 1 (RATE)** down for a slow swell.
 
 **Write a beat**
 
@@ -992,7 +1015,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 
 ## Licence
 
-GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and tools are Felucca's and X0X's (GPL-3.0). The Beads port keeps Mutable Instruments' MIT licence. A firmware package also contains three files of JieLi's AC79 SDK (Apache-2.0). Third-party code is listed in `THIRD_PARTY.md`.
+GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and tools are Felucca's and X0X's (GPL-3.0). The Beads port keeps Mutable Instruments' MIT licence. A firmware package also contains three files of JieLi's AC79 SDK (Apache-2.0). The CZ engine is a port of MAME's uPD933 emulation (BSD-3-Clause). Third-party code is listed in `THIRD_PARTY.md`.
 
 ## Credits
 
@@ -1000,5 +1023,6 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
 
 <p align="center"><img src="docs/brand/ravel-logo-footer.jpg" alt="RAVEL · FM-1 custom synth firmware" width="360"></p>

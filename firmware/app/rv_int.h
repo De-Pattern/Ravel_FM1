@@ -37,7 +37,15 @@ typedef struct {
 
 /* -------------------------------------------------------------- voices --- */
 typedef struct { float ph, ph2, sub, drift, drift_t; float sph[7]; uint32_t ns; } va_t;
-typedef struct { float ph1, ph2, dcwenv; } pd_t;
+/* CZ: one envelope (the CZ firmware's step sequencer over the chip's linear ramp) */
+typedef struct { float cur, target, rate; int8_t step; uint8_t run; } czenv_t;   /* run: 0 stopped, 1 moving, 2 sustain */
+typedef struct { float pos; czenv_t env[3]; } czline_t;   /* pos: 0..4096, two cycles (wave 1, then wave 2) */
+typedef struct {
+    czline_t l[2];
+    float vib_t, vib_ph, pm, level, amp[2];
+    uint32_t ns;
+    uint8_t gate, done, pm_n;
+} cz_t;
 typedef struct { float ph[4], fb1, fb2, menv; } fm_t;
 typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
 typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3]; uint32_t ns; } form_t;
@@ -68,7 +76,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; pd_t pd; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; } e;
 } voice_t;
 
 /* strike: exciter into body, with a transient layer */
@@ -157,6 +165,10 @@ typedef struct {
     float pan_l, pan_r;
     float scope_acc;
     int scope_n;
+    /* the CZ's chorus (Juno-60 style): one delay line, its output added left and taken away right */
+    int16_t ch_buf[256];
+    int32_t ch_w;
+    float ch_ph, ch_lp;
 } track_t;
 
 /* ---------------------------------------------------------- sequencer --- */

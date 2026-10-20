@@ -13,10 +13,27 @@ int rv_save(int slot)
     return plat_save(slot, &rv, sizeof(rv));
 }
 
+#define RV_SIZE_OLD ((int)(sizeof(rv) - sizeof(rv.cz)))   /* formats 2 and 3: no CZ patches */
+
 static int head_ok(int slot, rv_head *h)
 {
     int n = plat_load(slot, h, sizeof(*h));
-    return n == (int)sizeof(rv) && h->magic == RV_MAGIC && (h->format == RV_FORMAT || h->format == 2);
+    if (h->magic != RV_MAGIC)
+        return 0;
+    if (h->format == RV_FORMAT)
+        return n == (int)sizeof(rv);
+    return (h->format == 2 || h->format == 3) && n == RV_SIZE_OLD;
+}
+
+/* formats 2 and 3 had the PD engine where CZ is now: its tracks start from the CZ defaults */
+static void upgrade_cz(void)
+{
+    int t;
+    for (t = 0; t < RV_TRACKS; t++) {
+        rv_cz_init(t);
+        if (rv.tp[t][TP_KIND] == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ)
+            rv_track_src_defaults(t);
+    }
 }
 
 /* a format 2 project: the new parameters at their defaults, old graph settings carried over */
@@ -43,10 +60,17 @@ int rv_load(int slot)
     rv_head h;
     if (!head_ok(slot, &h))
         return -1;
-    if (plat_load(slot, &rv, sizeof(rv)) != (int)sizeof(rv))
+    if (h.format == RV_FORMAT) {
+        if (plat_load(slot, &rv, sizeof(rv)) != (int)sizeof(rv))
+            return -1;
+        return 0;
+    }
+    if (plat_load(slot, &rv, (uint32_t)RV_SIZE_OLD) != RV_SIZE_OLD)
         return -1;
     if (rv.format == 2)
         upgrade_from_2();
+    upgrade_cz();
+    rv.format = RV_FORMAT;
     return 0;
 }
 

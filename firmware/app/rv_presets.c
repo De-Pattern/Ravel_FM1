@@ -2,7 +2,7 @@
 /* Ravel: sound presets (PRESETS on the voice pages) and the demo projects. */
 #include "rv.h"
 
-typedef struct { const char *name; uint8_t kind, engine; const int8_t *v; } rv_preset;   /* v: (parameter, value) pairs */
+typedef struct { const char *name; uint8_t kind, engine; const int8_t *v; const rv_cz *cz; } rv_preset;   /* v: (parameter, value) pairs; cz: a CZ tone */
 #define END -1
 
 /* ---------------------------------------------------------------- synth --- */
@@ -12,12 +12,46 @@ static const int8_t p_sub[] = {TP_S0, 90, TP_S4, 90, TP_CUT, 52, TP_RES, 34, TP_
                                 TP_POLY, 0, TP_GLIDE, 24, TP_PITCH, -12, TP_DRIVE, 30, TP_LEVEL, 96, END};
 static const int8_t p_pluck[] = {TP_S0, 20, TP_S9, 6, TP_CUT, 46, TP_RES, 44, TP_EFILT, 46, TP_ATK, 0, TP_DEC, 48, TP_SUS, 0, TP_REL, 44,
                                   TP_REVS, 34, TP_DLYS, 40, TP_LEVEL, 90, END};
-static const int8_t p_czbell[] = {TP_S0, 5, TP_S3, 62, TP_S4, 40, TP_FTYPE, FT_LP, TP_CUT, 112, TP_RES, 10, TP_EFILT, 0, TP_ATK, 0,
-                                   TP_DEC, 84, TP_SUS, 24, TP_REL, 84, TP_REVS, 50, TP_LEVEL, 84, END};
-static const int8_t p_czbrass[] = {TP_S0, 0, TP_S3, 28, TP_S4, 52, TP_S1, 1, TP_S2, 40, TP_S5, 30, TP_CUT, 100, TP_ATK, 34, TP_DEC, 72,
-                                    TP_SUS, 92, TP_REL, 60, TP_GIVE, 44, TP_LEVEL, 84, END};
-static const int8_t p_foam[] = {TP_S0, 1, TP_S3, 84, TP_S6, 96, TP_S7, 30, TP_S4, -20, TP_CUT, 118, TP_ATK, 20, TP_SUS, 100, TP_REL, 70,
-                                 TP_BITS, 30, TP_LEVEL, 76, TP_DLYS, 40, END};
+/* CZ tones (original patches, in the CZ's own units). General: S0 LINE (0 1, 1 2, 2 1+1', 3 1+2'),
+ * S1 OCTAVE (1 = 0), S2 MOD, S3 CHORUS, S4-S7 detune sign, octave, note, fine, S8-S11 vibrato wave,
+ * delay, rate, depth, S12 DCW +-, S13 FOAM, S14 VEL DCW. A line: wave 1, wave 2, DCA and DCW key
+ * follow, then DCO, DCW, DCA as {rates}, {levels}, sustain step, end step. */
+#define CZ_FLAT {{99, 99, 99, 99, 99, 99, 99, 99}, {0}, 0, 1}
+#define CZ_OPEN_FILTER TP_FTYPE, FT_LP, TP_CUT, 127, TP_RES, 0, TP_EFILT, 0, TP_KTRK, 0
+static const rv_cz cz_brass = {{
+    {1, 0, 2, 3, {{{99, 62}, {6, 0}, 0, 2},                      /* a breath of pitch on the attack */
+                  {{58, 38, 50}, {86, 60, 0}, 2, 3},
+                  {{72, 50, 56}, {99, 90, 0}, 2, 3}}},
+    {1, 0, 2, 3, {CZ_FLAT, {{58, 38, 50}, {86, 60, 0}, 2, 3}, {{72, 50, 56}, {99, 90, 0}, 2, 3}}}}};
+static const int8_t p_czbrass[] = {TP_S0, 2, TP_S7, 6, TP_S8, 0, TP_S9, 30, TP_S10, 74, TP_S11, 9, TP_S3, 1, CZ_OPEN_FILTER,
+                                    TP_LEVEL, 86, END};
+static const rv_cz cz_bell = {{
+    {4, 0, 3, 2, {CZ_FLAT, {{99, 46, 60}, {62, 12, 0}, 0, 3}, {{99, 38, 99}, {99, 0, 0}, 0, 2}}},
+    {3, 0, 3, 2, {CZ_FLAT, {{99, 40}, {40, 0}, 0, 2}, {{99, 34}, {94, 0}, 0, 2}}}}};
+static const int8_t p_czbell[] = {TP_S0, 3, TP_S2, 1, TP_S5, 1, TP_S6, 7, TP_S7, 3, TP_S3, 2, CZ_OPEN_FILTER, TP_REVS, 50,
+                                   TP_LEVEL, 88, END};
+static const rv_cz cz_foam = {{
+    {2, 4, 1, 4, {CZ_FLAT, {{40, 30, 44}, {90, 50, 0}, 2, 3}, {{60, 99, 58}, {99, 99, 0}, 2, 3}}},
+    {2, 4, 1, 4, {CZ_FLAT, {{40, 30, 44}, {90, 50, 0}, 2, 3}, {{60, 99, 58}, {99, 99, 0}, 2, 3}}}}};
+static const int8_t p_foam[] = {TP_S0, 0, TP_S13, 96, TP_S8, 0, TP_S10, 60, TP_S11, 6, TP_S3, 3, CZ_OPEN_FILTER, TP_DLYS, 40,
+                                 TP_LEVEL, 80, END};
+static const rv_cz cz_strings = {{
+    {1, 0, 1, 2, {CZ_FLAT, {{44, 40, 45}, {58, 46, 0}, 2, 3}, {{52, 99, 50}, {99, 99, 0}, 2, 3}}},
+    {1, 0, 1, 2, {CZ_FLAT, {{44, 40, 45}, {58, 46, 0}, 2, 3}, {{52, 99, 50}, {99, 99, 0}, 2, 3}}}}};
+static const int8_t p_czstrings[] = {TP_S0, 2, TP_S7, 12, TP_S8, 0, TP_S9, 40, TP_S10, 70, TP_S11, 10, TP_S3, 2, CZ_OPEN_FILTER,
+                                      TP_LEVEL, 82, END};
+static const rv_cz cz_reso = {{
+    {6, 0, 0, 2, {CZ_FLAT, {{48, 42, 60, 50}, {99, 30, 60, 0}, 3, 4}, {{99, 99, 55}, {99, 92, 0}, 2, 3}}},
+    {6, 0, 0, 2, {CZ_FLAT, {{48, 42, 60, 50}, {99, 30, 60, 0}, 3, 4}, {{99, 99, 55}, {99, 92, 0}, 2, 3}}}}};
+static const int8_t p_czreso[] = {TP_S0, 0, TP_S3, 1, CZ_OPEN_FILTER, TP_LEVEL, 86, END};
+static const rv_cz cz_bass = {{
+    {1, 0, 0, 2, {CZ_FLAT, {{99, 62, 60}, {88, 22, 0}, 2, 3}, {{99, 58, 72}, {99, 78, 0}, 2, 3}}},
+    {2, 0, 0, 2, {CZ_FLAT, {{99, 55, 60}, {60, 10, 0}, 2, 3}, {{99, 60, 72}, {90, 70, 0}, 2, 3}}}}};
+static const int8_t p_czbass[] = {TP_S0, 3, TP_S1, 0, TP_S4, 1, TP_S5, 1, TP_S7, 2, CZ_OPEN_FILTER, TP_POLY, 0, TP_LEVEL, 96, END};
+static const rv_cz cz_noise = {{
+    {5, 0, 0, 0, {{{99, 50}, {40, 0}, 0, 2}, {{99, 52}, {70, 0}, 0, 2}, {{99, 48}, {99, 0}, 0, 2}}},
+    {7, 1, 0, 0, {CZ_FLAT, {{99, 46}, {99, 0}, 0, 2}, {{99, 44}, {92, 0}, 0, 2}}}}};
+static const int8_t p_cznoise[] = {TP_S0, 3, TP_S2, 2, TP_S5, 1, CZ_OPEN_FILTER, TP_LEVEL, 90, END};
 static const int8_t p_fmep[] = {TP_S0, 3, TP_S2, 3, TP_S3, 3, TP_S4, 3, TP_S5, 23, TP_S6, 74, TP_S7, 92, TP_S8, 40, TP_S13, 62,
                                  TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0, TP_ATK, 0, TP_DEC, 92, TP_SUS, 50, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 88, END};
 static const int8_t p_fmbell[] = {TP_S0, 0, TP_S3, 27, TP_S4, 28, TP_S5, 19, TP_S6, 64, TP_S7, 40, TP_S8, 24, TP_S13, 84, TP_FTYPE, FT_LP,
@@ -90,24 +124,26 @@ static const int8_t t_slices[] = {TP_S0, TAPE_SLICE, TP_S1, 0, TP_S14, 16, TP_S1
 static const int8_t t_half[] = {TP_S0, TAPE_MLR, TP_S1, 1, TP_S2, 5, TP_S3, 4, TP_S4, 2, TP_LEVEL, 90, TP_DLYS, 40, END};
 
 static const rv_preset presets[] = {
-    {"GLASS PAD", KIND_SYNTH, ENG_VA, p_glass}, {"SUB BASS", KIND_SYNTH, ENG_VA, p_sub}, {"PLUCK", KIND_SYNTH, ENG_VA, p_pluck},
-    {"LOW GATE", KIND_SYNTH, ENG_VA, p_lpg}, {"CZ BELL", KIND_SYNTH, ENG_PD, p_czbell}, {"CZ BRASS", KIND_SYNTH, ENG_PD, p_czbrass},
-    {"FOAM", KIND_SYNTH, ENG_PD, p_foam}, {"FM PIANO", KIND_SYNTH, ENG_FM, p_fmep}, {"FM BELLS", KIND_SYNTH, ENG_FM, p_fmbell},
-    {"FM GROWL", KIND_SYNTH, ENG_FM, p_fmgrowl}, {"STRING", KIND_SYNTH, ENG_PHYS, p_string}, {"BOWED", KIND_SYNTH, ENG_PHYS, p_bowed},
-    {"BREATH", KIND_SYNTH, ENG_PHYS, p_breath}, {"MEMBRANE", KIND_SYNTH, ENG_PHYS, p_membrane}, {"VOWEL", KIND_SYNTH, ENG_FORMANT, p_vowel},
-    {"CHOIR FOF", KIND_SYNTH, ENG_FORMANT, p_fof}, {"PULSAR", KIND_SYNTH, ENG_PARTICLE, p_pulsar}, {"SWARM", KIND_SYNTH, ENG_PARTICLE, p_swarm},
-    {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice},
-    {"CHIP ARP", KIND_SYNTH, ENG_CHIP, p_chiparp}, {"SID BASS", KIND_SYNTH, ENG_CHIP, p_sidbass}, {"CHIP KICK", KIND_SYNTH, ENG_CHIP, p_chipkick},
-    {"CHIP SNARE", KIND_SYNTH, ENG_CHIP, p_chipsnare}, {"DECOMPOSED", KIND_SYNTH, ENG_CHIP, p_decomposed},
-    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream},
-    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream},
-    {"WOOD", KIND_STRIKE, 0, s_wood}, {"METAL", KIND_STRIKE, 0, s_metal}, {"KICK BODY", KIND_STRIKE, 0, s_kick},
-    {"SNARE AIR", KIND_STRIKE, 0, s_snare}, {"HAT", KIND_STRIKE, 0, s_hat}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell},
-    {"RAIN GLASS", KIND_STRIKE, 0, s_rain}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar}, {"STRINGS", KIND_STRIKE, 0, s_strings},
-    {"CLOCKWORK", KIND_STRIKE, 0, s_clockwork}, {"FM TOM", KIND_STRIKE, 0, s_fmtom}, {"PIPE", KIND_STRIKE, 0, s_pipe},
-    {"LISTENER", KIND_STRIKE, 0, s_listen},
-    {"MLR LOOP", KIND_TAPE, 0, t_mlr}, {"CLOUD", KIND_TAPE, 0, t_cloud}, {"GRAIN KEYS", KIND_TAPE, 0, t_keys},
-    {"SLICES", KIND_TAPE, 0, t_slices}, {"HALF SPEED", KIND_TAPE, 0, t_half},
+    {"GLASS PAD", KIND_SYNTH, ENG_VA, p_glass, 0}, {"SUB BASS", KIND_SYNTH, ENG_VA, p_sub, 0}, {"PLUCK", KIND_SYNTH, ENG_VA, p_pluck, 0},
+    {"LOW GATE", KIND_SYNTH, ENG_VA, p_lpg, 0}, {"CZ BELL", KIND_SYNTH, ENG_CZ, p_czbell, &cz_bell}, {"CZ BRASS", KIND_SYNTH, ENG_CZ, p_czbrass, &cz_brass},
+    {"FOAM", KIND_SYNTH, ENG_CZ, p_foam, &cz_foam}, {"CZ STRINGS", KIND_SYNTH, ENG_CZ, p_czstrings, &cz_strings},
+    {"RESO SWEEP", KIND_SYNTH, ENG_CZ, p_czreso, &cz_reso}, {"CZ BASS", KIND_SYNTH, ENG_CZ, p_czbass, &cz_bass},
+    {"NOISE HIT", KIND_SYNTH, ENG_CZ, p_cznoise, &cz_noise}, {"FM PIANO", KIND_SYNTH, ENG_FM, p_fmep, 0}, {"FM BELLS", KIND_SYNTH, ENG_FM, p_fmbell, 0},
+    {"FM GROWL", KIND_SYNTH, ENG_FM, p_fmgrowl, 0}, {"STRING", KIND_SYNTH, ENG_PHYS, p_string, 0}, {"BOWED", KIND_SYNTH, ENG_PHYS, p_bowed, 0},
+    {"BREATH", KIND_SYNTH, ENG_PHYS, p_breath, 0}, {"MEMBRANE", KIND_SYNTH, ENG_PHYS, p_membrane, 0}, {"VOWEL", KIND_SYNTH, ENG_FORMANT, p_vowel, 0},
+    {"CHOIR FOF", KIND_SYNTH, ENG_FORMANT, p_fof, 0}, {"PULSAR", KIND_SYNTH, ENG_PARTICLE, p_pulsar, 0}, {"SWARM", KIND_SYNTH, ENG_PARTICLE, p_swarm, 0},
+    {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice, 0},
+    {"CHIP ARP", KIND_SYNTH, ENG_CHIP, p_chiparp, 0}, {"SID BASS", KIND_SYNTH, ENG_CHIP, p_sidbass, 0}, {"CHIP KICK", KIND_SYNTH, ENG_CHIP, p_chipkick, 0},
+    {"CHIP SNARE", KIND_SYNTH, ENG_CHIP, p_chipsnare, 0}, {"DECOMPOSED", KIND_SYNTH, ENG_CHIP, p_decomposed, 0},
+    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp, 0}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass, 0}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream, 0},
+    {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp, 0}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass, 0}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream, 0},
+    {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
+    {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
+    {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},
+    {"CLOCKWORK", KIND_STRIKE, 0, s_clockwork, 0}, {"FM TOM", KIND_STRIKE, 0, s_fmtom, 0}, {"PIPE", KIND_STRIKE, 0, s_pipe, 0},
+    {"LISTENER", KIND_STRIKE, 0, s_listen, 0},
+    {"MLR LOOP", KIND_TAPE, 0, t_mlr, 0}, {"CLOUD", KIND_TAPE, 0, t_cloud, 0}, {"GRAIN KEYS", KIND_TAPE, 0, t_keys, 0},
+    {"SLICES", KIND_TAPE, 0, t_slices, 0}, {"HALF SPEED", KIND_TAPE, 0, t_half, 0},
 };
 #define NPRESETS ((int)(sizeof(presets) / sizeof(presets[0])))
 
@@ -123,6 +159,8 @@ void rv_preset_apply(int t, int i)
     rv_track_defaults(t, presets[i].kind, presets[i].engine);
     for (v = presets[i].v; *v >= 0; v += 2)
         rv.tp[t][v[0]] = v[1];
+    if (presets[i].cz)
+        rv.cz[t & 7] = *presets[i].cz;
 }
 
 /* the preset whose kind and engine match a track best, from i in direction dir */
