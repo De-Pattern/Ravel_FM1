@@ -68,7 +68,7 @@ Everything below works the same in the browser emulator and on the FM-1. The pic
 
 ## 1. Opening it
 
-**In a browser.** Open `ravel-emulator.html`. It is one file, works offline and needs no install. Click anywhere or press a key once to start the sound; browsers stay silent until you do.
+**In a browser.** Open `ravel-emulator.html`. It is one file, works offline and needs no install. Click anywhere or press a key once to start the sound; browsers stay silent until you do. On a computer keyboard, Z X C V B N M play the lowest seven keys in order (F, F♯, G, G♯, A, A♯, B), then A S D F G H J K L ; ' play the white keys from C up, with W E T Y U O P the black keys. [ and ] are OCT- and OCT+, 1–8 choose the track and the space bar is PLAY.
 
 The emulator page has three parts:
 

@@ -254,7 +254,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="krow" id="blackrow"></div>
         <div class="krow" id="whiterow"></div>
       </div>
-      <div class="hint">Drag or scroll the knobs. Click a button to press it; <b>right-click or shift-click</b> holds it down (for the hold layers), click again to let go. Keys: your mouse, touch, or <kbd>A</kbd>…<kbd>;</kbd> on the keyboard.</div>
+      <div class="hint">Drag or scroll the knobs. Click a button to press it; <b>right-click or shift-click</b> holds it down (for the hold layers), click again to let go. Keys: your mouse, touch, or your keyboard: <kbd>Z</kbd>…<kbd>M</kbd> play the lowest seven keys (F up to B, one key each), then <kbd>A</kbd>…<kbd>'</kbd> the white keys from C, with <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd> the black keys.</div>
     </section>
 
   <div class="lower">
@@ -417,7 +417,7 @@ function keyLabels() {
 }
 
 /* computer keyboard */
-const KB = { a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
+const KB = { z:0, x:1, c:2, v:3, b:4, n:5, m:6, a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
