@@ -28,7 +28,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE };
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC };   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -47,10 +47,10 @@ enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_M
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_CLASSIC, V_SHAPED };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_CLASSIC, V_SHAPED, V_OSCMIX };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
-       PR_CZSTEP };
+       PR_CZSTEP, PR_LFOROW };
 
 typedef struct {
     uint8_t sec, vis, pic, pr;
@@ -78,6 +78,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
     {SEC_VOICE, V_SRC3, PIC_SOURCE, PR_SOUND, "SOURCE 4", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
+    {SEC_VOICE, V_OSCMIX, PIC_SOURCE, PR_SOUND, "OSC MIX", {{K_OSC, 0}, {K_OSC, 1}, {K_OSC, 2}, {K_OSC, 3}}},   /* each oscillator's level */
     /* a KIT: a page per lane, its whole sound on screen; PRESETS picks the machine, OCT the knobs' row */
 #define LANEPG(n) {SEC_VOICE, V_KIT, PIC_LANE, PR_LANE, "LANE " #n, {LF(LF_SLOT0), LF(LF_SLOT0 + 1), LF(LF_SLOT0 + 2), LF(LF_SLOT0 + 3)}}
     LANEPG(1), LANEPG(2), LANEPG(3), LANEPG(4), LANEPG(5), LANEPG(6),
@@ -111,6 +112,7 @@ static const page_t pages[] = {
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
     {SEC_MOD, V_ALL, PIC_LFO1, PR_NONE, "LFOS", {GP(GP_LFO1RATE), GP(GP_LFO1SHAPE), GP(GP_LFO2RATE), GP(GP_LFO2SHAPE)}},
+    {SEC_MOD, V_ALL, PIC_LFO2, PR_LFOROW, "LFO SHAPE", {{K_LFOR, 0}, {K_LFOR, 1}, {K_LFOR, 2}, NO}},   /* OCT: LFO 1 or LFO 2 */
     {SEC_MOD, V_ALL, PIC_DUST, PR_NONE, "DUST", {GP(GP_DUSTRATE), GP(GP_DUSTDECAY), NO, NO}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO", {XF(XF_DEST), XF(XF_START), XF(XF_END), XF(XF_CURVE)}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO WINDOW", {XF(XF_LO), XF(XF_HI), {K_GP, GP_MACRO1}, {K_GP, GP_MACRO2}}},
@@ -187,6 +189,7 @@ static struct {
     uint8_t cz_step;                         /* the step the CZ envelope pages edit, 0..7 */
     uint8_t lane[RV_TRACKS];                 /* each KIT track's chosen lane */
     uint8_t lane_row;                        /* the LANE pages: which row of the lane's settings the knobs hold */
+    uint8_t lfo_row;                         /* LFO SHAPE: LFO 1 or LFO 2 on the knobs */
     uint32_t step_key_held;                  /* step keys held (bit = white key index) */
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
@@ -347,6 +350,39 @@ static int page_all_dead(int i, int t)
     return any;
 }
 
+/* OSC MIX: the engine's oscillator levels side by side (0: an engine with one source) */
+static const uint8_t *osc_mix_map(int eng)
+{
+    static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0}, fm[4] = {TP_OSC1, TP_S6, TP_S7, TP_S8}, sq[4] = {TP_OSC1, TP_S6, TP_S7, 0};
+    static const uint8_t wv[4] = {TP_OSC1, TP_S6, 0, 0}, ch[4] = {TP_OSC1, TP_S8, 0, 0}, mo[4] = {TP_S0, TP_S1, TP_S2, TP_S4};
+    switch (eng) {
+    case ENG_VA: return va;
+    case ENG_FM: return fm;
+    case ENG_SQ: return sq;
+    case ENG_WAVE: return wv;
+    case ENG_CHIP: return ch;
+    case ENG_MONO: return mo;
+    default: return 0;
+    }
+}
+
+/* a page's knob, with the indirect ones resolved: LFO SHAPE's row, OSC MIX's engine */
+static kb_t page_knob(const page_t *pg, int i)
+{
+    kb_t k = pg->k[i];
+    if (k.kind == K_LFOR) {
+        static const uint8_t g[2][3] = {{GP_LFO1SYM, GP_LFO1PHASE, GP_LFO1MODE}, {GP_LFO2SYM, GP_LFO2PHASE, GP_LFO2MODE}};
+        k.kind = K_GP;
+        k.id = g[ui.lfo_row & 1][k.id % 3];
+    } else if (k.kind == K_OSC) {
+        const uint8_t *m = osc_mix_map(rv.tp[ui.track][TP_ENGINE]);
+        int p = m ? m[k.id & 3] : 0;
+        k.kind = p ? K_TP : K_NONE;
+        k.id = (uint16_t)p;
+    }
+    return k;
+}
+
 static int page_visible(int i)
 {
     int t = ui.track, kind = rv.tp[t][TP_KIND], mode = rv.tp[t][TP_S0];
@@ -375,6 +411,7 @@ static int page_visible(int i)
     case V_KIT: return is_kit_ui(t);
     case V_NOTKIT: return !is_kit_ui(t);
     case V_SEM: return kind == KIND_SYNTH && rv.tp[t][TP_FTYPE] == FT_SEM;
+    case V_OSCMIX: return kind == KIND_SYNTH && osc_mix_map(rv.tp[t][TP_ENGINE]) != 0;
     case V_CLASSIC: return rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ);   /* SHAPE off */
     case V_SHAPED: return !(rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ));
     default: return 1;
@@ -1207,7 +1244,7 @@ static int accel(int d, int i)
 static void knob_turn(int i, int d)
 {
     const page_t *pg = cur_page();
-    kb_t k = pg->k[i];
+    kb_t k = page_knob(pg, i);
     int held = held_step();
     uint32_t btn = plat_buttons();
     if (btn & (1u << B_LFO)) {                    /* LFO held: the macros */
@@ -1695,6 +1732,10 @@ static void buttons(uint32_t now_btn)
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
     }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_LFOROW) {
+        ui.lfo_row ^= 1;                              /* LFO SHAPE: the other LFO on the knobs */
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
+    }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pic == PIC_LANE && !(now_btn & (1u << B_SEQ))) {
         ui.lane_row = (uint8_t)((ui.lane_row + ((down & (1u << B_OCTUP)) ? 1 : 2)) % 3);   /* the knobs' row */
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
@@ -1833,7 +1874,7 @@ static void draw_knobs(void)
     g_fill(0, 22, 240, 52, C_BG);
     for (i = 0; i < 4; i++) {
         int x = i * 60, cx = x + 30, v, frac_w;
-        kb_t k = pg->k[i];
+        kb_t k = page_knob(pg, i);
         kinfo_t in;
         char val[16];
         uint16_t vc = C_INK, lc = C_DIM;
@@ -1932,6 +1973,7 @@ static void draw_footer(void)
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
     case PR_CZSTEP: hint = "PRESETS: STEP 1-8"; break;
+    case PR_LFOROW: hint = ui.lfo_row ? "LFO 2 ON THE KNOBS  OCT: LFO 1" : "LFO 1 ON THE KNOBS  OCT: LFO 2"; break;
     case PR_LANE: hint = held_step() >= 0 ? "TURN A KNOB: LOCK IT FOR THIS STEP" : "PRESETS: MACHINE  OCT: KNOB ROW"; break;
     default:
         if (ui.sec == SEC_TAPE)
@@ -2565,22 +2607,26 @@ static void pic_matrix(void)
 static void pic_lfo(int k)
 {
     int i, prev = 0, shape = rv.gp[k ? GP_LFO2SHAPE : GP_LFO1SHAPE], yc = PIC_Y + 30 + k * 60;   /* LFO 1 above, LFO 2 below */
-    float ph = lfo[k].ph;
-    g_text(200, yc - 28, &FONT_XS, k ? "LFO 2" : "LFO 1", C_DIM);
+    int edit = cur_page()->pr == PR_LFOROW, on = edit && (ui.lfo_row & 1) == k;
+    float ph = lfo[k].ph, sym = clampf(geff[k ? GP_LFO2SYM : GP_LFO1SYM] / 64.0f, -1.0f, 1.0f);
+    float phase = clampf(geff[k ? GP_LFO2PHASE : GP_LFO1PHASE] / 360.0f, 0.0f, 0.9999f);
+    static const char *const md[3] = {"", " RETRIG", " 1 SHOT"};
+    char lb[16] = "LFO 1";
+    lb[4] = (char)('1' + k);
+    sx_cat(lb, md[clampi(rv.gp[k ? GP_LFO2MODE : GP_LFO1MODE], 0, 2)]);
+    g_text(232 - g_text_w(&FONT_XS, lb), yc - 28, &FONT_XS, lb, on ? C_TEAL : C_DIM);
+    if (ph > 1.0f)
+        ph = 1.0f;
     for (i = 0; i <= 224; i += 2) {
-        float p = (float)i / 224.0f, v;
-        switch (shape) {
-        case 0: v = sin_lut(p); break;
-        case 1: v = p < 0.5f ? 4.0f * p - 1.0f : 3.0f - 4.0f * p; break;
-        case 2: v = 2.0f * p - 1.0f; break;
-        case 3: v = 1.0f - 2.0f * p; break;
-        case 4: v = p < 0.5f ? 1.0f : -1.0f; break;
-        default: v = sin_lut(p * 3.0f) * 0.5f + sin_lut(p * 7.0f + 0.3f) * 0.3f; break;
-        }
+        float p = (float)i / 224.0f, q = p + phase, v;
+        if (q >= 1.0f)
+            q -= 1.0f;
+        q = lfo_warp(q, sym);                         /* the wave as SYM and PHASE make it */
+        v = shape <= 4 ? lfo_wave(shape, q) : sin_lut(q * 3.0f) * 0.5f + sin_lut(q * 7.0f + 0.3f) * 0.3f;
         {
             int y = yc - (int)(v * 22.0f);
             if (i)
-                g_line(8 + i - 2, prev, 8 + i, y, C_TEAL_D);
+                g_line(8 + i - 2, prev, 8 + i, y, on ? C_TEAL : C_TEAL_D);
             prev = y;
         }
     }
@@ -3224,8 +3270,8 @@ static void draw_picture(void)
     case PIC_ENV: pic_env(); break;
     case PIC_LIB: pic_lib(); break;
     case PIC_MATRIX: pic_matrix(); break;
-    case PIC_LFO1: pic_lfo(0); pic_lfo(1); break;
-    case PIC_LFO2: pic_lfo(1); break;
+    case PIC_LFO1:
+    case PIC_LFO2: pic_lfo(0); pic_lfo(1); break;
     case PIC_DUST: pic_dust(); break;
     case PIC_MACRO: pic_macro(); break;
     case PIC_VOC: pic_voc(); break;

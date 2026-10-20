@@ -138,7 +138,13 @@ int rv_load(int slot)
         rv.gp[GP_METRO] = 0;
         rv.gp[GP_COUNTIN] = 1;
     }
-    __builtin_memset(rv.scene_tempo, 0, sizeof(rv.scene_tempo));   /* every scene keeps the tempo */
+    if (f <= 9)
+        __builtin_memset(rv.scene_tempo, 0, sizeof(rv.scene_tempo));   /* every scene keeps the tempo */
+    {
+        int t;
+        for (t = 0; t < RV_TRACKS; t++)                    /* (format 11) the first oscillator at full, as it was */
+            rv.tp[t][TP_OSC1] = 127;
+    }
     if (f == 2)
         upgrade_from_2();
     if (f <= 3)

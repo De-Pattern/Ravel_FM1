@@ -35,21 +35,21 @@ wait 600
 shot voice-source.png
 tap EDIT
 turn SELECT -20
-turn SELECT 5
+turn SELECT 6
 wait 150
 expect page FILTER
 wait 600
 shot voice-filter.png
 tap EDIT
 turn SELECT -20
-turn SELECT 6
+turn SELECT 7
 wait 150
 expect page SKIN
 wait 600
 shot voice-skin.png
 tap EDIT
 turn SELECT -20
-turn SELECT 9
+turn SELECT 10
 wait 150
 expect page MIX
 wait 600
@@ -89,7 +89,7 @@ wait 600
 shot mod-lfo.png
 tap LFO
 turn SELECT -20
-turn SELECT 3
+turn SELECT 4
 wait 150
 expect page MACRO
 wait 600

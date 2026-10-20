@@ -263,6 +263,9 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | --- | --- | --- | --- | --- |
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
+| **OSC MIX** | each oscillator's level, side by side: VA OSC LVL, SUB, NOISE · FM LEVEL1–4 · SQ LEVEL 1–3 · WAVE LEVEL 1, MIX · CHIP OSC LVL, SUB · MONO SAW, PULSE, SUB, NOISE | | | |
+
+OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the envelope opens the filter (±); the same setting as on ENV › TERMINATION, so turning either moves both |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | – |
@@ -615,9 +618,15 @@ Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can
 | --- | --- | --- | --- | --- | --- |
 | **MATRIX** | SOURCE | TRACK (1–8, or the global one) | PARAM | AMOUNT (±) | slot 1–8 |
 | **LFOS** | L1 RATE | L1 SHAPE: SINE, TRI, RAMP, SAW, SQUARE, S&H, DRIFT | L2 RATE | L2 SHAPE | – |
+| **LFO SHAPE** (OCT- / OCT+: LFO 1 or LFO 2) | SYM: skews the wave either way (± 64) | PHASE: where the wave starts, 0–359° | MODE: LOOP, RETRIG, 1 SHOT | – | – |
 | **DUST** | RATE: how often random spikes happen | DECAY: how long each spike lasts | – | – | – |
 | **MACRO** | DEST: what this slot moves | START value (±) | END value (±) | CURVE: LINEAR, EXP, LOG, S | which macro and slot |
 | **MACRO WINDOW** | FROM %: where on the macro's travel this slot starts moving | TO %: where it stops | MACRO 1 | MACRO 2 | which macro and slot |
+
+- **SYM** moves the middle of the cycle from 5% to 95%, so each half of the wave speeds up or slows down: a sine leans, a triangle turns into a rising or falling ramp, a square becomes a narrow or wide pulse. The matrix can move it (target GLOBAL › L1 SYM or L2 SYM), so another LFO, dust or an envelope can reshape an LFO as it runs.
+- **PHASE** is where the cycle starts. In LOOP it offsets the wave; in RETRIG and 1 SHOT it is where a note restarts it.
+- **MODE:** LOOP (the default) runs freely. RETRIG starts the cycle over on every note, on any track. 1 SHOT plays one cycle from each note, then rests at the cycle's end: an extra envelope.
+- The LFOS and LFO SHAPE pages draw both waves as SYM and PHASE make them; on LFO SHAPE the one on the knobs is lit.
 
 <p align="center"><img src="docs/manual/mod-matrix.png" alt="MATRIX" width="240"> <img src="docs/manual/mod-lfo.png" alt="LFOS" width="240"> <img src="docs/manual/mod-macro.png" alt="MACRO" width="240"></p>
 

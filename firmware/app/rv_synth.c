@@ -263,6 +263,7 @@ static void va_render(voice_t *v, const float *eff, float f, float *out, int n)
     float dt = f * RV_DT, wave = eff[TP_S0] * (1.0f / 127.0f), pw = 0.5f + (eff[TP_S1] - 64.0f) * (0.45f / 64.0f);
     int nsup = clampi((int)(eff[TP_S2] + 0.5f), 1, 7), i, k;
     float det = eff[TP_S3] * (1.0f / 127.0f), sub = eff[TP_S4] * (1.0f / 127.0f), noise = eff[TP_S5] * (1.0f / 127.0f);
+    float osc1 = eff[TP_OSC1] * (1.0f / 127.0f);
     float tz = eff[TP_S6] * (1.0f / 127.0f), fmr = va_ratios[clampi((int)(eff[TP_S7] + 0.5f), 0, 7)];
     float sync = eff[TP_S8] * (1.0f / 127.0f);
     float norm = 1.0f / fm_sqrtf((float)nsup);
@@ -309,6 +310,7 @@ static void va_render(voice_t *v, const float *eff, float f, float *out, int n)
             }
             x *= norm;
         }
+        x *= osc1;                                     /* OSC LVL: the oscillator against SUB and NOISE */
         if (sub > 0.001f) {                            /* a square an octave down */
             s->sub += dt * 0.5f;
             s->sub -= fm_floorf(s->sub);
@@ -621,7 +623,8 @@ static void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
         dt[k] = f * fm_ratio_tab[clampi((int)(eff[TP_S2 + k] + 0.5f), 0, 31)] * RV_DT;
         wv[k] = (float)clampi((int)(eff[TP_S9 + k] + 0.5f), 0, 7);
     }
-    lvl[0] = 1.0f;
+    lvl[0] = eff[TP_OSC1] * (1.0f / 127.0f);          /* LEVEL1: op 1, a carrier */
+    lvl[0] *= lvl[0];
     for (k = 1; k < 4; k++) {
         float l = eff[TP_S5 + k] * (1.0f / 127.0f);
         lvl[k] = l * l;
@@ -650,10 +653,10 @@ static void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
             if (!(fm_car[alg] & (1 << k)))
                 o[k] *= lvl[k] * menv * 2.5f;
             else
-                o[k] *= k == 0 ? 1.0f : lvl[k];
+                o[k] *= lvl[k];
         }
         if (alg == 11) {
-            y = (sin_lut(s->ph[0]) * sin_lut(s->ph[1]) * 1.0f + sin_lut(s->ph[2]) * sin_lut(s->ph[3]) * lvl[3]) * 0.8f;
+            y = (sin_lut(s->ph[0]) * sin_lut(s->ph[1]) * lvl[0] + sin_lut(s->ph[2]) * sin_lut(s->ph[3]) * lvl[3]) * 0.8f;
         } else {
             int nc = 0;
             for (k = 0; k < 4; k++)
@@ -1012,7 +1015,7 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
     int steps = clampi((int)(eff[TP_S7] + 0.5f), 1, 4), i;
     float pw = 0.05f + eff[TP_S1] * (0.9f / 127.0f), spd = 2.0f * fm_exp2f(eff[TP_S2] * (6.0f / 127.0f));
     float ofs[4] = {0.0f, eff[TP_S4], eff[TP_S5], eff[TP_S6]};
-    float sub = eff[TP_S8] * (1.0f / 127.0f), over = eff[TP_S11] * (1.0f / 127.0f);
+    float sub = eff[TP_S8] * (1.0f / 127.0f), over = eff[TP_S11] * (1.0f / 127.0f), osc1 = eff[TP_OSC1] * (1.0f / 127.0f);
     int sync = eff[TP_S10] > 0.5f;
     float sdt = clampf(f * fm_exp2f((float)(clampi((int)(eff[TP_S9] + 0.5f), 0, 4) - 3)) * RV_DT, 0.0f, 0.45f);
     float srr = eff[TP_S12] * (1.0f / 127.0f), hold_n = 1.0f + srr * srr * 63.0f;
@@ -1093,7 +1096,7 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
             break;
         default: x = chip_wave(c, w, c->ph, pw); break;
         }
-        x = (x + sq * sub * 0.8f) * (0.5f / (1.0f + sub * 0.4f));
+        x = (x * osc1 + sq * sub * 0.8f) * (0.5f / (1.0f + sub * 0.4f));   /* OSC LVL against SUB */
         if (over > 0.0f)                              /* OVER: driven into a soft wall */
             x = sat(x * (1.0f + over * 7.0f)) * (0.5f + 0.2f * over) / (0.5f + over * 0.3f);
         /* SRR: hold each sample HOLD times (fractional, so the aliasing moves with it) */
@@ -1193,7 +1196,7 @@ static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
     sq_t *s = &v->e.sq;
     int w[3], mode = clampi((int)(eff[TP_S8] + 0.5f), 0, 3), i, k;
     float grit = clampf(eff[TP_S15], 0.0f, 127.0f), det = eff[TP_S5] * (0.25f / 127.0f);   /* up to a quarter tone */
-    float l2 = eff[TP_S6] * (1.0f / 127.0f), l3 = eff[TP_S7] * (1.0f / 127.0f), trans = eff[TP_S12] * (1.2f / 127.0f);
+    float l1 = eff[TP_OSC1] * (1.0f / 127.0f), l2 = eff[TP_S6] * (1.0f / 127.0f), l3 = eff[TP_S7] * (1.0f / 127.0f), trans = eff[TP_S12] * (1.2f / 127.0f);
     float dec = 0.004f * fm_exp2f(eff[TP_S9] * (10.5f / 127.0f)), sus = eff[TP_S10] * (1.0f / 127.0f);
     float vib = eff[TP_S13] * (0.8f / 127.0f), vrate = 0.5f * fm_exp2f(eff[TP_S14] * (4.5f / 127.0f));
     float dt = (float)n * RV_DT, semi, hz[3], inc[3], smooth, open, hold, q, l3e, norm, vt;
@@ -1241,7 +1244,7 @@ static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
             if (mode & 2)                             /* AM: osc 1's level opens osc 2 */
                 b *= 0.5f + 0.5f * a;
             c = l3e > 0.0005f ? sq_read(tab[2], s->ph[2], smooth) : 0.0f;
-            x = (a + l2 * b + l3e * c) * norm;
+            x = (l1 * a + l2 * b + l3e * c) * norm;
             if (q > 0.0f)
                 x = fm_floorf(x * q + 0.5f) / q;
             s->hold_y = x;
@@ -1350,7 +1353,7 @@ static void wave_render(voice_t *v, const float *eff, float f, float *out, int n
     int t1 = clampi((int)(eff[TP_S0] + 0.5f), 0, WT_TABLES - 1), t2 = clampi((int)(eff[TP_S2] + 0.5f), 0, WT_TABLES - 1);
     int xm = clampi((int)(eff[TP_S8] + 0.5f), 0, 4), warp = clampi((int)(eff[TP_S10] + 0.5f), 0, WW_N - 1);
     int wenv = clampi((int)(eff[TP_S12] + 0.5f), 0, SHP_N), i, raw;
-    float asic = clampf(eff[TP_S15], 0.0f, 127.0f), mix = eff[TP_S6] * (1.0f / 127.0f), satv = eff[TP_S7] * (1.0f / 127.0f);
+    float asic = clampf(eff[TP_S15], 0.0f, 127.0f), mix = eff[TP_S6] * (1.0f / 127.0f), satv = eff[TP_S7] * (1.0f / 127.0f), olv1 = eff[TP_OSC1] * (1.0f / 127.0f);
     float xa = eff[TP_S9] * (1.0f / 127.0f), wa = eff[TP_S11] * (1.0f / 127.0f), det = eff[TP_S5] * (0.3f / 127.0f);
     float f2 = f * fm_exp2f((eff[TP_S4] + det) * (1.0f / 12.0f)), d1, d2, p1, p2, kp1, kp2, l1, l2, g1, g2, drive, q;
     /* the wave envelope: a shape that loops while held, then finishes its cycle */
@@ -1403,7 +1406,7 @@ static void wave_render(voice_t *v, const float *eff, float f, float *out, int n
         y2 = g2 > 0.0f || xm == WX_RING ? wtab_osc(t2, kp2, ph2, warp, wa, l2, raw) : 0.0f;
         if (xm == WX_RING)
             y2 += (y1 * y2 - y2) * xa;
-        y = y1 * g1 + y2 * (g2 > 0.0f ? g2 : (xm == WX_RING ? 0.7f : 0.0f));
+        y = y1 * g1 * olv1 + y2 * (g2 > 0.0f ? g2 : (xm == WX_RING ? 0.7f : 0.0f));   /* LEVEL 1 on osc 1 */
         y = sat(y * drive) * (1.0f / sat(drive));       /* the mixer: rounds off as it is pushed */
         if (q > 0.0f)
             y = fm_floorf(y * q + 0.5f) / q;

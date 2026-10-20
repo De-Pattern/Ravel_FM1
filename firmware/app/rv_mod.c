@@ -113,29 +113,60 @@ static float dust_v;
 static uint32_t dust_rng = 0xD057D057u;
 static uint8_t lfo_wrapped[2], dust_fired;
 
-static float lfo_tick(lfo_t *l, float rate, int shape, float dt, uint8_t *wrap)
+static uint8_t lfo_note_trig;                          /* a note started: RETRIG and 1 SHOT LFOs start over */
+
+/* SYM: the wave's middle moves from 5% to 95% of the cycle, so each half speeds up or slows down
+ * (a sine leans, a triangle turns toward a ramp, a square becomes a pulse) */
+static float lfo_warp(float q, float sym)
+{
+    float b = 0.5f + 0.45f * sym;
+    return q < b ? 0.5f * q / b : 0.5f + 0.5f * (q - b) / (1.0f - b);
+}
+static float lfo_wave(int shape, float q)
+{
+    switch (shape) {
+    case 0: return sin_lut(q);
+    case 1: return q < 0.5f ? 4.0f * q - 1.0f : 3.0f - 4.0f * q;
+    case 2: return 2.0f * q - 1.0f;
+    case 3: return 1.0f - 2.0f * q;
+    default: return q < 0.5f ? 1.0f : -1.0f;
+    }
+}
+
+/* mode 0 LOOP, 1 RETRIG (a note restarts it), 2 1 SHOT (a note plays one cycle, then it holds);
+ * phase: where the cycle starts, 0..1 */
+static float lfo_tick(lfo_t *l, float rate, int shape, float dt, uint8_t *wrap, float sym, float phase, int mode)
 {
     int w = 0;
-    l->ph += rate * dt;
-    while (l->ph >= 1.0f) {
-        l->ph -= 1.0f;
-        w = 1;
+    float q;
+    if (mode == 2) {                                  /* one cycle, then still */
+        if (l->ph < 1.0f) {
+            l->ph += rate * dt;
+            if (l->ph >= 1.0f)
+                l->ph = 1.0f;
+        }
+    } else {
+        l->ph += rate * dt;
+        while (l->ph >= 1.0f) {
+            l->ph -= 1.0f;
+            w = 1;
+        }
     }
     *wrap = (uint8_t)w;
+    q = l->ph + phase;
+    if (q > 1.0f)                                     /* (a finished 1 SHOT rests at the cycle's end) */
+        q -= 1.0f;
+    q = lfo_warp(q, sym);
     switch (shape) {
-    case 0: l->value = sin_lut(l->ph); break;
-    case 1: l->value = l->ph < 0.5f ? 4.0f * l->ph - 1.0f : 3.0f - 4.0f * l->ph; break;
-    case 2: l->value = 2.0f * l->ph - 1.0f; break;
-    case 3: l->value = 1.0f - 2.0f * l->ph; break;
-    case 4: l->value = l->ph < 0.5f ? 1.0f : -1.0f; break;
     case 5: if (w) l->held = xs_bi(&mod_rng); l->value = l->held; break;
-    default:
+    case 6:
         if (w) {
             l->from = l->to;
             l->to = xs_bi(&mod_rng);
         }
-        l->value = l->from + (l->to - l->from) * (0.5f - 0.5f * sin_lut(l->ph * 0.5f + 0.25f));
+        l->value = l->from + (l->to - l->from) * (0.5f - 0.5f * sin_lut(q * 0.5f + 0.25f));
         break;
+    default: l->value = lfo_wave(shape, q); break;
     }
     return l->value;
 }
@@ -145,8 +176,18 @@ static void movement_tick(int n)
     float dt = (float)n * RV_DT;
     float r1 = 0.01f * fm_exp2f(G(GP_LFO1RATE) * (11.0f / 127.0f)), r2 = 0.01f * fm_exp2f(G(GP_LFO2RATE) * (11.0f / 127.0f));
     float drate = 0.1f * fm_exp2f(G(GP_DUSTRATE) * (9.0f / 127.0f)), ddec = 0.01f * fm_exp2f(G(GP_DUSTDECAY) * (8.0f / 127.0f));
-    lfo_tick(&lfo[0], r1, clampi((int)G(GP_LFO1SHAPE), 0, 6), dt, &lfo_wrapped[0]);
-    lfo_tick(&lfo[1], r2, clampi((int)G(GP_LFO2SHAPE), 0, 6), dt, &lfo_wrapped[1]);
+    int k;
+    if (lfo_note_trig) {                              /* a note: RETRIG and 1 SHOT start from their phase */
+        for (k = 0; k < 2; k++)
+            if (rv.gp[k ? GP_LFO2MODE : GP_LFO1MODE] > 0)
+                lfo[k].ph = 0.0f;
+        lfo_note_trig = 0;
+    }
+    for (k = 0; k < 2; k++)
+        lfo_tick(&lfo[k], k ? r2 : r1, clampi((int)G(k ? GP_LFO2SHAPE : GP_LFO1SHAPE), 0, 6), dt, &lfo_wrapped[k],
+                 clampf(G(k ? GP_LFO2SYM : GP_LFO1SYM) * (1.0f / 64.0f), -1.0f, 1.0f),
+                 clampf(G(k ? GP_LFO2PHASE : GP_LFO1PHASE) * (1.0f / 360.0f), 0.0f, 0.9999f),
+                 clampi(rv.gp[k ? GP_LFO2MODE : GP_LFO1MODE], 0, 2));
     dust_v *= fm_expf(-dt / ddec);
     dust_fired = 0;
     if (xs_uni(&dust_rng) < drate * dt) {

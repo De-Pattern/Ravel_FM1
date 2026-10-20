@@ -104,6 +104,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     track_t *tr = &trk[t];
     int kind = rv.tp[t][TP_KIND], i;
     float v = (float)vel * (1.0f / 127.0f);
+    if (vel > 0)
+        lfo_note_trig = 1;
     if (kind == KIND_SYNTH) {
         int poly = clampi(rv.tp[t][TP_POLY], 0, 3) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;

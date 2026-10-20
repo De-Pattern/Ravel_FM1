@@ -73,6 +73,7 @@ enum {
     /* (format 6) SHAPE: the articulation from a library of complex shapes, after the XAOC Zadar */
     TP_ESHAPE, TP_EMORPH, TP_ETIME, TP_EMODE, TP_EWARP,
     TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
+    TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
     TP_N
 };
 #define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
@@ -102,6 +103,7 @@ enum {
     GP_DLYMODE, GP_GRDENS, GP_GRSIZE, GP_GRPITCH, GP_REVMODE,
     /* (format 9) the metronome and the count-in before recording */
     GP_METRO, GP_COUNTIN,
+    GP_LFO1SYM, GP_LFO2SYM, GP_LFO1PHASE, GP_LFO2PHASE, GP_LFO1MODE, GP_LFO2MODE,   /* the LFOs' symmetry, start phase, LOOP/RETRIG/1 SHOT (0: as before) */
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
@@ -188,7 +190,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 10                /* 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 11                /* 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
