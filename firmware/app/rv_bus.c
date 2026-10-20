@@ -278,8 +278,116 @@ static int32_t dly_w;
 static float dly_lp, dly_t, dly_fbv;
 static uint8_t dly_freeze;
 
+/* GRAINS (after Mutable Instruments' Beads, lofi): the delay's memory becomes a grain buffer,
+ * written at half rate and 12 bits (about 0.55 s), and up to eight grains read from it. POSITN is
+ * how far back they reach, DENSITY how often they start, SIZE how long each lasts, PITCH their
+ * transposition, RANDOM how much each one strays in place and pitch, STEREO how wide they scatter.
+ * FEEDBK sends the cloud back into the buffer; FREEZE stops writing, so the cloud plays what it
+ * holds. */
+#define GR_N 8
+typedef struct { float pos, inc, t, dt, pl, pr; uint8_t on; } grain_t;
+static grain_t grains[GR_N];
+static float gr_acc, gr_half, gr_lpl, gr_lpr, gr_fbv;
+static uint8_t gr_ph;
+static uint32_t gr_rng = 0x6EA1u;
+
+static inline float gr_read(float p)
+{
+    int32_t i0;
+    float fr;
+    while (p < 0.0f)
+        p += (float)RV_DELAY_SAMPLES;
+    i0 = (int32_t)p;
+    fr = p - (float)i0;
+    i0 %= (int32_t)RV_DELAY_SAMPLES;
+    return (dly_buf[i0] + (dly_buf[(i0 + 1) % (int32_t)RV_DELAY_SAMPLES] - dly_buf[i0]) * fr) * (1.0f / 16384.0f);
+}
+
+static void grains_run(const float *in, int n, float *l, float *r)
+{
+    int i, k;
+    float fb = rv.gp[GP_DLYFB] * (0.9f / 127.0f), tone = 0.05f + rv.gp[GP_DLYTONE] * (0.9f / 127.0f);
+    float lvl = rv.gp[GP_DLYLEVEL] * (1.0f / 127.0f) * 1.3f, posn = rv.gp[GP_DLYTIME] * (1.0f / 127.0f);
+    float stereo = rv.gp[GP_DLYSPREAD] * (1.0f / 127.0f), rnd = rv.gp[GP_DLYWOB] * (1.0f / 127.0f);
+    float rate = 0.7f * fm_exp2f(rv.gp[GP_GRDENS] * (6.5f / 127.0f));          /* 0.7 to 64 grains a second */
+    float size = 0.02f * fm_exp2f(rv.gp[GP_GRSIZE] * (4.3f / 127.0f));         /* 20 ms to 0.4 s */
+    float span = (float)RV_DELAY_SAMPLES - 64.0f;
+    int frz = dly_freeze || rv.gp[GP_DLYFREEZE];
+    for (i = 0; i < n; i++) {
+        float x = (frz ? 0.0f : in[i]) + gr_fbv * fb, ol = 0.0f, or_ = 0.0f;
+        /* write at half rate: average two samples, keep 12 bits */
+        gr_half += x * 0.5f;
+        if (++gr_ph >= 2) {
+            gr_ph = 0;
+            if (!frz) {
+                int v = (int)clampf(sat(gr_half) * 16384.0f, -32000.0f, 32000.0f);
+                dly_buf[dly_w] = (int16_t)(v & ~15);
+                dly_w = (dly_w + 1) % (int32_t)RV_DELAY_SAMPLES;
+            }
+            gr_half = 0.0f;
+        }
+        /* start grains */
+        gr_acc += rate * RV_DT;
+        if (gr_acc >= 1.0f) {
+            gr_acc -= 1.0f;
+            for (k = 0; k < GR_N; k++)
+                if (!grains[k].on)
+                    break;
+            if (k < GR_N) {
+                grain_t *g = &grains[k];
+                float back = 0.02f + posn * 0.95f + rnd * 0.4f * xs_bi(&gr_rng);          /* of the buffer */
+                float semi = (float)rv.gp[GP_GRPITCH] + rnd * 7.0f * xs_bi(&gr_rng);
+                float len = size * (1.0f + rnd * 0.5f * xs_bi(&gr_rng)), pan = 0.5f + stereo * 0.5f * xs_bi(&gr_rng);
+                g->inc = 0.5f * fm_exp2f(semi * (1.0f / 12.0f));                       /* the buffer runs at half rate */
+                back = clampf(back, 0.0f, 0.98f) * span;
+                if (g->inc > 0.5f && back < g->inc * len * (float)RV_FS)          /* a grain that reads faster than */
+                    back = g->inc * len * (float)RV_FS + 8.0f;                      /* the buffer fills starts further back */
+                g->pos = (float)dly_w - clampf(back, 8.0f, span);
+                g->t = 0.0f;
+                g->dt = RV_DT / clampf(len, 0.01f, 0.6f);
+                g->pl = fm_sqrtf(1.0f - pan);
+                g->pr = fm_sqrtf(pan);
+                g->on = 1;
+            }
+        }
+        for (k = 0; k < GR_N; k++) {
+            grain_t *g = &grains[k];
+            float w, y;
+            if (!g->on)
+                continue;
+            w = 4.0f * g->t * (1.0f - g->t);                       /* a smooth window */
+            y = gr_read(g->pos) * w * w;
+            ol += y * g->pl;
+            or_ += y * g->pr;
+            g->pos += g->inc;
+            if (g->pos >= (float)RV_DELAY_SAMPLES)
+                g->pos -= (float)RV_DELAY_SAMPLES;
+            g->t += g->dt;
+            if (g->t >= 1.0f)
+                g->on = 0;
+        }
+        gr_lpl += (ol - gr_lpl) * tone;
+        gr_lpr += (or_ - gr_lpr) * tone;
+        gr_fbv = (gr_lpl + gr_lpr) * 0.5f;
+        l[i] += gr_lpl * lvl;
+        r[i] += gr_lpr * lvl;
+    }
+}
+
 static void delay_run(const float *in, int n, float *l, float *r)
 {
+    static int8_t last_mode = -1;
+    if (rv.gp[GP_DLYMODE] != last_mode) {              /* a new mode starts from a clean buffer */
+        last_mode = (int8_t)rv.gp[GP_DLYMODE];
+        __builtin_memset(dly_buf, 0, sizeof(dly_buf));
+        __builtin_memset(grains, 0, sizeof(grains));
+        dly_lp = dly_fbv = gr_lpl = gr_lpr = gr_fbv = 0.0f;
+    }
+    if (rv.gp[GP_DLYMODE] == 1) {
+        grains_run(in, n, l, r);
+        return;
+    }
+    {
     int i;
     float spb = 60.0f / (float)rv.gp[GP_TEMPO];
     /* TIME: free below the middle, then synced divisions above */
@@ -331,10 +439,14 @@ static void delay_run(const float *in, int n, float *l, float *r)
         r[i] += dly_lp * lvl;
     }
 }
+}
 
 /* -------------------------------------------------------------- space --- */
 #define REV_N 4
-static int16_t rev_buf[REV_N][1024];
+/* one memory for both modes: ROOM uses the first 4096 samples, CLOUDS all of it */
+#define SPACE_MEM 10496
+static int16_t space_mem[SPACE_MEM] RV_BIG;
+#define rev_buf ((int16_t(*)[1024])space_mem)
 static const int rev_len[REV_N] = {701, 811, 907, 1009};
 static int32_t rev_w[REV_N];
 static float rev_lp[REV_N];
@@ -342,8 +454,112 @@ static float rev_ap[2][512];
 static int32_t rev_api[2];
 static float rev_mod;
 
+/* CLOUDS: a plate tank in the manner of the reverb in Mutable Instruments' Clouds (the figure-eight
+ * tank Jon Dattorro described in 1997): four input diffusers, then two halves, each a modulated
+ * allpass, a delay, damping, a second allpass and a delay, feeding each other. Long, smooth and a
+ * little grainy at 16 bits. DECAY (SIZE) is how long it rings, DAMP how dark, DIFFUSE how quickly
+ * echoes smear, MOTION how much the tank's lines wander, LOW CUT keeps the bass out. */
+enum { CL_A1, CL_A2, CL_A3, CL_A4, CL_LAP, CL_LD1, CL_LAP2, CL_LD2, CL_RAP, CL_RD1, CL_RAP2, CL_RD2, CL_N };
+static const int16_t cl_len[CL_N] = {66, 50, 175, 128, 327, 2062, 833, 1722, 436, 1952, 1230, 1464};
+static int16_t cl_base[CL_N], cl_w[CL_N];
+static float cl_lp[2], cl_tail[2], cl_bw, cl_ph, cl_hp;
+
+static inline float cl_rd(int k, float d)               /* d samples ago (fractional) */
+{
+    float p = (float)cl_w[k] - d;
+    int32_t i0;
+    float fr;
+    while (p < 0.0f)
+        p += (float)cl_len[k];
+    i0 = (int32_t)p;
+    fr = p - (float)i0;
+    {
+        int32_t a = i0 % cl_len[k], b = (i0 + 1) % cl_len[k];
+        return (space_mem[cl_base[k] + a] + (space_mem[cl_base[k] + b] - space_mem[cl_base[k] + a]) * fr) * (1.0f / 8192.0f);
+    }
+}
+static inline float cl_tap(int k, int d) { int32_t p = cl_w[k] - d; if (p < 0) p += cl_len[k]; return space_mem[cl_base[k] + p] * (1.0f / 8192.0f); }
+static inline void cl_wr(int k, float x)
+{
+    space_mem[cl_base[k] + cl_w[k]] = (int16_t)clampf(x * 8192.0f, -32000.0f, 32000.0f);
+    if (++cl_w[k] >= cl_len[k])
+        cl_w[k] = 0;
+}
+static inline float cl_ap(int k, float x, float g, float d)   /* an allpass on line k, d samples long */
+{
+    float z = cl_rd(k, d), v = x + z * g;
+    cl_wr(k, v);
+    return z - v * g;
+}
+
+static void clouds_run(const float *in, int n, float *l, float *r)
+{
+    int i, k;
+    float dec = 0.55f + rv.gp[GP_REVSIZE] * (0.44f / 127.0f), damp = 0.1f + (127 - rv.gp[GP_REVDAMP]) * (0.85f / 127.0f);
+    float dif = 0.45f + rv.gp[GP_REVDIFF] * (0.35f / 127.0f), lvl = rv.gp[GP_REVLEVEL] * (1.0f / 127.0f);
+    float modd = 1.0f + rv.gp[GP_REVMOD] * (14.0f / 127.0f);
+    float lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
+    if (!cl_base[CL_N - 1]) {
+        int b = 0;
+        for (k = 0; k < CL_N; k++) {
+            cl_base[k] = (int16_t)b;
+            b += cl_len[k];
+        }
+    }
+    for (i = 0; i < n; i++) {
+        float x = in[i] * 0.6f, a, b, ml, mr, ol, or_;
+        if (lowc > 0.0f) {
+            cl_hp += (x - cl_hp) * lowc;
+            x -= cl_hp;
+        }
+        cl_bw += (x - cl_bw) * 0.7f;                  /* the input's bandwidth */
+        x = cl_ap(CL_A1, cl_bw, dif, (float)cl_len[CL_A1] - 1.0f);
+        x = cl_ap(CL_A2, x, dif, (float)cl_len[CL_A2] - 1.0f);
+        x = cl_ap(CL_A3, x, dif * 0.83f, (float)cl_len[CL_A3] - 1.0f);
+        x = cl_ap(CL_A4, x, dif * 0.83f, (float)cl_len[CL_A4] - 1.0f);
+        cl_ph += 0.7f * RV_DT;
+        cl_ph -= fm_floorf(cl_ph);
+        ml = modd * sin_lut(cl_ph);
+        mr = modd * sin_lut(cl_ph + 0.25f);
+        /* left half, fed by the right's tail */
+        a = cl_ap(CL_LAP, x + cl_tail[1] * dec, -0.7f, (float)cl_len[CL_LAP] - 17.0f + ml);
+        cl_wr(CL_LD1, a);
+        a = cl_tap(CL_LD1, cl_len[CL_LD1] - 1);
+        cl_lp[0] += (a - cl_lp[0]) * damp;
+        a = cl_ap(CL_LAP2, cl_lp[0] * dec, 0.5f, (float)cl_len[CL_LAP2] - 1.0f);
+        cl_wr(CL_LD2, a);
+        /* right half, fed by the left's tail */
+        b = cl_ap(CL_RAP, x + cl_tail[0] * dec, -0.7f, (float)cl_len[CL_RAP] - 17.0f + mr);
+        cl_wr(CL_RD1, b);
+        b = cl_tap(CL_RD1, cl_len[CL_RD1] - 1);
+        cl_lp[1] += (b - cl_lp[1]) * damp;
+        b = cl_ap(CL_RAP2, cl_lp[1] * dec, 0.5f, (float)cl_len[CL_RAP2] - 1.0f);
+        cl_wr(CL_RD2, b);
+        cl_tail[0] = cl_tap(CL_LD2, cl_len[CL_LD2] - 1);
+        cl_tail[1] = cl_tap(CL_RD2, cl_len[CL_RD2] - 1);
+        /* the outputs: taps across both halves */
+        ol = cl_tap(CL_RD1, 123) + cl_tap(CL_RD1, 1377) - cl_tap(CL_RAP2, 886) + cl_tap(CL_RD2, 924)
+           - cl_tap(CL_LD1, 921) - cl_tap(CL_LAP2, 87) - cl_tap(CL_LD2, 494);
+        or_ = cl_tap(CL_LD1, 163) + cl_tap(CL_LD1, 1679) - cl_tap(CL_LAP2, 569) + cl_tap(CL_LD2, 1238)
+            - cl_tap(CL_RD1, 977) - cl_tap(CL_RAP2, 155) - cl_tap(CL_RD2, 56);
+        l[i] += ol * 0.5f * lvl;
+        r[i] += or_ * 0.5f * lvl;
+    }
+}
+
 static void space_run(const float *in, int n, float *l, float *r)
 {
+    static int8_t last_mode = -1;
+    if (rv.gp[GP_REVMODE] != last_mode) {             /* the modes share memory: start clean */
+        last_mode = (int8_t)rv.gp[GP_REVMODE];
+        __builtin_memset(space_mem, 0, sizeof(space_mem));
+        cl_lp[0] = cl_lp[1] = cl_tail[0] = cl_tail[1] = cl_bw = cl_hp = 0.0f;
+    }
+    if (rv.gp[GP_REVMODE] == 1) {
+        clouds_run(in, n, l, r);
+        return;
+    }
+    {
     int i, k;
     float size = 0.45f + rv.gp[GP_REVSIZE] * (0.53f / 127.0f), damp = 0.15f + (127 - rv.gp[GP_REVDAMP]) * (0.8f / 127.0f);
     float g = 0.55f + size * 0.42f, lvl = rv.gp[GP_REVLEVEL] * (1.0f / 127.0f);
@@ -383,6 +599,7 @@ static void space_run(const float *in, int n, float *l, float *r)
         l[i] += (o[0] + o[2]) * lvl * 0.7f;
         r[i] += (o[1] + o[3]) * lvl * 0.7f;
     }
+}
 }
 
 /* -------------------------------------------------------------- bands --- */
@@ -520,7 +737,10 @@ static void buses_reset(void)
     pair_ph[0] = pair_ph[1] = pair_prev = 0.0f;
     __builtin_memset(dly_buf, 0, sizeof(dly_buf));
     dly_lp = dly_fbv = 0.0f;
-    __builtin_memset(rev_buf, 0, sizeof(rev_buf));
+    __builtin_memset(space_mem, 0, sizeof(space_mem));
+    __builtin_memset(grains, 0, sizeof(grains));
+    cl_lp[0] = cl_lp[1] = cl_tail[0] = cl_tail[1] = cl_bw = cl_hp = 0.0f;
+    gr_lpl = gr_lpr = gr_fbv = 0.0f;
     __builtin_memset(rev_lp, 0, sizeof(rev_lp));
     __builtin_memset(rev_ap, 0, sizeof(rev_ap));
     __builtin_memset(cut_buf, 0, sizeof(cut_buf));

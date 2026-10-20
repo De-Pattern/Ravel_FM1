@@ -94,6 +94,8 @@ enum {
     /* (format 5) BANDS: eight fixed resonant bands (after the Moog MuRF) and the sweep across them */
     GP_BAND1, GP_BAND2, GP_BAND3, GP_BAND4, GP_BAND5, GP_BAND6, GP_BAND7, GP_BAND8,
     GP_BANDQ, GP_BANDSHIFT, GP_BANDLEVEL, GP_BANDSHAPE, GP_BANDRATE, GP_BANDDEPTH, GP_BANDWIDTH,
+    /* the delay's GRAINS mode (after Beads) and the space's CLOUDS mode */
+    GP_DLYMODE, GP_GRDENS, GP_GRSIZE, GP_GRPITCH, GP_REVMODE,
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */

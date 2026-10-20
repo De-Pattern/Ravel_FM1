@@ -29,6 +29,8 @@ static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", 
 static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
+static const char *const revmode_names[] = {"ROOM", "CLOUDS"};
 static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
 static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
 static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
@@ -297,6 +299,11 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_BANDRATE] = {"RATE", 0, 127, 50, PF_NUM, 0},
     [GP_BANDDEPTH] = {"DEPTH", 0, 127, 0, PF_NUM, 0},
     [GP_BANDWIDTH] = {"WIDTH", 0, 127, 30, PF_NUM, 0},
+    [GP_DLYMODE] = {"MODE", 0, N(dlymode_names), 0, E(dlymode_names)},
+    [GP_GRDENS] = {"DENSITY", 0, 127, 60, PF_NUM, 0},
+    [GP_GRSIZE] = {"SIZE", 0, 127, 60, PF_NUM, 0},
+    [GP_GRPITCH] = {"PITCH", -24, 24, 0, PF_SEMI, 0},
+    [GP_REVMODE] = {"MODE", 0, N(revmode_names), 0, E(revmode_names)},
 };
 
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
@@ -322,7 +329,18 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
     return &TRACK[p];
 }
 
-const rv_pinfo *rv_pinfo_global(int g) { return g >= 0 && g < GP_N && GLOBAL[g].name ? &GLOBAL[g] : &NONE; }
+const rv_pinfo *rv_pinfo_global(int g)
+{
+    if (rv.gp[GP_DLYMODE] == 1 && (g == GP_DLYTIME || g == GP_DLYSPREAD || g == GP_DLYWOB)) {   /* GRAINS reads them its way */
+        static const rv_pinfo gt[3] = {{"POSITN", 0, 127, 60, PF_NUM, 0}, {"STEREO", 0, 127, 127, PF_NUM, 0}, {"RANDOM", 0, 127, 0, PF_NUM, 0}};
+        return &gt[g == GP_DLYTIME ? 0 : g == GP_DLYSPREAD ? 1 : 2];
+    }
+    if (rv.gp[GP_REVMODE] == 1 && g == GP_REVSIZE) {                   /* CLOUDS: SIZE is how long it rings */
+        static const rv_pinfo dec = {"DECAY", 0, 127, 70, PF_NUM, 0};
+        return &dec;
+    }
+    return g >= 0 && g < GP_N && GLOBAL[g].name ? &GLOBAL[g] : &NONE;
+}
 
 const rv_pinfo *rv_pinfo_pid(int pid)
 {

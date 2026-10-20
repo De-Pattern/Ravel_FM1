@@ -98,42 +98,42 @@ wait 600
 shot bus-delay.png
 tap FX
 turn SELECT -20
-turn SELECT 2
+turn SELECT 3
 wait 150
 expect page SPACE
 wait 600
 shot bus-space.png
 tap FX
 turn SELECT -20
-turn SELECT 4
+turn SELECT 5
 wait 150
 expect page FEEDBACK
 wait 600
 shot bus-feedback.png
 tap FX
 turn SELECT -20
-turn SELECT 7
+turn SELECT 8
 wait 150
 expect page FILTER PAIR
 wait 600
 shot bus-pair.png
 tap FX
 turn SELECT -20
-turn SELECT 10
+turn SELECT 11
 wait 150
 expect page BANDS
 wait 600
 shot bus-bands.png
 tap FX
 turn SELECT -20
-turn SELECT 14
+turn SELECT 15
 wait 150
 expect page VOCODER
 wait 600
 shot bus-vocoder.png
 tap FX
 turn SELECT -20
-turn SELECT 16
+turn SELECT 17
 wait 150
 expect page MASTER
 wait 600

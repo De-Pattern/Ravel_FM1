@@ -505,9 +505,10 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **DELAY** | TIME: free below the middle, tempo-synced divisions above | FEEDBK | TONE: darker or brighter repeats | LEVEL |
-| **DELAY 2** | T SEND | SPREAD: stereo ping-pong width | WOBBLE: tape wow and flutter | FREEZE: ON holds the repeats forever |
+| **DELAY 2** | T SEND | SPREAD: stereo ping-pong width (GRAINS: STEREO, how widely grains scatter) | WOBBLE: tape wow and flutter (GRAINS: RANDOM) | FREEZE: ON holds the repeats forever |
+| **GRAINS** | MODE: TAPE (the delay) or GRAINS | DENSITY: how often grains start | SIZE: each grain, 20 ms to 0.4 s | PITCH: ±24 semitones |
 | **SPACE** | SIZE | DAMP: darker tail | LEVEL | T SEND |
-| **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | – |
+| **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | MODE: ROOM or CLOUDS |
 | **FEEDBACK** | TIME of the loop | REGEN: how much goes round again | PROCESS inside the loop: FILTER, COMB, SMEAR, SHIFT, FOLD, CRUSH | AMOUNT of the process |
 | **FEEDBACK 2** | TUNE of the process | CUTOFF of the loop's filter | EDGE: a guard that keeps the loop from running away | RETURN: to the MASTER, or into a track (T1–T8) |
 | **FEEDBACK 3** | LEVEL | T SEND | – | – |
@@ -521,6 +522,10 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | **VOCODER** | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL | T SEND |
 | **VOCODER 2** | ATTACK | RELEASE | SHIFT: moves the bands (±24 semitones) | NARROW: sharper, more resonant bands |
 | **MASTER** | DRIVE: master saturation | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
+
+**GRAINS** (DELAY, MODE GRAINS) turns the delay into a small granular cloud after Mutable Instruments' Beads, kept lofi on purpose: the delay's memory holds about half a second at half the sample rate and 12 bits. Up to eight grains read from it at once. TIME becomes **POSITN** (how far back the grains reach), WOBBLE becomes **RANDOM** (how much each grain strays in position, pitch and length) and SPREAD becomes **STEREO**. FEEDBK sends the cloud back into its own buffer, TONE darkens it, and FREEZE stops recording, so the cloud keeps playing what it holds: freeze a chord, then play with POSITN, SIZE and PITCH. Switching MODE clears the buffer.
+
+**CLOUDS** (SPACE, MODE CLOUDS) is a long, smooth plate in the manner of the reverb in Mutable Instruments' Clouds: a figure-eight tank of allpasses and delays that feed each other. SIZE becomes **DECAY**, from about half a second to a tail of twenty seconds or more. DAMP, DIFFUSE, MOTION and LOW CUT work as they do in ROOM. Switching MODE clears the tail.
 
 **BANDS** is a resonant filter bank in the manner of the Moog MuRF: eight bandpass filters at fixed frequencies, each with its own level. With DEPTH at 0 it sculpts: turn bands down to carve the sound into a few ringing peaks, and raise RESO to make them sing. Raise DEPTH and a spotlight travels across the bands at RATE, lighting WIDTH bands at a time and dimming the rest, so a held chord or a drum loop becomes a moving, rhythmic pattern of resonances. STEP UP and STEP RND jump from band to band like the MuRF's patterns; UP, DOWN and PINGPNG glide. Odd bands lean left and even ones right, so the sweep moves across the stereo field. The picture shows each band's level (outline) and its gain right now (filled). LFO 1 and 2, the macros and the matrix can move every BANDS knob.
 
@@ -1053,7 +1058,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 
 ## Credits
 
-- Mutable Instruments (Émilie Gillet) for Beads.
+- Mutable Instruments (Émilie Gillet) for Beads, which the tape tracks run and the GRAINS mode follows, and for Clouds, whose reverb the CLOUDS mode follows.
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
