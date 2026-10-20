@@ -2,6 +2,7 @@
 /* Ravel: every parameter's name, range, default and display, and the project's defaults. */
 #include "rv.h"
 #include "rv_sqwaves.h"
+#include "rv_shapes.h"
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
@@ -29,6 +30,8 @@ static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", 
 static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const eshape_names[] = {"OFF", SHP_NAMES};
+static const char *const emode_names[] = {"ONESHOT", "GATED", "LOOP", "CYCLE"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
 static const char *const revmode_names[] = {"ROOM", "CLOUDS"};
 static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
@@ -204,6 +207,11 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_H2COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
     [TP_H2TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
     [TP_BANDS] = {"BANDS", 0, 127, 0, PF_NUM, 0},
+    [TP_ESHAPE] = {"SHAPE", 0, SHP_N, 0, E(eshape_names)},
+    [TP_EMORPH] = {"MORPH", 0, 127, 0, PF_NUM, 0},
+    [TP_ETIME] = {"TIME", 0, 127, 90, PF_TIME, 0},
+    [TP_EMODE] = {"PLAY", 0, N(emode_names), SHM_GATED, E(emode_names)},
+    [TP_EWARP] = {"WARP", -64, 63, 0, PF_BI, 0},
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -494,6 +502,18 @@ int rv_tp_applies(int t, int p)
         return 0;
     if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT) && tp[TP_KIND] != KIND_SYNTH)
         return 0;                                                      /* only synth voices have the filter */
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ && (p == TP_ESHAPE || p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP))
+        return 0;                                                      /* the CZ's DCA envelopes are its level */
+    if (tp[TP_ESHAPE] > 0 && !(tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ)) {   /* SHAPE replaces the classic articulation */
+        switch (p) {
+        case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_TAIL:
+            return 0;
+        case TP_REL: return tp[TP_EMODE] == SHM_LOOP;                  /* LOOP lets go the classic way */
+        default: break;
+        }
+    } else if (p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP) {
+        return 0;
+    }
     if (tp[TP_KIND] == KIND_STRIKE) {
         int exc = tp[TP_S0], body = tp[TP_S1];
         int grains = exc == EXC_DUST || exc == EXC_RAIN;
@@ -558,7 +578,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:

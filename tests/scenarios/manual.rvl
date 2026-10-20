@@ -65,6 +65,11 @@ tap ENV
 turn SELECT -20
 turn SELECT 4
 wait 150
+expect page SHAPE
+tap ENV
+turn SELECT -20
+turn SELECT 6
+wait 150
 expect page LIBRARY
 wait 600
 shot artic-library.png

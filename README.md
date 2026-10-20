@@ -431,6 +431,21 @@ Ravel's envelope is in three stages, named after how speech is described: the **
 
 DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVEL2 or CZ's DCW +-, so the timbre changes with the note.
 
+### SHAPE
+
+SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **SHAPE** | SHAPE: OFF, or one of 24 shapes | MORPH: crossfades toward the next shape in the list | TIME: how long the whole shape takes (0.5 ms to 8 s) | PLAY: ONESHOT, GATED, LOOP, CYCLE |
+| **SHAPE 2** | WARP: bends time inside the shape (+ lingers at the start, − rushes through it) | RELEASE (used by LOOP) | GIVE (the same spring) | ENV>CUT |
+
+- **The shapes:** PLUCK, HIT, DOUBLE, TRIPLE, BOUNCE, STUTTER, PULSES, STAIRS UP, STAIRS DN, RAMP UP, REVERSE, SWELL, HUMP, TWIN HUMP, SWELL HIT, ADSR, ORGAN, TREMOLO, WOBBLE, FLUTTER, SAW BURST, SPIKES, DRIP and BREATH. Neighbours are related, so MORPH between them makes sense: DOUBLE into TRIPLE adds a hit, STUTTER into PULSES evens out the rhythm, TREMOLO into WOBBLE slows the ripple.
+- **PLAY:** ONESHOT plays the whole shape whatever the key does. GATED plays to the shape's hold point (the line in the picture), waits there while the key is held, then plays the rest. LOOP repeats the shape while held and lets go with RELEASE. CYCLE repeats it while held, then finishes the cycle it is in.
+- **Moving it:** MORPH, TIME and WARP are modulation destinations. An LFO on MORPH, or a macro, sweeps the shape between its neighbours, note to note or while it plays.
+- **Everywhere:** SHAPE works on synth, strike and tape tracks. It drives the level, the filter envelope (ENV>CUT) and the ENV source in the matrix, and the DESTINATIONS follow it too. CZ tracks keep their own DCA envelopes, so SHAPE greys out there. A step that recalls a LIBRARY envelope plays the classic envelope for that step.
+- The knobs SHAPE doesn't use grey out while it's on.
+
 ### LIBRARY
 
 <p align="center"><img src="docs/manual/artic-library.png" alt="The envelope LIBRARY" width="320"></p>
@@ -1062,6 +1077,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).

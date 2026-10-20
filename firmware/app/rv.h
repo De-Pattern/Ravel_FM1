@@ -69,9 +69,11 @@ enum {
     TP_SEQMODE, TP_H1ROLE, TP_H1SHAPE, TP_H1DEPTH, TP_H1CYCLE, TP_H1COMB, TP_H1TRANS,
     TP_H2TARGET, TP_H2SHAPE, TP_H2DEPTH, TP_H2CYCLE, TP_H2COMB, TP_H2TRANS,
     TP_BANDS,                       /* (format 5) the send into the BANDS bus */
+    /* (format 6) SHAPE: the articulation from a library of complex shapes, after the XAOC Zadar */
+    TP_ESHAPE, TP_EMORPH, TP_ETIME, TP_EMODE, TP_EWARP,
     TP_N
 };
-#define RV_TP 80                    /* room for more track parameters without moving pids */
+#define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
 
 enum {
     GP_TEMPO, GP_SWING, GP_QUANT,
@@ -112,6 +114,7 @@ enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_SQ80, FT_ZV
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
 enum { DIR_FWD, DIR_REV, DIR_PING, DIR_SNAKE, DIR_GRAPH, DIR_N };   /* DIR_GRAPH: old projects; now TP_SEQMODE */
 enum { SEQ_STEPS, SEQ_GRAPH };
+enum { SHM_ONESHOT, SHM_GATED, SHM_LOOP, SHM_CYCLE };   /* how a SHAPE articulation plays */
 enum { ROLE_OFF, ROLE_NOTES, ROLE_GATE, ROLE_PITCH };   /* what a playhead does at a step */
 enum { FG_OFF, FG_RISE, FG_FALL, FG_ARCH, FG_DECAY, FG_SWELL, FG_LFO1, FG_LFO2, FG_DUST, FG_N };
 enum { COMB_SCALE, COMB_ADD };                   /* function generator against the clock: times, or plus */
@@ -171,7 +174,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 5                 /* 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 6                 /* 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */

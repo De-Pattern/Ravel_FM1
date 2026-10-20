@@ -13,11 +13,15 @@ int rv_save(int slot)
     return plat_save(slot, &rv, sizeof(rv));
 }
 
-/* older formats: 96 globals (format 4), and no CZ patches either (2 and 3) */
-#define RV_GP_OLD 96
-#define RV_GROW ((int)((RV_GP - RV_GP_OLD) * sizeof(int16_t)))
-#define RV_SIZE_4 ((int)sizeof(rv) - RV_GROW)
-#define RV_SIZE_OLD (RV_SIZE_4 - (int)sizeof(rv.cz))
+/* older formats, by what they lack: 80 track parameters (formats 2-5), 96 globals (2-4), no CZ
+ * patches (2 and 3). Everything else is laid out the same, in the same order. */
+#define RV_TP_OLD 80
+static int old_gp(int f) { return f >= 5 ? 128 : 96; }
+static int old_size(int f)
+{
+    int n = (int)sizeof(rv) - (RV_TP - RV_TP_OLD) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
+    return f >= 4 ? n : n - (int)sizeof(rv.cz);
+}
 
 static int head_ok(int slot, rv_head *h)
 {
@@ -26,22 +30,48 @@ static int head_ok(int slot, rv_head *h)
         return 0;
     if (h->format == RV_FORMAT)
         return n == (int)sizeof(rv);
-    if (h->format == 4)
-        return n == RV_SIZE_4;
-    return (h->format == 2 || h->format == 3) && n == RV_SIZE_OLD;
+    return h->format >= 2 && h->format < RV_FORMAT && n == old_size((int)h->format);
 }
 
-/* formats 2-4 had 96 globals: what followed them moves up to make room, and the new globals
- * (BANDS) and the BANDS send start at their defaults */
-static void upgrade_globals(int loaded)
+static uint16_t remap_pid(uint16_t pid, int gpo)
 {
-    uint8_t *base = (uint8_t *)&rv, *from = (uint8_t *)&rv.gp[RV_GP_OLD];
-    int keep = loaded - (int)(from - base), t, g;
-    __builtin_memmove(from + RV_GROW, from, (unsigned)keep);
-    for (g = RV_GP_OLD; g < RV_GP; g++)
+    int gpid_old = RV_TRACKS * RV_TP_OLD;
+    (void)gpo;
+    if (pid == 0xFFFF)
+        return pid;
+    if (pid < gpid_old)
+        return (uint16_t)PID_T(pid / RV_TP_OLD, pid % RV_TP_OLD);
+    return (uint16_t)PID_G(pid - gpid_old);
+}
+
+/* an older project, loaded as it was stored, is spread out into today's layout: what follows
+ * the globals moves up, then the globals, then each track's row, from the end so nothing is
+ * overwritten before it moves. The new places start at their defaults, and the parameter ids
+ * the matrix and macros hold are renumbered. */
+static void upgrade_layout(int f, int loaded)
+{
+    uint8_t *base = (uint8_t *)&rv;
+    int tp_off = (int)((uint8_t *)&rv.tp[0][0] - base), gpo = old_gp(f);
+    int gp_old = tp_off + RV_TRACKS * RV_TP_OLD * 2, rest_old = gp_old + gpo * 2;
+    int gp_new = (int)((uint8_t *)&rv.gp[0] - base), rest_new = gp_new + RV_GP * 2;
+    int t, p, g, i, k;
+    __builtin_memmove(base + rest_new, base + rest_old, (unsigned)(loaded - rest_old));
+    __builtin_memmove(base + gp_new, base + gp_old, (unsigned)(gpo * 2));
+    for (t = RV_TRACKS - 1; t > 0; t--)
+        __builtin_memmove(base + tp_off + t * RV_TP * 2, base + tp_off + t * RV_TP_OLD * 2, RV_TP_OLD * 2);
+    for (t = 0; t < RV_TRACKS; t++) {
+        for (p = RV_TP_OLD; p < RV_TP; p++)
+            rv.tp[t][p] = (int16_t)(p < TP_N ? rv_pinfo_track(t, p)->def : 0);
+        if (f < 5)
+            rv.tp[t][TP_BANDS] = 0;
+    }
+    for (g = gpo; g < RV_GP; g++)
         rv.gp[g] = (int16_t)(g < GP_N ? rv_pinfo_global(g)->def : 0);
-    for (t = 0; t < RV_TRACKS; t++)
-        rv.tp[t][TP_BANDS] = 0;
+    for (i = 0; i < RV_MATRIX; i++)
+        rv.mat[i].dst = remap_pid(rv.mat[i].dst, gpo);
+    for (i = 0; i < RV_MACROS; i++)
+        for (k = 0; k < RV_MACRO_DESTS; k++)
+            rv.macro[i].d[k].dst = remap_pid(rv.macro[i].d[k].dst, gpo);
 }
 
 /* formats 2 and 3 had the PD engine where CZ is now: its tracks start from the CZ defaults */
@@ -77,6 +107,7 @@ static void upgrade_from_2(void)
 int rv_load(int slot)
 {
     rv_head h;
+    int f, n;
     if (!head_ok(slot, &h))
         return -1;
     if (h.format == RV_FORMAT) {
@@ -84,19 +115,15 @@ int rv_load(int slot)
             return -1;
         return 0;
     }
-    if (h.format == 4) {
-        if (plat_load(slot, &rv, (uint32_t)RV_SIZE_4) != RV_SIZE_4)
-            return -1;
-        upgrade_globals(RV_SIZE_4);
-        rv.format = RV_FORMAT;
-        return 0;
-    }
-    if (plat_load(slot, &rv, (uint32_t)RV_SIZE_OLD) != RV_SIZE_OLD)
+    f = (int)h.format;
+    n = old_size(f);
+    if (plat_load(slot, &rv, (uint32_t)n) != n)
         return -1;
-    upgrade_globals(RV_SIZE_OLD);
-    if (rv.format == 2)
+    upgrade_layout(f, n);
+    if (f == 2)
         upgrade_from_2();
-    upgrade_cz();
+    if (f <= 3)
+        upgrade_cz();
     rv.format = RV_FORMAT;
     return 0;
 }

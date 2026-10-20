@@ -24,6 +24,8 @@ typedef struct {
     float loop;                     /* loop period, seconds; 0 = no loop */
     float give;                     /* 0..1 */
     float tail;                     /* 0..1 release texture */
+    uint8_t shape, smode;           /* SHAPE: library shape + 1 (0 = the classic articulation), how it plays */
+    float morph, stime, warp;       /* toward the next shape 0..1, seconds for the whole shape, -1..1 */
 } artic_cfg_t;
 typedef struct {
     uint8_t stage, gate, looping;
@@ -33,6 +35,7 @@ typedef struct {
     float s, v;                     /* the spring */
     float out;                      /* the level: path, or the spring as far as give allows */
     float tailv;                    /* the release texture's envelope */
+    float sp;                       /* SHAPE: where in the shape, 0..1 */
 } artic_t;
 
 /* -------------------------------------------------------------- voices --- */

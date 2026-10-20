@@ -15,6 +15,11 @@ static void artic_cfg_track(artic_cfg_t *c, const float *eff)
     c->loop = eff[TP_LOOP] < 0.5f ? 0.0f : 4.0f * fm_exp2f(-eff[TP_LOOP] * (13.0f / 127.0f));   /* 4 s .. 0.5 ms */
     c->give = clampf(eff[TP_GIVE] * (1.0f / 127.0f), 0.0f, 1.0f);
     c->tail = clampf(eff[TP_TAIL] * (1.0f / 127.0f), 0.0f, 1.0f);
+    c->shape = (uint8_t)clampi((int)(eff[TP_ESHAPE] + 0.5f), 0, SHP_N);
+    c->smode = (uint8_t)clampi((int)(eff[TP_EMODE] + 0.5f), 0, 3);
+    c->morph = clampf(eff[TP_EMORPH] * (1.0f / 127.0f), 0.0f, 1.0f);
+    c->stime = rv_time_f(eff[TP_ETIME]);
+    c->warp = clampf(eff[TP_EWARP] * (1.0f / 64.0f), -1.0f, 1.0f);
 }
 
 /* a library shape: attack shape, body, death (Avenir's Envion idea: three values make an envelope) */
@@ -22,6 +27,7 @@ static void artic_cfg_lib(artic_cfg_t *c, const uint8_t *l, const float *eff)
 {
     float a = l[0] * (1.0f / 127.0f), b = l[1] * (1.0f / 127.0f), d = l[2] * (1.0f / 127.0f);
     artic_cfg_track(c, eff);                     /* keeps give, loop and tail from the track */
+    c->shape = 0;                                /* a library recall is a classic articulation */
     c->atk = 0.0005f * fm_exp2f(a * 12.0f);      /* 0.5 ms .. 2 s */
     c->curve = 0.6f - a * 1.2f;                  /* fast attacks bow out, slow ones swell */
     c->over = a < 0.2f ? 0.15f : 0.0f;
@@ -31,11 +37,44 @@ static void artic_cfg_lib(artic_cfg_t *c, const uint8_t *l, const float *eff)
     c->tail = d > 0.7f ? (d - 0.7f) * 2.0f : c->tail;
 }
 
+/* SHAPE: the library (rv_shapes.h), a shape read at u (0..1), WARP bending time and MORPH
+ * crossfading toward the next shape */
+#define SHP_DATA
+#include "rv_shapes.h"
+static float shp_eval(int shape, float morph, float warp, float u)
+{
+    float x, fr, a, b;
+    int i, s0 = (shape - 1) % SHP_N, s1 = shape % SHP_N;
+    u = clampf(u, 0.0f, 1.0f);
+    if (warp > 0.01f || warp < -0.01f)             /* > 0: lingers early, < 0: rushes early */
+        u = fm_powf(u, fm_exp2f(warp));
+    x = u * (float)(SHP_LEN - 1);
+    i = (int)x;
+    if (i >= SHP_LEN - 1)
+        i = SHP_LEN - 2;
+    fr = x - (float)i;
+    a = shp_tab[s0][i] + (shp_tab[s0][i + 1] - shp_tab[s0][i]) * fr;
+    if (morph < 0.004f)
+        return a * (1.0f / 255.0f);
+    b = shp_tab[s1][i] + (shp_tab[s1][i + 1] - shp_tab[s1][i]) * fr;
+    return (a + (b - a) * morph) * (1.0f / 255.0f);
+}
+/* where a GATED shape waits: the morphed shapes' hold points (in shape time, before the warp) */
+static float shp_hold_u(const artic_cfg_t *c)
+{
+    float h0 = shp_hold[(c->shape - 1) % SHP_N], h1 = shp_hold[c->shape % SHP_N];
+    float h = (h0 + (h1 - h0) * c->morph) * (1.0f / (float)(SHP_LEN - 1));
+    if (c->warp > 0.01f || c->warp < -0.01f)
+        h = fm_powf(h, fm_exp2f(-c->warp));   /* the time that maps onto it */
+    return h;
+}
+
 static inline float shape_up(float u, float c) { return u + c * u * (1.0f - u); }     /* c > 0: fast start */
 static inline float shape_down(float u) { float r = 1.0f - u; return 1.0f - r * r * r; }  /* fast then slow */
 
 static void artic_start(artic_t *a, const artic_cfg_t *c)
 {
+    a->sp = 0.0f;
     a->stage = AS_ONSET;
     a->gate = 1;
     a->looping = 0;
@@ -50,6 +89,10 @@ static void artic_release(artic_t *a, const artic_cfg_t *c)
 {
     if (a->stage == AS_OFF || a->stage == AS_TERM)
         return;
+    if (c->shape && c->smode != SHM_LOOP) {          /* SHAPE: one-shot, gated and cycle play on */
+        a->gate = 0;
+        return;
+    }
     a->gate = 0;
     a->stage = AS_TERM;
     a->from = a->p;
@@ -63,6 +106,34 @@ static void artic_release(artic_t *a, const artic_cfg_t *c)
 static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
 {
     float o;
+    if (c->shape && a->stage != AS_OFF && a->stage != AS_TERM) {   /* SHAPE (LOOP's release is the classic one) */
+        float hold;
+        a->sp += RV_DT / (c->stime > 0.002f ? c->stime : 0.002f);
+        switch (c->smode) {
+        case SHM_GATED:
+            hold = shp_hold_u(c);
+            if (a->gate && a->sp >= hold && a->sp - RV_DT / (c->stime > 0.002f ? c->stime : 0.002f) <= hold + 1e-4f)
+                a->sp = hold;                        /* held: wait at the hold point */
+            break;
+        case SHM_LOOP:
+        case SHM_CYCLE:
+            if (a->sp >= 1.0f && a->gate)
+                a->sp -= 1.0f;
+            break;
+        default:
+            break;
+        }
+        if (a->sp >= 1.0f) {
+            a->p = 0.0f;
+            a->stage = AS_OFF;
+        } else {
+            a->p = shp_eval(c->shape, c->morph, c->warp, a->sp);
+            a->stage = AS_CONT;
+        }
+        a->u = a->sp;
+        a->tailv *= 0.9993f;
+        goto spring;
+    }
     switch (a->stage) {
     case AS_ONSET:
         a->u += a->du;
@@ -108,6 +179,7 @@ static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
         a->tailv *= 0.9993f;
         break;
     }
+spring:
     if (c->give > 0.001f) {                         /* the spring: 9 Hz, lightly damped */
         const float k = 3197.0f, damp = 2.0f * 0.16f * 56.5f;
         a->v += (k * (a->p - a->s) - damp * a->v) * RV_DT;

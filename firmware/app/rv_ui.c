@@ -96,6 +96,8 @@ static const page_t pages[] = {
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), TP(TP_VELO)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), TP(TP_EFILT), TP(TP_GIVE)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "DESTINATIONS", {TP(TP_EDST1), TP(TP_EAMT1), TP(TP_EDST2), TP(TP_EAMT2)}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE", {TP(TP_ESHAPE), TP(TP_EMORPH), TP(TP_ETIME), TP(TP_EMODE)}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE 2", {TP(TP_EWARP), TP(TP_REL), TP(TP_GIVE), TP(TP_EFILT)}},
     {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, NO}},
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
@@ -1981,6 +1983,37 @@ static void pic_mix(void)
 }
 
 /* the articulation: onset, continuant, termination, drawn from the track's knobs */
+/* SHAPE: the morphed, warped shape across the screen, the hold point, and the playing voice */
+static void pic_shape(int t)
+{
+    artic_cfg_t c;
+    int i, prev = 0, top = PIC_Y + 14, base = PIC_Y + 112;
+    float hold;
+    char b[24];
+    c.shape = (uint8_t)clampi(rv.tp[t][TP_ESHAPE], 1, SHP_N);
+    c.morph = clampf(rv_param_eff(t, TP_EMORPH) / 127.0f, 0.0f, 1.0f);
+    c.warp = clampf(rv_param_eff(t, TP_EWARP) / 64.0f, -1.0f, 1.0f);
+    c.smode = (uint8_t)rv.tp[t][TP_EMODE];
+    hold = shp_hold_u(&c);
+    g_hline(8, base, 224, C_LINE);
+    if (c.smode == SHM_GATED)
+        g_vline(8 + (int)(hold * 224.0f), top - 6, base - top + 6, C_TEAL_D);
+    for (i = 0; i <= 224; i++) {
+        float y = shp_eval(c.shape, c.morph, c.warp, (float)i / 224.0f);
+        int py = base - (int)(clampf(y, 0.0f, 1.0f) * (float)(base - top));
+        if (i)
+            g_line(8 + i - 1, prev, 8 + i, py, C_TEAL);
+        prev = py;
+    }
+    rv_param_format(PID_T(t, TP_ETIME), rv.tp[t][TP_ETIME], b, 24);
+    g_text(10, base + 4, &FONT_T, b, C_DIM);
+    g_text_r(232, base + 4, &FONT_T, c.smode == SHM_GATED ? "HOLDS AT THE LINE" : c.smode == SHM_LOOP ? "LOOPS WHILE HELD" : c.smode == SHM_CYCLE ? "LOOPS, ENDS ITS CYCLE" : "PLAYS THROUGH", C_DIM);
+    if (rv_live.stage[t] != AS_OFF && rv_live.env[t] > 0.001f) {
+        float u = clampf(rv_live.stage_pos[t], 0.0f, 1.0f), lv = clampf(rv_live.env[t], 0.0f, 1.0f);
+        g_disc(8 + (int)(u * 224.0f), base - (int)(lv * (float)(base - top)), 4, C_WHITE);
+    }
+}
+
 static void pic_env(void)
 {
     int t = ui.track, i, prev = 0, seg_x[4];
@@ -1991,6 +2024,10 @@ static void pic_env(void)
     float tot = wa + wd + wh + wr, sc = 224.0f / tot;
     const page_t *pg = cur_page();
     int focus = pg->title[0] == 'O' ? 0 : pg->title[0] == 'C' ? 1 : pg->title[0] == 'T' ? 2 : -1;
+    if (rv.tp[t][TP_ESHAPE] > 0) {
+        pic_shape(t);
+        return;
+    }
     int top = PIC_Y + 14, base = PIC_Y + 112;
     float peak = 1.0f + over * 0.6f;
     seg_x[0] = 8 + (int)(wa * sc);
