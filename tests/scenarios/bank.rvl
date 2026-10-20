@@ -36,3 +36,17 @@ wait 100
 tap SAVE
 wait 300
 expect tp 3 KIND 3
+# bank B: PRESETS runs on from A32 into B1; KNOB 4 goes back to A
+turn PRESET 40
+wait 100
+expect page SOUNDS
+turn K1 1
+tap SAVE
+wait 300
+turn K4 -3
+turn PRESET -40
+turn K1 -1
+turn ALGO 1
+tap SAVE
+wait 300
+expect tp 4 KIND 3

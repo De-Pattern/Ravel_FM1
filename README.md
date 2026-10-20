@@ -990,7 +990,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 <p align="center"><img src="docs/manual/save.png" alt="SAVE" width="320"></p>
 
 1. Press **SAVE** to open the page.
-2. Turn **PRESETS** to choose a slot (1–8). The picture shows which slots are used and their names.
+2. Turn **PRESETS** to choose a slot (1–7). The picture shows which slots are used and their names.
 3. Turn **KNOB 1 (ACTION)**:
 
    | Action | What it does |
@@ -1007,31 +1007,33 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 
 Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
 
+There are seven project slots. (Before v0.5.0 there were eight; the eighth's room now holds the sound banks, so a project saved in slot 8 is gone after updating. Load it and save it to slots 1–7 first.)
+
 A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the envelope library. **It does not hold the tape audio.** Catch or resample again after loading.
 
 ### Sounds: your own bank
 
 <p align="center"><img src="docs/manual/save-sounds.png" alt="SAVE › SOUNDS" width="320"></p>
 
-32 slots for your own sounds, of any kind: a synth on any engine, a strike, a perc machine, a whole kit, or a tape track's settings. Each has a name, and its kind is shown on the right of the list (**SYNTH**, **STRIKE**, **PERC**, **KIT**, **TAPE**; a synth also shows its engine). The bank is shared by every project and stays when you load another project or switch off.
+Four banks (**A–D**) of 32 slots for your own sounds, 128 in all, of any kind: a synth on any engine, a strike, a perc machine, a whole kit, or a tape track's settings. Each has a name, and its kind is shown on the right of the list (**SYNTH**, **STRIKE**, **PERC**, **KIT**, **TAPE**; a synth also shows its engine). The banks are shared by every project and stay when you load another project or switch off.
 
 A sound is the track's voice: its kind and engine, every sound setting (source, filter, skin, envelopes, insert, sends, the CZ patch, a kit's lanes). It is not the track's steps, sequencer settings or pan.
 
 1. Press **SAVE**, then turn **SELECT** to **SOUNDS**.
-2. Turn **PRESETS** to a slot.
+2. Turn **KNOB 4 (BANK)** to a bank, then **PRESETS** to a slot. Slots are named by bank and number (A1 … D32), and PRESETS runs on from one bank into the next (A32, then B1).
 3. Turn **KNOB 1 (ACTION)**:
 
    | Action | What pressing **SAVE** does |
    | --- | --- |
    | LOAD | Puts the sound on the current track. A sound of another kind turns the track into that kind (a PERC sound on a synth track makes it a perc track). |
-   | SAVE | Keeps the current track's sound in the slot. An empty slot saves at once, named after the factory preset it came from (or its engine and slot number). Over a used slot, press **SAVE** twice; the slot keeps its name. |
+   | SAVE | Keeps the current track's sound in the slot. An empty slot saves at once, named after the factory preset it came from (or its engine and slot, like VA B3). Over a used slot, press **SAVE** twice; the slot keeps its name. |
    | CLEAR | Empties the slot (press **SAVE** twice) |
 
 4. **Name it:** on a used slot, **KNOB 2 (CURSOR)** picks a letter position (1–11) and **KNOB 3 (LETTER)** changes the letter (A–Z, 0–9, space and `- + # & ' .`). The cursor is the amber line under the name. The name is kept a moment after you stop turning.
 
 Loading a sound that changes a track between a kit and notes (lanes and notes don't read each other's steps) clears that track's steps, so it asks first: press **SAVE** again.
 
-**In the emulator**, your sounds are at the top of the sound menu under **My sounds**, each with its kind in brackets after the name. Choosing one loads it into the current track, switching its kind if needed. **Save sound…** keeps the current track's sound (it asks for a slot and a name), and **Delete sound…** removes one. The panel's SAVE › SOUNDS page works too.
+**In the emulator**, your sounds are at the top of the sound menu under **My sounds**, one group per bank, each with its slot (A1 … D32) before the name and its kind in brackets after it. Choosing one loads it into the current track, switching its kind if needed. **Save sound…** keeps the current track's sound (it asks for a slot such as B5, offering the first empty one, and a name), and **Delete sound…** removes one. The panel's SAVE › SOUNDS page works too.
 
 ## 15. Hold layers
 
@@ -1156,7 +1158,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Punch-in effects | Hold FX + white 1–8 |
 | Record | Tap REC, then PLAY |
 | Save | SAVE, choose slot and action, SAVE twice |
-| Keep or load a sound | SAVE › SOUNDS (SELECT), PRESETS to a slot, KNOB 1 = SAVE or LOAD, SAVE |
+| Keep or load a sound | SAVE › SOUNDS (SELECT), KNOB 4 bank, PRESETS slot, KNOB 1 = SAVE or LOAD, SAVE |
 
 ## 19. Questions people ask
 

@@ -57,7 +57,7 @@ int plat_audio_in(float *lr, int frames) { return host_audio_in(lr, frames); }
 
 /* storage: slots in memory, kept across a simulated reboot */
 static uint8_t store[PLAT_STORES][PLAT_SLOT_MAX];
-static int32_t store_len[PLAT_STORES] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
+static int32_t store_len[PLAT_STORES] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 static uint32_t store_writes;
 int plat_load(int slot, void *dst, uint32_t max)
 {

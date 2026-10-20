@@ -492,22 +492,44 @@ function fillEngines() {
 }
 /* your sounds (the bank, SAVE › SOUNDS): every kind, labelled; one of another kind turns the track into it */
 const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", TAPE: "Tape", PERC: "Perc", KIT: "Kit" };
+/* banks A..D of 32; a sound is addressed as its place in all of them (A1 = 0, B1 = 32) and named like "B5" */
+const BN = () => rv.web_bank_n(), BANKS = () => rv.web_bank_banks();
+const slotName = g => "ABCD"[Math.floor(g / BN())] + (g % BN() + 1);
+function inBank(b, fn) {                                  /* the device keeps one bank in RAM: visit another, come back */
+  const was = rv.web_bank_current(); rv.web_bank_select(b);
+  try { return fn(); } finally { rv.web_bank_select(was); }
+}
+function parseSlot(txt) {                                 /* "B5", "b 5" or a plain 1-128 */
+  const m = String(txt).trim().toUpperCase().match(/^([A-D])?\s*(\d+)$/); if (!m) return -1;
+  const n = +m[2]; const g = m[1] ? "ABCD".indexOf(m[1]) * BN() + n - 1 : n - 1;
+  return (m[1] ? n >= 1 && n <= BN() : true) && g >= 0 && g < BN() * BANKS() ? g : -1;
+}
 function bankList() {
   const out = [];
-  for (let i = 0; i < rv.web_bank_n(); i++)
-    if (rv.web_bank_used(i)) out.push({ i, name: cstr(rv.web_bank_name(i)) || "(no name)", kind: cstr(rv.web_bank_kind_label(i)) });
+  for (let b = 0; b < BANKS(); b++) inBank(b, () => {
+    for (let i = 0; i < BN(); i++)
+      if (rv.web_bank_used(i)) out.push({ g: b * BN() + i, name: cstr(rv.web_bank_name(i)) || "(no name)", kind: cstr(rv.web_bank_kind_label(i)) });
+  });
   return out;
 }
+function firstEmpty() {
+  for (let b = 0; b < BANKS(); b++) { const i = inBank(b, () => { for (let i = 0; i < BN(); i++) if (!rv.web_bank_used(i)) return i; return -1; }); if (i >= 0) return b * BN() + i; }
+  return -1;
+}
+const soundAt = g => inBank(Math.floor(g / BN()), () => rv.web_bank_used(g % BN()) ? cstr(rv.web_bank_name(g % BN())) : null);
 function fillPresets() {
   const sel = $("preset"), t = rv.web_track(), kind = rv.web_kind(t), n = rv.web_preset_count();
   sel.innerHTML = "";
   sel.add(new Option("Choose a sound…", -1));
   const mine = bankList();
   if (mine.length) {
-    const g = document.createElement("optgroup"); g.label = "My sounds";
-    const w = Math.max(...mine.map(s => s.name.length)) + 3;
-    mine.forEach(s => g.appendChild(new Option(`${s.i + 1}. ${s.name}`.padEnd(w + 4, "\u00a0") + `[${BANK_KIND[s.kind] || s.kind}]`, "b" + s.i)));
-    sel.appendChild(g);
+    const w = Math.max(...mine.map(s => s.name.length)) + 4;
+    for (let b = 0; b < BANKS(); b++) {
+      const these = mine.filter(s => Math.floor(s.g / BN()) === b); if (!these.length) continue;
+      const g = document.createElement("optgroup"); g.label = `My sounds · bank ${"ABCD"[b]}`;
+      these.forEach(s => g.appendChild(new Option(`${slotName(s.g)}. ${s.name}`.padEnd(w + 5, "\u00a0") + `[${BANK_KIND[s.kind] || s.kind}]`, "b" + s.g)));
+      sel.appendChild(g);
+    }
   }
   const f = document.createElement("optgroup"); f.label = "Factory";
   for (let i = 0; i < n; i++) if (rv.web_preset_kind(i) === kind) f.appendChild(new Option(cstr(rv.web_preset_name(i)), i));
@@ -516,34 +538,35 @@ function fillPresets() {
 function applyChoice(v) {
   const t = rv.web_track();
   if (typeof v === "string" && v[0] === "b") {
-    rv.web_bank_load(t, +v.slice(1));
+    const g = +v.slice(1);
+    inBank(Math.floor(g / BN()), () => rv.web_bank_load(t, g % BN()));
     const keep = v; sideSync(); $("preset").value = keep;   /* the track may now be another kind */
   } else if (+v >= 0) rv.web_preset_apply(t, +v);
 }
 const BANK_OK = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+#&'.";
 $("bsave").addEventListener("click", () => {
   const t = rv.web_track(), sel = $("preset"), o = sel.options[sel.selectedIndex];
-  const guess = o && o.value !== "-1" && o.value[0] !== "b" ? o.text : (o && o.value[0] === "b" ? cstr(rv.web_bank_name(+o.value.slice(1))) : "");
-  let slot = -1;
-  for (let i = 0; i < rv.web_bank_n(); i++) if (!rv.web_bank_used(i)) { slot = i; break; }
-  const ask = prompt(`Slot (1-${rv.web_bank_n()})${slot >= 0 ? ", first empty is " + (slot + 1) : ""}:`, slot >= 0 ? slot + 1 : 1);
+  const guess = o && o.value !== "-1" && o.value[0] !== "b" ? o.text : (o && o.value[0] === "b" ? soundAt(+o.value.slice(1)) || "" : "");
+  const empty = firstEmpty();
+  const ask = prompt(`Slot (A1-D${BN()})${empty >= 0 ? ", first empty is " + slotName(empty) : ""}:`, empty >= 0 ? slotName(empty) : "A1");
   if (ask === null) return;
-  slot = Math.min(rv.web_bank_n(), Math.max(1, parseInt(ask, 10) || 1)) - 1;
-  if (rv.web_bank_used(slot) && !confirm(`Replace "${cstr(rv.web_bank_name(slot))}" in slot ${slot + 1}?`)) return;
+  const g = parseSlot(ask); if (g < 0) { alert("Slots are A1 to D" + BN() + "."); return; }
+  const old = soundAt(g);
+  if (old !== null && !confirm(`Replace "${old}" in ${slotName(g)}?`)) return;
   let name = prompt("Name (up to 11 letters):", guess.slice(0, 11));
   if (name === null) return;
   name = [...name.toUpperCase()].filter(c => BANK_OK.includes(c)).join("").slice(0, 11).trimEnd();
   const buf = new Uint8Array(rv.memory.buffer, rv.web_bank_name_buf(), 16); buf.fill(0);
   for (let k = 0; k < name.length; k++) buf[k] = name.charCodeAt(k);
-  rv.web_bank_store(t, slot);
-  fillPresets(); $("preset").value = "b" + slot;
+  inBank(Math.floor(g / BN()), () => rv.web_bank_store(t, g % BN()));
+  fillPresets(); $("preset").value = "b" + g;
 });
 $("bclear").addEventListener("click", () => {
   const mine = bankList(); if (!mine.length) { alert("No sounds of your own yet."); return; }
-  const ask = prompt("Delete which sound? Slot number:\n" + mine.map(s => `${s.i + 1}. ${s.name} [${BANK_KIND[s.kind] || s.kind}]`).join("\n"));
+  const ask = prompt("Delete which sound? Its slot (e.g. A3):\n" + mine.map(s => `${slotName(s.g)}. ${s.name} [${BANK_KIND[s.kind] || s.kind}]`).join("\n"));
   if (ask === null) return;
-  const i = (parseInt(ask, 10) || 0) - 1;
-  if (i >= 0 && rv.web_bank_used(i) && confirm(`Delete "${cstr(rv.web_bank_name(i))}"?`)) { rv.web_bank_clear(i); fillPresets(); }
+  const g = parseSlot(ask), nm = g >= 0 ? soundAt(g) : null;
+  if (nm !== null && confirm(`Delete "${nm}"?`)) { inBank(Math.floor(g / BN()), () => rv.web_bank_clear(g % BN())); fillPresets(); }
 });
 function sideSync() {
   const t = rv.web_track();

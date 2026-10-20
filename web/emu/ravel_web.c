@@ -132,7 +132,7 @@ EXPORT(rv_store_set_len) void rv_store_set_len(uint32_t s, int n)
         store_len[s] = n;
 }
 EXPORT(rv_store_writes) uint32_t rv_store_writes(void) { return store_writes; }
-EXPORT(rv_store_slots) uint32_t rv_store_slots(void) { return PLAT_STORES; }   /* the projects and the sound bank */
+EXPORT(rv_store_slots) uint32_t rv_store_slots(void) { return PLAT_STORES; }   /* the projects and the sound banks */
 EXPORT(rv_store_max) uint32_t rv_store_max(void) { return PLAT_SLOT_MAX; }
 
 /* ------------------------------------------------------ the instrument --- */
@@ -194,7 +194,12 @@ int rv_bank_store(int t, int i, const char *name);
 int rv_bank_apply(int t, int i);
 int rv_bank_clear(int i);
 static char bank_name_buf[16];
+void rv_bank_select(int b);
+int rv_bank_current(void);
 EXPORT(web_bank_n) int web_bank_n(void) { return 32; }
+EXPORT(web_bank_banks) int web_bank_banks(void) { return PLAT_BANKS; }
+EXPORT(web_bank_select) void web_bank_select(int b) { rv_bank_select(b); }   /* banks A..D: one in RAM at a time */
+EXPORT(web_bank_current) int web_bank_current(void) { return rv_bank_current(); }
 EXPORT(web_bank_used) int web_bank_used(int i) { return rv_bank_used(i); }
 EXPORT(web_bank_name) const char *web_bank_name(int i) { return rv_bank_name(i); }
 EXPORT(web_bank_kind_label) const char *web_bank_kind_label(int i) { return rv_bank_kind_label(i); }

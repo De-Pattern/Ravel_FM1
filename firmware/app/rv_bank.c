@@ -5,22 +5,38 @@
  * the kit's lanes; not its steps, sequencer settings or pan. Loading one into a track of another
  * kind turns the track into that kind. Kept in RAM outside the pool (RV_RAMBSS). */
 
-#define RV_BANK_N 32
+#define RV_BANK_N 32                               /* sounds in a bank */
+#define RV_BANKS PLAT_BANKS                        /* banks A..D */
 #define RV_BANK_MAGIC 0x4B4E4252u                  /* "RBNK" */
 #define RV_BANK_NAME 12
 
+/* a sound: a CZ patch or a kit's lanes, never both (the one its kind and engine use) */
+typedef struct {
+    char name[RV_BANK_NAME];
+    uint8_t used, kind, engine, rsv;
+    int16_t tp[RV_TP];
+    union { rv_cz cz; rv_kit kit; } x;
+} rv_sound;
+typedef struct {
+    uint32_t magic, version;                       /* version 2: a bank of four; 1: the single first bank */
+    rv_sound s[RV_BANK_N];
+} rv_bank_t;
+/* the first bank's old shape (version 1), read once to move it to bank A */
 typedef struct {
     char name[RV_BANK_NAME];
     uint8_t used, kind, engine, rsv;
     int16_t tp[RV_TP];
     rv_cz cz;
     rv_kit kit;
-} rv_sound;
-typedef struct {
-    uint32_t magic, version;
-    rv_sound s[RV_BANK_N];
-} rv_bank_t;
-static rv_bank_t bank RV_RAMBSS;
+} rv_sound_v1;
+typedef struct { uint32_t magic, version; rv_sound_v1 s[RV_BANK_N]; } rv_bank_v1;
+/* one bank in RAM at a time (outside the pool), with room to read the old one */
+static union { rv_bank_t b; rv_bank_v1 old; } bankmem RV_RAMBSS;
+#define bank bankmem.b
+static uint8_t bank_cur, bank_dirty;               /* the bank in RAM; a name edited and not yet kept */
+
+static int bank_is_kit(int kind, int engine) { return kind == KIND_PERC && engine == 1; }
+static int bank_is_cz(int kind, int engine) { return kind == KIND_SYNTH && engine == ENG_CZ; }
 
 /* the settings that make a sound (the rest belong to the track's place in the song) */
 static int bank_sound_param(int p)
@@ -35,22 +51,78 @@ static int bank_sound_param(int p)
     }
 }
 
-void rv_bank_init(void)
+static void bank_blank(void)
 {
-    if (plat_load(PLAT_BANK, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC) {
-        __builtin_memset(&bank, 0, sizeof bank);
-        bank.magic = RV_BANK_MAGIC;
-        bank.version = 1;
-    }
+    __builtin_memset(&bankmem, 0, sizeof bankmem);
+    bank.magic = RV_BANK_MAGIC;
+    bank.version = 2;
 }
 
-int rv_bank_flush(void) { return plat_save(PLAT_BANK, &bank, sizeof bank); }
+/* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
+ * smaller and starts no later, so walking up never overwrites one not yet moved) */
+static void bank_from_v1(void)
+{
+    int i;
+    for (i = 0; i < RV_BANK_N; i++) {
+        rv_sound_v1 o = bankmem.old.s[i];
+        rv_sound *n = &bank.s[i];
+        __builtin_memset(n, 0, sizeof *n);
+        __builtin_memcpy(n->name, o.name, RV_BANK_NAME);
+        n->used = o.used, n->kind = o.kind, n->engine = o.engine;
+        __builtin_memcpy(n->tp, o.tp, sizeof n->tp);
+        if (bank_is_kit(o.kind, o.engine))
+            n->x.kit = o.kit;
+        else
+            n->x.cz = o.cz;
+    }
+    __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
+    bank.magic = RV_BANK_MAGIC;
+    bank.version = 2;
+}
+
+static int bank_read(int b)
+{
+    return plat_load(PLAT_BANK0 + b, &bank, sizeof bank) == (int)sizeof bank && bank.magic == RV_BANK_MAGIC && bank.version == 2;
+}
+
+int rv_bank_flush(void)
+{
+    bank_dirty = 0;
+    return plat_save(PLAT_BANK0 + bank_cur, &bank, sizeof bank);
+}
+
+/* bring bank b (0..3 = A..D) into RAM (a name edited in the one leaving is kept first) */
+void rv_bank_select(int b)
+{
+    b = clampi(b, 0, RV_BANKS - 1);
+    if (b == bank_cur)
+        return;
+    if (bank_dirty)
+        rv_bank_flush();
+    bank_cur = (uint8_t)b;
+    if (!bank_read(b))
+        bank_blank();
+}
+int rv_bank_current(void) { return bank_cur; }
+
+void rv_bank_init(void)
+{
+    bank_cur = 0;
+    if (bank_read(0))
+        return;
+    if (plat_load(PLAT_BANK_OLD, &bankmem.old, sizeof bankmem.old) == (int)sizeof bankmem.old &&
+        bankmem.old.magic == RV_BANK_MAGIC && bankmem.old.version == 1) {
+        bank_from_v1();                                /* the first bank moves to A */
+        rv_bank_flush();
+        return;
+    }
+    bank_blank();
+}
 
 int rv_bank_used(int i) { return i >= 0 && i < RV_BANK_N && bank.s[i].used; }
 const char *rv_bank_name(int i) { return i >= 0 && i < RV_BANK_N ? bank.s[i].name : ""; }
 int rv_bank_kind(int i) { return i >= 0 && i < RV_BANK_N ? bank.s[i].kind : 0; }
 int rv_bank_engine(int i) { return i >= 0 && i < RV_BANK_N ? bank.s[i].engine : 0; }
-static int bank_is_kit(int kind, int engine) { return kind == KIND_PERC && engine == 1; }
 int rv_bank_is_kit(int i) { return rv_bank_used(i) && bank_is_kit(bank.s[i].kind, bank.s[i].engine); }
 
 /* a sound's kind, for lists: SYNTH, STRIKE, TAPE, PERC or KIT */
@@ -73,8 +145,10 @@ int rv_bank_store(int t, int i, const char *name)
         return -1;
     s = &bank.s[i];
     __builtin_memcpy(s->tp, rv.tp[t & 7], sizeof s->tp);
-    s->cz = rv.cz[t & 7];
-    s->kit = rv.kit[t & 7];
+    if (bank_is_kit(rv.tp[t & 7][TP_KIND], rv.tp[t & 7][TP_ENGINE]))
+        s->x.kit = rv.kit[t & 7];
+    else
+        s->x.cz = rv.cz[t & 7];
     s->kind = (uint8_t)rv.tp[t & 7][TP_KIND];
     s->engine = (uint8_t)rv.tp[t & 7][TP_ENGINE];
     s->used = 1;
@@ -100,8 +174,10 @@ int rv_bank_apply(int t, int i)
     for (p = 0; p < TP_N; p++)
         if (bank_sound_param(p))
             rv.tp[t & 7][p] = s->tp[p];
-    rv.cz[t & 7] = s->cz;
-    rv.kit[t & 7] = s->kit;
+    if (bank_is_kit(s->kind, s->engine))
+        rv.kit[t & 7] = s->x.kit;
+    else if (bank_is_cz(s->kind, s->engine))
+        rv.cz[t & 7] = s->x.cz;
     if (was_kit != bank_is_kit(s->kind, s->engine)) {  /* lanes and notes don't read each other's steps */
         int pt = rv.pat_cur[t & 7];
         for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)
@@ -140,6 +216,7 @@ void rv_bank_set_char(int i, int pos, int ci)
         if (!bank.s[i].name[k])
             bank.s[i].name[k] = ' ';
     bank.s[i].name[pos] = bank_chars[clampi(ci, 0, rv_bank_nchars() - 1)];
+    bank_dirty = 1;
     for (k = RV_BANK_NAME - 2; k >= 0 && (bank.s[i].name[k] == ' ' || !bank.s[i].name[k]); k--)
         bank.s[i].name[k] = 0;                         /* trailing spaces go */
 }

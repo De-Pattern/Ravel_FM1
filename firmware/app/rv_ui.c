@@ -175,7 +175,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, NO, NO, NO}},
-    {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, NO}},   /* your own sounds, any kind */
+    {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
 };
 #define NPAGES ((int)(sizeof(pages) / sizeof(pages[0])))
 
@@ -214,6 +214,8 @@ static struct {
     uint8_t conf_what;                       /* a destructive action waiting for its second try */
     uint32_t conf_at;
 } ui;
+
+static void bank_keep(void);
 
 static const uint8_t white_keys[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const uint8_t black_keys[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
@@ -473,6 +475,7 @@ static const char *const rcurve_names[] = {"EVEN", "FASTER", "SLOWER", "EVEN-F",
 static const char *const cut_names[] = {"NONE", "LOOP", "REVERSE", "STUTTER"};
 static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "DEMO 3", "INIT"};
 static const char *const bank_actions[] = {"LOAD", "SAVE", "CLEAR"};
+static const char *const bank_letters[] = {"A", "B", "C", "D"};
 static const char *const curve_names[] = {"LINEAR", "EXP", "LOG", "S"};
 static const char *const lib_names[] = {"ATTACK", "BODY", "DEATH"};
 
@@ -639,6 +642,11 @@ static kinfo_t kb_info(kb_t k)
             r.max = 2;
             r.fmt = PF_ENUM;
             r.names = bank_actions;
+        } else if (k.id == 3) {
+            r.name = "BANK";
+            r.max = RV_BANKS - 1;
+            r.fmt = PF_ENUM;
+            r.names = bank_letters;
         } else if (rv_bank_used(ui.cur_sound)) {
             r.name = k.id == 1 ? "CURSOR" : "LETTER";
             r.min = k.id == 1 ? 1 : 0;
@@ -813,7 +821,7 @@ static int kb_get(kb_t k)
     }
     case K_SAVE: return ui.save_action;
     case K_BANK:
-        return k.id == 0 ? ui.bank_action : k.id == 1 ? ui.bank_cursor + 1
+        return k.id == 0 ? ui.bank_action : k.id == 3 ? rv_bank_current() : k.id == 1 ? ui.bank_cursor + 1
              : rv_bank_char_index(rv_bank_name(ui.cur_sound)[ui.bank_cursor % (RV_BANK_NAME - 1)]);
     default: return 0;
     }
@@ -1064,7 +1072,11 @@ static void kb_set(kb_t k, int v)
     case K_BANK:
         if (k.id == 0)
             ui.bank_action = (uint8_t)v;
-        else if (k.id == 1)
+        else if (k.id == 3) {
+            bank_keep();
+            rv_bank_select(v);
+            ui.bank_cursor = 0;
+        } else if (k.id == 1)
             ui.bank_cursor = (uint8_t)(v - 1);
         else {
             rv_bank_set_char(ui.cur_sound, ui.bank_cursor, v);
@@ -1399,7 +1411,8 @@ static void bank_do(void)
             else {
                 sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[e % 12] : kind == KIND_STRIKE ? "STRIKE"
                           : kind == KIND_TAPE ? "TAPE" : e == 1 ? "KIT" : "PERC");
-                sx_int(b + sx_cat(b, " "), i + 1);
+                sx_cat(b, " ");
+                sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), i + 1);
             }
             b[RV_BANK_NAME - 1] = 0;
             rv_bank_store(t, i, b);
@@ -1470,12 +1483,15 @@ static void preset_turn(int d)
     case PR_ARC: ui.cur_arc = (uint8_t)clampi(ui.cur_arc + d, 0, 15); break;
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_LIB - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
-    case PR_BANK:
+    case PR_BANK: {                                   /* the slots, on through the banks: A32 then B1 */
+        int at = clampi(rv_bank_current() * RV_BANK_N + ui.cur_sound + d, 0, RV_BANKS * RV_BANK_N - 1);
         bank_keep();
-        ui.cur_sound = (uint8_t)clampi(ui.cur_sound + d, 0, RV_BANK_N - 1);
+        rv_bank_select(at / RV_BANK_N);
+        ui.cur_sound = (uint8_t)(at % RV_BANK_N);
         ui.save_confirm = 0;
         ui.bank_cursor = 0;
         break;
+    }
     case PR_STEPCUR: ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, clampi(rv.tp[t][TP_LEN], 1, 64) - 1); break;
     default: break;
     }
@@ -2108,8 +2124,8 @@ static void draw_footer(void)
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
     case PR_BANK:
         hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM"
-               : rv_bank_used(ui.cur_sound) ? "PRESETS: SLOT  2,3: NAME  SAVE: DO IT"
-               : "PRESETS: SLOT  SAVE: DO IT";
+               : rv_bank_used(ui.cur_sound) ? "PRESETS: SLOT  2,3: NAME  4: BANK"
+               : "PRESETS: SLOT  4: BANK  SAVE: DO IT";
         break;
     case PR_CZSTEP: {
         static const char *const rh[5] = {"OCT+: STAGES 3-4", "OCT+: STAGES 5-6", "OCT+: STAGES 7-8", "OCT+: SUS, END", "OCT+: STAGES 1-2"};
@@ -3408,7 +3424,7 @@ static void pic_save(void)
     }
 }
 
-/* SOUNDS: nine slots around the chosen one, each with its kind on the right */
+/* SOUNDS: nine slots of the bank around the chosen one, each with its kind on the right */
 static void pic_bank(void)
 {
     int r, top = clampi(ui.cur_sound - 4, 0, RV_BANK_N - 9);
@@ -3418,10 +3434,10 @@ static void pic_bank(void)
         if (i == ui.cur_sound)
             g_fill(0, y - 1, 240, 14, ui.save_confirm ? C_AMBER_D : C_PANEL);
         b[0] = 0;
-        sx_int(b, i + 1);
-        g_text(6, y, &FONT_XS, b, C_DIM);
+        sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), i + 1);
+        g_text(4, y, &FONT_XS, b, C_DIM);
         if (!used) {
-            g_text(28, y, &FONT_XS, "EMPTY", C_LINE);
+            g_text(32, y, &FONT_XS, "EMPTY", C_LINE);
             continue;
         }
         {
@@ -3429,13 +3445,13 @@ static void pic_bank(void)
             int kind = rv_bank_kind(i);
             uint16_t kc = rv_bank_is_kit(i) || kind == KIND_PERC ? C_PERC : kind == KIND_STRIKE ? C_STRIKE
                           : kind == KIND_TAPE ? C_TAPE : C_SYNTH;
-            g_text(28, y, &FONT_XS, nm[0] ? nm : "-", C_INK);
+            g_text(32, y, &FONT_XS, nm[0] ? nm : "-", C_INK);
             if (i == ui.cur_sound && ui.sec == SEC_SAVE) {   /* the name's cursor */
                 int k, x;
                 for (k = 0; k < ui.bank_cursor && k < RV_BANK_NAME - 1; k++)
                     b[k] = nm[k] ? nm[k] : ' ';
                 b[k] = 0;
-                x = 28 + g_text_w(&FONT_XS, b);
+                x = 32 + g_text_w(&FONT_XS, b);
                 g_fill(x, y + 11, 7, 2, C_AMBER);
             }
             if (kind == KIND_SYNTH)
