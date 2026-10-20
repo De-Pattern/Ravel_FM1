@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* MOOM: a hidden first-person game. A major incident manager in business casual walks the bank's
  * infrastructure (server racks, log walls, dashboards) with a mouse-shaped blaster and resolves
- * bugs, failed changes and 500 errors before the uptime runs out. A raycaster (as Wolfenstein 3D
+ * bugs, failed changes and 500 errors before the uptime runs out. Level 2 goes inside the bridge call
+ * itself: a desktop in 3D with a browser open, where incident graphs and lines of code from bad
+ * changes attack, and ghouls crawl out of CHANGE REQUEST portals until each portal is rejected. A raycaster (as Wolfenstein 3D
  * drew it) on the 240 x 240 screen, drawn band by band like the rest of the UI; every wall,
  * sprite and sound is made in code. Included by rv_ui.c (it uses the drawing primitives).
  *
@@ -20,12 +22,14 @@
 #define MM_VY1 200
 #define MM_HZ ((MM_VY0 + MM_VY1) / 2)
 #define MM_NENT 40
-enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE, ME_TINY };   /* ME_TINY: little bugs, in swarms of three */
+enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE, ME_TINY,   /* ME_TINY: little bugs, in swarms of three */
+       ME_GRAPH, ME_CODE, ME_GHOUL, ME_PORTAL };               /* level 2: incident graphs, bad code, ghouls and their portals */
+#define MM_PORTAL_SPAWNS 4                                     /* ghouls a portal lets out, at most */
 enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, SFX_TITLE };
 
-typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
+typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive, n; } mm_ent;   /* n: a portal's ghouls so far */
 typedef struct {
-    uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title */
+    uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title, 4 joining the bridge */
     uint8_t paused;                            /* PLAY during play */
     float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t, spin, held;   /* spin: turning speed; held: how long a turn key has been down */
     uint32_t last_ms, prev_btn, prev_keys;
@@ -42,7 +46,9 @@ static moom_t mm RV_RAMBSS;
 static int moom_on(void) { return mm.on; }
 
 /* '#' rack, 'L' log wall, 'D' dashboard, 'X' the exit (opens when all is resolved);
- * 'P' start, 'b' bug, 't' a swarm of three little bugs, 'c' failed change, 'e' 500 error, 'k' coffee */
+ * 'P' start, 'b' bug, 't' a swarm of three little bugs, 'c' failed change, 'e' 500 error, 'k' coffee.
+ * Level 2, inside the call: 'W' the desktop, 'B' a browser window, 'V' the call's video tiles;
+ * 'g' an incident graph, 'd' lines of code from a bad change, 'r' a CHANGE REQUEST portal */
 static const char *const mm_levels[2][MM_W] = {
     {"################",
      "#P..#....L.....#",
@@ -60,23 +66,38 @@ static const char *const mm_levels[2][MM_W] = {
      "####D....LL..c.#",
      "#e.......L....XX",
      "################"},
-    {"################",
-     "#P....D...L....#",
-     "#.....D.e.L..b.#",
-     "#..b....t.....c#",
-     "#LLL..###..LLL.#",
-     "#.t........#.t.#",
-     "#.e..k.....#.e.#",
-     "#....###...#...#",
-     "#.c..#.....D...#",
-     "#....#..b...t..#",
-     "##D..#.....###.#",
-     "#....L..e..#k..#",
-     "#.b..L.....#...#",
-     "#....L..c..D.b.#",
-     "#e....t......XX#",
-     "################"}};
-static const char *const mm_names[2] = {"DATA CENTER A", "CORE SYSTEMS"};
+    {"WWWWWWWWWWWWWWWW",
+     "WP...B....V....W",
+     "W....B..g.V..d.W",
+     "W.d......r.....W",
+     "WVVV..WWW...BB.W",
+     "W.g.......W..d.W",
+     "W....k....W.g..W",
+     "W...BBB...W....W",
+     "W.d.......V..r.W",
+     "W...r.W.......dW",
+     "WW..g.W...WWW..W",
+     "W.....B..d.Wk..W",
+     "W.d...B....W...W",
+     "W.....B..g.V...W",
+     "W...........XX.W",
+     "WWWWWWWWWWWWWWWW"}};
+static const char *const mm_names[2] = {"DATA CENTER A", "INSIDE THE BRIDGE CALL"};
+
+/* each kind: how fast it comes, how much uptime it takes a second up close, its hit points, how
+ * wide a target it is, how big it's drawn */
+static const struct { float speed, dps, hp, hitw, size; } mm_kind[10] = {
+    {0, 0, 0, 0, 0},
+    {1.1f, 7.0f, 1.0f, 0.32f, 0.8f},      /* bug */
+    {0.7f, 10.0f, 2.0f, 0.32f, 0.8f},     /* failed change */
+    {1.5f, 14.0f, 3.0f, 0.32f, 0.8f},     /* 500 error */
+    {0, 0, 0, 0, 0.8f},                   /* coffee */
+    {2.1f, 3.0f, 1.0f, 0.2f, 0.34f},      /* little bug */
+    {0.6f, 8.0f, 3.0f, 0.36f, 0.75f},     /* incident graph (and it pages you from afar) */
+    {2.4f, 5.0f, 1.0f, 0.3f, 0.62f},      /* bad code */
+    {1.6f, 16.0f, 3.0f, 0.34f, 1.0f},     /* ghoul */
+    {0, 0, 6.0f, 0.42f, 1.15f},           /* CHANGE REQUEST portal */
+};
 
 static uint32_t mm_hash(uint32_t x)
 {
@@ -124,7 +145,7 @@ static void mm_load(int lv)
     for (y = 0; y < MM_W; y++)
         for (x = 0; x < MM_W; x++) {
             char c = mm_levels[mm.level][y][x];
-            mm.map[y * MM_W + x] = (c == '#' || c == 'L' || c == 'D' || c == 'X') ? c : '.';
+            mm.map[y * MM_W + x] = (c == '#' || c == 'L' || c == 'D' || c == 'X' || c == 'W' || c == 'B' || c == 'V') ? c : '.';
             if (c == 'P') {
                 mm.px = x + 0.5f;
                 mm.py = y + 0.5f;
@@ -140,13 +161,15 @@ static void mm_load(int lv)
                     e->hp = 1.0f;
                     mm.open++;
                 }
-            } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k') && n < MM_NENT) {
+            } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k' || c == 'g' || c == 'd' || c == 'r') && n < MM_NENT) {
                 mm_ent *e = &mm.e[n++];
                 e->x = x + 0.5f;
                 e->y = y + 0.5f;
                 e->alive = 1;
-                e->kind = c == 'b' ? ME_BUG : c == 'c' ? ME_CHG : c == 'e' ? ME_ERR : ME_COFFEE;
-                e->hp = e->kind == ME_BUG ? 1.0f : e->kind == ME_CHG ? 2.0f : 3.0f;
+                e->kind = c == 'b' ? ME_BUG : c == 'c' ? ME_CHG : c == 'e' ? ME_ERR : c == 'g' ? ME_GRAPH
+                        : c == 'd' ? ME_CODE : c == 'r' ? ME_PORTAL : ME_COFFEE;
+                e->hp = mm_kind[e->kind].hp;
+                e->cool = e->kind == ME_PORTAL ? 2.5f : e->kind == ME_GRAPH ? 1.5f + 0.4f * (float)(x & 3) : 0.0f;
                 if (e->kind != ME_COFFEE)
                     mm.open++;
             }
@@ -155,8 +178,13 @@ static void mm_load(int lv)
     mm.uptime = 100.0f;
     mm.state = 0;
     mm.mttr = 0.0f;
-    mm_log("SEV1 DECLARED  BRIDGE OPEN", C_RED);
-    mm_logn("SCOPE: ", mm.open, " OPEN ISSUES", C_AMBER);
+    if (mm.level) {
+        mm_log("JOINED THE BRIDGE. CAMERA ON.", RGB(150, 140, 240));
+        mm_logn("SCOPE: ", mm.open, " OPEN + CHANGE REQUESTS", C_AMBER);
+    } else {
+        mm_log("SEV1 DECLARED  BRIDGE OPEN", C_RED);
+        mm_logn("SCOPE: ", mm.open, " OPEN ISSUES", C_AMBER);
+    }
     mm_log(mm_names[mm.level], C_TEAL);
 }
 
@@ -186,6 +214,18 @@ void moom_start(void)
     mm.state_t = 4.5f;
     mm_sfx(SFX_TITLE);
 }
+
+/* straight to a level (the emulator's tests and screenshots); level 2 starts with joining the call */
+void moom_warp(int lv)
+{
+    if (!mm.on)
+        moom_start();
+    mm_load(lv);
+    mm.state = lv ? 4 : 0;
+    mm.state_t = 3.2f;
+}
+
+void moom_pose(float x, float y, float dir) { mm.px = x, mm.py = y, mm.dir = dir; }   /* (the screenshots) */
 
 static void moom_stop(void);
 int moom_active(void) { return mm.on; }
@@ -238,7 +278,7 @@ static void mm_fire(void)
         dy = e->y - mm.py;
         along = dx * cx + dy * cy;
         side = -dx * cy + dy * cx;
-        if (along > 0.1f && fm_fabsf(side) < (e->kind == ME_TINY ? 0.2f : 0.32f) && along < best && along < mm.zbuf[PLAT_W / 2] + 0.3f) {
+        if (along > 0.1f && fm_fabsf(side) < mm_kind[e->kind].hitw && along < best && along < mm.zbuf[PLAT_W / 2] + 0.3f) {
             best = along;
             hit = i;
         }
@@ -254,8 +294,10 @@ static void mm_fire(void)
         e->hp -= 1.0f;
         e->flash = 0.12f;
         if (e->hp <= 0.0f) {
-            static const char *const done[6] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
-                                                "INFO 500S CLEARED, SVC HEALTHY", "", "INFO MINOR BUG SQUASHED"};
+            static const char *const done[10] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
+                                                 "INFO 500S CLEARED, SVC HEALTHY", "", "INFO MINOR BUG SQUASHED",
+                                                 "INFO ALERT ACKED, GRAPH GREEN", "INFO BAD COMMIT REVERTED",
+                                                 "INFO REGRESSION EXORCISED", "INFO CHANGE REQUEST REJECTED"};
             e->dying = 0.6f;
             mm.open--;
             mm_sfx(SFX_KILL);
@@ -281,11 +323,19 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
             mm.state = 0;
         return;
     }
+    if (mm.state == 4 && mm.state_t < 2.6f && ((down_btn & (1u << B_PLAY)) || down_keys))
+        mm.state_t = 0.0f;                             /* joining: PLAY or a key skips the zoom */
     if (mm.state != 0) {                               /* a message, then on */
         mm.state_t -= dt;
         if (mm.state_t <= 0.0f) {
-            if (mm.state == 1)
+            if (mm.state == 1 && mm.level == 0) {      /* level 1 done: into the bridge call */
+                mm_load(1);
+                mm.state = 4;
+                mm.state_t = 3.2f;
+            } else if (mm.state == 1)
                 mm_load(mm.level + 1);
+            else if (mm.state == 4)
+                mm.state = 0;
             else
                 mm_load(mm.level);
         }
@@ -349,16 +399,52 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
             }
             continue;
         }
+        if (e->kind == ME_PORTAL) {                    /* a CHANGE REQUEST: lets a ghoul out now and then, while you're near */
+            e->cool -= dt;
+            if (e->cool <= 0.0f && e->n < MM_PORTAL_SPAWNS && d < 8.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
+                int k;
+                for (k = 0; k < MM_NENT && mm.e[k].alive; k++)
+                    ;
+                if (k < MM_NENT) {
+                    mm_ent *g = &mm.e[k];
+                    __builtin_memset(g, 0, sizeof *g);
+                    g->x = e->x + dx / d * 0.35f;
+                    g->y = e->y + dy / d * 0.35f;
+                    g->alive = 1;
+                    g->kind = ME_GHOUL;
+                    g->hp = mm_kind[ME_GHOUL].hp;
+                    e->n++;
+                    mm.open++;
+                    mm_sfx(SFX_HURT);
+                    mm_log("WARN CR APPROVED: SOMETHING CAME THRU", RGB(190, 90, 220));
+                }
+                e->cool = 4.5f;
+            }
+            continue;
+        }
+        if (e->kind == ME_GRAPH && d > 0.6f && d < 7.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {   /* it pages you */
+            e->cool -= dt;
+            if (e->cool <= 0.0f) {
+                static const char *const pg[3] = {"CRIT P1 ALERT: LATENCY P99 SPIKE", "CRIT P1 ALERT: ERROR RATE 40%", "CRIT P1 ALERT: SATURATION 100%"};
+                e->cool = 2.4f;
+                mm.uptime -= 5.0f;
+                mm.hurt = 0.25f;
+                mm_sfx(SFX_HURT);
+                mm_log(pg[mm_hash((uint32_t)i + (uint32_t)(mm.t * 10.0f)) % 3], C_RED);
+            }
+        }
         if (d > 0.55f && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
-            float v = (e->kind == ME_BUG ? 1.1f : e->kind == ME_CHG ? 0.7f : e->kind == ME_TINY ? 2.1f : 1.5f) * dt / d;
-            float w = e->kind == ME_TINY ? fm_sinf(mm.t * 9.0f + (float)i * 2.1f) * 0.6f : 0.0f;   /* little bugs zig-zag */
+            float v = mm_kind[e->kind].speed * dt / d;
+            float w = e->kind == ME_TINY ? fm_sinf(mm.t * 9.0f + (float)i * 2.1f) * 0.6f   /* little bugs zig-zag, */
+                    : e->kind == ME_CODE ? fm_sinf(mm.t * 13.0f + (float)i) * 0.5f       /* code glitches sideways, */
+                    : e->kind == ME_GHOUL ? fm_sinf(mm.t * 2.3f + (float)i * 1.7f) * 0.35f : 0.0f;   /* ghouls stalk */
             float nx = e->x + (dx - dy * w) * v, ny = e->y + (dy + dx * w) * v;
             if (!mm_wall(nx, e->y))
                 e->x = nx;
             if (!mm_wall(e->x, ny))
                 e->y = ny;
         } else if (d <= 0.6f) {                        /* close enough to hurt */
-            mm.uptime -= (e->kind == ME_BUG ? 7.0f : e->kind == ME_CHG ? 10.0f : e->kind == ME_TINY ? 3.0f : 14.0f) * dt;
+            mm.uptime -= mm_kind[e->kind].dps * dt;
             e->cool -= dt;
             if (e->cool <= 0.0f) {
                 e->cool = 0.6f;
@@ -378,7 +464,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         mm.state = 1;
         mm.state_t = 3.5f;
         mm_sfx(SFX_WIN);
-        mm_log("RESOLVED. RCA DUE FRIDAY", RGB(110, 210, 120));
+        mm_log(mm.level ? "CHANGE ROLLED BACK. BRIDGE CLOSED." : "RESOLVED. RCA DUE FRIDAY", RGB(110, 210, 120));
     }
 }
 
@@ -428,6 +514,8 @@ static void mm_cast(void)
     }
 }
 
+static float mm_seg(float u, float v, float x0, float y0, float x1, float y1);
+
 /* the walls, made in code: u, v in 0..255 */
 static uint16_t mm_wall_px(int type, int u, int v, int x)
 {
@@ -458,9 +546,95 @@ static uint16_t mm_wall_px(int type, int u, int v, int x)
             return RGB(18, 40, 46);                    /* the area under the line */
         return g ? RGB(30, 40, 36) : RGB(14, 22, 20);
     }
+    case 'W': {                                        /* the desktop: wallpaper, icons down the left, the taskbar */
+        int wave = 120 + (int)(fm_sinf((float)u * 0.025f + mm.t * 0.35f) * 34.0f), k = (v - 12) / 46, iv = (v - 12) % 46;
+        if (v > 230) {                                 /* the taskbar */
+            if (v > 234 && v < 252) {
+                if (u > 8 && u < 26)
+                    return (u - 17) * (u - 17) + (v - 243) * (v - 243) < 60 ? RGB(90, 170, 230) : RGB(26, 28, 34);   /* the start button */
+                if (u > 34 && u < 112 && (u - 34) % 26 < 18)
+                    return (mm_hash((uint32_t)(u - 34) / 26u * 7u) & 1) ? RGB(220, 170, 70) : RGB(110, 120, 220);   /* pinned apps */
+                if (u > 196 && u < 246 && v > 237 && v < 249 && ((u / 5) & 1))
+                    return RGB(200, 205, 215);         /* the clock */
+            }
+            return RGB(26, 28, 34);
+        }
+        if (u > 10 && u < 40 && k < 4 && v >= 12) {    /* desktop icons and their labels */
+            if (iv < 26 && u > 14 && u < 36)
+                return k == 0 ? RGB(240, 200, 80) : k == 1 ? RGB(80, 160, 240) : k == 2 ? RGB(230, 230, 236) : RGB(120, 200, 120);
+            if (iv > 29 && iv < 33)
+                return RGB(220, 226, 236);
+        }
+        if (v > wave - 14 && v < wave + 14)            /* a soft band across the wallpaper */
+            return RGB(40 + (wave + 14 - v) * 2, 70 + (wave + 14 - v) * 3, 150 + (wave + 14 - v) * 2);
+        return RGB(14 + v / 12, 28 + v / 10, 70 + v / 5);
+    }
+    case 'B': {                                        /* a browser window: tabs, the address bar, a status page in trouble */
+        if (u < 4 || u > 251)
+            return RGB(48, 50, 58);
+        if (v < 16)                                    /* the tab strip */
+            return u > 8 && u < 112 && v > 3 ? (u > 14 && u < 22 && v > 7 && v < 13 ? C_RED : RGB(60, 62, 72)) : RGB(34, 36, 42);
+        if (v < 34) {                                  /* the toolbar and its address field */
+            if (u > 30 && u < 232 && v > 19 && v < 31) {
+                if (u > 34 && u < 40 && v > 22 && v < 28)
+                    return RGB(90, 200, 110);          /* the padlock */
+                return u > 46 && u < 170 && v > 23 && v < 27 && ((u / 6) % 5) ? RGB(150, 154, 166) : RGB(30, 32, 38);
+            }
+            return (u > 8 && u < 24 && v > 21 && v < 29) ? RGB(120, 124, 134) : RGB(60, 62, 72);
+        }
+        if (v > 40 && v < 64 && u > 12 && u < 244) {   /* the banner: MAJOR INCIDENT, blinking */
+            int on = ((int)(mm.t * 2.0f) & 1) == 0;
+            if (v > 48 && v < 56 && u > 22 && u < 150 && ((u / 7) % 4))
+                return C_WHITE;
+            return on ? RGB(210, 40, 50) : RGB(150, 26, 36);
+        }
+        if (v > 72 && v < 220) {                       /* the components: a dot, a name, a state */
+            int row = (v - 72) / 22, iv = (v - 72) % 22;
+            uint32_t h = mm_hash((uint32_t)row * 59u + 3u);
+            if (iv > 6 && iv < 15) {
+                if (u > 14 && u < 24)
+                    return (h & 3) == 0 ? RGB(90, 200, 110) : (h & 3) == 1 ? C_AMBER : C_RED;
+                if (u > 32 && u < 32 + 40 + (int)(h % 70) && ((u / 5) % 6))
+                    return RGB(90, 94, 104);
+                if (u > 190 && u < 236)
+                    return (h & 3) == 0 ? RGB(200, 236, 206) : RGB(250, 214, 210);
+            }
+            if (iv == 21)
+                return RGB(220, 222, 228);
+        }
+        return RGB(244, 245, 248);
+    }
+    case 'V': {                                        /* the call: four video tiles, someone always talking, the toolbar */
+        int col = u < 128, row = v < 112, tx = col ? u - 8 : u - 132, ty = row ? v - 8 : v - 116, tile = (row ? 0 : 2) + (col ? 0 : 1);
+        int talk = (int)(mm.t * 0.7f) & 3;
+        if (v > 226) {
+            if (v > 232 && v < 248 && u > 104 && u < 152)
+                return RGB(200, 40, 50);               /* leave */
+            if (v > 234 && v < 246 && ((u > 64 && u < 80) || (u > 84 && u < 100) || (u > 156 && u < 172) || (u > 176 && u < 192)))
+                return RGB(70, 72, 84);
+            return RGB(28, 28, 36);
+        }
+        if (tx < 0 || ty < 0 || tx > 116 || ty > 100)
+            return RGB(18, 18, 24);
+        if (tile == talk && (tx < 3 || ty < 3 || tx > 113 || ty > 97))
+            return RGB(130, 120, 240);                 /* the speaker's ring */
+        {
+            int ax = tx - 58, ay = ty - 46, r2 = ax * ax + ay * ay;
+            uint32_t h = mm_hash((uint32_t)tile * 31u + 7u);
+            if (r2 < 24 * 24)
+                return r2 > 22 * 22 ? RGB(230, 230, 236) : RGB(60 + (int)(h & 127), 50 + (int)((h >> 8) & 127), 90 + (int)((h >> 16) & 127));
+            if (ty > 84 && ty < 92 && tx > 6 && tx < 50)
+                return ((tx / 5) & 1) ? RGB(200, 200, 210) : RGB(44, 44, 56);   /* a name */
+            if (ty > 82 && ty < 94 && tx > 98 && tx < 110 && tile != talk)
+                return C_RED;                          /* muted */
+        }
+        return RGB(44, 44, 56);
+    }
     case 'X':                                          /* the exit: a red door, green once all is clear */
         if (u < 16 || u > 240 || v < 10)
             return RGB(60, 64, 62);
+        if (mm.level && mm.open)                        /* in the call: LEAVE, red, a handset on it */
+            return mm_seg((float)u, (float)v, 90.0f, 128.0f, 166.0f, 128.0f) < 10.0f || (fm_fabsf((float)u - 128.0f) < 50.0f && v > 120 && v < 146 && (u < 96 || u > 160)) ? C_WHITE : RGB(170, 34, 44);
         return mm.open ? ((v / 20 + u / 40) & 1 ? RGB(150, 40, 40) : RGB(120, 30, 30)) : RGB(60, 170, 90);
     default: {                                         /* a server rack: units, vents, blinking lights */
         int unit = v / 21, iv = v % 21;
@@ -502,7 +676,7 @@ static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
         return 0;
     }
     if (e->flash > 0.0f) {
-        uint16_t c = mm_sprite_px(&(mm_ent){e->x, e->y, e->hp, 0.0f, 0.0f, 0.0f, e->kind, 1}, u, v);
+        uint16_t c = mm_sprite_px(&(mm_ent){e->x, e->y, e->hp, 0.0f, 0.0f, 0.0f, e->kind, 1, 0}, u, v);
         return c ? C_WHITE : 0;
     }
     switch (e->kind) {
@@ -558,6 +732,110 @@ static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
         }
         return RGB(220, 40, 50);
     }
+    case ME_GRAPH: {                                   /* an incident graph: a monitor panel, its red line spiking at you */
+        float f, ph = u * 9.0f + t * 2.2f;
+        if (u < 0.1f || u > 0.9f || v < 0.16f || v > 0.8f)
+            return 0;
+        if (u < 0.13f || u > 0.87f || v > 0.77f)
+            return RGB(60, 64, 74);                    /* the bezel */
+        if (v < 0.27f)                                 /* its title bar, an alert light that pulses */
+            return (fm_fabsf(u - 0.8f) < 0.035f && fm_fabsf(v - 0.215f) < 0.035f) ? mm_dim(C_RED, 120 + (int)(fm_sinf(t * 10.0f) * 120.0f + 15.0f))
+                   : (u > 0.18f && u < 0.6f && fm_fabsf(v - 0.215f) < 0.015f && ((int)(u * 60.0f) % 4)) ? RGB(220, 220, 230) : RGB(40, 44, 54);
+        f = 0.6f - 0.06f * fm_sinf(ph) - 0.03f * fm_sinf(ph * 2.7f);
+        if (fm_fabsf(fm_sinf(u * 3.0f + t * 0.9f)) > 0.82f)
+            f -= 0.25f * (fm_fabsf(fm_sinf(u * 3.0f + t * 0.9f)) - 0.82f) / 0.18f;   /* the spikes */
+        if (fm_fabsf(v - f) < 0.022f)
+            return f < 0.48f ? RGB(255, 60, 60) : RGB(255, 170, 60);
+        if (v > f)
+            return f < 0.48f ? RGB(80, 14, 20) : RGB(60, 30, 16);
+        if (fm_fabsf(v - 0.42f) < 0.006f)
+            return RGB(150, 30, 30);                   /* the threshold */
+        return ((int)(u * 20.0f) % 4 == 0 || (int)(v * 20.0f) % 4 == 0) ? RGB(26, 30, 36) : RGB(14, 16, 22);
+    }
+    case ME_CODE: {                                    /* lines of code from a bad change: a diff, red and green, glitching */
+        int row = (int)((v - 0.24f) / 0.065f);
+        float g = (mm_hash((uint32_t)row * 17u + (uint32_t)(t * 14.0f)) & 7) == 0 ? 0.07f : 0.0f;
+        uint32_t h = mm_hash((uint32_t)row * 977u + 5u);
+        int minus = (h & 3) != 0, word;
+        u -= g;
+        if (u < 0.06f || u > 0.94f || v < 0.24f || v > 0.24f + 0.065f * 8)
+            return 0;
+        if (fm_fabsf(v - (0.24f + row * 0.065f + 0.0325f)) > 0.024f)
+            return minus ? RGB(60, 10, 16) : RGB(10, 44, 20);
+        if (u < 0.14f)
+            return RGB(110, 110, 120);                 /* line numbers */
+        if (u < 0.2f)                                  /* - or + */
+            return (fm_fabsf(u - 0.17f) < 0.02f || (!minus && fm_fabsf(v - (0.24f + row * 0.065f + 0.0325f)) < 0.006f && fm_fabsf(u - 0.17f) < 0.02f) ||
+                    fm_fabsf(v - (0.24f + row * 0.065f + 0.0325f)) < 0.007f) ? (minus ? RGB(255, 90, 90) : RGB(120, 240, 130)) : (minus ? RGB(60, 10, 16) : RGB(10, 44, 20));
+        word = (int)((u - 0.2f) / 0.05f);
+        if (u > 0.2f + 0.05f * (float)(4 + (h >> 8) % 12) || (mm_hash(h + (uint32_t)word) % 5) == 0)
+            return minus ? RGB(60, 10, 16) : RGB(10, 44, 20);
+        return minus ? ((mm_hash(h + (uint32_t)word) & 1) ? RGB(255, 140, 140) : RGB(240, 200, 120)) : RGB(150, 240, 160);
+    }
+    case ME_GHOUL: {                                   /* a ghoul from a change request: spined, many-eyed, dripping */
+        float pulse = 0.5f + 0.5f * fm_sinf(t * 7.0f + e->x * 3.0f), tw = fm_sinf(t * 23.0f + e->y) * 0.012f, by, ex, k;
+        int i;
+        static const float eye[4][3] = {{0.44f, 0.40f, 0.032f}, {0.56f, 0.40f, 0.032f}, {0.40f, 0.455f, 0.018f}, {0.60f, 0.455f, 0.018f}};
+        for (i = 0; i < 4; i++) {                      /* four eyes that burn */
+            float a = u - eye[i][0], b = v - eye[i][1], r2 = a * a + b * b, rr = eye[i][2] * eye[i][2];
+            if (r2 < rr)
+                return r2 < rr * 0.25f ? RGB(255, 236, 160) : RGB(255, 40 + (int)(pulse * 80.0f), 20);
+            if (r2 < rr * 2.6f)
+                return mm_dim(RGB(255, 30, 20), 70 + (int)(pulse * 90.0f));   /* their glow */
+        }
+        if (v > 0.47f && v < 0.6f) {                   /* fangs */
+            float q = (v - 0.47f) / 0.13f;
+            if (fm_fabsf(u - 0.45f - q * 0.02f) < 0.025f * (1.0f - q) || fm_fabsf(u - 0.55f + q * 0.02f) < 0.025f * (1.0f - q) ||
+                fm_fabsf(u - 0.5f) < 0.012f * (1.0f - q))
+                return RGB(232, 226, 200);
+        }
+        if ((fm_fabsf(u - 0.465f) < 0.006f || fm_fabsf(u - 0.535f) < 0.006f) && v > 0.55f && v < 0.62f + 0.06f * fm_fabsf(fm_sinf(t * 1.3f + u * 9.0f)))
+            return RGB(130, 230, 70);                  /* it drips */
+        ex = (u - 0.5f) / 0.16f;
+        k = (v - 0.43f) / 0.11f;
+        if (ex * ex + k * k < 1.0f)
+            return RGB(30, 8, 34);                     /* the head */
+        ex = (u - 0.5f) / 0.33f;
+        by = 0.63f - 0.22f * fm_sqrtf(fm_maxf(0.0f, 1.0f - ex * ex));   /* the top of its back */
+        for (i = 0; i < 6; i++) {                      /* bone spines along it */
+            float su = 0.24f + 0.104f * (float)i, w = 0.035f - fm_fabsf(u - su);
+            if (w > 0.0f && v < by && v > by - 0.15f * (w / 0.035f) - (i == 2 || i == 3 ? 0.04f : 0.0f))
+                return RGB(205, 196, 170);
+        }
+        k = (v - 0.63f) / 0.2f;
+        if (ex * ex + k * k < 1.0f && v > by - 0.005f)   /* the carapace: ribbed, with red veins */
+            return fm_fabsf(fm_sinf(u * 46.0f + v * 6.0f)) < 0.18f ? RGB(80, 20, 62)
+                   : fm_fabsf(fm_sinf(u * 13.0f - v * 31.0f + 1.0f)) < 0.05f ? RGB(150, 20, 30) : RGB(38, 12, 44);
+        for (i = 0; i < 8; i++) {                      /* long legs, jointed, twitching */
+            float sd = i < 4 ? -1.0f : 1.0f, j = (float)(i & 3);
+            float x0 = 0.5f + sd * 0.2f, y0 = 0.62f + j * 0.04f, x1 = 0.5f + sd * (0.4f + j * 0.025f), y1 = 0.42f + j * 0.06f + ((i & 1) ? tw : -tw);
+            float x2 = 0.5f + sd * (0.44f + j * 0.015f), y2 = 0.98f;
+            if (mm_seg(u, v, x0, y0, x1, y1) < 0.013f || mm_seg(u, v, x1, y1, x2, y2) < 0.01f)
+                return RGB(56, 18, 56);
+        }
+        {   /* a ghastly haze around it that comes and goes */
+            float a = (u - 0.5f) / 0.48f, b = (v - 0.6f) / 0.42f;
+            if (a * a + b * b < 1.0f && (mm_hash((uint32_t)(u * 40.0f) * 73u + (uint32_t)(v * 40.0f) * 151u + (uint32_t)(t * 6.0f)) & 15) == 0)
+                return RGB(70, 30, 90);
+        }
+        return 0;
+    }
+    case ME_PORTAL: {                                  /* a CHANGE REQUEST portal: a red vortex in a frame, turning */
+        float a = (u - 0.5f) / 0.38f, b = (v - 0.56f) / 0.42f, r = fm_sqrtf(a * a + b * b), ang, ca, sa, rx;
+        if (r > 1.08f)
+            return 0;
+        if (r > 0.94f)                                 /* the rim: it crackles */
+            return (mm_hash((uint32_t)(u * 50.0f) + (uint32_t)(v * 50.0f) * 61u + (uint32_t)(t * 20.0f)) & 3) ? RGB(255, 90, 50) : RGB(255, 220, 140);
+        ang = r * 7.0f - t * 3.5f;
+        ca = fm_cosf(ang);
+        sa = fm_sinf(ang);
+        rx = a * ca - b * sa;
+        if (r < 0.16f)
+            return RGB(255, 240, 200);                 /* its eye */
+        if (fm_fabsf(rx) < 0.12f + r * 0.05f)
+            return mm_dim(RGB(255, 110, 40), 255 - (int)(r * 120.0f));   /* the arms */
+        return (a * sa + b * ca) > 0.0f ? RGB(120, 16, 48) : RGB(40, 6, 30);
+    }
     default: {                                         /* coffee: a mug and steam */
         float s = fm_sinf(v * 20.0f + t * 4.0f) * 0.03f;
         if (v > 0.55f && v < 0.9f && u > 0.32f && u < 0.62f)
@@ -584,11 +862,12 @@ static void mm_draw_view(void)
         int top = mm.top[x], bot = mm.bot[x], h = MM_HZ - mm.htop[x];
         for (y = y0; y < y1; y++) {
             uint16_t c;
-            if (y < top)                                 /* the ceiling: cable trays */
-                c = ((y - MM_VY0) % 22 == 0 || (x + y) % 40 == 0) ? RGB(26, 30, 34) : RGB(16, 18, 22);
-            else if (y >= bot) {                       /* the raised floor: tiles that close in */
+            if (y < top)                                 /* the ceiling: cable trays; in the call, its dark top bar */
+                c = mm.level ? (((y - MM_VY0) % 30 == 0) ? RGB(46, 40, 70) : RGB(24, 22, 36))
+                             : ((y - MM_VY0) % 22 == 0 || (x + y) % 40 == 0) ? RGB(26, 30, 34) : RGB(16, 18, 22);
+            else if (y >= bot) {                       /* the raised floor: tiles that close in; in the call, a glassy blue */
                 int dy = y - MM_HZ, row = 2000 / (dy > 0 ? dy : 1);
-                c = (row % 8 == 0) ? RGB(40, 46, 44) : RGB(24, 28, 27);
+                c = mm.level ? ((row % 6 == 0) ? RGB(40, 52, 110) : RGB(16, 22, 52)) : (row % 8 == 0) ? RGB(40, 46, 44) : RGB(24, 28, 27);
             } else
                 c = mm_dim(mm_wall_px(mm.wtype[x], mm.tex[x], (y - mm.htop[x]) * 128 / (h > 0 ? h : 1), x), mm.shade[x]);
             gb[(y - g_y0) * PLAT_W + x] = c;
@@ -616,11 +895,13 @@ static void mm_draw_view(void)
         if (along < 0.15f)
             continue;
         sxc = (int)(PLAT_W / 2 * (1.0f + side / (along * 0.66f)));
-        size = (int)((MM_VY1 - MM_VY0) / along * (e->kind == ME_TINY ? 0.34f : 0.8f));
+        size = (int)((MM_VY1 - MM_VY0) / along * mm_kind[e->kind].size);
         sx0 = sxc - size / 2;
         sy0 = MM_HZ - size / 2 + (int)((MM_VY1 - MM_VY0) / along * 0.1f);
-        if (e->kind == ME_TINY)                          /* little bugs run along the floor */
+        if (e->kind == ME_TINY || e->kind == ME_GHOUL || e->kind == ME_PORTAL)   /* these stand on the floor */
             sy0 = MM_HZ + (int)((MM_VY1 - MM_VY0) / along * 0.5f) - size;
+        else if (e->kind == ME_GRAPH || e->kind == ME_CODE)   /* these hover */
+            sy0 -= (int)((MM_VY1 - MM_VY0) / along * (0.12f + 0.04f * fm_sinf(mm.t * 2.0f + e->x)));
         shade = clampi((int)(255.0f / (1.0f + along * 0.18f)), 60, 255);
         for (x = sx0 < 0 ? 0 : sx0; x < sx0 + size && x < PLAT_W; x++) {
             if (mm.zbuf[x] < along)
@@ -629,6 +910,14 @@ static void mm_draw_view(void)
                 uint16_t c = mm_sprite_px(e, (float)(x - sx0) / size, (float)(y - sy0) / size);
                 if (c)
                     gb[(y - g_y0) * PLAT_W + x] = mm_dim(c, shade);
+            }
+        }
+        if (e->kind == ME_PORTAL && !e->dying && size > 44 && sxc > 0 && sxc < PLAT_W && mm.zbuf[sxc] >= along) {   /* its sign */
+            const char *lb = size > 64 ? "CHANGE REQUEST" : "CR";
+            int w = g_text_w(&FONT_T, lb), ty = sy0 - 12;
+            if (ty >= MM_VY0 && ty + 11 < MM_VY1) {
+                g_fill(sxc - w / 2 - 3, ty - 1, w + 6, 12, RGB(110, 14, 20));
+                g_text_c(sxc, ty, &FONT_T, lb, RGB(255, 220, 200));
             }
         }
     }
@@ -710,8 +999,8 @@ static void mm_draw_hud(void)
     if (mm.state == 1 || mm.state == 2) {
         g_fill(20, 86, 200, 52, RGB(8, 12, 10));
         g_frame(20, 86, 200, 52, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
-        g_text_c(120, 94, &FONT_B, mm.state == 1 ? "INCIDENT RESOLVED" : "SLA BREACHED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
-        g_text_c(120, 116, &FONT_T, mm.state == 1 ? "POSTMORTEM SCHEDULED" : "BRIDGE REOPENS...", C_MID);
+        g_text_c(120, 94, &FONT_B, mm.state == 2 ? "SLA BREACHED" : mm.level ? "CHANGE ROLLED BACK" : "INCIDENT RESOLVED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
+        g_text_c(120, 116, &FONT_T, mm.state == 2 ? "BRIDGE REOPENS..." : mm.level ? "BRIDGE CLOSED. RCA DUE FRIDAY" : "NEW BRIDGE CALL INCOMING...", C_MID);
     }
 }
 
@@ -773,6 +1062,39 @@ static void mm_draw_title(void)
     g_text_c(120, 222, &FONT_T, "HOME (ESC): BACK TO RAVEL", C_DIM);
 }
 
+/* joining the bridge: the call's window, its tiles, and yours growing until you are inside it */
+static void mm_draw_join(void)
+{
+    float f = 1.0f - mm.state_t / 3.2f, z = f < 0.35f ? 0.0f : (f - 0.35f) / 0.65f;
+    int i, x0, y0, x1, y1;
+    z = z * z;
+    g_fill(0, 0, PLAT_W, PLAT_H, RGB(18, 18, 24));
+    g_fill(0, 0, PLAT_W, 18, RGB(36, 34, 52));
+    g_text(6, 3, &FONT_T, "SEV1 BRIDGE  00:42:17", RGB(200, 196, 230));
+    g_fill(206, 4, 28, 10, RGB(200, 40, 50));
+    for (i = 0; i < 6; i++) {                          /* the others on the call */
+        int tx = 8 + (i % 3) * 77, ty = 26 + (i / 3) * 80;
+        uint32_t h = mm_hash((uint32_t)i * 31u + 7u);
+        if (i == 4)
+            continue;
+        g_fill(tx, ty, 71, 72, RGB(44, 44, 56));
+        g_disc(tx + 35, ty + 32, 16, RGB(60 + (int)(h & 127), 50 + (int)((h >> 8) & 127), 90 + (int)((h >> 16) & 127)));
+        g_fill(tx + 4, ty + 60, 30, 6, RGB(150, 150, 166));
+        if (i == ((int)(mm.t * 1.5f) % 6) && i != 4)
+            g_frame(tx, ty, 71, 72, RGB(130, 120, 240));
+    }
+    g_fill(0, 194, PLAT_W, 46, RGB(28, 28, 36));
+    g_fill(100, 204, 40, 16, RGB(200, 40, 50));
+    x0 = (int)(85.0f * (1.0f - z));                    /* your tile, zooming to fill the view */
+    y0 = (int)(106.0f + (16.0f - 106.0f) * z);
+    x1 = (int)(156.0f + (240.0f - 156.0f) * z);
+    y1 = (int)(178.0f + (200.0f - 178.0f) * z);
+    g_fill(x0, y0, x1 - x0, y1 - y0, RGB(14, 28, 70));
+    g_frame(x0, y0, x1 - x0, y1 - y0, RGB(130, 120, 240));
+    g_text_c((x0 + x1) / 2, (y0 + y1) / 2 - 6, z > 0.4f ? &FONT_B : &FONT_T, "YOU", C_WHITE);
+    g_text_c(120, 224, &FONT_T, z > 0.05f ? "GOING INSIDE THE CALL..." : "JOINING THE BRIDGE...", C_AMBER);
+}
+
 /* one frame: input, the world, then the picture band by band */
 void moom_frame(void)
 {
@@ -796,10 +1118,13 @@ void moom_frame(void)
     mm.prev_keys = keys;
     mm_update(dt, keys, down_keys, btn, down_btn, turn);
     moom_music = mm.state == 0 && !mm.paused ? (uint8_t)(mm.level + 1) : 0;   /* the soundtrack under play only */
-    if (mm.state == 3) {
+    if (mm.state == 3 || mm.state == 4) {
         for (b = 0; b < PLAT_H; b += GB_H) {
             g_band(b);
-            mm_draw_title();
+            if (mm.state == 3)
+                mm_draw_title();
+            else
+                mm_draw_join();
             g_send();
         }
         plat_leds(1u << B_PLAY, 0);

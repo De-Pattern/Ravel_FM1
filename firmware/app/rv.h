@@ -253,6 +253,8 @@ extern rv_project rv;                      /* the project being played */
 void moom_start(void);                     /* the hidden game (rv_moom.c) */
 int moom_active(void);
 void moom_exit(void);
+void moom_warp(int lv);                     /* straight to a level (tests) */
+void moom_pose(float x, float y, float dir);
 
 /* ------------------------------------------------------------- live state --- */
 /* what the screen reads (written by the audio side, read by the control side: stale is fine) */
