@@ -16,8 +16,8 @@
 #define MM_VY0 16                      /* the view: rows 16..199 */
 #define MM_VY1 200
 #define MM_HZ ((MM_VY0 + MM_VY1) / 2)
-#define MM_NENT 24
-enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE };
+#define MM_NENT 40
+enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE, ME_TINY };   /* ME_TINY: little bugs, in swarms of three */
 enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE };
 
 typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
@@ -38,39 +38,39 @@ static moom_t mm RV_RAMBSS;
 static int moom_on(void) { return mm.on; }
 
 /* '#' rack, 'L' log wall, 'D' dashboard, 'X' the exit (opens when all is resolved);
- * 'P' start, 'b' bug, 'c' failed change, 'e' 500 error, 'k' coffee */
+ * 'P' start, 'b' bug, 't' a swarm of three little bugs, 'c' failed change, 'e' 500 error, 'k' coffee */
 static const char *const mm_levels[2][MM_W] = {
     {"################",
      "#P..#....L.....#",
      "#...#..b.L..c..#",
-     "#...D.........e#",
+     "#...D....t....e#",
      "#.....##LL..#..#",
      "#..b..#.....#..#",
      "##.####..k..D..#",
-     "#......#....#..#",
+     "#..t...#....#.t#",
      "#.c....#.b..##.#",
-     "#..LL..........#",
+     "#..LL.....t....#",
      "#..L.....##.e..#",
      "#..L..k..##....#",
-     "#.....b........#",
+     "#.....b....t...#",
      "####D....LL..c.#",
      "#e.......L....XX",
      "################"},
     {"################",
      "#P....D...L....#",
      "#.....D.e.L..b.#",
-     "#..b..........c#",
+     "#..b....t.....c#",
      "#LLL..###..LLL.#",
-     "#..........#...#",
+     "#.t........#.t.#",
      "#.e..k.....#.e.#",
      "#....###...#...#",
      "#.c..#.....D...#",
-     "#....#..b......#",
+     "#....#..b...t..#",
      "##D..#.....###.#",
      "#....L..e..#k..#",
      "#.b..L.....#...#",
      "#....L..c..D.b.#",
-     "#e...........XX#",
+     "#e....t......XX#",
      "################"}};
 static const char *const mm_names[2] = {"DATA CENTER A", "CORE SYSTEMS"};
 
@@ -125,6 +125,17 @@ static void mm_load(int lv)
                 mm.px = x + 0.5f;
                 mm.py = y + 0.5f;
                 mm.dir = 0.0f;
+            } else if (c == 't') {                       /* a swarm: three little bugs */
+                int k;
+                for (k = 0; k < 3 && n < MM_NENT; k++) {
+                    mm_ent *e = &mm.e[n++];
+                    e->x = x + 0.3f + 0.2f * k;
+                    e->y = y + 0.35f + 0.15f * (k & 1);
+                    e->alive = 1;
+                    e->kind = ME_TINY;
+                    e->hp = 1.0f;
+                    mm.open++;
+                }
             } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k') && n < MM_NENT) {
                 mm_ent *e = &mm.e[n++];
                 e->x = x + 0.5f;
@@ -211,7 +222,7 @@ static void mm_fire(void)
         dy = e->y - mm.py;
         along = dx * cx + dy * cy;
         side = -dx * cy + dy * cx;
-        if (along > 0.1f && fm_fabsf(side) < 0.32f && along < best && along < mm.zbuf[PLAT_W / 2] + 0.3f) {
+        if (along > 0.1f && fm_fabsf(side) < (e->kind == ME_TINY ? 0.2f : 0.32f) && along < best && along < mm.zbuf[PLAT_W / 2] + 0.3f) {
             best = along;
             hit = i;
         }
@@ -227,8 +238,8 @@ static void mm_fire(void)
         e->hp -= 1.0f;
         e->flash = 0.12f;
         if (e->hp <= 0.0f) {
-            static const char *const done[4] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
-                                                "INFO 500S CLEARED, SVC HEALTHY"};
+            static const char *const done[6] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
+                                                "INFO 500S CLEARED, SVC HEALTHY", "", "INFO MINOR BUG SQUASHED"};
             e->dying = 0.6f;
             mm.open--;
             mm_sfx(SFX_KILL);
@@ -306,14 +317,15 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
             continue;
         }
         if (d > 0.55f && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
-            float v = (e->kind == ME_BUG ? 1.1f : e->kind == ME_CHG ? 0.7f : 1.5f) * dt / d;
-            float nx = e->x + dx * v, ny = e->y + dy * v;
+            float v = (e->kind == ME_BUG ? 1.1f : e->kind == ME_CHG ? 0.7f : e->kind == ME_TINY ? 2.1f : 1.5f) * dt / d;
+            float w = e->kind == ME_TINY ? fm_sinf(mm.t * 9.0f + (float)i * 2.1f) * 0.6f : 0.0f;   /* little bugs zig-zag */
+            float nx = e->x + (dx - dy * w) * v, ny = e->y + (dy + dx * w) * v;
             if (!mm_wall(nx, e->y))
                 e->x = nx;
             if (!mm_wall(e->x, ny))
                 e->y = ny;
         } else if (d <= 0.6f) {                        /* close enough to hurt */
-            mm.uptime -= (e->kind == ME_BUG ? 7.0f : e->kind == ME_CHG ? 10.0f : 14.0f) * dt;
+            mm.uptime -= (e->kind == ME_BUG ? 7.0f : e->kind == ME_CHG ? 10.0f : e->kind == ME_TINY ? 3.0f : 14.0f) * dt;
             e->cool -= dt;
             if (e->cool <= 0.0f) {
                 e->cool = 0.6f;
@@ -461,12 +473,14 @@ static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
         return c ? C_WHITE : 0;
     }
     switch (e->kind) {
+    case ME_TINY:                                      /* a little bug: the same beetle, smaller, yellow-green, quicker legs */
     case ME_BUG: {                                     /* a beetle: body, head, six legs that walk, antennae */
-        float leg = fm_sinf(t * 18.0f) * 0.03f;
+        int tiny = e->kind == ME_TINY;
+        float leg = fm_sinf(t * (tiny ? 34.0f : 18.0f)) * 0.03f;
         dx = (u - 0.5f) / 0.26f;
         dy = (v - 0.62f) / 0.22f;
         if (dx * dx + dy * dy < 1.0f)
-            return fm_fabsf(u - 0.5f) < 0.012f ? RGB(60, 0, 20) : RGB(200, 30, 70);
+            return fm_fabsf(u - 0.5f) < 0.012f ? RGB(60, 0, 20) : tiny ? RGB(190, 200, 40) : RGB(200, 30, 70);
         dx = (u - 0.5f) / 0.12f;
         dy = (v - 0.36f) / 0.1f;
         if (dx * dx + dy * dy < 1.0f)
@@ -569,9 +583,11 @@ static void mm_draw_view(void)
         if (along < 0.15f)
             continue;
         sxc = (int)(PLAT_W / 2 * (1.0f + side / (along * 0.66f)));
-        size = (int)((MM_VY1 - MM_VY0) / along * 0.8f);
+        size = (int)((MM_VY1 - MM_VY0) / along * (e->kind == ME_TINY ? 0.34f : 0.8f));
         sx0 = sxc - size / 2;
         sy0 = MM_HZ - size / 2 + (int)((MM_VY1 - MM_VY0) / along * 0.1f);
+        if (e->kind == ME_TINY)                          /* little bugs run along the floor */
+            sy0 = MM_HZ + (int)((MM_VY1 - MM_VY0) / along * 0.5f) - size;
         shade = clampi((int)(255.0f / (1.0f + along * 0.18f)), 60, 255);
         for (x = sx0 < 0 ? 0 : sx0; x < sx0 + size && x < PLAT_W; x++) {
             if (mm.zbuf[x] < along)
