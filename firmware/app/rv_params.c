@@ -6,7 +6,7 @@
 #include "rv_wavetables.h"
 
 /* ------------------------------------------------------------------ names --- */
-const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
@@ -360,7 +360,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
         static const rv_pinfo morph = {"MORPH", 0, 127, 90, PF_NUM, 0}, xform = {"XFORM", 0, 127, 20, PF_NUM, 0};
         return p == TP_CUT ? &morph : &xform;
     }
-    if (p == TP_POLY && rv.tp[t & 7][TP_KIND] == KIND_STRIKE) {
+    if (p == TP_POLY && (rv.tp[t & 7][TP_KIND] == KIND_STRIKE || rv.tp[t & 7][TP_KIND] == KIND_PERC)) {
         static const rv_pinfo strike_poly = {"VOICES", 0, 1, 1, PF_ENUM, polys};
         return &strike_poly;
     }

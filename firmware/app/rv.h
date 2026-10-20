@@ -28,6 +28,7 @@
 #define RV_ROUTES_MAX 16            /* influence routes that may be active at once */
 #define RV_SYNTH_VOICES 8
 #define RV_STRIKE_VOICES 4
+#define RV_PERC_VOICES 8
 #define RV_BEADS 2                  /* grain engines for tape tracks */
 #define RV_ROWS 4
 
@@ -106,7 +107,7 @@ enum {
 #define PID_T(t, p) ((t) * RV_TP + (p))
 #define PID_G(g) (RV_GPID + (g))
 
-enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_N };
+enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum */
 enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_SQ, ENG_WAVE, ENG_LOGIC, ENG_N };   /* ENG_CZ: was PD */
 enum { SQM_OFF, SQM_SYNC, SQM_AM, SQM_BOTH };   /* SQ: osc 1 on osc 2 */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */

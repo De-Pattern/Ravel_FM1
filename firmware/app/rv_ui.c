@@ -362,7 +362,7 @@ static kinfo_t kb_info(kb_t k)
         r.names = pi->names;
         if (k.id == TP_H2START)                      /* a step that exists */
             r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS);
-        if (k.id == TP_POLY && rv.tp[ui.track][TP_KIND] == KIND_STRIKE)
+        if (k.id == TP_POLY && (rv.tp[ui.track][TP_KIND] == KIND_STRIKE || rv.tp[ui.track][TP_KIND] == KIND_PERC))
             r.max = 1;                               /* a strike track has two voices: MONO or 2 */
         break;
     case K_GP:
@@ -1429,7 +1429,7 @@ void ui_input_only(void)
 static uint16_t kind_col(int t)
 {
     int k = rv.tp[t][TP_KIND];
-    return k == KIND_SYNTH ? C_SYNTH : k == KIND_STRIKE ? C_STRIKE : C_TAPE;
+    return k == KIND_SYNTH ? C_SYNTH : k == KIND_STRIKE ? C_STRIKE : k == KIND_PERC ? C_AMBER : C_TAPE;
 }
 
 static const char *sound_name(int t)
@@ -1641,7 +1641,7 @@ static void pic_tracks(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
-        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : "TAP", muted ? C_DIM : kc);
+        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : "TAP", muted ? C_DIM : kc);
         /* level meter */
         g_fill(x + 9, PIC_Y + 36, 5, 60, C_LINE);
         h = (int)(clampf(fm_sqrtf(rv_live.meter[t]), 0.0f, 1.0f) * 60.0f);

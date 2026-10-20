@@ -4,6 +4,7 @@
 #include "rv_params.c"
 #include "rv_synth.c"
 #include "rv_strike.c"
+#include "rv_perc.c"
 #include "rv_mod.c"
 #include "rv_tape.c"
 #include "rv_bus.c"

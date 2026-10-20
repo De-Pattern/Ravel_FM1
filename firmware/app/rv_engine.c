@@ -11,6 +11,7 @@ volatile rv_live_t rv_live;
 
 static voice_t vs[RV_SYNTH_VOICES];
 static strike_t ss[RV_STRIKE_VOICES];
+static perc_t ps[RV_PERC_VOICES];
 static uint32_t age_ctr;
 static uint32_t eng_rng = 0x13579BDFu;
 static float in_buf[RV_SUB * 2];
@@ -228,6 +229,36 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             sv->a.p = sv->a.s = sv->a.v = 0.0f;
         strike_note_on(sv, note, v, tr->eff);
         artic_start(&sv->a, &sv->cfg);
+    } else if (kind == KIND_PERC) {
+        int poly = clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
+        uint32_t oldest = 0xFFFFFFFFu;
+        for (i = 0; i < RV_PERC_VOICES; i++)          /* a drum chokes its own oldest hit past POLY */
+            if (ps[i].on && ps[i].track == t) {
+                count++;
+                if (ps[i].age < oldest) {
+                    oldest = ps[i].age;
+                    pick = i;
+                }
+            }
+        if (count < poly) {
+            pick = -1;
+            for (i = 0; i < RV_PERC_VOICES && pick < 0; i++)
+                if (!ps[i].on)
+                    pick = i;
+            if (pick < 0) {
+                oldest = 0xFFFFFFFFu;
+                for (i = 0; i < RV_PERC_VOICES; i++)
+                    if (ps[i].age < oldest) {
+                        oldest = ps[i].age;
+                        pick = i;
+                    }
+            }
+        }
+        if (pick < 0)
+            pick = 0;
+        ps[pick].track = (uint8_t)t;
+        ps[pick].age = ++age_ctr;
+        perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u);
     } else {
         tapetrk_t *tt = &tr->tape;
         if (env > 0)
@@ -257,6 +288,10 @@ static void note_off_internal(int t, int note)
                 ss[i].gate = 0;
                 artic_release(&ss[i].a, &ss[i].cfg);
             }
+    } else if (kind == KIND_PERC) {
+        for (i = 0; i < RV_PERC_VOICES; i++)          /* drums play out; the gate only matters to HOLD */
+            if (ps[i].on && ps[i].track == t && ps[i].note == note)
+                ps[i].gate = 0;
     } else {
         tape_track_note(&trk[t], note, 0.0f);
     }
@@ -273,6 +308,8 @@ static void all_off_now(void)
             ss[i].gate = 0;
             artic_release(&ss[i].a, &ss[i].cfg);
         }
+    for (i = 0; i < RV_PERC_VOICES; i++)
+        ps[i].gate = 0;
     for (i = 0; i < RV_TRACKS; i++)                 /* the tape tracks too, MLR loops included: a key starts them again */
         if (rv.tp[i][TP_KIND] == KIND_TAPE) {
             artic_release(&trk[i].tape.a, &trk[i].tape.cfg);
@@ -602,6 +639,32 @@ static void render_sub(float *outl, float *outr, int n)
         rv_live.stage[v->track] = v->a.stage;
         rv_live.stage_pos[v->track] = v->a.u;
     }
+    for (k = 0; k < RV_PERC_VOICES; k++) {
+        perc_t *v = &ps[k];
+        track_t *tr;
+        float lv;
+        if (!v->on)
+            continue;
+        tr = &trk[v->track];
+        if (rv.tp[v->track][TP_KIND] != KIND_PERC) {
+            v->on = 0;
+            continue;
+        }
+        lv = perc_render(v, tr, tr->buf, n);
+        if (buf_bad(tr->buf, n) || !(lv == lv)) {
+            fault(300 + rv.tp[v->track][TP_S0]);
+            __builtin_memset(v, 0, sizeof(*v));
+            zero_buf(tr->buf, n);
+            continue;
+        }
+        rv_live.voices_strike++;
+        if (v->age >= lead_age[v->track]) {
+            lead_age[v->track] = v->age;
+            tr->lead_env = lv;
+            rv_live.stage[v->track] = AS_CONT;
+            rv_live.stage_pos[v->track] = 0.0f;
+        }
+    }
     /* tape tracks, and the tracks' chains */
     for (t = 0; t < RV_TRACKS; t++) {
         track_t *tr = &trk[t];
@@ -635,7 +698,7 @@ static void render_sub(float *outl, float *outr, int n)
                 for (i = 0; i < n; i++)
                     tape_fb[i] += tr->buf[i] * g;
             }
-        } else if (kind == KIND_SYNTH || kind == KIND_STRIKE) {
+        } else if (kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_PERC) {
             /* a track with no voice still lets its incoming excitation through (influence) */
         }
         drive = eff[TP_DRIVE] * (1.0f / 127.0f);
