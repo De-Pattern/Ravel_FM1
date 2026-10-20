@@ -10,8 +10,9 @@
  * RAM pool (RV_RAMBSS).
  *
  * Keys, like arrow keys: G4 turn left, G#4 forward, A4 back, B4 turn right (C#4 forward too; the left
- * hand: F#3 forward, G3 back, F3 / A3 sideways, G#3 / A#3 turn). Fire: C4, D4, E4, F4, PLAY or any key
- * from C5 up. SELECT or any knob turns too. HOME leaves (the emulator: Esc, or its MOOM button). */
+ * hand: F#3 forward, G3 back, F3 / A3 sideways, G#3 / A#3 turn). Fire: C4, D4, E4, F4 or any key from
+ * C5 up. PLAY starts from the title, then pauses and resumes. SELECT or any knob turns too. HOME
+ * leaves (the emulator: Esc, or its MOOM button). */
 
 #define MM_W 16
 #define MM_VY0 16                      /* the view: rows 16..199 */
@@ -24,6 +25,7 @@ enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, S
 typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
 typedef struct {
     uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title */
+    uint8_t paused;                            /* PLAY during play */
     float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t, spin, held;   /* spin: turning speed; held: how long a turn key has been down */
     uint32_t last_ms, prev_btn, prev_keys;
     int open, total;
@@ -270,7 +272,8 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
 {
     float cx, cy, fwd = 0.0f, side = 0.0f, sp = 2.6f * dt;
     int i;
-    mm.t += dt;
+    if (!mm.paused)
+        mm.t += dt;
     if (mm.state == 3) {                               /* the title: on its own, or PLAY / a key skips it */
         mm.state_t -= dt;
         if (mm.state_t <= 0.0f || (mm.state_t < 4.0f && ((down_btn & (1u << B_PLAY)) || down_keys)))
@@ -287,6 +290,12 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         }
         return;
     }
+    if (down_btn & (1u << B_PLAY)) {                   /* PLAY: pause, and again to go on */
+        mm.paused ^= 1;
+        mm.held = mm.spin = 0.0f;
+    }
+    if (mm.paused)
+        return;
     mm.mttr += dt;
     mm.dir += (float)turn * 0.085f;
     if (keys & ((1u << 15) | (1u << 8) | (1u << 1)))   /* G#4 (up), C#4, F#3: forward */
@@ -312,7 +321,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     mm.fire_cool -= dt;
     mm.recoil *= fm_expf(-dt * 9.0f);
     mm.hurt -= dt;
-    if (mm.fire_cool <= 0.0f && ((down_btn & (1u << B_PLAY)) || (down_keys & (0xFFF80000u | (1u << 7) | (1u << 9) | (1u << 11) | (1u << 12)))))   /* PLAY, C4 D4 E4 F4, C5 up */
+    if (mm.fire_cool <= 0.0f && (down_keys & (0xFFF80000u | (1u << 7) | (1u << 9) | (1u << 11) | (1u << 12))))   /* C4 D4 E4 F4, C5 up */
         mm_fire();
     (void)btn;
     for (i = 0; i < MM_NENT; i++) {
@@ -682,13 +691,20 @@ static void mm_draw_hud(void)
     g_text(118, MM_VY1 + 15, &FONT_T, b, C_MID);
     g_text_r(234, MM_VY1 + 3, &FONT_T, "MOOM", C_TEAL);
     g_text_r(234, MM_VY1 + 15, &FONT_T, mm.level ? "LVL 2" : "LVL 1", C_DIM);
-    g_text_r(234, MM_VY1 + 28, &FONT_T, "HOME: EXIT", C_DIM);
+    g_text_r(234, MM_VY1 + 28, &FONT_T, "PLAY: PAUSE", C_DIM);
     g_text(4, MM_VY1 + 28, &FONT_T, mm.log[1], mm.log_col[1] ? mm.log_col[1] : C_DIM);
     if (mm.hurt > 0.0f) {                                             /* hit: the view's edge goes red */
         g_fill(0, MM_VY0, PLAT_W, 4, C_RED);
         g_fill(0, MM_VY1 - 4, PLAT_W, 4, C_RED);
         g_fill(0, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
         g_fill(PLAT_W - 4, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
+    }
+    if (mm.paused && mm.state == 0) {
+        g_fill(30, 80, 180, 64, RGB(8, 12, 10));
+        g_frame(30, 80, 180, 64, C_AMBER);
+        g_text_c(120, 88, &FONT_B, "BRIDGE ON HOLD", C_AMBER);
+        g_text_c(120, 110, &FONT_T, "PLAY: BACK TO THE CALL", C_MID);
+        g_text_c(120, 124, &FONT_T, "HOME: LEAVE MOOM", C_DIM);
     }
     if (mm.state == 1 || mm.state == 2) {
         g_fill(20, 86, 200, 52, RGB(8, 12, 10));
@@ -778,7 +794,7 @@ void moom_frame(void)
     mm.prev_btn = btn;
     mm.prev_keys = keys;
     mm_update(dt, keys, down_keys, btn, down_btn, turn);
-    moom_music = mm.state == 0 ? (uint8_t)(mm.level + 1) : 0;   /* the soundtrack under play only */
+    moom_music = mm.state == 0 && !mm.paused ? (uint8_t)(mm.level + 1) : 0;   /* the soundtrack under play only */
     if (mm.state == 3) {
         for (b = 0; b < PLAT_H; b += GB_H) {
             g_band(b);
