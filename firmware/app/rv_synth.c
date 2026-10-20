@@ -1214,6 +1214,7 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
         voice_engine_reset(v, eng);
         v->a.p = v->a.s = v->a.v = v->a.out = 0.0f;
         v->lad.s[0] = v->lad.s[1] = v->lad.s[2] = v->lad.s[3] = 0.0f;
+        __builtin_memset(v->zp.s, 0, sizeof(v->zp.s));
         v->svf.ic1 = v->svf.ic2 = 0.0f;
         v->lpg = 0.0f;
     } else if (eng == ENG_FM) {
@@ -1221,6 +1222,8 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
     }
     v->on = 1;
 }
+
+#include "rv_zplane.h"
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
@@ -1258,7 +1261,9 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         cut = eff[TP_CUT] * v->lpg + 6.0f;
     }
     cut = clampf(cut, 0.0f, 135.0f);
-    if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101 || ft == FT_SQ80)
+    if (ft >= FT_ZVOWEL)                              /* MORPH and XFORM */
+        zp_design(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
+    else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101 || ft == FT_SQ80)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
     else
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
@@ -1274,6 +1279,9 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         case FT_MS20: y = ms20_tick(&v->lad, x); break;
         case FT_SH101: y = sh101_tick(&v->lad, x); break;
         case FT_SQ80: y = sq80_tick(&v->lad, x); break;
+        case FT_ZVOWEL: case FT_ZTALK: case FT_ZPHASER: case FT_ZPEAKS: case FT_ZSWEEP: case FT_ZMETAL:
+            y = zp_tick(&v->zp, x);
+            break;
         case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
         case FT_BP: svf_tick(&v->svf, x, &bp, 0); y = bp * (1.0f + res); break;
         case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;

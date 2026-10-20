@@ -1894,7 +1894,9 @@ static void pic_filter(void)
         g_vline(x, PIC_Y + 6, 112, C_LINE);
     }
     for (i = 0; i <= 224; i += 2) {
-        float f = 20.0f * fm_exp2f((float)i / 224.0f * 10.0f), m = filt_mag(type == FT_LPG ? FT_LP : type, f, fc, res);
+        float f = 20.0f * fm_exp2f((float)i / 224.0f * 10.0f);
+        float m = type >= FT_ZVOWEL ? zp_mag(type - FT_ZVOWEL, rv_param_eff(t, TP_CUT) / 127.0f, res, f)
+                                    : filt_mag(type == FT_LPG ? FT_LP : type, f, fc, res);
         float db = 20.0f * fm_log2f(m + 1e-6f) * 0.30103f;
         int y = PIC_Y + 50 - (int)(db * 2.2f);
         if (y < PIC_Y + 4)

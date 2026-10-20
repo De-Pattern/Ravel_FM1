@@ -65,6 +65,9 @@ typedef struct {
  * GRIT rises), ENV 2 (the filter's) and its pure decay (pitch, the osc 3 transient), a delayed vibrato */
 typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
 
+/* a Z filter (rv_zplane.h): six sections' coefficients, their state, the level hold */
+typedef struct { float c[6][5], s[6][2], g; } zp_t;
+
 typedef struct {
     uint8_t on, track, gate, held_key;
     int8_t note;
@@ -77,6 +80,7 @@ typedef struct {
     uint8_t e_eng;                  /* the engine e's state belongs to, + 1 (0 = none) */
     ladder_t lad;
     svf_t svf;
+    zp_t zp;
     float lpg;
     float last;
     uint32_t rng;

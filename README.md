@@ -259,7 +259,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80 | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -269,6 +269,19 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
 
 **MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. **SQ-80** is warm and a touch dark: four transistor-style stages (after the CEM3379 chip in the Ensoniq SQ-80) whose resonance whistles rather than screams, and thins the bass as it rises, as the SQ-80's does. All three are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets, and any SQ preset. Picking the SQ engine sets the filter to SQ-80.
+
+**The Z filters** morph, in the manner of E-mu's Z-plane filters (Morpheus, the Audity, the later samplers). Each is twelve poles: six sections, peaks, dips and slopes, laid out at the four corners of a square. CUTOFF becomes **MORPH**, which moves across the square one way, and RESO becomes **XFORM**, which moves it the other. In between, every peak glides at once, so the whole shape turns into the next one rather than a single cutoff moving. The filter envelope (ENV), KEYTRK, the LFOs and the matrix move MORPH like any cutoff. The FILTER picture draws the real response as it morphs. The shapes are Ravel's own:
+
+| Type | MORPH (0 to 127) | XFORM (0 to 127) |
+| --- | --- | --- |
+| **Z VOWEL** | "ah" to "ee" | a lower, softer voice to a higher, sharper one |
+| **Z TALK** | "oo" to "ae": a talk box, best moved by the envelope | to "aw" and "er": tighter, more nasal |
+| **Z PHASER** | six notches sweeping up from low to high | from plain notches to notch-and-peak pairs: a phaser with its feedback up |
+| **Z PEAKS** | six resonant peaks rising together | from broad and glassy to narrow and ringing |
+| **Z SWEEP** | closed (a steep twelve-pole lowpass) to open | from smooth to a resonant peak riding the slope |
+| **Z METAL** | one set of clangorous, inharmonic peaks to another | from struck to long and ringing |
+
+Try the TALK BOX, PHASE PAD, Z VOX and Z SWEEP presets. The Z filters are on synth tracks, on any engine.
 
 The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
 
@@ -1038,6 +1051,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
 

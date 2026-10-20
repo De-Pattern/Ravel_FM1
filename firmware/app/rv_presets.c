@@ -128,6 +128,18 @@ static const int8_t q_organ[] = {TP_S0, 11, TP_S1, 18, TP_S2, 19, TP_S3, 12, TP_
                                  TP_S10, 127, TP_S12, 40, TP_S13, 24, TP_S14, 80, TP_S15, 100, SQF, TP_CUT, 110, TP_RES, 0,
                                  TP_EFILT, 0, TP_ATK, 2, TP_SUS, 127, TP_REL, 16, TP_POLY, 3, TP_LEVEL, 84, END};
 
+/* the Z filters: CUTOFF is MORPH, RESO is XFORM */
+static const int8_t p_talkbox[] = {TP_S0, 30, TP_S2, 3, TP_S3, 30, TP_FTYPE, FT_ZTALK, TP_CUT, 10, TP_RES, 70, TP_EFILT, 60,
+                                   TP_KTRK, 0, TP_ATK, 30, TP_DEC, 70, TP_SUS, 70, TP_REL, 40, TP_POLY, 0, TP_GLIDE, 20,
+                                   TP_LEVEL, 100, END};
+static const int8_t p_phasepad[] = {TP_S0, 0, TP_S2, 5, TP_S3, 40, TP_FTYPE, FT_ZPHASER, TP_CUT, 20, TP_RES, 110, TP_EFILT, 50,
+                                    TP_KTRK, 0, TP_ATK, 90, TP_DEC, 110, TP_SUS, 90, TP_REL, 90, TP_POLY, 3, TP_REVS, 60,
+                                    TP_LEVEL, 92, END};
+static const int8_t p_zvox[] = {TP_S0, 0, TP_FTYPE, FT_ZVOWEL, TP_CUT, 0, TP_RES, 60, TP_EFILT, 64, TP_KTRK, 0, TP_ATK, 50,
+                                TP_DEC, 90, TP_SUS, 20, TP_REL, 60, TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 100, END};
+static const int8_t p_zsweep[] = {TP_S0, 64, TP_FTYPE, FT_ZSWEEP, TP_CUT, 30, TP_RES, 100, TP_EFILT, 50, TP_KTRK, 40, TP_ATK, 0,
+                                  TP_DEC, 55, TP_SUS, 40, TP_REL, 25, TP_POLY, 0, TP_LEVEL, 100, END};
+
 /* --------------------------------------------------------------- strike --- */
 static const int8_t s_wood[] = {TP_S0, EXC_CLICK, TP_S1, BODY_MODAL, TP_S2, 52, TP_S3, 60, TP_S5, 12, TP_S10, 40, TP_S11, 10, TP_LEVEL, 100, END};
 static const int8_t s_metal[] = {TP_S0, EXC_METAL, TP_S1, BODY_DISC, TP_S2, 84, TP_S3, 96, TP_S5, 40, TP_S13, 20, TP_S12, 80, TP_LEVEL, 76, TP_REVS, 30, END};
@@ -166,6 +178,8 @@ static const rv_preset presets[] = {
     {"SQ PIANO", KIND_SYNTH, ENG_SQ, q_piano, 0}, {"SQ VOX", KIND_SYNTH, ENG_SQ, q_vox, 0}, {"SQ BELLS", KIND_SYNTH, ENG_SQ, q_bells, 0},
     {"SQ BASS", KIND_SYNTH, ENG_SQ, q_bass, 0}, {"SQ SYNC", KIND_SYNTH, ENG_SQ, q_sync, 0}, {"SQ PAD", KIND_SYNTH, ENG_SQ, q_pad, 0},
     {"SQ ORGAN", KIND_SYNTH, ENG_SQ, q_organ, 0},
+    {"TALK BOX", KIND_SYNTH, ENG_VA, p_talkbox, 0}, {"PHASE PAD", KIND_SYNTH, ENG_VA, p_phasepad, 0},
+    {"Z VOX", KIND_SYNTH, ENG_VA, p_zvox, 0}, {"Z SWEEP", KIND_SYNTH, ENG_VA, p_zsweep, 0},
     {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},
