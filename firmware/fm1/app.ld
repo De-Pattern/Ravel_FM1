@@ -27,7 +27,7 @@ SECTIONS
     _rt_end = _c1_end;                  /* the guard's RAM code window covers both */
     .data : { . = ALIGN(4); _data_start = .; *(.data*) *(.sdata*) . = ALIGN(4); _data_end = .; } > RAM AT > XIP
     _data_load = LOADADDR(.data);
-    .bss (NOLOAD) : { _bss_start = .; *(EXCLUDE_FILE(*rv_app.o *bd.o) .bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .sbss*)
+    .bss (NOLOAD) : { _bss_start = .; *(.rv_ram_bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .sbss*)
                      *(EXCLUDE_FILE(*rv_app.o *bd.o) COMMON) . = ALIGN(4); _bss_end = .; } > RAM
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) *rv_app.o(.bss* .sbss* COMMON) *bd.o(.bss* .sbss* COMMON)
                        . = ALIGN(4); _pool_end = .; } > POOL

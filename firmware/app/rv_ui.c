@@ -1791,10 +1791,13 @@ static void buttons(uint32_t now_btn)
     ui.prev_btn = now_btn;
 }
 
+static int moom_on(void);
 void ui_input_only(void)
 {
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
     int i, d;
+    if (moom_on())                                    /* (the game reads its own input, once a frame) */
+        return;
     buttons(btn);
     ch = keys ^ ui.prev_keys;
     for (i = 0; i < NKEYS; i++)
@@ -3360,9 +3363,15 @@ static void leds(void)
     plat_leds(lb, lk);
 }
 
+#include "rv_moom.c"
+
 void ui_frame(void)
 {
     int b, i, j;
+    if (mm.on) {                                      /* the hidden game has the screen and the panel */
+        moom_frame();
+        return;
+    }
     ui_input_only();
     ui.frame++;
     for (i = 0; i < RV_TRACKS; i++)

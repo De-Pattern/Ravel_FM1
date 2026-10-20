@@ -245,6 +245,9 @@ static void fm1_main(void)
     if ((fm1_in.buttons & ((1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]))) ==
         ((1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP])))
         panel_setup();                              /* OCT- + OCT+ held at power-on: calibration */
+    else if ((fm1_in.buttons & ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE]))) ==
+             ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE])))
+        moom_start();                               /* HOME + SAVE held at power-on: the hidden game */
 
     for (;;) {
         fm1_wdt_feed();

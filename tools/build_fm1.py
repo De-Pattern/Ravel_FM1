@@ -211,6 +211,7 @@ def build_app():
             flags.append(f"-D{flag}={v}")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     flags.append("-DRV_NO_AUDIO_IN")    # the FM-1 build has no audio input: its controls are hidden
+    flags.append("-DRV_FM1")            # RV_RAMBSS: state placed in plain RAM, outside the pool
     o2 = [f if f != "-Os" else "-O2" for f in flags] + BD + ["-Wno-unused-variable"]
     OUT.mkdir(parents=True, exist_ok=True)
     units = [("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),

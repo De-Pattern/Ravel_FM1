@@ -244,6 +244,14 @@ typedef struct {
 
 extern rv_project rv;                      /* the project being played */
 
+/* state that may live outside the FM-1's RAM pool (app.ld puts .rv_ram_bss in plain RAM) */
+#ifdef RV_FM1
+#define RV_RAMBSS __attribute__((section(".rv_ram_bss")))
+#else
+#define RV_RAMBSS
+#endif
+void moom_start(void);                     /* the hidden game (rv_moom.c) */
+
 /* ------------------------------------------------------------- live state --- */
 /* what the screen reads (written by the audio side, read by the control side: stale is fine) */
 typedef struct {

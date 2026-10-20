@@ -1,0 +1,692 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* MOOM: a hidden first-person game. A major incident manager in business casual walks the bank's
+ * infrastructure (server racks, log walls, dashboards) with a mouse-shaped blaster and resolves
+ * bugs, failed changes and 500 errors before the uptime runs out. A raycaster (as Wolfenstein 3D
+ * drew it) on the 240 x 240 screen, drawn band by band like the rest of the UI; every wall,
+ * sprite and sound is made in code. Included by rv_ui.c (it uses the drawing primitives).
+ *
+ * In: hold HOME and SAVE while powering on (the emulator: its MOOM button). Out: HOME. The synth
+ * stops while it runs and starts again afterwards (if it was playing). Its state lives outside the
+ * RAM pool (RV_RAMBSS).
+ *
+ * Keys: C#4 forward, D4 back, C4 / E4 sideways (the left hand: F#3 forward, G3 back, F3 / A3);
+ * SELECT or any knob turns; PLAY or any key from C5 up clicks. */
+
+#define MM_W 16
+#define MM_VY0 16                      /* the view: rows 16..199 */
+#define MM_VY1 200
+#define MM_HZ ((MM_VY0 + MM_VY1) / 2)
+#define MM_NENT 24
+enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE };
+enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE };
+
+typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
+typedef struct {
+    uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down */
+    float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t;
+    uint32_t last_ms, prev_btn, prev_keys;
+    int open, total;
+    char map[MM_W * MM_W];
+    mm_ent e[MM_NENT];
+    int16_t top[PLAT_W], bot[PLAT_W], htop[PLAT_W];   /* per column: the wall's drawn span and its true top */
+    uint8_t wtype[PLAT_W], tex[PLAT_W], shade[PLAT_W];
+    float zbuf[PLAT_W];
+    char log[3][40];
+    uint16_t log_col[3];
+} moom_t;
+static moom_t mm RV_RAMBSS;
+static int moom_on(void) { return mm.on; }
+
+/* '#' rack, 'L' log wall, 'D' dashboard, 'X' the exit (opens when all is resolved);
+ * 'P' start, 'b' bug, 'c' failed change, 'e' 500 error, 'k' coffee */
+static const char *const mm_levels[2][MM_W] = {
+    {"################",
+     "#P..#....L.....#",
+     "#...#..b.L..c..#",
+     "#...D.........e#",
+     "#.....##LL..#..#",
+     "#..b..#.....#..#",
+     "##.####..k..D..#",
+     "#......#....#..#",
+     "#.c....#.b..##.#",
+     "#..LL..........#",
+     "#..L.....##.e..#",
+     "#..L..k..##....#",
+     "#.....b........#",
+     "####D....LL..c.#",
+     "#e.......L....XX",
+     "################"},
+    {"################",
+     "#P....D...L....#",
+     "#.....D.e.L..b.#",
+     "#..b..........c#",
+     "#LLL..###..LLL.#",
+     "#..........#...#",
+     "#.e..k.....#.e.#",
+     "#....###...#...#",
+     "#.c..#.....D...#",
+     "#....#..b......#",
+     "##D..#.....###.#",
+     "#....L..e..#k..#",
+     "#.b..L.....#...#",
+     "#....L..c..D.b.#",
+     "#e...........XX#",
+     "################"}};
+static const char *const mm_names[2] = {"DATA CENTER A", "CORE SYSTEMS"};
+
+static uint32_t mm_hash(uint32_t x)
+{
+    x ^= x >> 16;
+    x *= 0x7FEB352Du;
+    x ^= x >> 15;
+    x *= 0x846CA68Bu;
+    return x ^ (x >> 16);
+}
+static uint16_t mm_dim(uint16_t c, int s)      /* s: 0..255 brightness */
+{
+    int r = (c >> 11) * s >> 8, g = ((c >> 5) & 63) * s >> 8, b = (c & 31) * s >> 8;
+    return (uint16_t)(r << 11 | g << 5 | b);
+}
+
+static void mm_log(const char *s, uint16_t c)
+{
+    int i;
+    for (i = 0; i < 2; i++) {
+        __builtin_memcpy(mm.log[i], mm.log[i + 1], sizeof mm.log[i]);
+        mm.log_col[i] = mm.log_col[i + 1];
+    }
+    for (i = 0; i < 39 && s[i]; i++)
+        mm.log[2][i] = s[i];
+    mm.log[2][i] = 0;
+    mm.log_col[2] = c;
+}
+static void mm_logn(const char *a, int n, const char *b, uint16_t c)
+{
+    char s[40] = {0};
+    int k = sx_cat(s, a);
+    k = sx_int(s + k, n);
+    sx_cat(s, b);
+    mm_log(s, c);
+}
+
+static void mm_sfx(int k) { moom_sfx_req = (uint8_t)k; }
+
+static void mm_load(int lv)
+{
+    int x, y, n = 0;
+    mm.level = (uint8_t)(lv & 1);
+    __builtin_memset(mm.e, 0, sizeof mm.e);
+    mm.open = 0;
+    for (y = 0; y < MM_W; y++)
+        for (x = 0; x < MM_W; x++) {
+            char c = mm_levels[mm.level][y][x];
+            mm.map[y * MM_W + x] = (c == '#' || c == 'L' || c == 'D' || c == 'X') ? c : '.';
+            if (c == 'P') {
+                mm.px = x + 0.5f;
+                mm.py = y + 0.5f;
+                mm.dir = 0.0f;
+            } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k') && n < MM_NENT) {
+                mm_ent *e = &mm.e[n++];
+                e->x = x + 0.5f;
+                e->y = y + 0.5f;
+                e->alive = 1;
+                e->kind = c == 'b' ? ME_BUG : c == 'c' ? ME_CHG : c == 'e' ? ME_ERR : ME_COFFEE;
+                e->hp = e->kind == ME_BUG ? 1.0f : e->kind == ME_CHG ? 2.0f : 3.0f;
+                if (e->kind != ME_COFFEE)
+                    mm.open++;
+            }
+        }
+    mm.total = mm.open;
+    mm.uptime = 100.0f;
+    mm.state = 0;
+    mm.mttr = 0.0f;
+    mm_log("SEV1 DECLARED  BRIDGE OPEN", C_RED);
+    mm_logn("SCOPE: ", mm.open, " OPEN ISSUES", C_AMBER);
+    mm_log(mm_names[mm.level], C_TEAL);
+}
+
+static int mm_wall(float x, float y)
+{
+    int ix = (int)x, iy = (int)y;
+    char c;
+    if (ix < 0 || iy < 0 || ix >= MM_W || iy >= MM_W)
+        return 1;
+    c = mm.map[iy * MM_W + ix];
+    return c != '.' && !(c == 'X' && mm.open == 0);
+}
+
+void moom_start(void)
+{
+    __builtin_memset(&mm, 0, sizeof mm);
+    mm.on = 1;
+    mm.was_playing = rv_live.playing;
+    if (rv_live.playing)
+        rv_transport(0);
+    rv_all_off();
+    mm.last_ms = plat_ms();
+    mm.prev_btn = plat_buttons();
+    mm.prev_keys = plat_keys();
+    mm_load(0);
+}
+
+static void moom_stop(void)
+{
+    mm.on = 0;
+    ui.prev_btn = plat_buttons();          /* no button or key edge leaks into the synth */
+    ui.prev_keys = plat_keys();
+    if (mm.was_playing)
+        rv_transport(1);
+}
+
+/* ------------------------------------------------------------ the world --- */
+static void mm_move(float dx, float dy)
+{
+    const float r = 0.22f;
+    if (!mm_wall(mm.px + dx + (dx > 0 ? r : -r), mm.py))
+        mm.px += dx;
+    if (!mm_wall(mm.px, mm.py + dy + (dy > 0 ? r : -r)))
+        mm.py += dy;
+}
+
+static int mm_sees(float x0, float y0, float x1, float y1)   /* a clear line of sight */
+{
+    float dx = x1 - x0, dy = y1 - y0, d = fm_sqrtf(dx * dx + dy * dy);
+    int i, n = (int)(d * 4.0f) + 1;
+    for (i = 1; i < n; i++)
+        if (mm_wall(x0 + dx * i / n, y0 + dy * i / n))
+            return 0;
+    return 1;
+}
+
+static void mm_fire(void)
+{
+    float cx = fm_cosf(mm.dir), cy = fm_sinf(mm.dir), best = 1e9f;
+    int i, hit = -1;
+    for (i = 0; i < MM_NENT; i++) {
+        mm_ent *e = &mm.e[i];
+        float dx, dy, along, side;
+        if (!e->alive || e->dying > 0.0f || e->kind == ME_COFFEE)
+            continue;
+        dx = e->x - mm.px;
+        dy = e->y - mm.py;
+        along = dx * cx + dy * cy;
+        side = -dx * cy + dy * cx;
+        if (along > 0.1f && fm_fabsf(side) < 0.32f && along < best && along < mm.zbuf[PLAT_W / 2] + 0.3f) {
+            best = along;
+            hit = i;
+        }
+    }
+    mm.fire_cool = 0.28f;
+    mm.recoil = 1.0f;
+    if (hit < 0) {
+        mm_sfx(SFX_CLICK);
+        return;
+    }
+    {
+        mm_ent *e = &mm.e[hit];
+        e->hp -= 1.0f;
+        e->flash = 0.12f;
+        if (e->hp <= 0.0f) {
+            static const char *const done[4] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
+                                                "INFO 500S CLEARED, SVC HEALTHY"};
+            e->dying = 0.6f;
+            mm.open--;
+            mm_sfx(SFX_KILL);
+            mm_log(done[e->kind], C_TEAL);
+            if (mm.open == 0) {
+                mm_log("ALL CLEAR: EXIT ACCESS GRANTED", RGB(110, 210, 120));
+                mm_sfx(SFX_WIN);
+            }
+        } else
+            mm_sfx(SFX_HIT);
+    }
+}
+
+static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn, uint32_t down_btn, int turn)
+{
+    float cx, cy, fwd = 0.0f, side = 0.0f, sp = 2.6f * dt;
+    int i;
+    mm.t += dt;
+    if (mm.state != 0) {                               /* a message, then on */
+        mm.state_t -= dt;
+        if (mm.state_t <= 0.0f) {
+            if (mm.state == 1)
+                mm_load(mm.level + 1);
+            else
+                mm_load(mm.level);
+        }
+        return;
+    }
+    mm.mttr += dt;
+    mm.dir += (float)turn * 0.085f;
+    if (keys & ((1u << 8) | (1u << 1)))
+        fwd += 1.0f;
+    if (keys & ((1u << 9) | (1u << 2)))
+        fwd -= 1.0f;
+    if (keys & ((1u << 7) | (1u << 0)))
+        side -= 1.0f;
+    if (keys & ((1u << 11) | (1u << 4)))
+        side += 1.0f;
+    if (keys & (1u << 3))
+        mm.dir -= 2.2f * dt;                           /* G#3 / A#3: turn without a knob */
+    if (keys & (1u << 5))
+        mm.dir += 2.2f * dt;
+    cx = fm_cosf(mm.dir);
+    cy = fm_sinf(mm.dir);
+    if (fwd != 0.0f || side != 0.0f)
+        mm_move((cx * fwd - cy * side) * sp, (cy * fwd + cx * side) * sp);
+    mm.fire_cool -= dt;
+    mm.recoil *= fm_expf(-dt * 9.0f);
+    mm.hurt -= dt;
+    if (mm.fire_cool <= 0.0f && ((down_btn & (1u << B_PLAY)) || (down_keys & 0xFFF80000u)))
+        mm_fire();
+    (void)btn;
+    for (i = 0; i < MM_NENT; i++) {
+        mm_ent *e = &mm.e[i];
+        float dx, dy, d;
+        if (!e->alive)
+            continue;
+        e->flash -= dt;
+        if (e->dying > 0.0f) {
+            e->dying -= dt;
+            if (e->dying <= 0.0f)
+                e->alive = 0;
+            continue;
+        }
+        dx = mm.px - e->x;
+        dy = mm.py - e->y;
+        d = fm_sqrtf(dx * dx + dy * dy);
+        if (e->kind == ME_COFFEE) {
+            if (d < 0.5f && mm.uptime < 100.0f) {
+                e->alive = 0;
+                mm.uptime = fm_minf(100.0f, mm.uptime + 30.0f);
+                mm_sfx(SFX_PICK);
+                mm_log("COFFEE: UPTIME +30%", C_AMBER);
+            }
+            continue;
+        }
+        if (d > 0.55f && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
+            float v = (e->kind == ME_BUG ? 1.1f : e->kind == ME_CHG ? 0.7f : 1.5f) * dt / d;
+            float nx = e->x + dx * v, ny = e->y + dy * v;
+            if (!mm_wall(nx, e->y))
+                e->x = nx;
+            if (!mm_wall(e->x, ny))
+                e->y = ny;
+        } else if (d <= 0.6f) {                        /* close enough to hurt */
+            mm.uptime -= (e->kind == ME_BUG ? 7.0f : e->kind == ME_CHG ? 10.0f : 14.0f) * dt;
+            e->cool -= dt;
+            if (e->cool <= 0.0f) {
+                e->cool = 0.6f;
+                mm.hurt = 0.25f;
+                mm_sfx(SFX_HURT);
+            }
+        }
+    }
+    if (mm.uptime <= 0.0f) {
+        mm.uptime = 0.0f;
+        mm.state = 2;
+        mm.state_t = 3.0f;
+        mm_sfx(SFX_DIE);
+        mm_log("SLA BREACHED: ESCALATED TO EXECS", C_RED);
+    }
+    if (mm.open == 0 && (int)mm.px >= MM_W - 3 && (int)mm.py >= MM_W - 3) {   /* through the exit */
+        mm.state = 1;
+        mm.state_t = 3.5f;
+        mm_sfx(SFX_WIN);
+        mm_log("RESOLVED. RCA DUE FRIDAY", RGB(110, 210, 120));
+    }
+}
+
+/* --------------------------------------------------------- the picture --- */
+static void mm_cast(void)
+{
+    float cx = fm_cosf(mm.dir), cy = fm_sinf(mm.dir), plx = -cy * 0.66f, ply = cx * 0.66f;
+    int x;
+    for (x = 0; x < PLAT_W; x++) {
+        float cam = 2.0f * x / PLAT_W - 1.0f, rx = cx + plx * cam, ry = cy + ply * cam;
+        int mx = (int)mm.px, my = (int)mm.py, sx, sy, side = 0, i, h;
+        float ddx = rx == 0.0f ? 1e30f : fm_fabsf(1.0f / rx), ddy = ry == 0.0f ? 1e30f : fm_fabsf(1.0f / ry), sdx, sdy, d, wx;
+        char c = '#';
+        sx = rx < 0 ? -1 : 1;
+        sy = ry < 0 ? -1 : 1;
+        sdx = (rx < 0 ? mm.px - mx : mx + 1.0f - mm.px) * ddx;
+        sdy = (ry < 0 ? mm.py - my : my + 1.0f - mm.py) * ddy;
+        for (i = 0; i < 64; i++) {
+            if (sdx < sdy) {
+                sdx += ddx;
+                mx += sx;
+                side = 0;
+            } else {
+                sdy += ddy;
+                my += sy;
+                side = 1;
+            }
+            if (mx < 0 || my < 0 || mx >= MM_W || my >= MM_W)
+                break;
+            c = mm.map[my * MM_W + mx];
+            if (c != '.' && !(c == 'X' && mm.open == 0))
+                break;
+        }
+        d = side == 0 ? sdx - ddx : sdy - ddy;
+        if (d < 0.05f)
+            d = 0.05f;
+        wx = side == 0 ? mm.py + d * ry : mm.px + d * rx;
+        wx -= fm_floorf(wx);
+        h = (int)((MM_VY1 - MM_VY0) / d);
+        mm.zbuf[x] = d;
+        mm.htop[x] = (int16_t)(MM_HZ - h / 2);
+        mm.top[x] = (int16_t)(MM_HZ - h / 2 < MM_VY0 ? MM_VY0 : MM_HZ - h / 2);
+        mm.bot[x] = (int16_t)(MM_HZ + h / 2 > MM_VY1 ? MM_VY1 : MM_HZ + h / 2);
+        mm.wtype[x] = (uint8_t)c;
+        mm.tex[x] = (uint8_t)(wx * 255.0f);
+        mm.shade[x] = (uint8_t)clampi((int)(255.0f / (1.0f + d * 0.22f)) - side * 40, 40, 255);
+    }
+}
+
+/* the walls, made in code: u, v in 0..255 */
+static uint16_t mm_wall_px(int type, int u, int v, int x)
+{
+    uint32_t t = (uint32_t)(mm.t * 8.0f);
+    switch (type) {
+    case 'L': {                                        /* a log viewer: lines of text scrolling up, coloured by level */
+        int row = (v + (int)(mm.t * 40.0f)) / 14, in = (v + (int)(mm.t * 40.0f)) % 14;
+        uint32_t h = mm_hash((uint32_t)row * 977u + (uint32_t)x / 8u * 0u + 31u);
+        int len = 90 + (int)(h % 150), lvl = (int)(h >> 8) % 10;
+        uint16_t tc = lvl == 0 ? C_RED : lvl < 3 ? C_AMBER : lvl < 6 ? C_TEAL : RGB(120, 190, 130);
+        if (in < 3 || in > 10 || u < 14 || u > len)
+            return RGB(10, 16, 13);
+        if (u < 34)
+            return C_DIM;                              /* the timestamp */
+        return (mm_hash((uint32_t)row * 131u + (uint32_t)u / 6u) & 3) ? tc : RGB(10, 16, 13);   /* words */
+    }
+    case 'D': {                                        /* a dashboard: a grid and a live series with a spike */
+        int f, g = (u % 32 == 0) || (v % 32 == 0);
+        float ph = (float)u * 0.05f + mm.t * 1.7f;
+        f = 140 + (int)(fm_sinf(ph) * 30.0f + fm_sinf(ph * 2.3f) * 12.0f);
+        if (((u + (int)(mm.t * 60.0f)) & 255) > 200)
+            f -= 70;                                   /* an incident in the graph */
+        if (v < 18)
+            return v < 16 ? RGB(28, 38, 44) : C_LINE;  /* the panel's title bar */
+        if (v > f - 3 && v < f + 3)
+            return ((u + (int)(mm.t * 60.0f)) & 255) > 200 ? C_RED : C_TEAL;
+        if (v > f)
+            return RGB(18, 40, 46);                    /* the area under the line */
+        return g ? RGB(30, 40, 36) : RGB(14, 22, 20);
+    }
+    case 'X':                                          /* the exit: a red door, green once all is clear */
+        if (u < 16 || u > 240 || v < 10)
+            return RGB(60, 64, 62);
+        return mm.open ? ((v / 20 + u / 40) & 1 ? RGB(150, 40, 40) : RGB(120, 30, 30)) : RGB(60, 170, 90);
+    default: {                                         /* a server rack: units, vents, blinking lights */
+        int unit = v / 21, iv = v % 21;
+        if (u < 18 || u > 237)
+            return RGB(40, 44, 46);                    /* the rails */
+        if (iv == 0)
+            return RGB(18, 20, 22);
+        if (u > 30 && u < 40 && iv > 7 && iv < 13) {
+            uint32_t h = mm_hash((uint32_t)unit * 13u + (uint32_t)x / 64u + (t >> (unit & 3)));
+            return (h & 3) == 0 ? C_AMBER : (h & 7) == 1 ? C_RED : RGB(80, 220, 120);
+        }
+        if (u > 60 && u < 220 && iv > 5 && iv < 16 && (u & 3) == 0)
+            return RGB(22, 26, 28);                    /* vents */
+        return RGB(48, 54, 58);
+    }
+    }
+}
+
+/* the distance from (u, v) to the segment (x0, y0)-(x1, y1) */
+static float mm_seg(float u, float v, float x0, float y0, float x1, float y1)
+{
+    float dx = x1 - x0, dy = y1 - y0, k = ((u - x0) * dx + (v - y0) * dy) / (dx * dx + dy * dy), px, py;
+    k = k < 0.0f ? 0.0f : k > 1.0f ? 1.0f : k;
+    px = x0 + k * dx - u;
+    py = y0 + k * dy - v;
+    return fm_sqrtf(px * px + py * py);
+}
+
+/* the sprites: u, v in 0..1; returns 0 for see-through */
+static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
+{
+    float t = mm.t, dx, dy;
+    if (e->dying > 0.0f) {                             /* resolved: a green check that fades */
+        float a = e->dying / 0.6f, d1, d2;
+        d1 = mm_seg(u, v, 0.24f, 0.52f, 0.42f, 0.70f);   /* the short stroke, then the long one */
+        d2 = mm_seg(u, v, 0.42f, 0.70f, 0.80f, 0.26f);
+        if (d1 < 0.055f || d2 < 0.055f)
+            return mm_dim(RGB(90, 230, 120), (int)(255 * a));
+        return 0;
+    }
+    if (e->flash > 0.0f) {
+        uint16_t c = mm_sprite_px(&(mm_ent){e->x, e->y, e->hp, 0.0f, 0.0f, 0.0f, e->kind, 1}, u, v);
+        return c ? C_WHITE : 0;
+    }
+    switch (e->kind) {
+    case ME_BUG: {                                     /* a beetle: body, head, six legs that walk, antennae */
+        float leg = fm_sinf(t * 18.0f) * 0.03f;
+        dx = (u - 0.5f) / 0.26f;
+        dy = (v - 0.62f) / 0.22f;
+        if (dx * dx + dy * dy < 1.0f)
+            return fm_fabsf(u - 0.5f) < 0.012f ? RGB(60, 0, 20) : RGB(200, 30, 70);
+        dx = (u - 0.5f) / 0.12f;
+        dy = (v - 0.36f) / 0.1f;
+        if (dx * dx + dy * dy < 1.0f)
+            return (fm_fabsf(u - 0.45f) < 0.03f || fm_fabsf(u - 0.55f) < 0.03f) && fm_fabsf(v - 0.34f) < 0.03f ? C_WHITE : RGB(110, 10, 40);
+        {
+            int k;
+            for (k = 0; k < 3; k++) {
+                float ly = 0.52f + k * 0.1f + ((k & 1) ? leg : -leg);
+                if (fm_fabsf(v - ly - (u - 0.5f) * 0.25f) < 0.018f && fm_fabsf(u - 0.5f) > 0.2f && fm_fabsf(u - 0.5f) < 0.42f)
+                    return RGB(70, 10, 30);
+            }
+        }
+        if (v < 0.28f && v > 0.12f && (fm_fabsf(u - 0.42f + (0.28f - v) * 0.6f) < 0.015f || fm_fabsf(u - 0.58f - (0.28f - v) * 0.6f) < 0.015f))
+            return RGB(70, 10, 30);
+        return 0;
+    }
+    case ME_CHG: {                                     /* a change ticket: paper, a red header, CHG, a big red X */
+        float bob = fm_sinf(t * 3.0f) * 0.02f;
+        v -= bob;
+        if (u < 0.22f || u > 0.78f || v < 0.12f || v > 0.9f)
+            return 0;
+        if (fm_fabsf((u - 0.22f) - (v - 0.2f) * 0.8f) < 0.05f || fm_fabsf((0.78f - u) - (v - 0.2f) * 0.8f) < 0.05f)
+            return v > 0.22f ? C_RED : RGB(160, 20, 20);
+        if (v < 0.24f)
+            return RGB(160, 20, 20);
+        if (v > 0.3f && ((int)(v * 40.0f) & 1) == 0 && u > 0.28f && u < 0.72f)
+            return RGB(150, 150, 150);
+        return RGB(232, 228, 214);
+    }
+    case ME_ERR: {                                     /* a 500 error box that glitches */
+        float g = ((mm_hash((uint32_t)(v * 30.0f) + (uint32_t)(t * 12.0f)) & 15) == 0) ? 0.06f : 0.0f;
+        static const uint16_t dig[3] = {0x79CF, 0x7B6F, 0x7B6F};   /* 5, 0, 0 as 3 x 5 bitmaps */
+        u -= g;
+        if (u < 0.1f || u > 0.9f || v < 0.22f || v > 0.82f)
+            return 0;
+        if (v < 0.32f)
+            return u > 0.8f && u < 0.86f ? C_WHITE : RGB(170, 20, 30);
+        if (v > 0.42f && v < 0.72f && u > 0.2f && u < 0.8f) {
+            int d = (int)((u - 0.2f) / 0.2f), cx = (int)(((u - 0.2f) - d * 0.2f) / 0.2f * 4.0f), cy = (int)((v - 0.42f) / 0.3f * 5.0f);
+            if (d < 3 && cx < 3 && ((dig[d] >> (14 - (cy * 3 + cx))) & 1))
+                return C_WHITE;
+        }
+        return RGB(220, 40, 50);
+    }
+    default: {                                         /* coffee: a mug and steam */
+        float s = fm_sinf(v * 20.0f + t * 4.0f) * 0.03f;
+        if (v > 0.55f && v < 0.9f && u > 0.32f && u < 0.62f)
+            return v < 0.6f ? RGB(80, 50, 30) : RGB(236, 232, 224);
+        if (v > 0.62f && v < 0.82f && u > 0.62f && u < 0.72f && !(u > 0.64f && u < 0.69f && v > 0.66f && v < 0.78f))
+            return RGB(236, 232, 224);
+        if (v > 0.28f && v < 0.5f && (fm_fabsf(u - 0.42f - s) < 0.015f || fm_fabsf(u - 0.52f + s) < 0.015f))
+            return RGB(160, 170, 165);
+        return 0;
+    }
+    }
+}
+
+/* the view in this band: ceiling, walls, floor, then the sprites far to near */
+static void mm_draw_view(void)
+{
+    int x, y, y0 = g_y0 > MM_VY0 ? g_y0 : MM_VY0, y1 = g_y1 < MM_VY1 ? g_y1 : MM_VY1, i, j;
+    float cx = fm_cosf(mm.dir), cy = fm_sinf(mm.dir);
+    int order[MM_NENT], n = 0;
+    float dist[MM_NENT];
+    if (y0 >= y1)
+        return;
+    for (x = 0; x < PLAT_W; x++) {
+        int top = mm.top[x], bot = mm.bot[x], h = MM_HZ - mm.htop[x];
+        for (y = y0; y < y1; y++) {
+            uint16_t c;
+            if (y < top)                                 /* the ceiling: cable trays */
+                c = ((y - MM_VY0) % 22 == 0 || (x + y) % 40 == 0) ? RGB(26, 30, 34) : RGB(16, 18, 22);
+            else if (y >= bot) {                       /* the raised floor: tiles that close in */
+                int dy = y - MM_HZ, row = 2000 / (dy > 0 ? dy : 1);
+                c = (row % 8 == 0) ? RGB(40, 46, 44) : RGB(24, 28, 27);
+            } else
+                c = mm_dim(mm_wall_px(mm.wtype[x], mm.tex[x], (y - mm.htop[x]) * 128 / (h > 0 ? h : 1), x), mm.shade[x]);
+            gb[(y - g_y0) * PLAT_W + x] = c;
+        }
+    }
+    for (i = 0; i < MM_NENT; i++)
+        if (mm.e[i].alive) {
+            float dx = mm.e[i].x - mm.px, dy = mm.e[i].y - mm.py;
+            dist[n] = dx * dx + dy * dy;
+            order[n++] = i;
+        }
+    for (i = 1; i < n; i++)                            /* far to near */
+        for (j = i; j > 0 && dist[j] > dist[j - 1]; j--) {
+            float tf = dist[j];
+            int ti = order[j];
+            dist[j] = dist[j - 1];
+            order[j] = order[j - 1];
+            dist[j - 1] = tf;
+            order[j - 1] = ti;
+        }
+    for (i = 0; i < n; i++) {
+        const mm_ent *e = &mm.e[order[i]];
+        float dx = e->x - mm.px, dy = e->y - mm.py, along = dx * cx + dy * cy, side = -dx * cy + dy * cx;
+        int sxc, size, sx0, sy0, shade;
+        if (along < 0.15f)
+            continue;
+        sxc = (int)(PLAT_W / 2 * (1.0f + side / (along * 0.66f)));
+        size = (int)((MM_VY1 - MM_VY0) / along * 0.8f);
+        sx0 = sxc - size / 2;
+        sy0 = MM_HZ - size / 2 + (int)((MM_VY1 - MM_VY0) / along * 0.1f);
+        shade = clampi((int)(255.0f / (1.0f + along * 0.18f)), 60, 255);
+        for (x = sx0 < 0 ? 0 : sx0; x < sx0 + size && x < PLAT_W; x++) {
+            if (mm.zbuf[x] < along)
+                continue;
+            for (y = sy0 < y0 ? y0 : sy0; y < sy0 + size && y < y1; y++) {
+                uint16_t c = mm_sprite_px(e, (float)(x - sx0) / size, (float)(y - sy0) / size);
+                if (c)
+                    gb[(y - g_y0) * PLAT_W + x] = mm_dim(c, shade);
+            }
+        }
+    }
+}
+
+/* the incident manager's hand: a business-casual cuff, a hand, a mouse-shaped blaster */
+static void mm_draw_hand(void)
+{
+    int r = (int)(mm.recoil * 10.0f), bx = 150 + r / 2, by = 150 + r;
+    g_fill(bx + 36, by + 26, 54, 30, RGB(150, 186, 222));            /* the shirt sleeve */
+    g_fill(bx + 32, by + 22, 10, 30, RGB(236, 240, 244));             /* the cuff */
+    g_disc(bx + 26, by + 30, 14, RGB(222, 176, 140));                 /* the hand */
+    g_fill(bx + 14, by + 30, 26, 14, RGB(222, 176, 140));
+    g_disc(bx + 12, by + 8, 16, RGB(226, 228, 230));                  /* the mouse */
+    g_fill(bx - 4, by + 8, 32, 24, RGB(226, 228, 230));
+    g_vline(bx + 12, by - 6, 16, RGB(150, 154, 158));                 /* its two buttons */
+    g_fill(bx + 10, by - 2, 5, 8, RGB(90, 94, 98));                   /* the wheel */
+    g_line(bx + 12, by - 8, bx + 4, by - 26, RGB(70, 74, 78));        /* the cable, the barrel */
+    if (mm.recoil > 0.55f) {                                          /* a click: rings and a cursor flash */
+        g_frame(bx - 2, by - 40, 20, 20, C_TEAL);
+        g_frame(bx - 8, by - 46, 32, 32, C_TEAL_D);
+    }
+    {   /* the crosshair: a mouse pointer */
+        int x0 = PLAT_W / 2, y0 = MM_HZ - 6, k;
+        for (k = 0; k < 10; k++)
+            g_hline(x0, y0 + k, k < 7 ? k / 2 + 1 : 2, C_WHITE);
+        g_line(x0, y0, x0, y0 + 9, RGB(20, 20, 20));
+    }
+}
+
+static void mm_draw_hud(void)
+{
+    char b[24];
+    int up = (int)(mm.uptime + 0.5f), w = up * 70 / 100, m = (int)mm.mttr;
+    uint16_t uc = up > 60 ? RGB(90, 210, 120) : up > 30 ? C_AMBER : C_RED;
+    int i;
+    /* the log: the newest line at the top, in the colour of its level */
+    g_fill(0, 0, PLAT_W, MM_VY0, RGB(8, 12, 10));
+    g_text(4, 2, &FONT_T, mm.log[2], mm.log_col[2] ? mm.log_col[2] : C_DIM);
+    /* the console under the view */
+    g_fill(0, MM_VY1, PLAT_W, PLAT_H - MM_VY1, C_PANEL);
+    g_hline(0, MM_VY1, PLAT_W, C_LINE);
+    g_text(6, MM_VY1 + 3, &FONT_T, "UPTIME", C_DIM);
+    g_fill(6, MM_VY1 + 17, 70, 6, C_LINE);
+    g_fill(6, MM_VY1 + 17, w, 6, uc);
+    b[0] = 0;
+    sx_int(b, up);
+    sx_cat(b, "%");
+    g_text(80, MM_VY1 + 13, &FONT_T, b, uc);
+    b[0] = 0;
+    sx_cat(b, "OPEN ");
+    sx_int(b + 5, mm.open);
+    g_text(118, MM_VY1 + 3, &FONT_T, b, mm.open ? C_AMBER : RGB(90, 210, 120));
+    b[0] = 0;
+    sx_cat(b, "MTTR ");
+    i = sx_int(b + 5, m / 60) + 5;
+    b[i++] = ':';
+    b[i++] = (char)('0' + (m % 60) / 10);
+    b[i++] = (char)('0' + m % 10);
+    b[i] = 0;
+    g_text(118, MM_VY1 + 15, &FONT_T, b, C_MID);
+    g_text_r(234, MM_VY1 + 3, &FONT_T, "MOOM", C_TEAL);
+    g_text_r(234, MM_VY1 + 15, &FONT_T, mm.level ? "LVL 2" : "LVL 1", C_DIM);
+    g_text(4, MM_VY1 + 28, &FONT_T, mm.log[1], mm.log_col[1] ? mm.log_col[1] : C_DIM);
+    if (mm.hurt > 0.0f) {                                             /* hit: the view's edge goes red */
+        g_fill(0, MM_VY0, PLAT_W, 4, C_RED);
+        g_fill(0, MM_VY1 - 4, PLAT_W, 4, C_RED);
+        g_fill(0, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
+        g_fill(PLAT_W - 4, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
+    }
+    if (mm.state) {
+        g_fill(20, 86, 200, 52, RGB(8, 12, 10));
+        g_frame(20, 86, 200, 52, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
+        g_text_c(120, 94, &FONT_B, mm.state == 1 ? "INCIDENT RESOLVED" : "SLA BREACHED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
+        g_text_c(120, 116, &FONT_T, mm.state == 1 ? "POSTMORTEM SCHEDULED" : "BRIDGE REOPENS...", C_MID);
+    }
+}
+
+/* one frame: input, the world, then the picture band by band */
+void moom_frame(void)
+{
+    uint32_t now = plat_ms(), btn = plat_buttons(), keys = plat_keys();
+    uint32_t down_btn = btn & ~mm.prev_btn, down_keys = keys & ~mm.prev_keys;
+    float dt = (float)(now - mm.last_ms) * 0.001f;
+    int turn = 0, i, b;
+    mm.last_ms = now;
+    if (dt > 0.1f)
+        dt = 0.1f;
+    if (down_btn & (1u << B_HOME)) {
+        moom_stop();
+        return;
+    }
+    turn += plat_enc(EN_SELECT);
+    for (i = 0; i < 4; i++)
+        turn += plat_enc(EN_K1 + i);
+    (void)plat_enc(EN_ALGO);
+    (void)plat_enc(EN_PRESET);
+    mm.prev_btn = btn;
+    mm.prev_keys = keys;
+    mm_update(dt, keys, down_keys, btn, down_btn, turn);
+    mm_cast();
+    for (b = 0; b < PLAT_H; b += GB_H) {
+        g_band(b);
+        mm_draw_view();
+        mm_draw_hand();
+        mm_draw_hud();
+        g_send();
+    }
+    plat_leds(1u << B_HOME, 0);
+}

@@ -13,6 +13,46 @@ static voice_t vs[RV_SYNTH_VOICES];
 static strike_t ss[RV_STRIKE_VOICES];
 static perc_t ps[RV_PERC_VOICES];
 static float click_env, click_ph, click_hz;
+/* MOOM's sound effects (rv_moom.c asks with moom_sfx_req): a click and zap, a hit, a resolved chime,
+ * a hurt buzz, a pickup, a win, a fall; square waves and noise, after the limiter like the click */
+static volatile uint8_t moom_sfx_req;
+static uint8_t sfx_kind;
+static float sfx_t, sfx_ph;
+static uint32_t sfx_rng = 0x5EEDu;
+static float sfx_tick(void)
+{
+    static const float chime[3] = {523.25f, 659.25f, 783.99f}, win[4] = {523.25f, 659.25f, 783.99f, 1046.5f};
+    float t = sfx_t, f = 0.0f, a = 0.0f, y;
+    int noise = 0;
+    switch (sfx_kind) {
+    case 1:                                          /* CLICK: two mouse clicks, then a falling zap */
+        if (t < 0.012f)
+            return (t < 0.002f || (t > 0.008f && t < 0.010f)) ? 0.35f : 0.0f;
+        f = 1400.0f * fm_expf(-(t - 0.012f) * 18.0f) + 200.0f;
+        a = t < 0.12f ? 0.18f * (1.0f - t / 0.12f) : 0.0f;
+        break;
+    case 2: noise = 1; a = t < 0.07f ? 0.3f * (1.0f - t / 0.07f) : 0.0f; break;   /* HIT */
+    case 3: f = chime[clampi((int)(t / 0.07f), 0, 2)]; a = t < 0.21f ? 0.16f : 0.0f; break;   /* RESOLVED */
+    case 4: f = 70.0f; a = t < 0.18f ? 0.22f * (fm_sinf(t * 190.0f) > 0.0f ? 1.0f : 0.4f) : 0.0f; break;   /* HURT */
+    case 5: f = t < 0.06f ? 660.0f : 990.0f; a = t < 0.12f ? 0.15f : 0.0f; break;   /* PICKUP */
+    case 6: f = win[clampi((int)(t / 0.09f), 0, 3)]; a = t < 0.36f ? 0.16f : 0.0f; break;   /* WIN */
+    case 7: f = 400.0f * fm_expf(-t * 3.5f) + 50.0f; a = t < 0.7f ? 0.2f * (1.0f - t / 0.7f) : 0.0f; break;   /* DOWN */
+    default: return 0.0f;
+    }
+    sfx_t += RV_DT;
+    if (a <= 0.0f) {
+        sfx_kind = 0;
+        return 0.0f;
+    }
+    if (noise) {
+        sfx_rng = sfx_rng * 1664525u + 1013904223u;
+        return a * ((float)(sfx_rng >> 9) * (2.0f / 8388608.0f) - 1.0f);
+    }
+    sfx_ph += f * RV_DT;
+    sfx_ph -= fm_floorf(sfx_ph);
+    y = sfx_ph < 0.5f ? a : -a;
+    return y;
+}
 static uint32_t age_ctr;
 static uint32_t eng_rng = 0x13579BDFu;
 static float in_buf[RV_SUB * 2];
@@ -929,6 +969,19 @@ static void render_sub(float *outl, float *outr, int n)
                 click_ph += click_hz * RV_DT;
                 click_ph -= fm_floorf(click_ph);
                 click_env *= 0.9978f;
+                outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
+                outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
+            }
+            if (moom_sfx_req) {                       /* a MOOM sound starts */
+                sfx_kind = moom_sfx_req;
+                moom_sfx_req = 0;
+                sfx_t = 0.0f;
+                sfx_ph = 0.0f;
+            }
+            if (sfx_kind) {
+                float c = sfx_tick();
+                if (sfx_kind == 1 && sfx_t < 0.012f)
+                    sfx_t += RV_DT;                   /* (the clicks advance their own time) */
                 outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
                 outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
             }
