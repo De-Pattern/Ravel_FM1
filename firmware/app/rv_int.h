@@ -61,6 +61,10 @@ typedef struct {
     uint16_t flip;
 } chip_t;
 
+/* SQ: three wavetable oscillators (the DOC chip's way: 8-bit cycles, read without interpolation as
+ * GRIT rises), ENV 2 (the filter's) and its pure decay (pitch, the osc 3 transient), a delayed vibrato */
+typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
+
 typedef struct {
     uint8_t on, track, gate, held_key;
     int8_t note;
@@ -76,7 +80,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; } e;
 } voice_t;
 
 /* strike: exciter into body, with a transient layer */

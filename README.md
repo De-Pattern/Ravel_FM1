@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), seven engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart).
+- **Synth tracks** (T1 to T4), eight engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
@@ -189,7 +189,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with seven engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with eight engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 
@@ -222,7 +222,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -259,7 +259,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101 | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80 | CUTOFF (Hz) | RESO | KEYTRK: the cutoff follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -268,7 +268,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
 
-**MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. Both are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets.
+**MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. **SQ-80** is warm and a touch dark: four transistor-style stages (after the CEM3379 chip in the Ensoniq SQ-80) whose resonance whistles rather than screams, and thins the bass as it rises, as the SQ-80's does. All three are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets, and any SQ preset. Picking the SQ engine sets the filter to SQ-80.
 
 The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
 
@@ -276,7 +276,7 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The seven synth engines (SOURCE pages)
+### The eight synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -374,6 +374,21 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **Sync:** with SYNC on and SUB OCT at -1, the sub holds the root while the arp's notes become synced, tearing timbres over it (the SYNC ARP preset). SUB OCT greys out while SUB is 0 and SYNC is off.
 - **Decompose:** the voice keeps its last 46 ms. At the end of each fragment, DECOMP is the chance that the next one breaks: the last fragment repeats, plays backwards, drops out, has its bits flipped, or plays at double speed. FRAG greys out while DECOMP is 0.
 - **Presets:** CHIP ARP, SID BASS (through the MS-20 filter), CHIP KICK, CHIP SNARE, DECOMPOSED and SYNC ARP.
+
+**SQ:** after the Ensoniq SQ-80. Three oscillators play 8-bit single-cycle waves, osc 1 can hard-sync and amplitude-modulate osc 2, a second envelope moves the filter, the pitch and an attack layer, a delayed vibrato fades in, and GRIT dials in what made the SQ-80 sound the way it does: its DOC sound chip reading 8-bit waves without smoothing, at its own sample rate, into a coarse converter. The SQ-80's many parameters are folded into these sixteen. The waves are Ravel's own, built from harmonic recipes in the SQ's families; none come from Ensoniq's ROM.
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- |
+| WAVE 1: the main oscillator's wave | SEMI 3: osc 3's interval, ±24 semitones | MOD: OFF, SYNC (osc 2 restarts with osc 1), AM (osc 1's level opens and closes osc 2), SYNC+AM | TRANS: osc 3 lifted by ENV 2's decay, for a struck, plucked or breathy onset |
+| WAVE 2 | DETUNE: osc 2 up and osc 3 down, up to a quarter tone | E2 DEC: ENV 2's decay, 4 ms to about 6 s | VIBRATO: depth (fades in over half a second, like the SQ's delayed LFO) |
+| WAVE 3 | LEVEL 2: osc 2's level | E2 SUS: where ENV 2 settles while the note is held | VIB RATE: 0.5 to 11 Hz |
+| SEMI 2: osc 2's interval, ±24 semitones | LEVEL 3: osc 3's level | P ENV: pitch from ENV 2's decay, ±24 semitones | GRIT: 0 clean; to 64 the waves alias and lose their smoothing; to 127 the samples are held and the converter coarsens |
+
+- **The waves:** SAW, SQUARE, PULSE, SINE, TRI, BELL, BASS, PIANO, EPIANO, VOICE1 (an "ah"), VOICE2 (an "oh"), ORGAN, REED, SYNTH1, SYNTH2, FORMT1 to FORMT3 (formant peaks, low to high), OCTAVE, DIGIT (bit logic, harsh), GLINT and SPIKE.
+- **The envelopes:** the track's ADSR on the ENV page is the SQ's ENV 4, the level. ENV 2 is the filter's: FILTER's ENV amount follows it, not the level. Its decay alone drives P ENV and TRANS, so they fall away even while ENV 2 holds at E2 SUS.
+- **More movement:** the LFO page's LFOs and the matrix reach every SOURCE knob, so wave levels, GRIT and the intervals can all be modulated, as the SQ-80's own modulators could.
+- **Greyed knobs:** WAVE 2 and SEMI 2 grey out while LEVEL 2 is 0 and MOD is off; WAVE 3 and SEMI 3 while LEVEL 3 and TRANS are 0; VIB RATE while VIBRATO is 0.
+- **Presets:** SQ PIANO, SQ VOX, SQ BELLS, SQ BASS, SQ SYNC, SQ PAD and SQ ORGAN.
 
 ### Strike tracks (SOURCE pages)
 
@@ -1023,6 +1038,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
 
 <p align="center"><img src="docs/brand/ravel-logo-footer.jpg" alt="RAVEL · FM-1 custom synth firmware" width="360"></p>
