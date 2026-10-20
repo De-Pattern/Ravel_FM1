@@ -261,9 +261,9 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
-| **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
-| **SKIN 2** | BITMASK (digital grit) | – | – | – |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the envelope opens the filter (±); the same setting as on ENV › TERMINATION, so turning either moves both |
+| **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | KEYTRK: the filter's cutoff (or a Z filter's morph) follows the note |
+| **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
 | **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | BANDS send |
@@ -571,7 +571,7 @@ Ravel's envelope is in three stages, named after how speech is described: the **
 | --- | --- | --- | --- | --- |
 | **ONSET** | ATTACK time (0.5 ms to 8 s) | CURVE: − is a fast swell, + a slow one | OVERSHT: the attack overshoots and settles (a "bite") | GIVE: a spring in the level. It lags and bounces instead of moving straight. |
 | **CONTINUANT** | DECAY time | SUSTAIN level | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | – |
-| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±) | – |
+| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±); also on EDIT › FILTER | – |
 
 (VELO, velocity sensitivity, is on EDIT › SOUND.)
 | **DESTINATIONS** | DEST 1: any parameter of this track | AMOUNT 1 (±) | DEST 2 | AMOUNT 2 (±) |
