@@ -453,8 +453,9 @@ addEventListener("keydown", e => {
   if (!(rv && rv.web_moom_on && rv.web_moom_on()) || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k === "escape") { rv.web_moom_exit(); kb_keys = 0; }
-  else if (k in MOOM_ARROWS) kb_keys |= 1 << MOOM_ARROWS[k];   /* arrows are G4 G#4 A4 B4 */
-  else if (k === " ") { if (!e.repeat) tapBtn("PLAY"); }        /* fire */
+  else if (k in MOOM_ARROWS) kb_keys |= 1 << MOOM_ARROWS[k];   /* arrows are G4 G#4 A4 B4; W A S D move (forward, strafe, back) */
+  else if (k === " ") kb_keys |= 1 << 19;                       /* Space fires (C5) */
+  else if (k === "enter") { if (!e.repeat) tapBtn("PLAY"); }    /* Enter is PLAY: start, pause, resume */
   else if (k in KB) kb_keys |= 1 << KB[k];
   else return;
   e.preventDefault();
@@ -472,8 +473,8 @@ addEventListener("keydown", e => {
   else if (k === "arrowright" && rv) { rv.rv_enc(0, 1); e.preventDefault(); }
   else if (k === "escape") { latched = 0; Object.values(btnEls).forEach(b => b.classList.remove("latched")); }
 });
-addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); if (k in MOOM_ARROWS) kb_keys &= ~(1 << MOOM_ARROWS[k]); });
-const MOOM_ARROWS = { arrowleft: 14, arrowup: 15, arrowdown: 16, arrowright: 18 };
+addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); if (k in MOOM_ARROWS) kb_keys &= ~(1 << MOOM_ARROWS[k]); if (k === " ") kb_keys &= ~(1 << 19); });
+const MOOM_ARROWS = { arrowleft: 14, arrowup: 15, arrowdown: 16, arrowright: 18, w: 15, s: 16, a: 0, d: 4 };   /* (a, d: F3, A3, the strafe keys) */
 addEventListener("blur", () => { kb_keys = 0; held_keys = 0; held_btn = 0; Object.values(btnEls).forEach(b => b.classList.remove("down")); });
 
 /* ------------------------------------------------------------- the side */

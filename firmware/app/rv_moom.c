@@ -12,7 +12,8 @@
  * Keys, like arrow keys: G4 turn left, G#4 forward, A4 back, B4 turn right (C#4 forward too; the left
  * hand: F#3 forward, G3 back, F3 / A3 sideways, G#3 / A#3 turn). Fire: C4, D4, E4, F4 or any key from
  * C5 up. PLAY starts from the title, then pauses and resumes. SELECT or any knob turns too. HOME
- * leaves (the emulator: Esc, or its MOOM button). */
+ * leaves. The emulator: W A S D move and strafe, arrows move and turn, Space fires, Enter is PLAY, Esc
+ * leaves. */
 
 #define MM_W 16
 #define MM_VY0 16                      /* the view: rows 16..199 */
