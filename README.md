@@ -20,6 +20,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 - **Synth tracks** (T1 to T4), ten engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
+- **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, or clock any other.
@@ -185,13 +186,14 @@ So if a page seems to be "skipped", it is hidden because it does not apply to th
 
 <p align="center"><img src="docs/signal-flow.svg" alt="Signal flow" width="760"></p>
 
-Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND):
+Ravel has **8 tracks**. Each track is one of four kinds, and any track can be any kind (HOME › TRACKS › KIND):
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
 | **SYNTH** | An oscillator voice with ten engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
+| **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). Mono or 2 voices. | – (choose PERC on any track) |
 
 How the sound flows:
 
@@ -221,7 +223,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
@@ -446,6 +448,63 @@ A strike is an **exciter** (what hits) and a **body** (what rings).
 | TONE: brightness | MODES: 2–8 resonances | T DECAY: length of the transient | SEED: a different random variation |
 
 With **EXT** as the exciter, the track makes no strike of its own: the body rings only from what comes in from outside. That is another track's sound through an **EXCITE** route (HOME › INFLUENCE), the feedback bus returning into this track, or, in the emulator, a file under Audio in. If nothing is coming in, the SOURCE page says so, and you will hear only the attack layer and the inserts, the same on every note. The body's pitch still follows the notes, so a track exciting it through an EXCITE route rings at the note you play.
+
+### Perc tracks (SOURCE pages)
+
+A PERC track is a drum machine after the **Elektron Machinedrum**. Its 33 machines come from the Machinedrum's four synthesis families. Elektron never published how the Machinedrum makes its sounds, so these are Ravel's own designs, built from what the Machinedrum's manual documents: each machine has the manual's parameters, in its order, doing what the manual says they do. They are not sample-perfect copies; the sampled E12 and ROM machines are left out.
+
+- **SOURCE 1, KNOB 1: MACHINE.** Choosing a machine loads its own defaults.
+- **The rest of SOURCE 1 and SOURCE 2:** the machine's own eight parameters (A–H on the Machinedrum). A machine with fewer leaves the rest greyed out.
+- **SOURCE 3 and 4: the Machinedrum's track effects.** AMD and AMF (amplitude modulation: depth and rate, up to audio rates), EQF and EQG (a one-band EQ: frequency and boost or cut), FLTF, FLTW and FLTQ (the band filter: a high-pass at FLTF and a low-pass FLTW above it; FLTF at 0 turns the high-pass off, FLTW at 127 the low-pass, FLTQ adds resonance to both). The Machinedrum's SRR and DIST are the track's own DEREZ and DRIVE on EDIT › SKIN.
+- **Playing it:** the key you play transposes every pitched machine (C4 plays it at its PTCH setting). VELO sets how much velocity changes the level. The machines make their own envelopes, so the ENV pages grey out; a hit plays out whatever the key does. VOICES: MONO (each hit chokes the last, as on the Machinedrum) or 2.
+
+| Family | Machines | What they are |
+| --- | --- | --- |
+| **TRX** | BD, B2, SD, XT, CP, RS, CB, CH, OH, CY, MA, CL, XC | Analog-style drums in the TR tradition: sines with pitch ramps, filtered noise, square-wave metal |
+| **EFM** | BD, SD, XT, CP, RS, CB, HH, CY | Two-operator FM with feedback: from realistic drums to clangs and chaos |
+| **P-I** | BD, SD, MT, RS, ML, MA, HH, RC, CC | Physical models: membranes, bars and cymbals, ringing as resonators struck by a mallet |
+| **GND** | SN, NS, IM | A sine with a pitch ramp, noise, and a programmable impulse |
+
+**The machines and their parameters**
+
+| Machine | A | B | C | D | E | F | G | H |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| TRX-BD bass drum | PTCH | DEC | RAMP | RDEC | STRT | NOIS | HARM | CLIP |
+| TRX-B2 bass drum 2 | PTCH | DEC | RAMP | HOLD | TICK | NOIS | DIRT | DIST |
+| TRX-SD snare | PTCH | DEC | BUMP | BENV | SNAP | TONE | TUNE | CLIP |
+| TRX-XT tom | PTCH | DEC | RAMP | RDEC | DAMP | DIST | DTYP | – |
+| TRX-CP clap | CLPY | TONE | HARD | RICH | RATE | ROOM | RSIZ | RTUN |
+| TRX-RS rim shot | PTCH | DEC | DIST | – | – | – | – | – |
+| TRX-CB cow bell | PTCH | DEC | ENH | DAMP | TONE | BUMP | – | – |
+| TRX-CH / OH hihats | GAP | DEC | HPF | LPF | MTAL | – | – | – |
+| TRX-CY cymbal | RICH | DEC | TOP | TTUN | SIZE | PEAK | – | – |
+| TRX-MA maracas | ATT | SUS | REV | DAMP | RATL | RTYP | TONE | HARD |
+| TRX-CL claves | PTCH | DEC | DUAL | ENH | TUNE | CLIC | – | – |
+| TRX-XC conga | PTCH | DEC | RAMP | RDEC | DAMP | DIST | DTYP | – |
+| EFM-BD | PTCH | DEC | RAMP | RDEC | MOD | MFRQ | MDEC | MFB |
+| EFM-SD | PTCH | DEC | NOIS | NDEC | MOD | MFRQ | MDEC | HPF |
+| EFM-XT | PTCH | DEC | RAMP | RDEC | MOD | MFRQ | MDEC | CLIC |
+| EFM-CP | PTCH | DEC | CLPS | CDEC | MOD | MFRQ | MDEC | HPF |
+| EFM-RS | PTCH | DEC | MOD | HPF | SNAR | SPTC | SDEC | SMOD |
+| EFM-CB | PTCH | DEC | SNAP | FB | MOD | MFRQ | MDEC | – |
+| EFM-HH | PTCH | DEC | TREM | TFRQ | MOD | MFRQ | MDEC | FB |
+| EFM-CY | PTCH | DEC | FB | HPF | MOD | MFRQ | MDEC | – |
+| PI-BD | PTCH | DEC | HARD | HAMR | TENS | DAMP | – | – |
+| PI-SD | PTCH | DEC | HARD | RING | TENS | RVOL | RDEC | – |
+| PI-MT tom | PTCH | DEC | HARD | HAMR | TUNE | DAMP | SIZE | POS |
+| PI-RS rim shot | PTCH | DEC | HARD | RING | RVOL | RDEC | – | – |
+| PI-ML metallica | PTCH | DEC | HARD | TENS | – | – | – | – |
+| PI-MA maracas | DEC | GRNS | GLEN | SIZE | HARD | – | – | – |
+| PI-HH hihat | PTCH | DEC | CLSN | RING | AG | AU | BR | CLOS |
+| PI-RC / CC ride, crash | PTCH | DEC | HARD | RING | AG | AU | BR | GRAB |
+| GND-SN sine | PTCH | DEC | RAMP | RDEC | – | – | – | – |
+| GND-NS noise | DEC | – | – | – | – | – | – | – |
+| GND-IM impulse | UP | UVAL | DOWN | DVAL | – | – | – | – |
+
+- **What they mean:** PTCH pitch, DEC decay, RAMP and RDEC a pitch drop and how fast it falls, BUMP and BENV a pitch kick at the start and its length, STRT, TICK, CLIC and SNAP a harder start, NOIS noise at the start, HOLD how long the level holds, HARM extra harmonics, CLIP, DIST and DTYP distortion and its hardness, DIRT fewer bits, TONE and TUNE the colour and detune, DAMP a shorter tail. Clap: CLPY how many claps, HARD sharper ones, RICH a wider band, RATE their spacing, ROOM, RSIZ and RTUN a room after them. Hats: GAP how far apart the metal's tones sit, HPF and LPF the filters, MTAL more metal than noise. Cymbal: RICH, TOP and TTUN the top end and its tuning, SIZE, PEAK an edge. Maracas: ATT and SUS the shake, REV backwards, RATL and RTYP the rattle and its colour.
+- **EFM:** MOD is the FM depth, MFRQ the modulator's frequency (low ratios are tonal, high and odd ones clang), MDEC how quickly the FM fades, MFB and FB feedback (grit, then noise). NOIS and NDEC add noise (snare), CLPS and CDEC repeat the hit (clap), SNAR, SPTC, SDEC and SMOD a second FM pair for a snare timbre (rim shot), TREM and TFRQ a tremolo.
+- **P-I:** HARD a harder hit, HAMR a softer mallet, TENS the pitch bend of a tight skin hit hard, DAMP damping, TUNE how the skin is tuned, SIZE the drum's size, POS where it is struck (centre to edge), RING metal that rings on, RVOL and RDEC the snare wires, GRNS and GLEN the maracas' grains and their length, CLSN the two hats touching, AG and AU more or fewer highs, BR the lows, CLOS and GRAB when the hat closes or a hand grabs the cymbal (127: never).
+- **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
 
 ## 7. ENV: articulation
 
@@ -1111,6 +1170,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
+- Elektron's Machinedrum, whose synthesis machines and their documented parameters the PERC tracks are built from (Ravel's own designs; no Elektron code or data).
 - Kurzweil's VAST and E-mu's patch-cord functions, whose idea of building sound from function blocks the LOGIC engine follows.
 - Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).

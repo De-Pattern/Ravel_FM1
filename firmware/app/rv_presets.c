@@ -194,6 +194,28 @@ static const int8_t s_fmtom[] = {TP_S0, EXC_FM, TP_S1, BODY_MODAL, TP_S2, 60, TP
 static const int8_t s_pipe[] = {TP_S0, EXC_BLOW, TP_S1, BODY_PING, TP_S2, 110, TP_S3, 60, TP_S10, 0, TP_ATK, 50, TP_LEVEL, 100, TP_REVS, 50, END};
 static const int8_t s_listen[] = {TP_S0, EXC_INPUT, TP_S1, BODY_MODAL, TP_S2, 100, TP_S3, 80, TP_S10, 0, TP_LEVEL, 92, END};
 
+/* ----------------------------------------------------------------- perc --- */
+/* S0 MACHINE, S1-S8 its parameters (see rv_params.c perc_mdef), S9 AMD, S10 AMF, S11 EQF, S12 EQG,
+ * S13 FLTF, S14 FLTW, S15 FLTQ */
+static const int8_t d_trxkick[] = {TP_S0, PM_TRX_BD, TP_S1, 36, TP_S2, 70, TP_S3, 60, TP_S4, 36, TP_S5, 60, TP_S8, 30, TP_LEVEL, 110, END};
+static const int8_t d_trxsnare[] = {TP_S0, PM_TRX_SD, TP_S1, 56, TP_S2, 46, TP_S5, 90, TP_S6, 80, TP_LEVEL, 100, END};
+static const int8_t d_trxclap[] = {TP_S0, PM_TRX_CP, TP_S1, 70, TP_S6, 50, TP_S7, 50, TP_LEVEL, 100, TP_REVS, 30, END};
+static const int8_t d_trxhat[] = {TP_S0, PM_TRX_CH, TP_S2, 24, TP_S5, 80, TP_LEVEL, 90, TP_PAN, 10, END};
+static const int8_t d_trxopen[] = {TP_S0, PM_TRX_OH, TP_S2, 70, TP_S5, 80, TP_LEVEL, 86, TP_PAN, 10, END};
+static const int8_t d_trxcow[] = {TP_S0, PM_TRX_CB, TP_LEVEL, 84, TP_DLYS, 30, END};
+static const int8_t d_efmkick[] = {TP_S0, PM_EFM_BD, TP_S5, 50, TP_S6, 20, TP_S7, 30, TP_S8, 30, TP_LEVEL, 110, END};
+static const int8_t d_efmsnare[] = {TP_S0, PM_EFM_SD, TP_S3, 90, TP_S5, 70, TP_S6, 75, TP_LEVEL, 100, END};
+static const int8_t d_efmhat[] = {TP_S0, PM_EFM_HH, TP_S2, 20, TP_LEVEL, 86, TP_PAN, -12, END};
+static const int8_t d_efmbell[] = {TP_S0, PM_EFM_CB, TP_S1, 90, TP_S2, 90, TP_S6, 85, TP_LEVEL, 84, TP_REVS, 40, END};
+static const int8_t d_pikick[] = {TP_S0, PM_PI_BD, TP_S1, 30, TP_S4, 30, TP_S5, 50, TP_LEVEL, 110, END};
+static const int8_t d_pisnare[] = {TP_S0, PM_PI_SD, TP_S6, 100, TP_LEVEL, 100, TP_REVS, 25, END};
+static const int8_t d_pitom[] = {TP_S0, PM_PI_MT, TP_S1, 40, TP_S8, 60, TP_LEVEL, 100, TP_REVS, 25, END};
+static const int8_t d_piride[] = {TP_S0, PM_PI_RC, TP_LEVEL, 80, TP_PAN, 16, END};
+static const int8_t d_pishaker[] = {TP_S0, PM_PI_MA, TP_S2, 90, TP_LEVEL, 84, TP_PAN, -16, END};
+static const int8_t d_metal[] = {TP_S0, PM_PI_ML, TP_S1, 80, TP_S12, 30, TP_S15, 60, TP_S13, 40, TP_S14, 60, TP_LEVEL, 84, TP_REVS, 50, END};
+static const int8_t d_gndsub[] = {TP_S0, PM_GND_SN, TP_S1, 20, TP_S2, 80, TP_S3, 40, TP_S4, 30, TP_LEVEL, 110, END};
+static const int8_t d_blip[] = {TP_S0, PM_GND_IM, TP_S1, 30, TP_S3, 60, TP_S4, 90, TP_LEVEL, 96, TP_DLYS, 40, END};
+
 /* ----------------------------------------------------------------- tape --- */
 static const int8_t t_mlr[] = {TP_S0, TAPE_MLR, TP_S1, 0, TP_S2, 6, TP_S4, 1, TP_LEVEL, 100, END};
 static const int8_t t_cloud[] = {TP_S0, TAPE_BEADS, TP_S1, 0, TP_S6, 60, TP_S7, 84, TP_S8, 80, TP_S10, 96, TP_S12, 127, TP_LEVEL, 96, TP_REVS, 50, END};
@@ -229,6 +251,12 @@ static const rv_preset presets[] = {
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},
     {"CLOCKWORK", KIND_STRIKE, 0, s_clockwork, 0}, {"FM TOM", KIND_STRIKE, 0, s_fmtom, 0}, {"PIPE", KIND_STRIKE, 0, s_pipe, 0},
     {"LISTENER", KIND_STRIKE, 0, s_listen, 0},
+    {"TRX KICK", KIND_PERC, 0, d_trxkick, 0}, {"TRX SNARE", KIND_PERC, 0, d_trxsnare, 0}, {"TRX CLAP", KIND_PERC, 0, d_trxclap, 0},
+    {"TRX HAT", KIND_PERC, 0, d_trxhat, 0}, {"TRX OPEN HAT", KIND_PERC, 0, d_trxopen, 0}, {"TRX COWBELL", KIND_PERC, 0, d_trxcow, 0},
+    {"EFM KICK", KIND_PERC, 0, d_efmkick, 0}, {"EFM SNARE", KIND_PERC, 0, d_efmsnare, 0}, {"EFM HAT", KIND_PERC, 0, d_efmhat, 0},
+    {"EFM BELL", KIND_PERC, 0, d_efmbell, 0}, {"PI KICK", KIND_PERC, 0, d_pikick, 0}, {"PI SNARE", KIND_PERC, 0, d_pisnare, 0},
+    {"PI TOM", KIND_PERC, 0, d_pitom, 0}, {"PI RIDE", KIND_PERC, 0, d_piride, 0}, {"PI SHAKER", KIND_PERC, 0, d_pishaker, 0},
+    {"METALLICA", KIND_PERC, 0, d_metal, 0}, {"GND SUB", KIND_PERC, 0, d_gndsub, 0}, {"IMPULSE", KIND_PERC, 0, d_blip, 0},
     {"MLR LOOP", KIND_TAPE, 0, t_mlr, 0}, {"CLOUD", KIND_TAPE, 0, t_cloud, 0}, {"GRAIN KEYS", KIND_TAPE, 0, t_keys, 0},
     {"SLICES", KIND_TAPE, 0, t_slices, 0}, {"HALF SPEED", KIND_TAPE, 0, t_half, 0},
 };
@@ -244,6 +272,12 @@ void rv_preset_apply(int t, int i)
     if (i < 0 || i >= NPRESETS)
         return;
     rv_track_defaults(t, presets[i].kind, presets[i].engine);
+    if (presets[i].kind == KIND_PERC) {               /* the machine first, so its own defaults load */
+        for (v = presets[i].v; *v >= 0; v += 2)
+            if (v[0] == TP_S0)
+                rv.tp[t][TP_S0] = v[1];
+        rv_track_src_defaults(t);
+    }
     for (v = presets[i].v; *v >= 0; v += 2)
         rv.tp[t][v[0]] = v[1];
     if (presets[i].cz)

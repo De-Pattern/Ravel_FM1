@@ -102,6 +102,17 @@ typedef struct {
     union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; } e;
 } voice_t;
 
+/* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */
+typedef struct {
+    uint8_t on, track, gate, mach, cnt, quiet;
+    int8_t note;
+    float vel, t, level;
+    uint32_t age, rng;
+    float ph[6], aenv, penv, menv, nenv, xenv, exc, next, fbv, last, hp_s, hp_s2, am_ph;
+    float my1[8], my2[8], mb1[8], mb2[8], mg[8];   /* modal resonators */
+    svf_t f1, f2, hpf, lpf, eq;
+} perc_t;
+
 /* strike: exciter into body, with a transient layer */
 typedef struct {
     uint8_t on, track, gate;

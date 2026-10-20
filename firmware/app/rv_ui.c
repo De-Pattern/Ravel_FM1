@@ -622,6 +622,15 @@ static void kb_set(kb_t k, int v)
             ui.preset_idx[ui.track] = -1;
             return;
         }
+        if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_PERC) {
+            int p;                                   /* a new machine starts from its own defaults */
+            rv.tp[ui.track][TP_S0] = (int16_t)v;
+            for (p = TP_S1; p <= TP_S8; p++) {
+                const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
+                rv.tp[ui.track][p] = pi->name ? pi->def : 0;
+            }
+            return;
+        }
         if (k.id == TP_ENGINE && v != rv.tp[ui.track][TP_ENGINE] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH) {
             int p;
             rv.tp[ui.track][TP_ENGINE] = (int16_t)v;
@@ -1462,7 +1471,7 @@ static void draw_top(void)
         g_text(32, 3, &FONT_B, ui.msg, C_WHITE);
         return;
     }
-    x = g_text(32, 5, &FONT_XS, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, 2)], kind_col(t));
+    x = g_text(32, 5, &FONT_XS, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, KIND_N - 1)], kind_col(t));
     x = g_text(x + 4, 5, &FONT_XS, sound_name(t), C_MID);
     (void)x;
     g_text_r(236, 3, &FONT_B, pg->title, C_INK);
@@ -1856,6 +1865,12 @@ static void pic_source(void)
             g_text_c(120, PIC_Y + 106, &FONT_T, "EXT: NOTHING IS EXCITING THE BODY", C_AMBER);
             g_text_c(120, PIC_Y + 118, &FONT_T, "ADD AN EXCITE ROUTE ON HOME > INFLUENCE", C_DIM);
         }
+    } else if (kind == KIND_PERC) {
+        static const char *const fam[4] = {"TRX: ANALOG-STYLE DRUMS", "EFM: TWO-OPERATOR FM DRUMS", "P-I: PHYSICAL MODELS", "GND: SINE, NOISE, IMPULSE"};
+        int m = clampi(rv.tp[t][TP_S0], 0, PM_N - 1);
+        g_text(8, PIC_Y + 6, &FONT_B, perc_mnames[m], C_AMBER);
+        g_text(8, PIC_Y + 30, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_MID);
+        pic_scope(t, PIC_Y + 44, 90, C_AMBER);
     } else if (kind == KIND_TAPE) {
         g_text_c(120, PIC_Y + 10, &FONT_B, "A TAPE TRACK: SEE ARP / TAPE", C_TAPE);
         pic_scope(t, PIC_Y + 34, 96, C_TAPE);
@@ -2028,6 +2043,12 @@ static void pic_env(void)
     float tot = wa + wd + wh + wr, sc = 224.0f / tot;
     const page_t *pg = cur_page();
     int focus = pg->title[0] == 'O' ? 0 : pg->title[0] == 'C' ? 1 : pg->title[0] == 'T' ? 2 : -1;
+    if (rv.tp[t][TP_KIND] == KIND_PERC) {
+        g_text_c(120, PIC_Y + 40, &FONT_B, "THE MACHINE MAKES", C_AMBER);
+        g_text_c(120, PIC_Y + 62, &FONT_B, "ITS OWN ENVELOPE", C_AMBER);
+        g_text_c(120, PIC_Y + 92, &FONT_T, "SET ITS DECAY ON THE SOURCE PAGES", C_DIM);
+        return;
+    }
     if (rv.tp[t][TP_ESHAPE] > 0) {
         pic_shape(t);
         return;

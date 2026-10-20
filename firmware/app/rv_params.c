@@ -172,6 +172,62 @@ static const rv_pinfo SRC_LOGIC[16] = {
     {"G SPRAY", 0, 127, 20, PF_NUM, 0}, {"G PITCH", -24, 24, 0, PF_SEMI, 0}};
 static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC};
 
+/* PERC (rv_perc.c): the machine list and each machine's eight parameters (0 = unused), with their defaults */
+static const rv_pinfo perc_pi[PM_N][8] = {
+    [PM_TRX_BD] = {{"PTCH", 0, 127, 40, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"RAMP", 0, 127, 64, PF_NUM, 0}, {"RDEC", 0, 127, 40, PF_NUM, 0}, {"STRT", 0, 127, 50, PF_NUM, 0}, {"NOIS", 0, 127, 10, PF_NUM, 0}, {"HARM", 0, 127, 0, PF_NUM, 0}, {"CLIP", 0, 127, 20, PF_NUM, 0}},
+    [PM_TRX_B2] = {{"PTCH", 0, 127, 40, PF_NUM, 0}, {"DEC", 0, 127, 60, PF_NUM, 0}, {"RAMP", 0, 127, 50, PF_NUM, 0}, {"HOLD", 0, 127, 30, PF_NUM, 0}, {"TICK", 0, 127, 60, PF_NUM, 0}, {"NOIS", 0, 127, 10, PF_NUM, 0}, {"DIRT", 0, 127, 0, PF_NUM, 0}, {"DIST", 0, 127, 20, PF_NUM, 0}},
+    [PM_TRX_SD] = {{"PTCH", 0, 127, 50, PF_NUM, 0}, {"DEC", 0, 127, 50, PF_NUM, 0}, {"BUMP", 0, 127, 40, PF_NUM, 0}, {"BENV", 0, 127, 40, PF_NUM, 0}, {"SNAP", 0, 127, 80, PF_NUM, 0}, {"TONE", 0, 127, 64, PF_NUM, 0}, {"TUNE", 0, 127, 40, PF_NUM, 0}, {"CLIP", 0, 127, 10, PF_NUM, 0}},
+    [PM_TRX_XT] = {{"PTCH", 0, 127, 50, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"RAMP", 0, 127, 40, PF_NUM, 0}, {"RDEC", 0, 127, 50, PF_NUM, 0}, {"DAMP", 0, 127, 0, PF_NUM, 0}, {"DIST", 0, 127, 0, PF_NUM, 0}, {"DTYP", 0, 127, 40, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_CP] = {{"CLPY", 0, 127, 64, PF_NUM, 0}, {"TONE", 0, 127, 64, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {"RICH", 0, 127, 40, PF_NUM, 0}, {"RATE", 0, 127, 50, PF_NUM, 0}, {"ROOM", 0, 127, 40, PF_NUM, 0}, {"RSIZ", 0, 127, 60, PF_NUM, 0}, {"RTUN", 0, 127, 64, PF_NUM, 0}},
+    [PM_TRX_RS] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 40, PF_NUM, 0}, {"DIST", 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_CB] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 60, PF_NUM, 0}, {"ENH", 0, 127, 64, PF_NUM, 0}, {"DAMP", 0, 127, 20, PF_NUM, 0}, {"TONE", 0, 127, 64, PF_NUM, 0}, {"BUMP", 0, 127, 20, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_CH] = {{"GAP", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 30, PF_NUM, 0}, {"HPF", 0, 127, 70, PF_NUM, 0}, {"LPF", 0, 127, 110, PF_NUM, 0}, {"MTAL", 0, 127, 64, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_OH] = {{"GAP", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 80, PF_NUM, 0}, {"HPF", 0, 127, 70, PF_NUM, 0}, {"LPF", 0, 127, 110, PF_NUM, 0}, {"MTAL", 0, 127, 64, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_CY] = {{"RICH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 90, PF_NUM, 0}, {"TOP", 0, 127, 64, PF_NUM, 0}, {"TTUN", 0, 127, 64, PF_NUM, 0}, {"SIZE", 0, 127, 64, PF_NUM, 0}, {"PEAK", 0, 127, 30, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_MA] = {{"ATT", 0, 127, 10, PF_NUM, 0}, {"SUS", 0, 127, 30, PF_NUM, 0}, {"REV", 0, 127, 0, PF_NUM, 0}, {"DAMP", 0, 127, 0, PF_NUM, 0}, {"RATL", 0, 127, 40, PF_NUM, 0}, {"RTYP", 0, 127, 64, PF_NUM, 0}, {"TONE", 0, 127, 80, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}},
+    [PM_TRX_CL] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 40, PF_NUM, 0}, {"DUAL", 0, 127, 0, PF_NUM, 0}, {"ENH", 0, 127, 40, PF_NUM, 0}, {"TUNE", 0, 127, 64, PF_NUM, 0}, {"CLIC", 0, 127, 40, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_TRX_XC] = {{"PTCH", 0, 127, 60, PF_NUM, 0}, {"DEC", 0, 127, 50, PF_NUM, 0}, {"RAMP", 0, 127, 30, PF_NUM, 0}, {"RDEC", 0, 127, 40, PF_NUM, 0}, {"DAMP", 0, 127, 0, PF_NUM, 0}, {"DIST", 0, 127, 0, PF_NUM, 0}, {"DTYP", 0, 127, 40, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_EFM_BD] = {{"PTCH", 0, 127, 40, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"RAMP", 0, 127, 64, PF_NUM, 0}, {"RDEC", 0, 127, 40, PF_NUM, 0}, {"MOD", 0, 127, 40, PF_NUM, 0}, {"MFRQ", 0, 127, 40, PF_NUM, 0}, {"MDEC", 0, 127, 30, PF_NUM, 0}, {"MFB", 0, 127, 0, PF_NUM, 0}},
+    [PM_EFM_SD] = {{"PTCH", 0, 127, 60, PF_NUM, 0}, {"DEC", 0, 127, 50, PF_NUM, 0}, {"NOIS", 0, 127, 80, PF_NUM, 0}, {"NDEC", 0, 127, 50, PF_NUM, 0}, {"MOD", 0, 127, 50, PF_NUM, 0}, {"MFRQ", 0, 127, 60, PF_NUM, 0}, {"MDEC", 0, 127, 40, PF_NUM, 0}, {"HPF", 0, 127, 20, PF_NUM, 0}},
+    [PM_EFM_XT] = {{"PTCH", 0, 127, 50, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"RAMP", 0, 127, 40, PF_NUM, 0}, {"RDEC", 0, 127, 50, PF_NUM, 0}, {"MOD", 0, 127, 40, PF_NUM, 0}, {"MFRQ", 0, 127, 50, PF_NUM, 0}, {"MDEC", 0, 127, 40, PF_NUM, 0}, {"CLIC", 0, 127, 30, PF_NUM, 0}},
+    [PM_EFM_CP] = {{"PTCH", 0, 127, 70, PF_NUM, 0}, {"DEC", 0, 127, 50, PF_NUM, 0}, {"CLPS", 0, 127, 64, PF_NUM, 0}, {"CDEC", 0, 127, 40, PF_NUM, 0}, {"MOD", 0, 127, 100, PF_NUM, 0}, {"MFRQ", 0, 127, 90, PF_NUM, 0}, {"MDEC", 0, 127, 60, PF_NUM, 0}, {"HPF", 0, 127, 40, PF_NUM, 0}},
+    [PM_EFM_RS] = {{"PTCH", 0, 127, 80, PF_NUM, 0}, {"DEC", 0, 127, 30, PF_NUM, 0}, {"MOD", 0, 127, 40, PF_NUM, 0}, {"HPF", 0, 127, 20, PF_NUM, 0}, {"SNAR", 0, 127, 40, PF_NUM, 0}, {"SPTC", 0, 127, 70, PF_NUM, 0}, {"SDEC", 0, 127, 30, PF_NUM, 0}, {"SMOD", 0, 127, 60, PF_NUM, 0}},
+    [PM_EFM_CB] = {{"PTCH", 0, 127, 70, PF_NUM, 0}, {"DEC", 0, 127, 60, PF_NUM, 0}, {"SNAP", 0, 127, 40, PF_NUM, 0}, {"FB", 0, 127, 20, PF_NUM, 0}, {"MOD", 0, 127, 50, PF_NUM, 0}, {"MFRQ", 0, 127, 70, PF_NUM, 0}, {"MDEC", 0, 127, 60, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_EFM_HH] = {{"PTCH", 0, 127, 90, PF_NUM, 0}, {"DEC", 0, 127, 30, PF_NUM, 0}, {"TREM", 0, 127, 0, PF_NUM, 0}, {"TFRQ", 0, 127, 64, PF_NUM, 0}, {"MOD", 0, 127, 110, PF_NUM, 0}, {"MFRQ", 0, 127, 100, PF_NUM, 0}, {"MDEC", 0, 127, 90, PF_NUM, 0}, {"FB", 0, 127, 70, PF_NUM, 0}},
+    [PM_EFM_CY] = {{"PTCH", 0, 127, 80, PF_NUM, 0}, {"DEC", 0, 127, 90, PF_NUM, 0}, {"FB", 0, 127, 80, PF_NUM, 0}, {"HPF", 0, 127, 40, PF_NUM, 0}, {"MOD", 0, 127, 110, PF_NUM, 0}, {"MFRQ", 0, 127, 95, PF_NUM, 0}, {"MDEC", 0, 127, 100, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_BD] = {{"PTCH", 0, 127, 40, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {"HAMR", 0, 127, 40, PF_NUM, 0}, {"TENS", 0, 127, 40, PF_NUM, 0}, {"DAMP", 0, 127, 30, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_SD] = {{"PTCH", 0, 127, 60, PF_NUM, 0}, {"DEC", 0, 127, 50, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {"RING", 0, 127, 20, PF_NUM, 0}, {"TENS", 0, 127, 30, PF_NUM, 0}, {"RVOL", 0, 127, 80, PF_NUM, 0}, {"RDEC", 0, 127, 50, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_MT] = {{"PTCH", 0, 127, 50, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {"HAMR", 0, 127, 40, PF_NUM, 0}, {"TUNE", 0, 127, 64, PF_NUM, 0}, {"DAMP", 0, 127, 20, PF_NUM, 0}, {"SIZE", 0, 127, 64, PF_NUM, 0}, {"POS", 0, 127, 30, PF_NUM, 0}},
+    [PM_PI_RS] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 40, PF_NUM, 0}, {"HARD", 0, 127, 80, PF_NUM, 0}, {"RING", 0, 127, 40, PF_NUM, 0}, {"RVOL", 0, 127, 40, PF_NUM, 0}, {"RDEC", 0, 127, 50, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_ML] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 80, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {"TENS", 0, 127, 20, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_MA] = {{"DEC", 0, 127, 50, PF_NUM, 0}, {"GRNS", 0, 127, 64, PF_NUM, 0}, {"GLEN", 0, 127, 40, PF_NUM, 0}, {"SIZE", 0, 127, 64, PF_NUM, 0}, {"HARD", 0, 127, 64, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_PI_HH] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 40, PF_NUM, 0}, {"CLSN", 0, 127, 30, PF_NUM, 0}, {"RING", 0, 127, 64, PF_NUM, 0}, {"AG", 0, 127, 64, PF_NUM, 0}, {"AU", 0, 127, 30, PF_NUM, 0}, {"BR", 0, 127, 30, PF_NUM, 0}, {"CLOS", 0, 127, 20, PF_NUM, 0}},
+    [PM_PI_RC] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 100, PF_NUM, 0}, {"HARD", 0, 127, 40, PF_NUM, 0}, {"RING", 0, 127, 80, PF_NUM, 0}, {"AG", 0, 127, 64, PF_NUM, 0}, {"AU", 0, 127, 30, PF_NUM, 0}, {"BR", 0, 127, 30, PF_NUM, 0}, {"GRAB", 0, 127, 127, PF_NUM, 0}},
+    [PM_PI_CC] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 100, PF_NUM, 0}, {"HARD", 0, 127, 80, PF_NUM, 0}, {"RING", 0, 127, 60, PF_NUM, 0}, {"AG", 0, 127, 70, PF_NUM, 0}, {"AU", 0, 127, 20, PF_NUM, 0}, {"BR", 0, 127, 40, PF_NUM, 0}, {"GRAB", 0, 127, 127, PF_NUM, 0}},
+    [PM_GND_SN] = {{"PTCH", 0, 127, 64, PF_NUM, 0}, {"DEC", 0, 127, 64, PF_NUM, 0}, {"RAMP", 0, 127, 0, PF_NUM, 0}, {"RDEC", 0, 127, 40, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_GND_NS] = {{"DEC", 0, 127, 50, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+    [PM_GND_IM] = {{"UP", 0, 127, 20, PF_NUM, 0}, {"UVAL", 0, 127, 127, PF_NUM, 0}, {"DOWN", 0, 127, 20, PF_NUM, 0}, {"DVAL", 0, 127, 127, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}},
+};
+
+static const char *const perc_mnames[PM_N] = {
+    "TRX-BD", "TRX-B2", "TRX-SD", "TRX-XT", "TRX-CP", "TRX-RS", "TRX-CB", "TRX-CH", "TRX-OH", "TRX-CY", "TRX-MA", "TRX-CL", "TRX-XC",
+    "EFM-BD", "EFM-SD", "EFM-XT", "EFM-CP", "EFM-RS", "EFM-CB", "EFM-HH", "EFM-CY",
+    "PI-BD", "PI-SD", "PI-MT", "PI-RS", "PI-ML", "PI-MA", "PI-HH", "PI-RC", "PI-CC", "GND-SN", "GND-NS", "GND-IM"};
+/* SOURCE 1: the machine; then its eight; then the Machinedrum's track effects */
+static const rv_pinfo SRC_PERC_FX[7] = {
+    {"AMD", 0, 127, 0, PF_NUM, 0}, {"AMF", 0, 127, 64, PF_NUM, 0}, {"EQF", 0, 127, 64, PF_NUM, 0},
+    {"EQG", -64, 63, 0, PF_BI, 0}, {"FLTF", 0, 127, 0, PF_NUM, 0}, {"FLTW", 0, 127, 127, PF_NUM, 0},
+    {"FLTQ", 0, 127, 0, PF_NUM, 0}};
+static const rv_pinfo *perc_pinfo(int mach, int s)
+{
+    static const rv_pinfo machine = {"MACHINE", 0, PM_N - 1, PM_TRX_BD, PF_ENUM, perc_mnames};
+    if (s == 0)
+        return &machine;
+    if (s <= 8)
+        return &perc_pi[mach < 0 ? 0 : mach >= PM_N ? PM_N - 1 : mach][s - 1];
+    return &SRC_PERC_FX[s - 9];
+}
+
 static const rv_pinfo TRACK[TP_N] = {
     [TP_KIND] = {"KIND", 0, KIND_N - 1, 0, E(rv_kind_names)},
     [TP_ENGINE] = {"ENGINE", 0, ENG_N - 1, 0, E(rv_engine_names)},
@@ -350,7 +406,12 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
 {
     if (p >= TP_S0 && p <= TP_S15) {
         int kind = rv.tp[t & 7][TP_KIND], s = p - TP_S0;
-        const rv_pinfo *tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
+        const rv_pinfo *tab;
+        if (kind == KIND_PERC) {
+            const rv_pinfo *q = perc_pinfo(rv.tp[t & 7][TP_S0], s);
+            return q->name ? q : &NONE;
+        }
+        tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
                                                                                    : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
         return tab[s].name ? &tab[s] : &NONE;
     }
@@ -526,8 +587,18 @@ const char *rv_pid_label(int pid, char *buf, int max)
 int rv_tp_applies(int t, int p)
 {
     const int16_t *tp = rv.tp[t];
-    if ((p == TP_ENGINE || p == TP_VELO) && tp[TP_KIND] != KIND_SYNTH)   /* synth engines; strike and tape */
-        return 0;                                                      /* take velocity as it comes */
+    if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH)
+        return 0;
+    if (p == TP_VELO && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)   /* strike and tape take velocity as it comes */
+        return 0;
+    if (tp[TP_KIND] == KIND_PERC) {                                    /* the machines make their own envelopes */
+        switch (p) {
+        case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_REL: case TP_TAIL:
+        case TP_GIVE: case TP_ESHAPE: case TP_EMORPH: case TP_ETIME: case TP_EMODE: case TP_EWARP:
+            return 0;
+        default: break;
+        }
+    }                                                      /* take velocity as it comes */
     if (p == TP_POLY && tp[TP_KIND] == KIND_TAPE)                      /* a tape track is one playhead */
         return 0;
     if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT) && tp[TP_KIND] != KIND_SYNTH)
@@ -656,7 +727,7 @@ int rv_moddest_next(int p, int dir)
 static void track_src_defaults(int t)
 {
     int s;
-    for (s = 0; s < 16; s++) {
+    for (s = rv.tp[t][TP_KIND] == KIND_PERC ? 1 : 0; s < 16; s++) {   /* PERC keeps its machine: the rest are its defaults */
         const rv_pinfo *pi = rv_pinfo_track(t, TP_S0 + s);
         rv.tp[t][TP_S0 + s] = pi->name ? pi->def : 0;
     }
@@ -687,6 +758,10 @@ void rv_track_defaults(int t, int kind, int engine)
         rv_cz_init(t);
     if (kind == KIND_SYNTH && engine == ENG_SQ)
         rv.tp[t][TP_FTYPE] = FT_SQ80;
+    if (kind == KIND_PERC) {
+        rv.tp[t][TP_POLY] = 0;
+        rv.tp[t][TP_VELO] = 64;
+    }
     if (kind == KIND_STRIKE) {
         rv.tp[t][TP_POLY] = 1;
         rv.tp[t][TP_ATK] = 0;
