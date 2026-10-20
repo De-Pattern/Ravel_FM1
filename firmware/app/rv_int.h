@@ -67,6 +67,8 @@ typedef struct {
 /* SQ: three wavetable oscillators (the DOC chip's way: 8-bit cycles, read without interpolation as
  * GRIT rises), ENV 2 (the filter's) and its pure decay (pitch, the osc 3 transient), a delayed vibrato */
 typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
+/* WAVE: two wavetable oscillators and the wave envelope (where in its shape, 0..1) */
+typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
 
 /* a Z filter (rv_zplane.h): six sections' coefficients, their state, the level hold */
 typedef struct { float c[6][5], s[6][2], g; } zp_t;
@@ -82,12 +84,13 @@ typedef struct {
     uint8_t cfg_lib;                /* the step recalled a library shape: keep cfg */
     uint8_t e_eng;                  /* the engine e's state belongs to, + 1 (0 = none) */
     ladder_t lad;
-    svf_t svf;
+    svf_t svf, svf2;               /* svf2: the XT filters' second stage */
+    float xs_y, xs_acc;            /* XT S&H: the held sample, the clock */
     zp_t zp;
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; } e;
 } voice_t;
 
 /* strike: exciter into body, with a transient layer */

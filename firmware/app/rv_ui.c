@@ -1863,7 +1863,7 @@ static void pic_source(void)
         static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO CZ: 2 LINES, 8-STEP DCO DCW DCA",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
-                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER"};
+                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         g_text(8, PIC_Y + 6, &FONT_B, rv_engine_names[e], C_SYNTH);
         g_text(8, PIC_Y + 30, &FONT_T, desc[e], C_MID);
@@ -1886,6 +1886,10 @@ static float filt_mag(int type, float f, float fc, float res)
         return m;
     }
     case FT_HP: return w * w / fm_sqrtf(m2 + 1e-6f);
+    case FT_XNOTCH: return fm_fabsf(re) / fm_sqrtf(m2 + 1e-6f);
+    case FT_XBP24: { float b = (w / q) / fm_sqrtf(m2 + 1e-6f); return b * b * (1.0f + res * 2.0f); }
+    case FT_XLP24: { float im2 = w / 0.55f; return 1.0f / fm_sqrtf(m2 + 1e-6f) / fm_sqrtf(re * re + im2 * im2 + 1e-6f); }
+    case FT_XSH: case FT_XSHAPE: return 1.0f;
     case FT_BP: return (w / q) / fm_sqrtf(m2 + 1e-6f) * (1.0f + res);
     default: return 1.0f / fm_sqrtf(m2 + 1e-6f);
     }

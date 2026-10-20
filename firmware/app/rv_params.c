@@ -3,15 +3,16 @@
 #include "rv.h"
 #include "rv_sqwaves.h"
 #include "rv_shapes.h"
+#include "rv_wavetables.h"
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
-static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "SQ-80", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL"};
+static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "SQ-80", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE"};
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
 static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
@@ -59,6 +60,10 @@ static const char *const chip_waves[] = {"TRI", "SAW", "PULSE", "NOISE", "SAW&PU
 static const char *const chip_modes[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "ONCE"};
 static const char *const chip_suboct[] = {"-3 OCT", "-2 OCT", "-1 OCT", "0 OCT", "+1 OCT"};
 static const char *const sq_wave_names[] = {SQ_WAVE_NAMES};
+static const char *const wt_names[] = {WT_NAMES};
+static const char *const wx_names[] = {"OFF", "SYNC", "RING", "FM", "SYNC+FM"};
+static const char *const ww_names[] = {"OFF", "SYNC", "BEND", "PWM", "MIRROR", "REMAP 2", "REMAP 4", "SQUEEZE", "FLIP", "QUANT"};
+static const char *const wenv_names[] = {"OFF", SHP_NAMES};
 static const char *const sq_mods[] = {"OFF", "SYNC", "AM", "SYNC+AM"};
 static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
 static const char *const form_modes[] = {"FILTER", "FOF"};
@@ -140,7 +145,18 @@ static const rv_pinfo SRC_SQ[16] = {
     {"MOD", 0, N(sq_mods), 0, E(sq_mods)}, {"E2 DEC", 0, 127, 60, PF_NUM, 0}, {"E2 SUS", 0, 127, 40, PF_NUM, 0},
     {"P ENV", -64, 63, 0, PF_BI, 0}, {"TRANS", 0, 127, 0, PF_NUM, 0}, {"VIBRATO", 0, 127, 0, PF_NUM, 0},
     {"VIB RATE", 0, 127, 64, PF_NUM, 0}, {"GRIT", 0, 127, 64, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ};
+/* WAVE: after the PPG Wave and the Waldorf Microwave: two oscillators reading wavetables (Ravel's
+ * own: 8 key waves each, 64 positions between them), cross-modulation, Serum-style phase warps, a
+ * looping wave envelope that sweeps the positions, and ASIC: smooth, then stepping, then sizzle */
+static const rv_pinfo SRC_WAVE[16] = {
+    {"TABLE 1", 0, WT_TABLES - 1, 0, E(wt_names)}, {"POS 1", 0, 63, 0, PF_NUM, 0},
+    {"TABLE 2", 0, WT_TABLES - 1, 1, E(wt_names)}, {"POS 2", 0, 63, 0, PF_NUM, 0},
+    {"SEMI 2", -24, 24, 0, PF_SEMI, 0}, {"DETUNE", 0, 127, 10, PF_NUM, 0}, {"MIX", 0, 127, 0, PF_NUM, 0},
+    {"SAT", 0, 127, 20, PF_NUM, 0}, {"XMOD", 0, N(wx_names), 0, E(wx_names)}, {"XM AMT", 0, 127, 40, PF_NUM, 0},
+    {"WARP", 0, N(ww_names), 0, E(ww_names)}, {"WARP AMT", 0, 127, 40, PF_NUM, 0},
+    {"WAVE ENV", 0, SHP_N, 0, E(wenv_names)}, {"WE AMT", -64, 63, 40, PF_BI, 0}, {"WE TIME", 0, 127, 95, PF_TIME, 0},
+    {"ASIC", 0, 127, 0, PF_NUM, 0}};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE};
 
 static const rv_pinfo TRACK[TP_N] = {
     [TP_KIND] = {"KIND", 0, KIND_N - 1, 0, E(rv_kind_names)},
@@ -548,6 +564,16 @@ int rv_tp_applies(int t, int p)
         case TP_S6: return steps >= 4;                                      /* OF4 */
         case TP_S9: return tp[TP_S8] > 0 || tp[TP_S10] > 0;                 /* SUB OCT: with SUB or SYNC */
         case TP_S15: return tp[TP_S14] > 0;                                 /* FRAG: with DECOMP */
+        default: return 1;
+        }
+    }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_WAVE) {
+        int two = tp[TP_S6] > 0 || tp[TP_S8] != WX_OFF;
+        switch (p) {
+        case TP_S2: case TP_S3: case TP_S4: case TP_S5: return two;          /* osc 2: with MIX or XMOD */
+        case TP_S9: return tp[TP_S8] != WX_OFF;                             /* XM AMT */
+        case TP_S11: return tp[TP_S10] != WW_OFF;                           /* WARP AMT */
+        case TP_S13: case TP_S14: return tp[TP_S12] > 0;                    /* the wave envelope */
         default: return 1;
         }
     }

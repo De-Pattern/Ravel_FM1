@@ -1260,6 +1260,165 @@ static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
     }
 }
 
+/* --------------------------------------------------------------- WAVE --- */
+/* After the PPG Wave and the Waldorf Microwave. Two oscillators read wavetables: each table is
+ * 8 key waves and POS (0-63) moves between them. Osc 1 can hard-sync osc 2, ring-modulate it or
+ * frequency-modulate it (XMOD, by XM AMT). Both read through a phase WARP (after Serum's: SYNC,
+ * BEND, PWM, MIRROR, REMAP 2/4, SQUEEZE, FLIP, QUANT). MIX balances them into a mixer that
+ * saturates prettily as SAT rises. The WAVE ENV is a shape from the SHAPE library that sweeps both
+ * positions (by WE AMT), looping while the key is held, as the Microwave's wave envelope loops.
+ * ASIC: at 0 the positions glide and the waves are band-limited; up to 63 the positions step
+ * through 64 waves as the PPG and Microwave did; above, the samples are read raw and unsmoothed,
+ * the phase is truncated and the output coarsens: the early Microwave's digital sizzle. */
+#define WT_DATA
+#include "rv_wavetables.h"
+
+static void wave_note(voice_t *v, const float *eff)
+{
+    wave_t *w = &v->e.wv;
+    w->wu = 0.0f;
+    w->wdone = 0;
+    if (((int)(eff[TP_S8] + 0.5f) == WX_SYNC) || ((int)(eff[TP_S8] + 0.5f) == WX_SYNCFM))
+        w->ph[0] = w->ph[1] = 0.0f;
+}
+
+/* one osc's sample: table t, key position kp (0..7), phase p (0..1); lvl 0 full, 1 limited, or a mix */
+static inline float wtab_read(int t, float kp, float p, float lim, int raw)
+{
+    int k0 = (int)kp, k1, i0, i1;
+    float kf = kp - (float)k0, x = p * (float)WT_N, fr, a, b;
+    const int8_t *f0, *f1;
+    if (k0 >= WT_KEYS - 1) {
+        k0 = WT_KEYS - 1;
+        kf = 0.0f;
+    }
+    k1 = k0 + (k0 < WT_KEYS - 1);
+    i0 = (int)x & (WT_N - 1);
+    i1 = (i0 + 1) & (WT_N - 1);
+    fr = raw ? 0.0f : x - fm_floorf(x);
+    f0 = wt_tab[t][0][k0];
+    f1 = wt_tab[t][0][k1];
+    a = f0[i0] + (f0[i1] - f0[i0]) * fr;
+    b = f1[i0] + (f1[i1] - f1[i0]) * fr;
+    a += (b - a) * kf;
+    if (lim > 0.001f) {                               /* high notes: toward the 10-harmonic copy */
+        float c, d;
+        f0 = wt_tab[t][1][k0];
+        f1 = wt_tab[t][1][k1];
+        c = f0[i0] + (f0[i1] - f0[i0]) * fr;
+        d = f1[i0] + (f1[i1] - f1[i0]) * fr;
+        c += (d - c) * kf;
+        a += (c - a) * lim;
+    }
+    return a * (1.0f / 127.0f);
+}
+
+static inline float wtab_warp(int warp, float a, float p)
+{
+    switch (warp) {
+    case WW_SYNC: { float q = p * (1.0f + a * 7.0f); return q - fm_floorf(q); }
+    case WW_BEND: return fm_powf(p > 1e-6f ? p : 1e-6f, fm_exp2f((0.5f - a) * 4.0f));   /* bipolar around the middle */
+    case WW_PWM: { float wd = 0.5f - a * 0.48f; return p < wd ? p * 0.5f / wd : 0.5f + (p - wd) * 0.5f / (1.0f - wd); }
+    case WW_MIRROR: { float m = p < 0.5f ? p * 2.0f : 2.0f - p * 2.0f; return p + (m - p) * a; }
+    case WW_SQUEEZE: {
+        float e = 1.0f + a * 3.0f;
+        return p < 0.5f ? 0.5f * fm_powf(p * 2.0f, e) : 1.0f - 0.5f * fm_powf(2.0f - p * 2.0f, e);
+    }
+    case WW_QUANT: { float st = fm_exp2f(7.0f - a * 5.5f); return fm_floorf(p * st) / st; }
+    default: return p;
+    }
+}
+
+/* one oscillator through its warp: REMAP and FLIP work on the output */
+static inline float wtab_osc(int t, float kp, float p, int warp, float wa, float lim, int raw)
+{
+    float y;
+    if (warp == WW_REMAP2 || warp == WW_REMAP4) {      /* the cycle read 2 or 4 times a period, blended in */
+        float m = warp == WW_REMAP2 ? 2.0f : 4.0f, q = p * m;
+        y = wtab_read(t, kp, p, lim, raw);
+        return y + (wtab_read(t, kp, q - fm_floorf(q), lim, raw) - y) * wa;
+    }
+    y = wtab_read(t, kp, wtab_warp(warp, wa, p), lim, raw);
+    if (warp == WW_FLIP && p > 1.0f - wa * 0.5f)       /* FLIP: the end of the cycle upside down */
+        y = -y;
+    return y;
+}
+
+static void wave_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    wave_t *w = &v->e.wv;
+    int t1 = clampi((int)(eff[TP_S0] + 0.5f), 0, WT_TABLES - 1), t2 = clampi((int)(eff[TP_S2] + 0.5f), 0, WT_TABLES - 1);
+    int xm = clampi((int)(eff[TP_S8] + 0.5f), 0, 4), warp = clampi((int)(eff[TP_S10] + 0.5f), 0, WW_N - 1);
+    int wenv = clampi((int)(eff[TP_S12] + 0.5f), 0, SHP_N), i, raw;
+    float asic = clampf(eff[TP_S15], 0.0f, 127.0f), mix = eff[TP_S6] * (1.0f / 127.0f), satv = eff[TP_S7] * (1.0f / 127.0f);
+    float xa = eff[TP_S9] * (1.0f / 127.0f), wa = eff[TP_S11] * (1.0f / 127.0f), det = eff[TP_S5] * (0.3f / 127.0f);
+    float f2 = f * fm_exp2f((eff[TP_S4] + det) * (1.0f / 12.0f)), d1, d2, p1, p2, kp1, kp2, l1, l2, g1, g2, drive, q;
+    /* the wave envelope: a shape that loops while held, then finishes its cycle */
+    if (wenv > 0 && !w->wdone) {
+        w->wu += (float)n * RV_DT / rv_time_f(eff[TP_S14]);
+        if (w->wu >= 1.0f) {
+            if (v->gate)
+                w->wu -= fm_floorf(w->wu);
+            else {
+                w->wu = 1.0f;
+                w->wdone = 1;
+            }
+        }
+        w->wv = shp_eval(wenv, 0.0f, 0.0f, w->wu);
+    } else if (!wenv) {
+        w->wv = 0.0f;
+    }
+    p1 = clampf(eff[TP_S1] + eff[TP_S13] * (63.0f / 64.0f) * w->wv, 0.0f, 63.0f);
+    p2 = clampf(eff[TP_S3] + eff[TP_S13] * (63.0f / 64.0f) * w->wv, 0.0f, 63.0f);
+    if (asic >= 1.0f) {                                /* the PPG's stepping: 64 whole waves */
+        p1 = fm_floorf(p1 + 0.5f);
+        p2 = fm_floorf(p2 + 0.5f);
+    }
+    kp1 = p1 * (7.0f / 63.0f);
+    kp2 = p2 * (7.0f / 63.0f);
+    raw = asic >= 64.0f;
+    /* band limit (smooth only): the share of the 10-harmonic copy each osc needs */
+    l1 = raw ? 0.0f : clampf((63.0f - 0.45f * (float)RV_FS / (f > 1.0f ? f : 1.0f)) / 53.0f, 0.0f, 1.0f);
+    l2 = raw ? 0.0f : clampf((63.0f - 0.45f * (float)RV_FS / (f2 > 1.0f ? f2 : 1.0f)) / 53.0f, 0.0f, 1.0f);
+    d1 = clampf(f * RV_DT, 0.0f, 0.45f);
+    d2 = clampf(f2 * RV_DT, 0.0f, 0.45f);
+    g1 = fm_cosf(mix * 1.5707963f);                  /* equal-power MIX */
+    g2 = fm_sinf(mix * 1.5707963f);
+    if (xm == WX_OFF && mix < 0.002f)
+        g2 = 0.0f;
+    drive = 1.0f + satv * 5.0f;
+    q = raw ? fm_exp2f(12.0f - (asic - 64.0f) * (4.0f / 63.0f)) : 0.0f;   /* the output: 12 bits down to 8 */
+    for (i = 0; i < n; i++) {
+        float y1, y2, ph1 = w->ph[0], ph2, y;
+        if (raw) {                                     /* the phase truncated: a jitter that sizzles */
+            float tr = fm_exp2f(9.0f + (127.0f - asic) * (4.0f / 63.0f));
+            ph1 = fm_floorf(ph1 * tr) / tr;
+        }
+        y1 = wtab_osc(t1, kp1, ph1, warp, wa, l1, raw);
+        ph2 = w->ph[1];
+        if (xm == WX_FM || xm == WX_SYNCFM) {          /* osc 1 bends osc 2's phase */
+            ph2 += xa * 1.5f * y1;
+            ph2 -= fm_floorf(ph2);
+        }
+        y2 = g2 > 0.0f || xm == WX_RING ? wtab_osc(t2, kp2, ph2, warp, wa, l2, raw) : 0.0f;
+        if (xm == WX_RING)
+            y2 += (y1 * y2 - y2) * xa;
+        y = y1 * g1 + y2 * (g2 > 0.0f ? g2 : (xm == WX_RING ? 0.7f : 0.0f));
+        y = sat(y * drive) * (1.0f / sat(drive));       /* the mixer: rounds off as it is pushed */
+        if (q > 0.0f)
+            y = fm_floorf(y * q + 0.5f) / q;
+        out[i] = y * 0.5f;
+        w->ph[0] += d1;
+        if (w->ph[0] >= 1.0f) {
+            w->ph[0] -= 1.0f;
+            if (xm == WX_SYNC || xm == WX_SYNCFM)       /* hard sync: osc 2 restarts with osc 1 */
+                w->ph[1] = w->ph[0] * (d2 / (d1 > 1e-7f ? d1 : 1e-7f));
+        }
+        w->ph[1] += d2;
+        w->ph[1] -= fm_floorf(w->ph[1]);
+    }
+}
+
 static void voice_engine_reset(voice_t *v, int eng)
 {
     __builtin_memset(&v->e, 0, sizeof(v->e));
@@ -1287,6 +1446,8 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
         v->a.p = v->a.s = v->a.v = v->a.out = 0.0f;
         v->lad.s[0] = v->lad.s[1] = v->lad.s[2] = v->lad.s[3] = 0.0f;
         __builtin_memset(v->zp.s, 0, sizeof(v->zp.s));
+        v->svf2.ic1 = v->svf2.ic2 = 0.0f;
+        v->xs_y = v->xs_acc = 0.0f;
         v->svf.ic1 = v->svf.ic2 = 0.0f;
         v->lpg = 0.0f;
     } else if (eng == ENG_FM) {
@@ -1319,6 +1480,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_FORMANT: form_render(v, eff, f, buf, n); break;
     case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
     case ENG_SQ: sq_render(v, eff, f, buf, n); break;
+    case ENG_WAVE: wave_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the articulation (CZ: its DCA), the key */
@@ -1333,7 +1495,11 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         cut = eff[TP_CUT] * v->lpg + 6.0f;
     }
     cut = clampf(cut, 0.0f, 135.0f);
-    if (ft >= FT_ZVOWEL)                              /* MORPH and XFORM */
+    if (ft >= FT_XLP24) {                             /* the XT filters */
+        float q = 0.5f + res * res * 24.0f;
+        svf_set(&v->svf, rv_cut_hz(cut), ft == FT_XNOTCH ? 0.5f + res * 6.0f : q);
+        svf_set(&v->svf2, rv_cut_hz(cut), ft == FT_XLP24 || ft == FT_XBP24 ? 0.55f : q);
+    } else if (ft >= FT_ZVOWEL)                       /* MORPH and XFORM */
         zp_design(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
     else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101 || ft == FT_SQ80)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
@@ -1354,6 +1520,31 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         case FT_ZVOWEL: case FT_ZTALK: case FT_ZPHASER: case FT_ZPEAKS: case FT_ZSWEEP: case FT_ZMETAL:
             y = zp_tick(&v->zp, x);
             break;
+        case FT_XLP24:                                /* two clean stages, the resonance in the first */
+            y = svf_tick(&v->svf2, svf_tick(&v->svf, x, 0, 0), 0, 0);
+            break;
+        case FT_XBP24:
+            svf_tick(&v->svf, x, &bp, 0);
+            svf_tick(&v->svf2, bp * v->svf.k, &hp, 0);
+            y = hp * v->svf2.k * (1.0f + res * 2.0f);
+            break;
+        case FT_XNOTCH:
+            svf_tick(&v->svf, x, &bp, 0);
+            y = x - v->svf.k * bp * (1.0f + res * 0.8f);
+            break;
+        case FT_XSH:                                  /* sample and hold: CUTOFF is the clock, RESO smooths less */
+            v->xs_acc += rv_cut_hz(cut) * 2.0f * RV_DT;
+            if (v->xs_acc >= 1.0f) {
+                v->xs_acc -= fm_floorf(v->xs_acc);
+                v->xs_y = x;
+            }
+            y = svf_tick(&v->svf2, v->xs_y, 0, 0) * (1.0f - res) + v->xs_y * res;
+            break;
+        case FT_XSHAPE: {                             /* a wave shaper: CUTOFF drives it, RESO folds it */
+            float g = 1.0f + cut * (6.0f / 127.0f);
+            y = fm_sinf(x * g * (1.0f + res * 2.0f)) * (0.7f + 0.3f / g);
+            break;
+        }
         case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
         case FT_BP: svf_tick(&v->svf, x, &bp, 0); y = bp * (1.0f + res); break;
         case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;

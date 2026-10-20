@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), eight engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit).
+- **Synth tracks** (T1 to T4), nine engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
@@ -189,7 +189,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with eight engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with nine engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 
@@ -222,7 +222,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or TAPE. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -259,7 +259,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) and five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -283,13 +283,15 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 Try the TALK BOX, PHASE PAD, Z VOX and Z SWEEP presets. The Z filters are on synth tracks, on any engine.
 
+**The XT filters** are digital filters in the manner of the Waldorf Microwave II/XT's: **XT LP24** is a clean four-pole lowpass whose resonance rings sharp and glassy, **XT BP24** a four-pole bandpass, **XT NOTCH** cuts a hole at CUTOFF (RESO widens and deepens it), **XT S&H** samples and holds the sound at a rate CUTOFF sets (a sample-rate reducer that follows the keys with KEYTRK; RESO keeps more of the raw steps) and **XT SHAPE** is a wave shaper, CUTOFF driving it and RESO folding it further. They suit the WAVE engine but work on every synth engine.
+
 The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
 
 **LPG** is a low-pass gate: the filter closes as the note fades, so sounds get darker as they die away (good for plucks and Buchla-style bongos).
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The eight synth engines (SOURCE pages)
+### The nine synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -402,6 +404,21 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **More movement:** the LFO page's LFOs and the matrix reach every SOURCE knob, so wave levels, GRIT and the intervals can all be modulated, as the SQ-80's own modulators could.
 - **Greyed knobs:** WAVE 2 and SEMI 2 grey out while LEVEL 2 is 0 and MOD is off; WAVE 3 and SEMI 3 while LEVEL 3 and TRANS are 0; VIB RATE while VIBRATO is 0.
 - **Presets:** SQ PIANO, SQ VOX, SQ BELLS, SQ BASS, SQ SYNC, SQ PAD and SQ ORGAN.
+
+**WAVE:** a wavetable synth after the PPG Wave and the Waldorf Microwave. Two oscillators each read a wavetable: 8 key waves, with POS moving through 64 positions between them. Osc 1 can sync, ring-modulate or frequency-modulate osc 2, both read through a phase warp (after Serum's), and a mixer adds a sweet saturation as you push it. The wave envelope sweeps the positions in a loop, as the Microwave's does. ASIC dials in the hardware: from smooth to the PPG's stepping to the early Microwave's sizzle. The 20 tables are Ravel's own, built in the families the PPG made famous; none come from a PPG or Waldorf ROM.
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- |
+| TABLE 1: osc 1's wavetable | SEMI 2: osc 2's interval, ±24 semitones | XMOD: OFF, SYNC (osc 2 restarts with osc 1), RING, FM (osc 1 bends osc 2's phase), SYNC+FM | WAVE ENV: OFF, or a shape from the SHAPE library (ENV › SHAPE) that sweeps both positions |
+| POS 1: where in the table (0–63) | DETUNE: osc 2 a little sharp | XM AMT: how much | WE AMT: how far it sweeps (±63 positions) |
+| TABLE 2: osc 2's wavetable | MIX: osc 1 to osc 2 (0 = osc 1 alone) | WARP: OFF, SYNC, BEND, PWM, MIRROR, REMAP 2, REMAP 4, SQUEEZE, FLIP, QUANT | WE TIME: one pass of the wave envelope |
+| POS 2 | SAT: the mixer's saturation | WARP AMT | ASIC: 0 smooth; 1–63 the positions step through 64 whole waves (the PPG's zipper); 64–127 raw, unsmoothed reading, a truncated phase and a coarser output (sizzle) |
+
+- **The tables:** PPG SWEEP (sine to saw, harmonic by harmonic), RESONANT (a resonant peak climbing), PULSE (wide to thin), SYNC (a synced sweep), VOICES (vowels), ORGAN (drawbar settings), BELLS, FORMANT, DIGITAL (bit patterns), SQR TO SAW, PARTIALS (one harmonic walking up), OCTAVES, FM (an index sweep), BRASS, STRINGS, PPG HARD, RANDOM, CHOIR, E-PIANO and WAVEFOLD.
+- **The warps:** SYNC squeezes several cycles into one; BEND leans the wave left or right; PWM squeezes its first half; MIRROR plays it forward then back; REMAP 2 and 4 blend in the wave read two or four times a cycle; SQUEEZE pinches it toward the middle; FLIP turns the end of the cycle upside down; QUANT steps the phase (bit-crushed reading).
+- **The wave envelope** loops while the key is held, then finishes its pass. Pair it with a slow WE TIME for evolving pads, or a fast one with STUTTER or STAIRS UP for rhythmic wave sequences. POS 1 and POS 2 are modulation destinations too: an LFO on POS is the classic PPG sweep.
+- **Greyed knobs:** osc 2's knobs grey out while MIX is 0 and XMOD is off; XM AMT while XMOD is off; WARP AMT while WARP is off; WE AMT and WE TIME while WAVE ENV is off.
+- **Presets:** PPG PAD, WAVE BELLS, MW SYNC, DIGI BASS, VOX SWEEP and REMAP STEP.
 
 ### Strike tracks (SOURCE pages)
 
@@ -1080,6 +1097,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
+- Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
 

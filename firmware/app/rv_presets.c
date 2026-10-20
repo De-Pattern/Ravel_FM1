@@ -128,6 +128,30 @@ static const int8_t q_organ[] = {TP_S0, 11, TP_S1, 18, TP_S2, 19, TP_S3, 12, TP_
                                  TP_S10, 127, TP_S12, 40, TP_S13, 24, TP_S14, 80, TP_S15, 100, SQF, TP_CUT, 110, TP_RES, 0,
                                  TP_EFILT, 0, TP_ATK, 2, TP_SUS, 127, TP_REL, 16, TP_POLY, 3, TP_LEVEL, 84, END};
 
+/* WAVE: S0 TABLE 1 (0 PPG SWEEP, 1 RESONANT, 2 PULSE, 3 SYNC, 4 VOICES, 5 ORGAN, 6 BELLS, 7 FORMANT,
+ * 8 DIGITAL, 9 SQR TO SAW, 10 PARTIALS, 11 OCTAVES, 12 FM, 13 BRASS, 14 STRINGS, 15 PPG HARD,
+ * 16 RANDOM, 17 CHOIR, 18 E-PIANO, 19 WAVEFOLD), S1 POS 1, S2 TABLE 2, S3 POS 2, S4 SEMI 2, S5 DETUNE,
+ * S6 MIX, S7 SAT, S8 XMOD, S9 XM AMT, S10 WARP, S11 WARP AMT, S12 WAVE ENV (a SHAPE), S13 WE AMT,
+ * S14 WE TIME, S15 ASIC */
+static const int8_t w_ppgpad[] = {TP_S0, 1, TP_S1, 4, TP_S2, 7, TP_S3, 10, TP_S5, 30, TP_S6, 60, TP_S7, 30, TP_S12, 12, TP_S13, 40,
+                                  TP_S14, 115, TP_S15, 20, TP_FTYPE, FT_XLP24, TP_CUT, 80, TP_RES, 40, TP_EFILT, 10, TP_ATK, 80,
+                                  TP_SUS, 110, TP_REL, 95, TP_POLY, 3, TP_REVS, 70, TP_LEVEL, 96, END};
+static const int8_t w_bells[] = {TP_S0, 6, TP_S1, 20, TP_S2, 6, TP_S3, 50, TP_S4, 19, TP_S6, 40, TP_S8, WX_FM, TP_S9, 50, TP_S15, 40,
+                                 TP_FTYPE, FT_XLP24, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 96, TP_SUS, 0, TP_REL, 90,
+                                 TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 92, END};
+static const int8_t w_mwsync[] = {TP_S0, 9, TP_S1, 30, TP_S2, 0, TP_S3, 63, TP_S4, 12, TP_S6, 90, TP_S8, WX_SYNC, TP_S12, 8, TP_S13, -50,
+                                  TP_S14, 92, TP_S15, 30, TP_FTYPE, FT_XLP24, TP_CUT, 90, TP_RES, 30, TP_EFILT, 20, TP_ATK, 0,
+                                  TP_DEC, 70, TP_SUS, 90, TP_REL, 30, TP_LEVEL, 92, END};
+static const int8_t w_digibass[] = {TP_S0, 8, TP_S1, 18, TP_S10, WW_QUANT, TP_S11, 50, TP_S15, 110, TP_FTYPE, FT_XLP24, TP_CUT, 56,
+                                    TP_RES, 60, TP_EFILT, 44, TP_ATK, 0, TP_DEC, 55, TP_SUS, 60, TP_REL, 20, TP_POLY, 0,
+                                    TP_PITCH, -12, TP_LEVEL, 104, END};
+static const int8_t w_voxsweep[] = {TP_S0, 4, TP_S1, 0, TP_S7, 50, TP_S10, WW_MIRROR, TP_S11, 40, TP_S12, 24, TP_S13, 63, TP_S14, 105,
+                                    TP_S15, 64, TP_FTYPE, FT_XNOTCH, TP_CUT, 70, TP_RES, 30, TP_ATK, 40, TP_SUS, 110, TP_REL, 70,
+                                    TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 96, END};
+static const int8_t w_remap[] = {TP_S0, 12, TP_S1, 30, TP_S10, WW_REMAP4, TP_S11, 0, TP_S12, 6, TP_S13, 30, TP_S14, 70,
+                                 TP_FTYPE, FT_XSH, TP_CUT, 100, TP_RES, 20, TP_ATK, 0, TP_DEC, 60, TP_SUS, 80, TP_REL, 30,
+                                 TP_LEVEL, 92, END};
+
 /* the Z filters: CUTOFF is MORPH, RESO is XFORM */
 static const int8_t p_talkbox[] = {TP_S0, 30, TP_S2, 3, TP_S3, 30, TP_FTYPE, FT_ZTALK, TP_CUT, 10, TP_RES, 70, TP_EFILT, 60,
                                    TP_KTRK, 0, TP_ATK, 30, TP_DEC, 70, TP_SUS, 70, TP_REL, 40, TP_POLY, 0, TP_GLIDE, 20,
@@ -180,6 +204,9 @@ static const rv_preset presets[] = {
     {"SQ ORGAN", KIND_SYNTH, ENG_SQ, q_organ, 0},
     {"TALK BOX", KIND_SYNTH, ENG_VA, p_talkbox, 0}, {"PHASE PAD", KIND_SYNTH, ENG_VA, p_phasepad, 0},
     {"Z VOX", KIND_SYNTH, ENG_VA, p_zvox, 0}, {"Z SWEEP", KIND_SYNTH, ENG_VA, p_zsweep, 0},
+    {"PPG PAD", KIND_SYNTH, ENG_WAVE, w_ppgpad, 0}, {"WAVE BELLS", KIND_SYNTH, ENG_WAVE, w_bells, 0},
+    {"MW SYNC", KIND_SYNTH, ENG_WAVE, w_mwsync, 0}, {"DIGI BASS", KIND_SYNTH, ENG_WAVE, w_digibass, 0},
+    {"VOX SWEEP", KIND_SYNTH, ENG_WAVE, w_voxsweep, 0}, {"REMAP STEP", KIND_SYNTH, ENG_WAVE, w_remap, 0},
     {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},
