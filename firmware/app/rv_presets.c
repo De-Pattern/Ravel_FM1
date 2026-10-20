@@ -10,8 +10,8 @@ static const int8_t p_glass[] = {TP_S0, 0, TP_S2, 5, TP_S3, 44, TP_S9, 20, TP_CU
                                   TP_SUS, 100, TP_REL, 92, TP_GIVE, 30, TP_REVS, 70, TP_DLYS, 30, TP_POLY, 3, TP_LEVEL, 84, END};
 static const int8_t p_sub[] = {TP_S0, 90, TP_S4, 90, TP_CUT, 52, TP_RES, 34, TP_EFILT, 34, TP_ATK, 2, TP_DEC, 52, TP_SUS, 70, TP_REL, 34,
                                 TP_POLY, 0, TP_GLIDE, 24, TP_PITCH, -12, TP_DRIVE, 30, TP_LEVEL, 96, END};
-static const int8_t p_pluck[] = {TP_S0, 20, TP_S9, 6, TP_CUT, 46, TP_RES, 44, TP_EFILT, 46, TP_ATK, 0, TP_DEC, 48, TP_SUS, 0, TP_REL, 44,
-                                  TP_REVS, 34, TP_DLYS, 40, TP_LEVEL, 90, END};
+static const int8_t p_pluck[] = {TP_S0, 20, TP_S9, 6, TP_CUT, 46, TP_RES, 44, TP_EFILT, 46, TP_ATK, 0, TP_DEC, 84, TP_SUS, 0, TP_REL, 44,
+                                  TP_REVS, 34, TP_DLYS, 40, TP_LEVEL, 127, END};
 /* CZ tones (original patches, in the CZ's own units). General: S0 LINE (0 1, 1 2, 2 1+1', 3 1+2'),
  * S1 OCTAVE (1 = 0), S2 MOD, S3 CHORUS, S4-S7 detune sign, octave, note, fine, S8-S11 vibrato wave,
  * delay, rate, depth, S12 DCW +-, S13 FOAM, S14 VEL DCW. A line: wave 1, wave 2, DCA and DCW key
@@ -24,7 +24,7 @@ static const rv_cz cz_brass = {{
                   {{72, 50, 56}, {99, 90, 0}, 2, 3}}},
     {1, 0, 2, 3, {CZ_FLAT, {{58, 38, 50}, {86, 60, 0}, 2, 3}, {{72, 50, 56}, {99, 90, 0}, 2, 3}}}}};
 static const int8_t p_czbrass[] = {TP_S0, 2, TP_S7, 6, TP_S8, 0, TP_S9, 30, TP_S10, 74, TP_S11, 9, TP_S3, 1, CZ_OPEN_FILTER,
-                                    TP_LEVEL, 86, END};
+                                    TP_LEVEL, 74, END};
 static const rv_cz cz_bell = {{
     {4, 0, 3, 2, {CZ_FLAT, {{99, 46, 60}, {62, 12, 0}, 0, 3}, {{99, 38, 99}, {99, 0, 0}, 0, 2}}},
     {3, 0, 3, 2, {CZ_FLAT, {{99, 40}, {40, 0}, 0, 2}, {{99, 34}, {94, 0}, 0, 2}}}}};
@@ -39,71 +39,71 @@ static const rv_cz cz_strings = {{
     {1, 0, 1, 2, {CZ_FLAT, {{44, 40, 45}, {58, 46, 0}, 2, 3}, {{52, 99, 50}, {99, 99, 0}, 2, 3}}},
     {1, 0, 1, 2, {CZ_FLAT, {{44, 40, 45}, {58, 46, 0}, 2, 3}, {{52, 99, 50}, {99, 99, 0}, 2, 3}}}}};
 static const int8_t p_czstrings[] = {TP_S0, 2, TP_S7, 12, TP_S8, 0, TP_S9, 40, TP_S10, 70, TP_S11, 10, TP_S3, 2, CZ_OPEN_FILTER,
-                                      TP_LEVEL, 82, END};
+                                      TP_LEVEL, 68, END};
 static const rv_cz cz_reso = {{
     {6, 0, 0, 2, {CZ_FLAT, {{48, 42, 60, 50}, {99, 30, 60, 0}, 3, 4}, {{99, 99, 55}, {99, 92, 0}, 2, 3}}},
     {6, 0, 0, 2, {CZ_FLAT, {{48, 42, 60, 50}, {99, 30, 60, 0}, 3, 4}, {{99, 99, 55}, {99, 92, 0}, 2, 3}}}}};
-static const int8_t p_czreso[] = {TP_S0, 0, TP_S3, 1, CZ_OPEN_FILTER, TP_LEVEL, 86, END};
+static const int8_t p_czreso[] = {TP_S0, 0, TP_S3, 1, CZ_OPEN_FILTER, TP_LEVEL, 105, END};
 static const rv_cz cz_bass = {{
     {1, 0, 0, 2, {CZ_FLAT, {{99, 62, 60}, {88, 22, 0}, 2, 3}, {{99, 58, 72}, {99, 78, 0}, 2, 3}}},
     {2, 0, 0, 2, {CZ_FLAT, {{99, 55, 60}, {60, 10, 0}, 2, 3}, {{99, 60, 72}, {90, 70, 0}, 2, 3}}}}};
-static const int8_t p_czbass[] = {TP_S0, 3, TP_S1, 0, TP_S4, 1, TP_S5, 1, TP_S7, 2, CZ_OPEN_FILTER, TP_POLY, 0, TP_LEVEL, 96, END};
+static const int8_t p_czbass[] = {TP_S0, 3, TP_S1, 0, TP_S4, 1, TP_S5, 1, TP_S7, 2, CZ_OPEN_FILTER, TP_POLY, 0, TP_LEVEL, 88, END};
 static const rv_cz cz_noise = {{
     {5, 0, 0, 0, {{{99, 50}, {40, 0}, 0, 2}, {{99, 52}, {70, 0}, 0, 2}, {{99, 48}, {99, 0}, 0, 2}}},
     {7, 1, 0, 0, {CZ_FLAT, {{99, 46}, {99, 0}, 0, 2}, {{99, 44}, {92, 0}, 0, 2}}}}};
-static const int8_t p_cznoise[] = {TP_S0, 3, TP_S2, 2, TP_S5, 1, CZ_OPEN_FILTER, TP_LEVEL, 90, END};
+static const int8_t p_cznoise[] = {TP_S0, 3, TP_S2, 2, TP_S5, 1, CZ_OPEN_FILTER, TP_LEVEL, 74, END};
 static const int8_t p_fmep[] = {TP_S0, 3, TP_S2, 3, TP_S3, 3, TP_S4, 3, TP_S5, 23, TP_S6, 74, TP_S7, 92, TP_S8, 40, TP_S13, 62,
-                                 TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0, TP_ATK, 0, TP_DEC, 92, TP_SUS, 50, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 88, END};
+                                 TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0, TP_ATK, 0, TP_DEC, 92, TP_SUS, 50, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 110, END};
 static const int8_t p_fmbell[] = {TP_S0, 0, TP_S3, 27, TP_S4, 28, TP_S5, 19, TP_S6, 64, TP_S7, 40, TP_S8, 24, TP_S13, 84, TP_FTYPE, FT_LP,
-                                   TP_CUT, 124, TP_ATK, 0, TP_DEC, 100, TP_SUS, 10, TP_REL, 96, TP_REVS, 64, TP_DLYS, 40, TP_LEVEL, 82, END};
+                                   TP_CUT, 124, TP_ATK, 0, TP_DEC, 100, TP_SUS, 10, TP_REL, 96, TP_REVS, 64, TP_DLYS, 40, TP_LEVEL, 90, END};
 static const int8_t p_fmgrowl[] = {TP_S0, 1, TP_S1, 96, TP_S3, 1, TP_S4, 5, TP_S6, 80, TP_S7, 50, TP_S8, 60, TP_S13, 50, TP_S14, 40,
-                                    TP_CUT, 70, TP_RES, 40, TP_EFILT, 30, TP_POLY, 0, TP_PITCH, -12, TP_DRIVE, 40, TP_LEVEL, 82, END};
+                                    TP_CUT, 70, TP_RES, 40, TP_EFILT, 30, TP_POLY, 0, TP_PITCH, -12, TP_DRIVE, 40, TP_LEVEL, 108, END};
 static const int8_t p_string[] = {TP_S0, 0, TP_S1, 92, TP_S2, 20, TP_S3, 22, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
-                                   TP_ATK, 0, TP_DEC, 110, TP_SUS, 127, TP_REL, 96, TP_REVS, 40, TP_LEVEL, 100, END};
+                                   TP_ATK, 0, TP_DEC, 110, TP_SUS, 127, TP_REL, 96, TP_REVS, 40, TP_LEVEL, 83, END};
 static const int8_t p_bowed[] = {TP_S0, 1, TP_S1, 70, TP_S4, 110, TP_S7, 110, TP_S6, 60, TP_FTYPE, FT_LP, TP_CUT, 110, TP_EFILT, 0,
-                                  TP_ATK, 56, TP_SUS, 116, TP_REL, 76, TP_GIVE, 30, TP_REVS, 60, TP_LEVEL, 104, END};
+                                  TP_ATK, 56, TP_SUS, 116, TP_REL, 76, TP_GIVE, 30, TP_REVS, 60, TP_LEVEL, 66, END};
 static const int8_t p_breath[] = {TP_S0, 2, TP_S1, 60, TP_S4, 96, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 100, TP_EFILT, 10, TP_ATK, 40,
-                                   TP_SUS, 110, TP_REL, 60, TP_REVS, 60, TP_LEVEL, 104, END};
+                                   TP_SUS, 110, TP_REL, 60, TP_REVS, 60, TP_LEVEL, 59, END};
 static const int8_t p_membrane[] = {TP_S0, 3, TP_S1, 80, TP_S2, 30, TP_S5, 30, TP_S7, 70, TP_FTYPE, FT_LP, TP_CUT, 127, TP_EFILT, 0,
-                                     TP_ATK, 0, TP_SUS, 127, TP_REL, 100, TP_LEVEL, 100, END};
+                                     TP_ATK, 0, TP_SUS, 127, TP_REL, 100, TP_LEVEL, 75, END};
 static const int8_t p_vowel[] = {TP_S0, 30, TP_S2, 44, TP_S5, 72, TP_S7, 34, TP_FTYPE, FT_LP, TP_CUT, 116, TP_EFILT, 0, TP_ATK, 24,
-                                  TP_SUS, 110, TP_REL, 66, TP_GIVE, 24, TP_REVS, 50, TP_LEVEL, 86, TP_EDST1, TP_S0, TP_EAMT1, 20, END};
+                                  TP_SUS, 110, TP_REL, 66, TP_GIVE, 24, TP_REVS, 50, TP_LEVEL, 62, TP_EDST1, TP_S0, TP_EAMT1, 20, END};
 static const int8_t p_fof[] = {TP_S0, 70, TP_S2, 30, TP_S3, 1, TP_S6, 40, TP_S7, 20, TP_FTYPE, FT_LP, TP_CUT, 124, TP_EFILT, 0,
-                                TP_ATK, 40, TP_SUS, 110, TP_REL, 80, TP_REVS, 70, TP_POLY, 3, TP_LEVEL, 90, END};
+                                TP_ATK, 40, TP_SUS, 110, TP_REL, 80, TP_REVS, 70, TP_POLY, 3, TP_LEVEL, 106, END};
 static const int8_t p_pulsar[] = {TP_S0, 1, TP_S1, 30, TP_S2, 2, TP_S3, 40, TP_S4, 50, TP_S6, 84, TP_FTYPE, FT_LP, TP_CUT, 110,
-                                   TP_EFILT, 10, TP_ATK, 10, TP_DEC, 80, TP_SUS, 80, TP_REL, 70, TP_DLYS, 50, TP_LEVEL, 96, END};
+                                   TP_EFILT, 10, TP_ATK, 10, TP_DEC, 80, TP_SUS, 80, TP_REL, 70, TP_DLYS, 50, TP_LEVEL, 108, END};
 static const int8_t p_swarm[] = {TP_S0, 3, TP_S1, 50, TP_S2, 3, TP_S3, 70, TP_S4, 96, TP_S5, 40, TP_S6, 60, TP_FTYPE, FT_LP, TP_CUT, 100,
                                   TP_ATK, 50, TP_SUS, 110, TP_REL, 90, TP_GIVE, 40, TP_REVS, 70, TP_LEVEL, 96, END};
 static const int8_t p_dustvoice[] = {TP_S0, 7, TP_S1, 20, TP_S2, 2, TP_S5, 96, TP_S6, 96, TP_FTYPE, FT_BP, TP_CUT, 100, TP_RES, 50,
-                                      TP_EFILT, 0, TP_ATK, 0, TP_SUS, 110, TP_REL, 60, TP_DLYS, 60, TP_LEVEL, 110, END};
+                                      TP_EFILT, 0, TP_ATK, 0, TP_SUS, 110, TP_REL, 60, TP_DLYS, 60, TP_LEVEL, 127, END};
 /* CHIP: S0 WAVE, S1 PW, S2 RATE, S3 MODE, S4-S6 OF2-OF4, S7 STEPS, S8 SUB, S9 SUB OCT, S10 SYNC,
  * S11 OVER, S12 SRR, S13 CRUSH, S14 DECOMP, S15 FRAG */
 static const int8_t p_chiparp[] = {TP_S0, CW_PULSE, TP_S1, 40, TP_S2, 92, TP_S3, 0, TP_S4, 3, TP_S5, 7, TP_S6, 12, TP_S7, 4,
-                                   TP_CUT, 127, TP_ATK, 0, TP_DEC, 60, TP_SUS, 90, TP_REL, 20, TP_LEVEL, 88, END};
+                                   TP_CUT, 127, TP_ATK, 0, TP_DEC, 60, TP_SUS, 90, TP_REL, 20, TP_LEVEL, 108, END};
 static const int8_t p_sidbass[] = {TP_S0, CW_SAWPUL, TP_S1, 70, TP_S7, 1, TP_S8, 70, TP_S9, 2, TP_S11, 30, TP_FTYPE, FT_MS20,
                                    TP_CUT, 74, TP_RES, 70, TP_EFILT, 30, TP_ATK, 0, TP_DEC, 50, TP_SUS, 70, TP_REL, 15,
-                                   TP_LEVEL, 96, END};
+                                   TP_LEVEL, 127, END};
 static const int8_t p_chipkick[] = {TP_S0, CW_KICK, TP_S7, 1, TP_S11, 30, TP_CUT, 127, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0,
-                                    TP_REL, 10, TP_LEVEL, 110, END};
-static const int8_t p_chipsnare[] = {TP_S0, CW_SNARE, TP_S7, 1, TP_S13, 8, TP_CUT, 127, TP_ATK, 0, TP_DEC, 34, TP_SUS, 0,
-                                     TP_REL, 10, TP_LEVEL, 96, END};
+                                    TP_REL, 10, TP_LEVEL, 127, END};
+static const int8_t p_chipsnare[] = {TP_S0, CW_SNARE, TP_S7, 1, TP_S13, 8, TP_CUT, 127, TP_ATK, 0, TP_DEC, 74, TP_SUS, 0,
+                                     TP_REL, 10, TP_LEVEL, 127, END};
 static const int8_t p_decomposed[] = {TP_S0, CW_PWM, TP_S1, 90, TP_S2, 70, TP_S3, 3, TP_S4, 7, TP_S5, 12, TP_S7, 3, TP_S12, 40,
                                       TP_S13, 6, TP_S14, 70, TP_S15, 40, TP_CUT, 120, TP_ATK, 0, TP_DEC, 70, TP_SUS, 80,
-                                      TP_REL, 30, TP_LEVEL, 84, TP_REVS, 40, END};
+                                      TP_REL, 30, TP_LEVEL, 110, TP_REVS, 40, END};
 static const int8_t p_syncarp[] = {TP_S0, CW_SAW, TP_S2, 86, TP_S3, 2, TP_S4, 7, TP_S5, 12, TP_S6, 19, TP_S7, 4, TP_S8, 40,
                                    TP_S9, 2, TP_S10, 1, TP_FTYPE, FT_SH101, TP_CUT, 96, TP_RES, 40, TP_ATK, 0, TP_DEC, 70,
-                                   TP_SUS, 80, TP_REL, 25, TP_LEVEL, 86, END};
+                                   TP_SUS, 80, TP_REL, 25, TP_LEVEL, 127, END};
 /* the new filters, on VA */
 static const int8_t p_101bass[] = {TP_FTYPE, FT_SH101, TP_CUT, 58, TP_RES, 64, TP_EFILT, 40, TP_ATK, 0, TP_DEC, 45,
-                                   TP_SUS, 40, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 100, END};
+                                   TP_SUS, 40, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 127, END};
 static const int8_t p_sembrass[] = {TP_FTYPE, FT_SEM, TP_FMODE, 0, TP_CUT, 52, TP_RES, 46, TP_EFILT, 44, TP_KTRK, 40, TP_ATK, 20,
                                     TP_DEC, 62, TP_SUS, 80, TP_REL, 40, TP_LEVEL, 92, END};
 static const int8_t p_semnotch[] = {TP_FTYPE, FT_SEM, TP_FMODE, 64, TP_CUT, 66, TP_RES, 70, TP_EFILT, 20, TP_ATK, 70,
-                                    TP_SUS, 110, TP_REL, 80, TP_REVS, 50, TP_LEVEL, 88, END};
+                                    TP_SUS, 110, TP_REL, 80, TP_REVS, 50, TP_LEVEL, 119, END};
 static const int8_t p_msscream[] = {TP_FTYPE, FT_MS20, TP_CUT, 70, TP_RES, 112, TP_EFILT, 36, TP_ATK, 0, TP_DEC, 60,
-                                    TP_SUS, 60, TP_REL, 30, TP_LEVEL, 84, END};
-static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 40, TP_SUS, 0,
-                                TP_REL, 40, TP_REVS, 40, TP_LEVEL, 104, END};
+                                    TP_SUS, 60, TP_REL, 30, TP_LEVEL, 115, END};
+static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 84, TP_SUS, 0,
+                                TP_REL, 40, TP_REVS, 40, TP_LEVEL, 127, END};
 
 /* SQ (after the SQ-80): S0-S2 WAVE 1-3 (0 SAW, 1 SQUARE, 2 PULSE, 3 SINE, 4 TRI, 5 BELL, 6 BASS,
  * 7 PIANO, 8 EPIANO, 9 VOICE1, 10 VOICE2, 11 ORGAN, 12 REED, 13 SYNTH1, 14 SYNTH2, 15-17 FORMT1-3,
@@ -112,25 +112,25 @@ static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG,
 #define SQF TP_FTYPE, FT_SQ80
 static const int8_t q_piano[] = {TP_S0, 7, TP_S1, 8, TP_S2, 21, TP_S3, 0, TP_S4, 24, TP_S5, 10, TP_S6, 60, TP_S7, 0, TP_S9, 52,
                                  TP_S10, 10, TP_S12, 90, TP_S15, 70, SQF, TP_CUT, 62, TP_RES, 10, TP_EFILT, 40, TP_KTRK, 60,
-                                 TP_ATK, 0, TP_DEC, 82, TP_SUS, 0, TP_REL, 50, TP_POLY, 3, TP_LEVEL, 96, END};
+                                 TP_ATK, 0, TP_DEC, 82, TP_SUS, 0, TP_REL, 50, TP_POLY, 3, TP_LEVEL, 106, END};
 static const int8_t q_vox[] = {TP_S0, 9, TP_S1, 10, TP_S2, 15, TP_S3, 0, TP_S5, 22, TP_S6, 100, TP_S7, 40, TP_S9, 80, TP_S10, 90,
                                TP_S13, 40, TP_S14, 60, TP_S15, 60, SQF, TP_CUT, 80, TP_RES, 20, TP_EFILT, 10, TP_ATK, 60,
-                               TP_SUS, 110, TP_REL, 80, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 96, END};
+                               TP_SUS, 110, TP_REL, 80, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 124, END};
 static const int8_t q_bells[] = {TP_S0, 5, TP_S1, 20, TP_S2, 3, TP_S3, 19, TP_S4, 24, TP_S5, 12, TP_S6, 50, TP_S7, 30, TP_S9, 70,
                                  TP_S10, 0, TP_S12, 60, TP_S15, 80, SQF, TP_CUT, 96, TP_RES, 16, TP_EFILT, 30, TP_ATK, 0,
-                                 TP_DEC, 96, TP_SUS, 0, TP_REL, 90, TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 84, END};
+                                 TP_DEC, 96, TP_SUS, 0, TP_REL, 90, TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 111, END};
 static const int8_t q_bass[] = {TP_S0, 6, TP_S1, 0, TP_S3, -12, TP_S5, 6, TP_S6, 70, TP_S9, 44, TP_S10, 20, TP_S11, 4,
                                 TP_S15, 96, SQF, TP_CUT, 44, TP_RES, 50, TP_EFILT, 52, TP_ATK, 0, TP_DEC, 60, TP_SUS, 80,
-                                TP_REL, 20, TP_POLY, 0, TP_PITCH, -12, TP_LEVEL, 104, END};
+                                TP_REL, 20, TP_POLY, 0, TP_PITCH, -12, TP_LEVEL, 127, END};
 static const int8_t q_sync[] = {TP_S0, 0, TP_S1, 0, TP_S3, 19, TP_S6, 110, TP_S8, SQM_SYNC, TP_S9, 64, TP_S10, 30, TP_S11, 30,
                                 TP_S15, 76, SQF, TP_CUT, 74, TP_RES, 30, TP_EFILT, 36, TP_ATK, 0, TP_DEC, 70, TP_SUS, 90,
-                                TP_REL, 30, TP_LEVEL, 88, END};
+                                TP_REL, 30, TP_LEVEL, 122, END};
 static const int8_t q_pad[] = {TP_S0, 13, TP_S1, 14, TP_S2, 17, TP_S3, 0, TP_S4, 12, TP_S5, 34, TP_S6, 100, TP_S7, 50, TP_S9, 110,
                                TP_S10, 60, TP_S13, 20, TP_S14, 50, TP_S15, 56, SQF, TP_CUT, 60, TP_RES, 36, TP_EFILT, 30,
-                               TP_ATK, 90, TP_SUS, 110, TP_REL, 100, TP_POLY, 3, TP_REVS, 80, TP_LEVEL, 92, END};
+                               TP_ATK, 90, TP_SUS, 110, TP_REL, 100, TP_POLY, 3, TP_REVS, 80, TP_LEVEL, 127, END};
 static const int8_t q_organ[] = {TP_S0, 11, TP_S1, 18, TP_S2, 19, TP_S3, 12, TP_S4, 19, TP_S5, 4, TP_S6, 60, TP_S7, 0, TP_S9, 20,
                                  TP_S10, 127, TP_S12, 40, TP_S13, 24, TP_S14, 80, TP_S15, 100, SQF, TP_CUT, 110, TP_RES, 0,
-                                 TP_EFILT, 0, TP_ATK, 2, TP_SUS, 127, TP_REL, 16, TP_POLY, 3, TP_LEVEL, 84, END};
+                                 TP_EFILT, 0, TP_ATK, 2, TP_SUS, 127, TP_REL, 16, TP_POLY, 3, TP_LEVEL, 89, END};
 
 /* WAVE: S0 TABLE 1 (0 PPG SWEEP, 1 RESONANT, 2 PULSE, 3 SYNC, 4 VOICES, 5 ORGAN, 6 BELLS, 7 FORMANT,
  * 8 DIGITAL, 9 SQR TO SAW, 10 PARTIALS, 11 OCTAVES, 12 FM, 13 BRASS, 14 STRINGS, 15 PPG HARD,
@@ -139,22 +139,22 @@ static const int8_t q_organ[] = {TP_S0, 11, TP_S1, 18, TP_S2, 19, TP_S3, 12, TP_
  * S14 WE TIME, S15 ASIC */
 static const int8_t w_ppgpad[] = {TP_S0, 1, TP_S1, 4, TP_S2, 7, TP_S3, 10, TP_S5, 30, TP_S6, 60, TP_S7, 30, TP_S12, 12, TP_S13, 40,
                                   TP_S14, 115, TP_S15, 20, TP_FTYPE, FT_XLP24, TP_CUT, 80, TP_RES, 40, TP_EFILT, 10, TP_ATK, 80,
-                                  TP_SUS, 110, TP_REL, 95, TP_POLY, 3, TP_REVS, 70, TP_LEVEL, 96, END};
+                                  TP_SUS, 110, TP_REL, 95, TP_POLY, 3, TP_REVS, 70, TP_LEVEL, 77, END};
 static const int8_t w_bells[] = {TP_S0, 6, TP_S1, 20, TP_S2, 6, TP_S3, 50, TP_S4, 19, TP_S6, 40, TP_S8, WX_FM, TP_S9, 50, TP_S15, 40,
                                  TP_FTYPE, FT_XLP24, TP_CUT, 110, TP_RES, 10, TP_ATK, 0, TP_DEC, 96, TP_SUS, 0, TP_REL, 90,
-                                 TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 92, END};
+                                 TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 82, END};
 static const int8_t w_mwsync[] = {TP_S0, 9, TP_S1, 30, TP_S2, 0, TP_S3, 63, TP_S4, 12, TP_S6, 90, TP_S8, WX_SYNC, TP_S12, 8, TP_S13, -50,
                                   TP_S14, 92, TP_S15, 30, TP_FTYPE, FT_XLP24, TP_CUT, 90, TP_RES, 30, TP_EFILT, 20, TP_ATK, 0,
-                                  TP_DEC, 70, TP_SUS, 90, TP_REL, 30, TP_LEVEL, 92, END};
+                                  TP_DEC, 70, TP_SUS, 90, TP_REL, 30, TP_LEVEL, 85, END};
 static const int8_t w_digibass[] = {TP_S0, 8, TP_S1, 18, TP_S10, WW_QUANT, TP_S11, 50, TP_S15, 110, TP_FTYPE, FT_XLP24, TP_CUT, 56,
                                     TP_RES, 60, TP_EFILT, 44, TP_ATK, 0, TP_DEC, 55, TP_SUS, 60, TP_REL, 20, TP_POLY, 0,
-                                    TP_PITCH, -12, TP_LEVEL, 104, END};
+                                    TP_PITCH, -12, TP_LEVEL, 97, END};
 static const int8_t w_voxsweep[] = {TP_S0, 4, TP_S1, 0, TP_S7, 50, TP_S10, WW_MIRROR, TP_S11, 40, TP_S12, 24, TP_S13, 63, TP_S14, 105,
                                     TP_S15, 64, TP_FTYPE, FT_XNOTCH, TP_CUT, 70, TP_RES, 30, TP_ATK, 40, TP_SUS, 110, TP_REL, 70,
-                                    TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 96, END};
+                                    TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 106, END};
 static const int8_t w_remap[] = {TP_S0, 12, TP_S1, 30, TP_S10, WW_REMAP4, TP_S11, 0, TP_S12, 6, TP_S13, 30, TP_S14, 70,
                                  TP_FTYPE, FT_XSH, TP_CUT, 100, TP_RES, 20, TP_ATK, 0, TP_DEC, 60, TP_SUS, 80, TP_REL, 30,
-                                 TP_LEVEL, 92, END};
+                                 TP_LEVEL, 86, END};
 
 /* LOGIC: S0 A WAVE, S1 B RATIO (0 1/4, 1 1/3, 2 1/2, 3 2/3, 4 3/4, 5 1, 6 5/4, 7 4/3, 8 3/2, 9 5/3, 10 2,
  * 11 5/2, 12 3, 13 4, 14 5, 15 6, 16 7, 17 8, 18 11, 19 16), S2 B WAVE, S3 C RATIO, S4 C WAVE, S5 OP 1,
@@ -163,23 +163,23 @@ static const int8_t w_remap[] = {TP_S0, 12, TP_S1, 30, TP_S10, WW_REMAP4, TP_S11
 static const int8_t l_xor[] = {TP_S0, LW_SAW, TP_S1, 8, TP_S2, LW_TRI, TP_S5, LO_XOR, TP_S8, 6, TP_S12, 40, TP_FTYPE, FT_XLP24,
                                TP_CUT, 96, TP_RES, 30, TP_EFILT, 20, TP_ATK, 0, TP_DEC, 70, TP_SUS, 80, TP_REL, 30, TP_LEVEL, 92, END};
 static const int8_t l_comp[] = {TP_S0, LW_SINE, TP_S1, 5, TP_S2, LW_TRI, TP_S5, LO_COMP, TP_S10, 40, TP_S12, 50, TP_FTYPE, FT_LP,
-                                TP_CUT, 90, TP_RES, 20, TP_ATK, 30, TP_SUS, 110, TP_REL, 70, TP_POLY, 3, TP_REVS, 40, TP_LEVEL, 88, END};
+                                TP_CUT, 90, TP_RES, 20, TP_ATK, 30, TP_SUS, 110, TP_REL, 70, TP_POLY, 3, TP_REVS, 40, TP_LEVEL, 69, END};
 static const int8_t l_grainvox[] = {TP_S0, LW_SAW, TP_S1, 10, TP_S2, LW_SINE, TP_S5, LO_MULT, TP_S13, 60, TP_S14, 30, TP_S15, 12,
                                     TP_FTYPE, FT_ZVOWEL, TP_CUT, 30, TP_RES, 50, TP_EFILT, 40, TP_KTRK, 0, TP_ATK, 40, TP_SUS, 110,
-                                    TP_REL, 70, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 96, END};
+                                    TP_REL, 70, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 79, END};
 static const int8_t l_crunch[] = {TP_S0, LW_SAW, TP_S1, 16, TP_S2, LW_SAW, TP_S3, 2, TP_S4, LW_TRI, TP_S5, LO_NAND, TP_S6, LO_MOD,
                                   TP_S7, 60, TP_S8, 3, TP_S12, 20, TP_FTYPE, FT_MS20, TP_CUT, 80, TP_RES, 50, TP_EFILT, 30,
-                                  TP_ATK, 0, TP_DEC, 50, TP_SUS, 50, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 92, END};
+                                  TP_ATK, 0, TP_DEC, 50, TP_SUS, 50, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 127, END};
 
 /* ORGAN: S0 STOP (0 FLUTE, 1 NACHTHORN, 2 PRINCIPAL, 3 GAMBA, 4 TRUMPET), S1-S7 16' 8' 4' 2 2/3' 2' 1 3/5' 1',
  * S8 CHIFF, S9 SPEECH, S10 SPREAD, S11 AIR, S12 WIND, S13 TREMLNT, S14 TREM RT, S15 CELESTE */
 static const int8_t o_infinite[] = {TP_S0, 1, TP_S1, 0, TP_S2, 110, TP_S3, 80, TP_S4, 50, TP_S5, 60, TP_S8, 55, TP_S9, 62, TP_S10, 70,
                                     TP_S11, 40, TP_S12, 40, TP_REVS, 110, TP_LEVEL, 96, END};
 static const int8_t o_plenum[] = {TP_S0, 2, TP_S1, 70, TP_S2, 110, TP_S3, 90, TP_S4, 60, TP_S5, 80, TP_S6, 40, TP_S7, 60, TP_S8, 30,
-                                  TP_REVS, 100, TP_LEVEL, 92, END};
-static const int8_t o_celeste[] = {TP_S0, 3, TP_S2, 110, TP_S3, 30, TP_S13, 30, TP_S14, 60, TP_S15, 70, TP_S8, 15, TP_REVS, 100, TP_LEVEL, 96, END};
+                                  TP_REVS, 100, TP_LEVEL, 104, END};
+static const int8_t o_celeste[] = {TP_S0, 3, TP_S2, 110, TP_S3, 30, TP_S13, 30, TP_S14, 60, TP_S15, 70, TP_S8, 15, TP_REVS, 100, TP_LEVEL, 111, END};
 static const int8_t o_flute[] = {TP_S0, 0, TP_S2, 50, TP_S3, 110, TP_S8, 85, TP_S9, 40, TP_S11, 30, TP_REVS, 90, TP_LEVEL, 100, END};
-static const int8_t o_trompette[] = {TP_S0, 4, TP_S2, 110, TP_S3, 60, TP_S8, 20, TP_S9, 30, TP_REVS, 80, TP_LEVEL, 90, END};
+static const int8_t o_trompette[] = {TP_S0, 4, TP_S2, 110, TP_S3, 60, TP_S8, 20, TP_S9, 30, TP_REVS, 80, TP_LEVEL, 116, END};
 /* MONO: S0 SAW, S1 PULSE, S2 SUB, S3 SUB OCT, S4 NOISE, S5 PW, S6 PWM, S7 SCOOP, S8 SCOOP T, S9 VIBRATO,
  * S10 VIB RATE, S11 VIB DLY, S12 VEL>CUT, S13 DRIFT, S14 RETRIG, S15 DRIVE (the engine sets the SH-101
  * filter, key tracking and the envelope; these change what differs) */
@@ -189,61 +189,61 @@ static const int8_t m_woodwind[] = {TP_S0, 30, TP_S1, 100, TP_S5, 30, TP_S7, 40,
 static const int8_t m_cello[] = {TP_S0, 127, TP_S9, 18, TP_S10, 80, TP_S11, 60, TP_S15, 50, TP_ATK, 62, TP_CUT, 68, TP_RES, 20, TP_KTRK, 110,
                                  TP_LEVEL, 100, END};
 static const int8_t m_rubber[] = {TP_S0, 90, TP_S2, 70, TP_S7, 0, TP_S9, 0, TP_S14, 1, TP_CUT, 50, TP_RES, 40, TP_EFILT, 50, TP_ATK, 0,
-                                  TP_DEC, 60, TP_SUS, 30, TP_PITCH, -12, TP_LEVEL, 106, END};
-static const int8_t m_scoop[] = {TP_S0, 40, TP_S1, 80, TP_S5, 40, TP_S6, 40, TP_S7, 70, TP_S8, 60, TP_S9, 20, TP_LEVEL, 100, TP_DLYS, 30, END};
+                                  TP_DEC, 60, TP_SUS, 30, TP_PITCH, -12, TP_LEVEL, 127, END};
+static const int8_t m_scoop[] = {TP_S0, 40, TP_S1, 80, TP_S5, 40, TP_S6, 40, TP_S7, 70, TP_S8, 60, TP_S9, 20, TP_LEVEL, 107, TP_DLYS, 30, END};
 
 /* the Z filters: CUTOFF is MORPH, RESO is XFORM */
 static const int8_t p_talkbox[] = {TP_S0, 30, TP_S2, 3, TP_S3, 30, TP_FTYPE, FT_ZTALK, TP_CUT, 10, TP_RES, 70, TP_EFILT, 60,
                                    TP_KTRK, 0, TP_ATK, 30, TP_DEC, 70, TP_SUS, 70, TP_REL, 40, TP_POLY, 0, TP_GLIDE, 20,
-                                   TP_LEVEL, 100, END};
+                                   TP_LEVEL, 112, END};
 static const int8_t p_phasepad[] = {TP_S0, 0, TP_S2, 5, TP_S3, 40, TP_FTYPE, FT_ZPHASER, TP_CUT, 20, TP_RES, 110, TP_EFILT, 50,
                                     TP_KTRK, 0, TP_ATK, 90, TP_DEC, 110, TP_SUS, 90, TP_REL, 90, TP_POLY, 3, TP_REVS, 60,
-                                    TP_LEVEL, 92, END};
+                                    TP_LEVEL, 73, END};
 static const int8_t p_zvox[] = {TP_S0, 0, TP_FTYPE, FT_ZVOWEL, TP_CUT, 0, TP_RES, 60, TP_EFILT, 64, TP_KTRK, 0, TP_ATK, 50,
-                                TP_DEC, 90, TP_SUS, 20, TP_REL, 60, TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 100, END};
+                                TP_DEC, 90, TP_SUS, 20, TP_REL, 60, TP_POLY, 3, TP_REVS, 50, TP_LEVEL, 80, END};
 static const int8_t p_zsweep[] = {TP_S0, 64, TP_FTYPE, FT_ZSWEEP, TP_CUT, 30, TP_RES, 100, TP_EFILT, 50, TP_KTRK, 40, TP_ATK, 0,
-                                  TP_DEC, 55, TP_SUS, 40, TP_REL, 25, TP_POLY, 0, TP_LEVEL, 100, END};
+                                  TP_DEC, 55, TP_SUS, 40, TP_REL, 25, TP_POLY, 0, TP_LEVEL, 127, END};
 
 /* --------------------------------------------------------------- strike --- */
-static const int8_t s_wood[] = {TP_S0, EXC_CLICK, TP_S1, BODY_MODAL, TP_S2, 52, TP_S3, 60, TP_S5, 12, TP_S10, 40, TP_S11, 10, TP_LEVEL, 100, END};
-static const int8_t s_metal[] = {TP_S0, EXC_METAL, TP_S1, BODY_DISC, TP_S2, 84, TP_S3, 96, TP_S5, 40, TP_S13, 20, TP_S12, 80, TP_LEVEL, 76, TP_REVS, 30, END};
-static const int8_t s_kick[] = {TP_S0, EXC_CLICK, TP_S1, BODY_PING, TP_S2, 60, TP_S14, 96, TP_S10, 70, TP_S11, 14, TP_PITCH, -24, TP_DRIVE, 30, TP_LEVEL, 110, END};
-static const int8_t s_snare[] = {TP_S0, EXC_NOISE, TP_S1, BODY_MODAL, TP_S2, 40, TP_S3, 90, TP_S5, 60, TP_S10, 90, TP_S11, 40, TP_LEVEL, 92, END};
-static const int8_t s_hat[] = {TP_S0, EXC_METAL, TP_S1, BODY_PING, TP_S2, 24, TP_S3, 120, TP_S10, 60, TP_S11, 20, TP_PITCH, 24, TP_FTYPE, FT_HP, TP_CUT, 96, TP_LEVEL, 72, END};
-static const int8_t s_dustbell[] = {TP_S0, EXC_DUST, TP_S1, BODY_MODAL, TP_S2, 96, TP_S3, 80, TP_S5, 70, TP_S8, 30, TP_S9, 30, TP_S10, 0, TP_LEVEL, 70, TP_REVS, 60, END};
-static const int8_t s_rain[] = {TP_S0, EXC_RAIN, TP_S1, BODY_DISC, TP_S2, 70, TP_S3, 100, TP_S8, 10, TP_S9, 60, TP_S10, 0, TP_LEVEL, 72, TP_DLYS, 40, END};
-static const int8_t s_bowbar[] = {TP_S0, EXC_BOW, TP_S1, BODY_MODAL, TP_S2, 110, TP_S3, 70, TP_S5, 30, TP_S10, 0, TP_ATK, 40, TP_LEVEL, 92, TP_REVS, 60, END};
-static const int8_t s_strings[] = {TP_S0, EXC_CLICK, TP_S1, BODY_STRINGS, TP_S2, 100, TP_S3, 90, TP_S6, 50, TP_S5, 30, TP_S10, 20, TP_LEVEL, 96, END};
-static const int8_t s_clockwork[] = {TP_S0, EXC_DUST, TP_S1, BODY_PING, TP_S2, 70, TP_S8, 127, TP_S9, 70, TP_S10, 0, TP_PITCH, 12, TP_LEVEL, 80, END};
-static const int8_t s_fmtom[] = {TP_S0, EXC_FM, TP_S1, BODY_MODAL, TP_S2, 60, TP_S3, 40, TP_S14, 60, TP_S10, 40, TP_PITCH, -12, TP_LEVEL, 92, END};
-static const int8_t s_pipe[] = {TP_S0, EXC_BLOW, TP_S1, BODY_PING, TP_S2, 110, TP_S3, 60, TP_S10, 0, TP_ATK, 50, TP_LEVEL, 100, TP_REVS, 50, END};
+static const int8_t s_wood[] = {TP_S0, EXC_CLICK, TP_S1, BODY_MODAL, TP_S2, 52, TP_S3, 60, TP_S5, 12, TP_S10, 40, TP_S11, 10, TP_LEVEL, 127, END};
+static const int8_t s_metal[] = {TP_S0, EXC_METAL, TP_S1, BODY_DISC, TP_S2, 84, TP_S3, 96, TP_S5, 40, TP_S13, 20, TP_S12, 80, TP_LEVEL, 56, TP_REVS, 30, END};
+static const int8_t s_kick[] = {TP_S0, EXC_CLICK, TP_S1, BODY_PING, TP_S2, 60, TP_S14, 96, TP_S10, 70, TP_S11, 14, TP_PITCH, -24, TP_DRIVE, 30, TP_LEVEL, 127, END};
+static const int8_t s_snare[] = {TP_S0, EXC_NOISE, TP_S1, BODY_MODAL, TP_S2, 40, TP_S3, 90, TP_S5, 60, TP_S10, 90, TP_S11, 40, TP_LEVEL, 73, END};
+static const int8_t s_hat[] = {TP_S0, EXC_METAL, TP_S1, BODY_PING, TP_S2, 24, TP_S3, 120, TP_S10, 60, TP_S11, 20, TP_PITCH, 24, TP_FTYPE, FT_HP, TP_CUT, 96, TP_LEVEL, 65, END};
+static const int8_t s_dustbell[] = {TP_S0, EXC_DUST, TP_S1, BODY_MODAL, TP_S2, 96, TP_S3, 80, TP_S5, 70, TP_S8, 30, TP_S9, 30, TP_S10, 0, TP_LEVEL, 104, TP_REVS, 60, END};
+static const int8_t s_rain[] = {TP_S0, EXC_RAIN, TP_S1, BODY_DISC, TP_S2, 70, TP_S3, 100, TP_S8, 10, TP_S9, 60, TP_S10, 0, TP_LEVEL, 63, TP_DLYS, 40, END};
+static const int8_t s_bowbar[] = {TP_S0, EXC_BOW, TP_S1, BODY_MODAL, TP_S2, 110, TP_S3, 70, TP_S5, 30, TP_S10, 0, TP_ATK, 40, TP_LEVEL, 70, TP_REVS, 60, END};
+static const int8_t s_strings[] = {TP_S0, EXC_CLICK, TP_S1, BODY_STRINGS, TP_S2, 100, TP_S3, 90, TP_S6, 50, TP_S5, 30, TP_S10, 20, TP_LEVEL, 127, END};
+static const int8_t s_clockwork[] = {TP_S0, EXC_DUST, TP_S1, BODY_PING, TP_S2, 70, TP_S8, 127, TP_S9, 70, TP_S10, 0, TP_PITCH, 12, TP_LEVEL, 127, END};
+static const int8_t s_fmtom[] = {TP_S0, EXC_FM, TP_S1, BODY_MODAL, TP_S2, 60, TP_S3, 40, TP_S14, 60, TP_S10, 40, TP_PITCH, -12, TP_LEVEL, 63, END};
+static const int8_t s_pipe[] = {TP_S0, EXC_BLOW, TP_S1, BODY_PING, TP_S2, 110, TP_S3, 60, TP_S10, 0, TP_ATK, 50, TP_LEVEL, 89, TP_REVS, 50, END};
 static const int8_t s_listen[] = {TP_S0, EXC_INPUT, TP_S1, BODY_MODAL, TP_S2, 100, TP_S3, 80, TP_S10, 0, TP_LEVEL, 92, END};
 
 /* ----------------------------------------------------------------- perc --- */
 /* S0 MACHINE, S1-S8 its parameters (see rv_params.c perc_mdef), S9 AMD, S10 AMF, S11 EQF, S12 EQG,
  * S13 FLTF, S14 FLTW, S15 FLTQ */
-static const int8_t d_trxkick[] = {TP_S0, PM_TRX_BD, TP_S1, 36, TP_S2, 70, TP_S3, 60, TP_S4, 36, TP_S5, 60, TP_S8, 30, TP_LEVEL, 110, END};
+static const int8_t d_trxkick[] = {TP_S0, PM_TRX_BD, TP_S1, 36, TP_S2, 70, TP_S3, 60, TP_S4, 36, TP_S5, 60, TP_S8, 30, TP_LEVEL, 90, END};
 static const int8_t d_trxsnare[] = {TP_S0, PM_TRX_SD, TP_S1, 56, TP_S2, 46, TP_S5, 90, TP_S6, 80, TP_LEVEL, 100, END};
-static const int8_t d_trxclap[] = {TP_S0, PM_TRX_CP, TP_S1, 70, TP_S6, 50, TP_S7, 50, TP_LEVEL, 100, TP_REVS, 30, END};
-static const int8_t d_trxhat[] = {TP_S0, PM_TRX_CH, TP_S2, 24, TP_S5, 80, TP_LEVEL, 90, TP_PAN, 10, END};
-static const int8_t d_trxopen[] = {TP_S0, PM_TRX_OH, TP_S2, 70, TP_S5, 80, TP_LEVEL, 86, TP_PAN, 10, END};
-static const int8_t d_trxcow[] = {TP_S0, PM_TRX_CB, TP_LEVEL, 84, TP_DLYS, 30, END};
-static const int8_t d_efmkick[] = {TP_S0, PM_EFM_BD, TP_S5, 50, TP_S6, 20, TP_S7, 30, TP_S8, 30, TP_LEVEL, 110, END};
-static const int8_t d_efmsnare[] = {TP_S0, PM_EFM_SD, TP_S3, 90, TP_S5, 70, TP_S6, 75, TP_LEVEL, 100, END};
-static const int8_t d_efmhat[] = {TP_S0, PM_EFM_HH, TP_S2, 20, TP_LEVEL, 86, TP_PAN, -12, END};
-static const int8_t d_efmbell[] = {TP_S0, PM_EFM_CB, TP_S1, 90, TP_S2, 90, TP_S6, 85, TP_LEVEL, 84, TP_REVS, 40, END};
-static const int8_t d_pikick[] = {TP_S0, PM_PI_BD, TP_S1, 30, TP_S4, 30, TP_S5, 50, TP_LEVEL, 110, END};
+static const int8_t d_trxclap[] = {TP_S0, PM_TRX_CP, TP_S1, 70, TP_S6, 50, TP_S7, 50, TP_LEVEL, 110, TP_REVS, 30, END};
+static const int8_t d_trxhat[] = {TP_S0, PM_TRX_CH, TP_S2, 24, TP_S5, 80, TP_LEVEL, 127, TP_PAN, 10, END};
+static const int8_t d_trxopen[] = {TP_S0, PM_TRX_OH, TP_S2, 70, TP_S5, 80, TP_LEVEL, 117, TP_PAN, 10, END};
+static const int8_t d_trxcow[] = {TP_S0, PM_TRX_CB, TP_LEVEL, 98, TP_DLYS, 30, END};
+static const int8_t d_efmkick[] = {TP_S0, PM_EFM_BD, TP_S5, 50, TP_S6, 20, TP_S7, 30, TP_S8, 30, TP_LEVEL, 98, END};
+static const int8_t d_efmsnare[] = {TP_S0, PM_EFM_SD, TP_S3, 90, TP_S5, 70, TP_S6, 75, TP_LEVEL, 107, END};
+static const int8_t d_efmhat[] = {TP_S0, PM_EFM_HH, TP_S2, 20, TP_LEVEL, 110, TP_PAN, -12, END};
+static const int8_t d_efmbell[] = {TP_S0, PM_EFM_CB, TP_S1, 90, TP_S2, 90, TP_S6, 85, TP_LEVEL, 98, TP_REVS, 40, END};
+static const int8_t d_pikick[] = {TP_S0, PM_PI_BD, TP_S1, 30, TP_S4, 30, TP_S5, 50, TP_LEVEL, 96, END};
 static const int8_t d_pisnare[] = {TP_S0, PM_PI_SD, TP_S6, 100, TP_LEVEL, 100, TP_REVS, 25, END};
 static const int8_t d_pitom[] = {TP_S0, PM_PI_MT, TP_S1, 40, TP_S8, 60, TP_LEVEL, 100, TP_REVS, 25, END};
-static const int8_t d_piride[] = {TP_S0, PM_PI_RC, TP_LEVEL, 80, TP_PAN, 16, END};
-static const int8_t d_pishaker[] = {TP_S0, PM_PI_MA, TP_S2, 90, TP_LEVEL, 84, TP_PAN, -16, END};
+static const int8_t d_piride[] = {TP_S0, PM_PI_RC, TP_LEVEL, 97, TP_PAN, 16, END};
+static const int8_t d_pishaker[] = {TP_S0, PM_PI_MA, TP_S2, 90, TP_LEVEL, 103, TP_PAN, -16, END};
 static const int8_t d_metal[] = {TP_S0, PM_PI_ML, TP_S1, 80, TP_S12, 30, TP_S15, 60, TP_S13, 40, TP_S14, 60, TP_LEVEL, 84, TP_REVS, 50, END};
 static const int8_t d_gndsub[] = {TP_S0, PM_GND_SN, TP_S1, 20, TP_S2, 80, TP_S3, 40, TP_S4, 30, TP_LEVEL, 110, END};
-static const int8_t d_blip[] = {TP_S0, PM_GND_IM, TP_S1, 30, TP_S3, 60, TP_S4, 90, TP_LEVEL, 96, TP_DLYS, 40, END};
+static const int8_t d_blip[] = {TP_S0, PM_GND_IM, TP_S1, 30, TP_S3, 60, TP_S4, 90, TP_LEVEL, 127, TP_DLYS, 40, END};
 
 /* PERC KITs: the six lanes' machines (each at its defaults); the track is a KIT (engine 1) */
-static const int8_t k_kit[] = {TP_LEVEL, 104, END};
-static const int8_t k_kitrev[] = {TP_LEVEL, 104, TP_REVS, 30, END};
+static const int8_t k_kit[] = {TP_LEVEL, 92, END};
+static const int8_t k_kitrev[] = {TP_LEVEL, 92, TP_REVS, 30, END};
 typedef struct { const char *name; uint8_t m[RV_LANES]; } kit_preset_t;
 static const kit_preset_t kit_presets[] = {
     {"TRX KIT", {PM_TRX_BD, PM_TRX_SD, PM_TRX_CH, PM_TRX_OH, PM_TRX_CP, PM_TRX_RS}},

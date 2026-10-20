@@ -539,6 +539,10 @@ static void perc_machine(perc_t *v, const float *p, float semi, float *out, int 
     }
 }
 
+/* each machine's output trim: every machine at its defaults hits about as hard as the others
+ * (measured: the loudest 50 ms of one hit), within 8 dB */
+static const float perc_trim[PM_N] = {1.000f, 0.785f, 0.822f, 0.851f, 1.334f, 1.175f, 1.429f, 2.512f, 1.462f, 1.995f, 1.135f, 1.122f, 0.794f, 1.245f, 1.622f, 1.000f, 1.288f, 1.216f, 1.000f, 0.851f, 0.813f, 1.000f, 0.692f, 0.759f, 0.684f, 0.684f, 1.585f, 0.716f, 0.589f, 0.589f, 0.785f, 1.274f, 2.512f};
+
 /* the voice: machine, then the track effects (AM, EQ, the band filter), into out; returns its level */
 static float perc_render(perc_t *v, track_t *tr, float *out, int n)
 {
@@ -570,7 +574,7 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
     if (eqg > 0.2f || eqg < -0.2f)
         svf_set(&v->eq, eqf, 1.2f);
     velamt = eff[TP_VELO] * (1.0f / 127.0f);
-    g = (1.0f - velamt + velamt * v->vel) * 0.7f;
+    g = (1.0f - velamt + velamt * v->vel) * 0.7f * perc_trim[v->mach % PM_N];
     if (v->lane >= 0)
         g *= ((v->lk_mask >> KL_LEVEL) & 1 ? v->lk_val[KL_LEVEL] : rv.kit[v->track & 7].level[v->lane]) * (1.0f / 100.0f);
     for (i = 0; i < n; i++) {

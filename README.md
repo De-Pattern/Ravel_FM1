@@ -16,6 +16,9 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
 
+<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the kit sequencer, a perc machine lane, the graph sequencer and its function generator, CZ envelopes, WAVE warps, Z-plane and SEM filters, a physical model, a strike voice, the influence grid and the shape envelopes" width="900"></p>
+<p align="center"><sub>More screens in <a href="docs/showcase/">docs/showcase</a>.</sub></p>
+
 ## What it is
 
 - **Synth tracks** (T1 to T4), twelve engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato).
@@ -260,9 +263,9 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | --- | --- | --- | --- | --- |
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
-| **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
+| **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the envelope opens the filter (±); the same setting as on ENV › TERMINATION, so turning either moves both |
-| **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | KEYTRK: the filter's cutoff (or a Z filter's morph) follows the note |
+| **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
@@ -272,7 +275,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 **MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. **SQ-80** is warm and a touch dark: four transistor-style stages (after the CEM3379 chip in the Ensoniq SQ-80) whose resonance whistles rather than screams, and thins the bass as it rises, as the SQ-80's does. All three are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets, and any SQ preset. Picking the SQ engine sets the filter to SQ-80.
 
-**The Z filters** morph, in the manner of E-mu's Z-plane filters (Morpheus, the Audity, the later samplers). Each is twelve poles: six sections, peaks, dips and slopes, laid out at the four corners of a square. CUTOFF becomes **MORPH**, which moves across the square one way, and RESO becomes **XFORM**, which moves it the other. In between, every peak glides at once, so the whole shape turns into the next one rather than a single cutoff moving. The filter envelope (ENV), KEYTRK, the LFOs and the matrix move MORPH like any cutoff. The FILTER picture draws the real response as it morphs. The shapes are Ravel's own:
+**The Z filters** morph, in the manner of E-mu's Z-plane filters (Morpheus, the Audity, the later samplers). Each is twelve poles: six sections, peaks, dips and slopes, laid out at the four corners of a square. CUTOFF becomes **MORPH**, which moves across the square one way, and RESO becomes **XFORM**, which moves it the other. In between, every peak glides at once, so the whole shape turns into the next one rather than a single cutoff moving. The filter envelope (ENV), VCF KEY, the LFOs and the matrix move MORPH like any cutoff. The FILTER picture draws the real response as it morphs. The shapes are Ravel's own:
 
 | Type | MORPH (0 to 127) | XFORM (0 to 127) |
 | --- | --- | --- |
@@ -287,7 +290,7 @@ Try the TALK BOX, PHASE PAD, Z VOX and Z SWEEP presets. The Z filters are on syn
 
 **SEM** is after the Oberheim SEM: a single 12 dB state-variable filter, open and creamy rather than fat, whose resonance rises to a vocal peak but never quite self-oscillates. Choosing it adds a **SEM** page after FILTER: **LP-HP** sweeps continuously from low pass (0) through a notch (64) to high pass (127), and the matrix and LFOs can move it; **BP** switches to its band pass, which grows louder as RESO rises (LP-HP is then greyed); CUTOFF and RESO are repeated there. Try the SEM BRASS and SEM NOTCH presets.
 
-**The XT filters** are digital filters in the manner of the Waldorf Microwave II/XT's: **XT LP24** is a clean four-pole lowpass whose resonance rings sharp and glassy, **XT BP24** a four-pole bandpass, **XT NOTCH** cuts a hole at CUTOFF (RESO widens and deepens it), **XT S&H** samples and holds the sound at a rate CUTOFF sets (a sample-rate reducer that follows the keys with KEYTRK; RESO keeps more of the raw steps) and **XT SHAPE** is a wave shaper, CUTOFF driving it and RESO folding it further. They suit the WAVE engine but work on every synth engine.
+**The XT filters** are digital filters in the manner of the Waldorf Microwave II/XT's: **XT LP24** is a clean four-pole lowpass whose resonance rings sharp and glassy, **XT BP24** a four-pole bandpass, **XT NOTCH** cuts a hole at CUTOFF (RESO widens and deepens it), **XT S&H** samples and holds the sound at a rate CUTOFF sets (a sample-rate reducer that follows the keys with VCF KEY; RESO keeps more of the raw steps) and **XT SHAPE** is a wave shaper, CUTOFF driving it and RESO folding it further. They suit the WAVE engine but work on every synth engine.
 
 The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
 

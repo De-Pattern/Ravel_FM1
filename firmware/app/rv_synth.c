@@ -1775,6 +1775,10 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
 
 #include "rv_zplane.h"
 
+/* each engine's output trim, so a default patch of any engine plays at about the same loudness
+ * (measured: the loudest 50 ms of a held C3 at default settings) */
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f};
+
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 static float sem_m;
 static int sem_bp;
@@ -1886,7 +1890,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         }
         y *= a * (1.0f - velamt + velamt * v->vel);
         y = 2.0f * sat(y * 0.5f);                     /* a resonant filter or body driven hard: rounded, not runaway */
-        out[i] += y;
+        out[i] += y * eng_trim[eng];
         v->last = y;
         lvl = a;
     }

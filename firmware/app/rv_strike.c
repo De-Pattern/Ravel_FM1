@@ -234,7 +234,7 @@ static float strike_render(strike_t *v, track_t *tr, float *out, int n)
         }
         a = artic_tick(&v->a, &v->cfg);
         y *= a;
-        out[i] += y;
+        out[i] += y * 2.0f;                           /* (level-matched with the synth engines) */
         v->last = y;
         v->t += RV_DT;
         lvl = a;
