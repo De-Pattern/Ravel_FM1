@@ -12,6 +12,7 @@ volatile rv_live_t rv_live;
 static voice_t vs[RV_SYNTH_VOICES];
 static strike_t ss[RV_STRIKE_VOICES];
 static perc_t ps[RV_PERC_VOICES];
+static float click_env, click_ph, click_hz;
 static uint32_t age_ctr;
 static uint32_t eng_rng = 0x13579BDFu;
 static float in_buf[RV_SUB * 2];
@@ -915,6 +916,20 @@ static void render_sub(float *outl, float *outr, int n)
                 lim_gain += (1.0f - lim_gain) * 0.0003f;
             outl[i] = clampf(outl[i] * lim_gain, -0.95f, 0.95f);
             outr[i] = clampf(outr[i] * lim_gain, -0.95f, 0.95f);
+            if (click_armed && (int32_t)(now_s + (uint32_t)i - click_when) >= 0) {   /* the metronome: a short blip */
+                click_armed = 0;
+                click_env = click_amp;
+                click_ph = 0.0f;
+                click_hz = click_down ? 1600.0f : 1100.0f;
+            }
+            if (click_env > 0.0005f) {
+                float c = sin_lut(click_ph) * click_env;
+                click_ph += click_hz * RV_DT;
+                click_ph -= fm_floorf(click_ph);
+                click_env *= 0.9978f;
+                outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
+                outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
+            }
             rv_live.master_l = fm_maxf(fm_fabsf(outl[i]), rv_live.master_l * 0.9999f);
             rv_live.master_r = fm_maxf(fm_fabsf(outr[i]), rv_live.master_r * 0.9999f);
         }

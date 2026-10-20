@@ -99,6 +99,8 @@ enum {
     GP_BANDQ, GP_BANDSHIFT, GP_BANDLEVEL, GP_BANDSHAPE, GP_BANDRATE, GP_BANDDEPTH, GP_BANDWIDTH,
     /* the delay's GRAINS mode (after Beads) and the space's CLOUDS mode */
     GP_DLYMODE, GP_GRDENS, GP_GRSIZE, GP_GRPITCH, GP_REVMODE,
+    /* (format 9) the metronome and the count-in before recording */
+    GP_METRO, GP_COUNTIN,
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
@@ -183,7 +185,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 8                 /* 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 9                 /* 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -263,6 +265,7 @@ typedef struct {
     uint32_t cpu;                          /* render time, % of the budget */
     uint8_t voices_synth, voices_strike;
     uint8_t playing, recording, rec_track, bar, beat;
+    uint8_t countin;                       /* beats of the count-in still to come (0: none) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;

@@ -34,6 +34,8 @@ static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const eshape_names[] = {"OFF", SHP_NAMES};
 static const char *const emode_names[] = {"ONESHOT", "GATED", "LOOP", "CYCLE"};
+static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
+static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
 static const char *const revmode_names[] = {"ROOM", "CLOUDS"};
 static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
@@ -322,7 +324,7 @@ static const rv_pinfo TRACK[TP_N] = {
 
 static const rv_pinfo GLOBAL[GP_N] = {
     [GP_TEMPO] = {"TEMPO", 30, 240, 112, PF_BPM, 0},
-    [GP_SWING] = {"SWING", 0, 75, 0, PF_NUM, 0},
+    [GP_SWING] = {"SWING", 50, 100, 50, PF_PCT, 0},   /* where the offbeat sits in each pair of steps: 50% even */
     [GP_QUANT] = {"QUANTZE", 0, 100, 0, PF_NUM, 0},
     [GP_CLKMODE] = {"B DOES", 0, N(clkmode_names), 0, E(clkmode_names)},
     [GP_CLKSHAPE] = {"A SHAPE", 0, 127, 64, PF_NUM, 0},
@@ -418,6 +420,8 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_GRSIZE] = {"SIZE", 0, 127, 60, PF_NUM, 0},
     [GP_GRPITCH] = {"PITCH", -24, 24, 0, PF_SEMI, 0},
     [GP_REVMODE] = {"MODE", 0, N(revmode_names), 0, E(revmode_names)},
+    [GP_METRO] = {"METRO", 0, N(metro_names), 0, E(metro_names)},
+    [GP_COUNTIN] = {"COUNT-IN", 0, N(countin_names), 1, E(countin_names)},
 };
 
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};

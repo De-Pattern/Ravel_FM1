@@ -535,24 +535,26 @@ A PERC track has two MODEs (EDIT › SOUND, KNOB 2). It starts as a **KIT**: six
 
 A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit, starts its steps clean: notes and lane hits can't read each other.)
 
-**One lane at a time.** Everything you edit on a kit (its sound, its steps, its locks) belongs to the **chosen lane**. Choose it with **black keys 3–8** (black keys 1 and 2 stay patterns A and B), or with the LANE knob. The screen names the lane and its machine as you pick it, and black keys 3–8 light the chosen one.
+**Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. Outside SEQ, **black keys 3–8** jump straight to lanes 1–6 (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE and LENGTH, each with its bar and value.
 
-**SEQ is the drum sequencer.** On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The step-by-step note pages (STEPS, STEP SHAPE) are hidden on a kit, since a drum hit has no note or length; STEP TIMING stays for micro-timing and the ratchet's curve.
+- **PRESETS chooses the lane's machine** (any of the 33; each loads its own defaults).
+- **The knobs work through the list a row at a time**: OCT- and OCT+ move the knobs to the next group (parameters 1–4, parameters 5–8, then LEVEL, CHANCE and LENGTH). The rows the knobs are on are lit and numbered 1–4 in the list.
+- LEVEL is the lane's level in the kit. CHANCE is how likely the lane plays its hits. LENGTH is the lane's own loop (TRK follows the track's LENGTH; any other length runs against it: a 12-step hat over a 16-step kick shifts every bar).
+- **Shared by the whole kit:** EDIT › **KIT FX** (AMD, AMF, EQF, EQG) and **KIT FILTER** (FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, MIX and SENDS. A kit has no PITCH or synth FILTER page: each machine has its own pitch and tone.
 
-- **The keys are the chosen lane's sixteen steps:** tap once for a hit, again for an **accent** (full velocity), a third time to clear it (and its locks). OCT- and OCT+ page through longer patterns.
+**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length; STEP TIMING stays for micro-timing and the ratchet's curve.
+
+- **In SEQ, black keys 3–8 choose the lane** you are sequencing, and **the white keys are its sixteen steps**: one tap puts a hit there, the next tap clears it (and its locks). OCT- and OCT+ page through longer patterns.
 - **The DRUM pages:**
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **DRUM** | LANE | LENGTH: the lane's own loop (0 follows the track's LENGTH; any other length runs against it: a 12-step hat over a 16-step kick shifts every bar) | CHANCE: how likely the lane plays its hits | LEVEL: the lane's level in the kit |
-| **DRUM SOUND** | the chosen lane's machine parameters A–D | | | |
-| **DRUM SOUND 2** | its parameters E–H | | | |
-| **DRUM STEP** | VELO (hold a step) | CHANCE | RATCHET: the chosen lane rolls on this step | CONDITION |
+| **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | CHANCE | SWING (the same as GLO › CLOCK's) |
+| **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step |
 
-- **Parameter locks.** Hold a step key and turn a knob on DRUM SOUND, DRUM SOUND 2 or DRUM's LEVEL: that value is locked for the chosen lane on that step only (a teal dot marks it), while the knob shows the locked value as long as the step is held. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The track-wide sound (SOURCE 3 and 4's effects, SKIN, the insert) locks the usual way: hold SEQ and a step on those pages.
-- **The lane's machine and sound, away from the sequencer:** EDIT › **LANE** (LANE, MACHINE, LEVEL, CHANCE), **LANE SOUND** and **LANE SOUND 2** edit the chosen lane too. Changing a lane's MACHINE loads that machine's defaults.
-- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1); playing one also chooses it. With REC armed, what you play is recorded into the lanes.
-- **Shared by the whole kit:** the track's SOURCE 3 and 4 (AMD, AMF, EQF, EQG, FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, sends and level. A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
+- **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
+- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). With REC armed, what you play is recorded into the lanes.
+- A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
 - **Presets:** TRX KIT (kick, snare, hats, clap, rim; the kit a new PERC track starts with), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
 
 - **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
@@ -912,9 +914,11 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | TEMPO | – | – | scene |
 | **ARRANGE** | SCENE for this row | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
 | **ARCS** | DENSITY of this bar (0–100 %) for the current track | – | – | – | bar 1–16 |
-| **CLOCK** | TEMPO (30–240) | SWING | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
+| **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
-| **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | – | – | – |
+| **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
+
+**Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Without REC, PLAY starts at once.
 
 **Scenes** are snapshots of every track's pattern (A/B), levels, influence routes, mutes and macros.
 

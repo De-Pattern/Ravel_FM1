@@ -21,6 +21,23 @@ static uint32_t song_bar;
 static uint8_t fill_on;
 static uint32_t seq_rng = 0x5EED5EEDu;
 static uint64_t turn_bits[RV_TRACKS];
+/* the metronome's click: when, how loud, a downbeat or not (rv_engine.c plays it) */
+static uint32_t click_when;
+static float click_amp;
+static uint8_t click_down, click_armed;
+static int countin_left;                             /* pulses of count-in still to come */
+
+static void click_at(uint32_t when, int down, int countin)
+{
+    int m = rv.gp[GP_METRO];
+    if (!m && !countin)
+        return;
+    click_when = when;
+    click_amp = m == 2 ? 0.32f : 0.14f;
+    click_down = (uint8_t)down;
+    click_armed = 1;
+}
+
 
 /* ------------------------------------------------- graph mode and heads --- */
 static int is_kit(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
@@ -297,8 +314,8 @@ static void kit_fire(int t, int si, uint32_t when)
             continue;
         if (density < 100 && (float)step_rank(li) >= density * 0.16f)
             continue;
-        sw = (li & 1) ? rv.gp[GP_SWING] : 0;
-        e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.005f * sd * RV_FS);
+        sw = (li & 1) ? rv.gp[GP_SWING] - 50 : 0;
+        e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
         e.track = (uint8_t)t;
         e.chain = (uint16_t)(1u << t);
         e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);   /* the pattern and step its locks are found under */
@@ -365,8 +382,8 @@ static void step_fire(int t, int h, int si, uint32_t when)
     if (density < 100 && (float)step_rank(si) >= density * 0.16f)
         return;
     micro = (float)s->micro * (1.0f - quant);
-    sw = (si & 1) ? rv.gp[GP_SWING] : 0;
-    e.when = when + (uint32_t)(((float)LATENCY_TICKS + micro) * tick * RV_FS + (float)sw * 0.005f * sd * RV_FS);
+    sw = (si & 1) ? rv.gp[GP_SWING] - 50 : 0;   /* SWING: the offbeat at SWING% of the pair (50 even, 66 a triplet feel) */
+    e.when = when + (uint32_t)(((float)LATENCY_TICKS + micro) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
     e.track = (uint8_t)tt;
     e.chain = (uint16_t)(1u << tt);
     e.env = s->env;
@@ -523,6 +540,15 @@ static void seq_pulse(int off)
     uint32_t base = now_s + (uint32_t)off;
     if (!playing)
         return;
+    if (countin_left > 0) {                           /* the count-in: clicks on the beats, nothing plays */
+        if ((countin_left & 3) == 0)
+            click_at(base, (countin_left & 15) == 0, 1);
+        countin_left--;
+        rv_live.countin = (uint8_t)((countin_left + 3) / 4);
+        return;
+    }
+    if ((mpulse & 3) == 0)
+        click_at(base, (mpulse & 15) == 0, 0);
     if ((mpulse & 15) == 0 && mpulse)
         bar_boundary();
     rv_live.beat = (uint8_t)((mpulse >> 2) & 3);
@@ -597,11 +623,15 @@ static void seq_start(void)
     }
     if (pend_scene >= 0)
         bar_boundary();
+    countin_left = rv_live.recording && rv.gp[GP_COUNTIN] > 0 ? 16 * rv.gp[GP_COUNTIN] : 0;   /* recording: count in first */
+    rv_live.countin = (uint8_t)((countin_left + 3) / 4);
     playing = 1;
 }
 
 static void seq_stop(void)
 {
+    countin_left = 0;
+    rv_live.countin = 0;
     int t, k;
     playing = 0;
     evn = 0;

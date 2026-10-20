@@ -30,10 +30,10 @@ static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_S
 /* knob bindings: what a knob in the row stands for */
 enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE };
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
-enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE };
+enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
 enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END };
-enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB };
+enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC };
 enum { RF_TYPE, RF_AMT, RF_ARG, RF_CHANCE };
 enum { MF_SRC, MF_TRACK, MF_PARAM, MF_AMT };
 enum { XF_DEST, XF_START, XF_END, XF_CURVE, XF_LO, XF_HI };
@@ -44,12 +44,12 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM };
+       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT };
 /* what PRESETS does on the page */
-enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR,
+enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP };
 
 typedef struct {
@@ -78,9 +78,11 @@ static const page_t pages[] = {
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
     {SEC_VOICE, V_SRC3, PIC_SOURCE, PR_SOUND, "SOURCE 4", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
-    {SEC_VOICE, V_KIT, PIC_DRUM, PR_SOUND, "LANE", {LF(LF_SEL), LF(LF_MACH), LF(LF_LEVEL), LF(LF_CHANCE)}},
-    {SEC_VOICE, V_KIT, PIC_DRUM, PR_SOUND, "LANE SOUND", {LF(LF_P0), LF(LF_P0 + 1), LF(LF_P0 + 2), LF(LF_P0 + 3)}},
-    {SEC_VOICE, V_KIT, PIC_DRUM, PR_SOUND, "LANE SOUND 2", {LF(LF_P0 + 4), LF(LF_P0 + 5), LF(LF_P0 + 6), LF(LF_P0 + 7)}},
+    /* a KIT: a page per lane, its whole sound on screen; PRESETS picks the machine, OCT the knobs' row */
+#define LANEPG(n) {SEC_VOICE, V_KIT, PIC_LANE, PR_LANE, "LANE " #n, {LF(LF_SLOT0), LF(LF_SLOT0 + 1), LF(LF_SLOT0 + 2), LF(LF_SLOT0 + 3)}}
+    LANEPG(1), LANEPG(2), LANEPG(3), LANEPG(4), LANEPG(5), LANEPG(6),
+    {SEC_VOICE, V_KIT, PIC_SOURCE, PR_SOUND, "KIT FX", {TP(TP_S9), TP(TP_S10), TP(TP_S11), TP(TP_S12)}},
+    {SEC_VOICE, V_KIT, PIC_SOURCE, PR_SOUND, "KIT FILTER", {TP(TP_S13), TP(TP_S14), TP(TP_S15), NO}},
     /* the CZ engine's lines: waves and key follow, then the three 8-step envelopes each */
     {SEC_VOICE, V_CZL1, PIC_CZWAVE, PR_SOUND, "LINE 1", {CZW(0, CZF_WAVE1), CZW(0, CZF_WAVE2), CZW(0, CZF_KFA), CZW(0, CZF_KFW)}},
     {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCO 1", {CZE(0, CZE_DCO, CZF_RATE), CZE(0, CZE_DCO, CZF_LEVEL), CZE(0, CZE_DCO, CZF_SUS), CZE(0, CZE_DCO, CZF_END)}},
@@ -146,10 +148,8 @@ static const page_t pages[] = {
     {SEC_TAPE, V_BEADS, PIC_TAPE, PR_SOUND, "BEADS 2", {TP(TP_S10), TP(TP_S11), TP(TP_S12), TP(TP_S13)}},
     {SEC_TAPE, V_SLICE, PIC_TAPE, PR_SOUND, "SLICES", {TP(TP_S14), TP(TP_S15), TP(TP_PITCH), TP(TP_LEVEL)}},
 
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_CHANCE), LF(LF_LEVEL)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM SOUND", {LF(LF_P0), LF(LF_P0 + 1), LF(LF_P0 + 2), LF(LF_P0 + 3)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM SOUND 2", {LF(LF_P0 + 4), LF(LF_P0 + 5), LF(LF_P0 + 6), LF(LF_P0 + 7)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET), SF(SF_COND)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_CHANCE), GP(GP_SWING)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_ALL, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), NO}},
@@ -168,7 +168,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, NO, NO, NO}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
-    {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), NO, NO}},
+    {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, NO, NO, NO}},
 };
@@ -184,6 +184,7 @@ static struct {
     int16_t step_cur;                        /* the step the step pages edit */
     uint8_t cz_step;                         /* the step the CZ envelope pages edit, 0..7 */
     uint8_t lane[RV_TRACKS];                 /* each KIT track's chosen lane */
+    uint8_t lane_row;                        /* the LANE pages: which row of the lane's settings the knobs hold */
     uint32_t step_key_held;                  /* step keys held (bit = white key index) */
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
@@ -270,6 +271,16 @@ static void sx_note(char *o, int n)
 }
 
 /* --------------------------------------------------- page visibility --- */
+/* a LANE page's knob: the field it holds in the current row (A-D, E-H, then level, chance, length) */
+static int lane_field(int id)
+{
+    static const uint8_t rows[3][4] = {{LF_P0, LF_P0 + 1, LF_P0 + 2, LF_P0 + 3}, {LF_P0 + 4, LF_P0 + 5, LF_P0 + 6, LF_P0 + 7},
+                                       {LF_LEVEL, LF_CHANCE, LF_LEN, LF_NONE}};
+    return id >= LF_SLOT0 ? rows[ui.lane_row % 3][(id - LF_SLOT0) & 3] : id;
+}
+
+static void lane_msg(int t);
+static void lane_open(int t, int l);
 static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
 
 static int src_page_visible(int t, int pg)
@@ -284,11 +295,15 @@ static int src_page_visible(int t, int pg)
 static int page_visible(int i)
 {
     int t = ui.track, kind = rv.tp[t][TP_KIND], mode = rv.tp[t][TP_S0];
+    if (kind == KIND_PERC && pages[i].pic == PIC_FILTER)   /* only synth voices have the filter (a PERC track has FLTF/FLTW) */
+        return 0;
+    if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
+        return 0;
     switch (pages[i].vis) {
     case V_SRC0: return kind != KIND_TAPE && src_page_visible(t, 0);
     case V_SRC1: return kind != KIND_TAPE && src_page_visible(t, 1);
-    case V_SRC2: return kind != KIND_TAPE && src_page_visible(t, 2);
-    case V_SRC3: return kind != KIND_TAPE && src_page_visible(t, 3);
+    case V_SRC2: return kind != KIND_TAPE && !is_kit_ui(t) && src_page_visible(t, 2);
+    case V_SRC3: return kind != KIND_TAPE && !is_kit_ui(t) && src_page_visible(t, 3);
     case V_SYNTH: return kind == KIND_SYNTH;
     case V_STRIKE: return kind == KIND_STRIKE;
     case V_TAPE: return kind == KIND_TAPE;
@@ -326,6 +341,8 @@ static const page_t *cur_page(void)
         return &pages[0];
     if (ui.page[ui.sec] >= n)
         ui.page[ui.sec] = (uint8_t)(n - 1);
+    if (pages[list[ui.page[ui.sec]]].pic == PIC_LANE)   /* a LANE page is its lane */
+        ui.lane[ui.track] = (uint8_t)((pages[list[ui.page[ui.sec]]].title[5] - '1') % RV_LANES);
     return &pages[list[ui.page[ui.sec]]];
 }
 
@@ -393,7 +410,7 @@ static kinfo_t kb_info(kb_t k)
         r.max = 127;
         break;
     case K_STEP: {
-        static const char *const nm[] = {"NOTE", "VELO", "LENGTH", "CHANCE", "MICRO", "RATCHET", "R CURVE", "CONDITN", "ENV", "CUT", "TIE", "CORD A", "CORD B"};
+        static const char *const nm[] = {"NOTE", "VELO", "LENGTH", "CHANCE", "MICRO", "RATCHET", "R CURVE", "CONDITN", "ENV", "CUT", "TIE", "CORD A", "CORD B", "ACCENT"};
         r.name = nm[k.id];
         switch (k.id) {
         case SF_NOTE: r.max = 127; r.fmt = PF_NOTE; break;
@@ -402,6 +419,7 @@ static kinfo_t kb_info(kb_t k)
         case SF_CHANCE: r.max = 100; break;
         case SF_MICRO: r.min = -6; r.max = 12; r.fmt = PF_BI; break;
         case SF_RATCHET: r.min = 1; r.max = 8; break;
+        case SF_ACC: { static const char *const oo[] = {"OFF", "ON"}; r.max = 1; r.fmt = PF_ENUM; r.names = oo; break; }
         case SF_RCURVE: r.max = 5; r.fmt = PF_ENUM; r.names = rcurve_names; break;
         case SF_COND: r.max = RV_NCOND - 1; r.fmt = PF_ENUM; r.names = rv_cond_names; break;
         case SF_ENV: r.max = 256; break;
@@ -500,14 +518,18 @@ static kinfo_t kb_info(kb_t k)
     case K_LANE: {
         static const char *const lanes[RV_LANES] = {"1", "2", "3", "4", "5", "6"};
         int l = ui.lane[ui.track] % RV_LANES, m = rv.kit[ui.track].mach[l] % PM_N;
-        switch (k.id) {
+        switch (lane_field(k.id)) {
+        case LF_NONE: break;
         case LF_SEL: r.name = "LANE"; r.max = RV_LANES - 1; r.fmt = PF_ENUM; r.names = lanes; break;
         case LF_MACH: r.name = "MACHINE"; r.max = PM_N - 1; r.fmt = PF_ENUM; r.names = perc_mnames; break;
         case LF_LEVEL: r.name = "LEVEL"; r.max = 127; break;
-        case LF_LEN: r.name = "LENGTH"; r.max = RV_STEPS; break;   /* 0: the track's */
+        case LF_LEN: {                       /* 0: the track's */
+            static const char *const ln[RV_STEPS + 1] = {"TRK", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64"};
+            r.name = "LENGTH"; r.max = RV_STEPS; r.fmt = PF_ENUM; r.names = ln; break;
+        }
         case LF_CHANCE: r.name = "CHANCE"; r.max = 100; break;
         default:
-            r.name = perc_pi[m][(k.id - LF_P0) & 7].name;
+            r.name = perc_pi[m][(lane_field(k.id) - LF_P0) & 7].name;
             r.max = 127;
             break;
         }
@@ -575,6 +597,7 @@ static int kb_get(kb_t k)
         case SF_CHANCE: return s->chance;
         case SF_MICRO: return s->micro;
         case SF_RATCHET: return (s->ratchet & 7) + 1;
+        case SF_ACC: return (s->env >> (ui.lane[ui.track] % RV_LANES)) & 1;
         case SF_RCURVE: return ((s->ratchet >> 3) & 3) + ((s->ratchet & 32) ? 3 : 0);
         case SF_COND: return s->cond;
         case SF_ENV: return s->env;
@@ -635,19 +658,20 @@ static int kb_get(kb_t k)
     }
     case K_LANE: {
         const rv_kit *kt = &rv.kit[ui.track];
-        int l = ui.lane[ui.track] % RV_LANES, held = held_step();
-        if (held >= 0 && ((k.id >= LF_P0 && k.id < LF_P0 + 8) || k.id == LF_LEVEL)) {   /* a held step shows its lock */
-            int i = rv_kitlock_find(ui.track, rv.pat_cur[ui.track] % RV_PATTERNS, held, l, k.id == LF_LEVEL ? KL_LEVEL : k.id - LF_P0);
+        int l = ui.lane[ui.track] % RV_LANES, held = held_step(), f = lane_field(k.id);
+        if (held >= 0 && ((f >= LF_P0 && f < LF_P0 + 8) || f == LF_LEVEL)) {   /* a held step shows its lock */
+            int i = rv_kitlock_find(ui.track, rv.pat_cur[ui.track] % RV_PATTERNS, held, l, f == LF_LEVEL ? KL_LEVEL : f - LF_P0);
             if (i >= 0)
                 return rv.kitlk[ui.track][i].val;
         }
-        switch (k.id) {
+        switch (f) {
+        case LF_NONE: return 0;
         case LF_SEL: return l;
         case LF_MACH: return kt->mach[l];
         case LF_LEVEL: return kt->level[l];
         case LF_LEN: return kt->len[l];
         case LF_CHANCE: return kt->chance[l];
-        default: return kt->p[l][(k.id - LF_P0) & 7];
+        default: return kt->p[l][(f - LF_P0) & 7];
         }
     }
     case K_SAVE: return ui.save_action;
@@ -721,6 +745,12 @@ static void kb_set(kb_t k, int v)
         case SF_LEN: s->len = (uint8_t)v; break;
         case SF_CHANCE: s->chance = (uint8_t)v; break;
         case SF_MICRO: s->micro = (int8_t)v; break;
+        case SF_ACC:                                 /* a kit: the chosen lane's hit, full velocity */
+            if (v)
+                s->env |= (uint8_t)(1u << (ui.lane[ui.track] % RV_LANES));
+            else
+                s->env &= (uint8_t)~(1u << (ui.lane[ui.track] % RV_LANES));
+            break;
         case SF_RATCHET:
             s->ratchet = (uint8_t)((s->ratchet & ~7) | (v - 1));
             if (is_kit_ui(ui.track)) {                /* a kit: the chosen lane ratchets on this step */
@@ -857,8 +887,9 @@ static void kb_set(kb_t k, int v)
     }
     case K_LANE: {
         rv_kit *kt = &rv.kit[ui.track];
-        int l = ui.lane[ui.track] % RV_LANES, i;
-        switch (k.id) {
+        int l = ui.lane[ui.track] % RV_LANES, i, f = lane_field(k.id);
+        switch (f) {
+        case LF_NONE: break;
         case LF_SEL: ui.lane[ui.track] = (uint8_t)v; break;
         case LF_MACH:                                /* a new machine starts from its own defaults */
             if (v != kt->mach[l]) {
@@ -870,7 +901,7 @@ static void kb_set(kb_t k, int v)
         case LF_LEVEL: kt->level[l] = (uint8_t)v; break;
         case LF_LEN: kt->len[l] = (uint8_t)v; break;
         case LF_CHANCE: kt->chance[l] = (uint8_t)v; break;
-        default: kt->p[l][(k.id - LF_P0) & 7] = (uint8_t)v; break;
+        default: kt->p[l][(f - LF_P0) & 7] = (uint8_t)v; break;
         }
         break;
     }
@@ -1114,10 +1145,10 @@ static void knob_turn(int i, int d)
         ui.turned_ms[i] = plat_ms();
         return;
     }
-    if (held >= 0 && k.kind == K_LANE && ((k.id >= LF_P0 && k.id < LF_P0 + 8) || k.id == LF_LEVEL)) {
-        /* a kit step held: turning the lane's sound writes a lock for that lane on that step */
+    if (held >= 0 && k.kind == K_LANE && ((lane_field(k.id) >= LF_P0 && lane_field(k.id) < LF_P0 + 8) || lane_field(k.id) == LF_LEVEL)) {
+        /* a kit step held (SEQ held on a LANE page): turning the lane's sound locks it for that lane on that step */
         int l = ui.lane[ui.track] % RV_LANES, pat = rv.pat_cur[ui.track] % RV_PATTERNS;
-        int f = k.id == LF_LEVEL ? KL_LEVEL : k.id - LF_P0;
+        int f = lane_field(k.id) == LF_LEVEL ? KL_LEVEL : lane_field(k.id) - LF_P0;
         if (!rv_kitlock_set(ui.track, pat, held, l, f, clampi(kb_get(k) + d, 0, 127)))
             msg("LOCKS FULL (48 A KIT)");
         else {
@@ -1158,6 +1189,17 @@ static void preset_turn(int d)
         rv_preset_apply(t, cur);
         ui.preset_idx[t] = (int16_t)cur;
         msg(rv_preset_name(cur));
+        break;
+    }
+    case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines */
+        rv_kit *kt = &rv.kit[t];
+        int l = ui.lane[t] % RV_LANES, m = clampi(kt->mach[l] + d, 0, PM_N - 1), j;
+        if (m != kt->mach[l]) {
+            kt->mach[l] = (uint8_t)m;
+            for (j = 0; j < 8; j++)
+                kt->p[l][j] = (uint8_t)(perc_pi[m][j].name ? perc_pi[m][j].def : 0);
+        }
+        lane_msg(t);
         break;
     }
     case PR_ROUTE: ui.cur_route = (uint8_t)clampi(ui.cur_route + d, 0, 7); break;
@@ -1255,6 +1297,21 @@ static void section_open(int s)
     }
 }
 
+/* open a kit lane's EDIT page */
+static void lane_open(int t, int l)
+{
+    uint8_t list[16];
+    int n = sec_page_list(SEC_VOICE, list), i;
+    ui.lane[t] = (uint8_t)l;
+    for (i = 0; i < n; i++)
+        if (pages[list[i]].pic == PIC_LANE && pages[list[i]].title[5] - '1' == l) {
+            ui.sec = SEC_VOICE;
+            ui.page[SEC_VOICE] = (uint8_t)i;
+            break;
+        }
+    lane_msg(t);
+}
+
 static void lane_msg(int t)
 {
     static char b[24];
@@ -1303,7 +1360,7 @@ static void key_event(int k, int on)
                 ui.step_key_held &= ~(1u << wi);
                 if (!ui.step_turned) {
                     rv_step *s = step_ptr(ui.step_page * 16 + wi);
-                    if (is_kit_ui(t)) {                /* a kit lane: off, on, accented, off */
+                    if (is_kit_ui(t)) {
                         uint8_t bit = (uint8_t)(1u << (ui.lane[t] % RV_LANES));
                         if (!(s->flags & ST_ON)) {     /* an empty step: start it clean */
                             s->note = s->env = s->len = 0;
@@ -1313,10 +1370,8 @@ static void key_event(int k, int on)
                             s->micro = 0;
                             s->cond = 0;
                         }
-                        if (!(s->note & bit))
+                        if (!(s->note & bit))          /* a kit lane: a tap on, a tap off */
                             s->note |= bit;
-                        else if (!(s->env & bit))
-                            s->env |= bit;
                         else {
                             s->note &= (uint8_t)~bit;
                             s->env &= (uint8_t)~bit;
@@ -1476,10 +1531,13 @@ static void key_event(int k, int on)
     /* --- otherwise the keys play the track --- */
     if (on) {
         if (is_kit_ui(t)) {                           /* a kit: the white keys play the lanes, 1-6 and again */
+            if (bi >= 2 && bi < 2 + RV_LANES) {       /* black keys 3-8: that lane's page */
+                lane_open(t, bi - 2);
+                return;
+            }
             if (wi < 0)
                 return;
             note = 60 + wi % RV_LANES;
-            ui.lane[t] = (uint8_t)(wi % RV_LANES);
         }
         ui.key_note[k] = (uint8_t)clampi(note, 0, 127);
         ui.key_trk[k] = (uint8_t)(t + 1);
@@ -1516,6 +1574,10 @@ static void buttons(uint32_t now_btn)
     }
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
+    }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pic == PIC_LANE && !(now_btn & (1u << B_SEQ))) {
+        ui.lane_row = (uint8_t)((ui.lane_row + ((down & (1u << B_OCTUP)) ? 1 : 2)) % 3);   /* the knobs' row */
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
     if (down & (1u << B_OCTDN)) {
         if (ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ)))
@@ -1736,8 +1798,8 @@ static void draw_footer(void)
     case PR_ROW: hint = "REC+OCT- CATCH  REC+OCT+ RESAMPLE"; break;
     case PR_PATTERN:
         hint = !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
-               : held_step() >= 0 ? "TURN A SOUND KNOB: LOCK IT"
-               : "BLACK 3-8: LANE  TAP: ON, ACCENT, OFF";
+               : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
+               : "BLACK 3-8: LANE  KEYS: STEPS ON/OFF";
         break;
     case PR_SCENE: hint = "KEYS: LAUNCH  SAVE+KEY: STORE"; break;
     case PR_ARR: hint = "PRESETS: ROW"; break;
@@ -1746,6 +1808,7 @@ static void draw_footer(void)
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
     case PR_CZSTEP: hint = "PRESETS: STEP 1-8"; break;
+    case PR_LANE: hint = held_step() >= 0 ? "TURN A KNOB: LOCK IT FOR THIS STEP" : "PRESETS: MACHINE  OCT: KNOB ROW"; break;
     default:
         if (ui.sec == SEC_TAPE)
             hint = rv.tp[ui.track][TP_KIND] != KIND_TAPE ? "BLACK 9 CATCH  10 RESAMPLE"
@@ -1759,7 +1822,12 @@ static void draw_footer(void)
             hint = "SEND: THIS TRACK INTO THE BUS";
         break;
     }
-    if (btn & (1u << B_SEQ))
+    if (rv_live.countin) {
+        static char ci[16] = "COUNT-IN ";
+        ci[9] = (char)('0' + rv_live.countin % 10);
+        ci[10] = 0;
+        hint = ci;
+    } else if (btn & (1u << B_SEQ))
         hint = "STEP + KNOB = LOCK";
     else if (btn & (1u << B_LFO))
         hint = "KNOBS: MACRO 1-4";
@@ -2667,6 +2735,53 @@ static void pic_drum(void)
     }
 }
 
+/* a KIT lane's page: the six lanes as tabs, the machine, and every setting of the lane as a list,
+ * the row the knobs hold lit and numbered */
+static void pic_lane(void)
+{
+    static const char *const fam[4] = {"TRX: ANALOG-STYLE", "EFM: FM", "P-I: PHYSICAL MODEL", "GND"};
+    int t = ui.track, l = ui.lane[t] % RV_LANES, m = rv.kit[t].mach[l] % PM_N, i;
+    const rv_kit *kt = &rv.kit[t];
+    for (i = 0; i < RV_LANES; i++) {                  /* the tabs */
+        char nb[2] = {(char)('1' + i), 0};
+        int x = 4 + i * 39;
+        g_fill(x, PIC_Y + 2, 36, 14, i == l ? C_PERC : C_PANEL);
+        g_text_c(x + 18, PIC_Y + 5, &FONT_XS, nb, i == l ? C_WHITE : C_DIM);
+    }
+    g_text(8, PIC_Y + 22, &FONT_B, perc_mnames[m], C_PERC);
+    g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_DIM);
+    for (i = 0; i < 11; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH */
+        int row = i < 4 ? 0 : i < 8 ? 1 : 2, col = i % 2, x = 6 + col * 118, y = PIC_Y + 46 + (i / 2) * 13;
+        int lit = row == ui.lane_row % 3, v, mx = 127;
+        const char *nm;
+        char vb[8];
+        if (i < 8) {
+            nm = perc_pi[m][i].name;
+            v = kt->p[l][i];
+        } else {
+            static const char *const extra[3] = {"LEVEL", "CHANCE", "LENGTH"};
+            nm = extra[i - 8];
+            v = i == 8 ? kt->level[l] : i == 9 ? kt->chance[l] : kt->len[l];
+            mx = i == 9 ? 100 : i == 10 ? RV_STEPS : 127;
+        }
+        if (!nm)
+            continue;
+        if (lit) {
+            char kn[2] = {(char)('1' + (i < 8 ? i % 4 : i - 8)), 0};
+            g_text(x, y, &FONT_XS, kn, C_TEAL);
+        }
+        g_text(x + 9, y, &FONT_XS, nm, lit ? C_INK : C_DIM);
+        g_fill(x + 52, y + 3, 40, 3, C_LINE);
+        g_fill(x + 52, y + 3, v * 40 / (mx ? mx : 1), 3, lit ? C_PERC : C_MID);
+        vb[0] = 0;
+        if (i == 10 && v == 0)
+            sx_cat(vb, "TRK");
+        else
+            sx_int(vb, v);
+        g_text_r(x + 114, y, &FONT_XS, vb, lit ? C_INK : C_DIM);
+    }
+}
+
 static void pic_steps(void)
 {
     int t = ui.track, len = clampi(rv.tp[t][TP_LEN], 1, 64), i, play = rv_live.step[t][0], play2 = rv_live.step[t][1];
@@ -2994,6 +3109,7 @@ static void draw_picture(void)
     case PIC_CZWAVE: pic_czwave(); break;
     case PIC_CZENV: pic_czenv(); break;
     case PIC_DRUM: pic_drum(); break;
+    case PIC_LANE: pic_lane(); break;
     default: break;
     }
 }

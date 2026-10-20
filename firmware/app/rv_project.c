@@ -19,7 +19,10 @@ int rv_save(int slot)
 static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
-    int n = (int)sizeof(rv) - (int)sizeof(rv.kitlk);  /* no kit locks before format 8 */
+    int n;
+    if (f >= 8)                                       /* format 8: the same layout */
+        return (int)sizeof(rv);
+    n = (int)sizeof(rv) - (int)sizeof(rv.kitlk);      /* no kit locks before format 8 */
     if (f >= 7)
         return n;
     n -= (int)sizeof(rv.kit);                         /* no kits before format 7 */
@@ -127,6 +130,9 @@ int rv_load(int slot)
         return -1;
     if (f <= 5)
         upgrade_layout(f, n);
+    rv.gp[GP_SWING] = (int16_t)clampi(50 + (rv.gp[GP_SWING] + 2) / 4, 50, 100);   /* was a delay 0-75 (0.5% of a step each): now % */
+    rv.gp[GP_METRO] = 0;
+    rv.gp[GP_COUNTIN] = 1;
     if (f == 2)
         upgrade_from_2();
     if (f <= 3)
@@ -136,7 +142,8 @@ int rv_load(int slot)
         for (t = 0; t < RV_TRACKS; t++) {
             if (f <= 6)
                 rv_kit_init(t);
-            __builtin_memset(rv.kitlk[t], 0xFF, sizeof(rv.kitlk[t]));
+            if (f <= 7)
+                __builtin_memset(rv.kitlk[t], 0xFF, sizeof(rv.kitlk[t]));
         }
     }
     rv.format = RV_FORMAT;
