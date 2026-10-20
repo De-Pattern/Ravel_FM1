@@ -171,6 +171,83 @@ static float lfo_tick(lfo_t *l, float rate, int shape, float dt, uint8_t *wrap, 
     return l->value;
 }
 
+/* ------------------------------------------------- STEP ENV: the LIBRARY played --- */
+/* one per track: a step (or a note, SE NOTE) starts an envelope; it runs its segments, loops back or
+ * hands over to its NEXT (a chain, starting where it left off), or holds; a new one replaces it */
+static struct {
+    uint8_t on, env, seg;
+    uint8_t hops;                   /* chain hand-overs in this block (a guard against a zero-time ring) */
+    float u, from, lvl;
+} senv[RV_TRACKS];
+static float step_seconds(int t);
+
+static void senv_trigger(int t, int e)
+{
+    const rv_senv *v;
+    if (e < 0 || e >= RV_SENV || !SENV_NSEG(&rv.senv[e]))
+        return;
+    v = &rv.senv[e];
+    senv[t].on = 1;
+    senv[t].env = (uint8_t)e;
+    senv[t].seg = 0;
+    senv[t].u = 0.0f;
+    senv[t].lvl = senv[t].from = (float)v->start * (1.0f / 127.0f);
+}
+
+static void senv_tick_one(int t, float dt)
+{
+    int guard;
+    for (guard = 0; guard < 12 && senv[t].on; guard++) {      /* (zero-time segments pass in the same block) */
+        const rv_senv *v = &rv.senv[senv[t].env % RV_SENV];
+        int n = SENV_NSEG(v), s = senv[t].seg;
+        float tsec, to, k;
+        if (!n) {
+            senv[t].on = 0;
+            break;
+        }
+        if (s >= n) {                                          /* the end: loop, chain, or hold */
+            if (v->loop && v->loop <= n && guard < 11) {
+                senv[t].seg = (uint8_t)(v->loop - 1);
+                senv[t].u = 0.0f;
+                senv[t].from = senv[t].lvl;
+                continue;
+            }
+            if (v->next && v->next <= RV_SENV && SENV_NSEG(&rv.senv[v->next - 1]) && guard < 11) {
+                senv[t].env = (uint8_t)(v->next - 1);       /* the chain: from where this one ended */
+                senv[t].seg = 0;
+                senv[t].u = 0.0f;
+                senv[t].from = senv[t].lvl;
+                continue;
+            }
+            senv[t].on = 0;                                    /* holds its last level */
+            break;
+        }
+        tsec = SENV_FREE(v) ? (v->tim[s] ? rv_time_f((float)v->tim[s]) : 0.0f) : (float)v->tim[s] * 0.125f * step_seconds(t);
+        to = (float)v->lvl[s] * (1.0f / 127.0f);
+        senv[t].u += tsec > 0.0001f ? dt / tsec : 1.0f;
+        if (senv[t].u < 1.0f) {
+            k = (float)senv_crv(v, s) * 0.9f;
+            senv[t].lvl = senv[t].from + (to - senv[t].from) * fe_bend(senv[t].u, k);
+            break;
+        }
+        dt = tsec > 0.0001f ? (senv[t].u - 1.0f) * tsec : dt;  /* what is left of the block goes on */
+        senv[t].lvl = senv[t].from = to;
+        senv[t].seg++;
+        senv[t].u = 0.0f;
+        if (dt <= 0.0f)
+            break;
+    }
+}
+
+/* (the emulator's tests) */
+float rv_senv_level(int t, int *env)
+{
+    if (env)
+        *env = senv[t & 7].on ? senv[t & 7].env : -1;
+    return senv[t & 7].lvl;
+}
+void rv_senv_start(int t, int e) { senv_trigger(t & 7, e); }
+
 static void movement_tick(int n)
 {
     float dt = (float)n * RV_DT;
@@ -197,6 +274,8 @@ static void movement_tick(int n)
     rv_live.lfo1 = lfo[0].value;
     rv_live.lfo2 = lfo[1].value;
     rv_live.dust = dust_v;
+    for (k = 0; k < RV_TRACKS; k++)
+        senv_tick_one(k, dt);
 }
 
 /* ------------------------------------------------------------ the sum --- */
@@ -313,6 +392,11 @@ static void eff_compute(void)
             trk[t].eff[d1] += e * rv.tp[t][TP_EAMT1] * (1.0f / 64.0f) * pid_range(PID_T(t, d1));
         if (rv.tp[t][TP_EAMT2] && rv_is_moddest(d2))
             trk[t].eff[d2] += e * rv.tp[t][TP_EAMT2] * (1.0f / 64.0f) * pid_range(PID_T(t, d2));
+        {   /* STEP ENV: the LIBRARY envelope the steps started */
+            int ds = rv.tp[t][TP_SEDST];
+            if (rv.tp[t][TP_SEAMT] && rv_is_moddest(ds) && rv_tp_applies(t, TP_SEAMT))
+                trk[t].eff[ds] += senv[t].lvl * rv.tp[t][TP_SEAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, ds));
+        }
         for (k = 0; k < RV_TRACKS; k++) {
             const rv_route *r = &rv.infl[t][k];
             if (r->type == RT_MOD && r->amt && rv_is_moddest(r->arg))

@@ -44,7 +44,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV };
+       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
@@ -110,7 +110,8 @@ static const page_t pages[] = {
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FILTER ENV", {TP(TP_FATK), TP(TP_FDEC), TP(TP_FSUS), TP(TP_FREL)}},
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV SHAPE", {TP(TP_FDLY), TP(TP_FHOLD), TP(TP_FACRV), TP(TP_FDCRV)}},
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV LOOP", {TP(TP_FLOOP), TP(TP_FRATE), TP(TP_EFILT), TP(TP_KTRK)}},   /* ENV>CUT: its depth (also on FILTER) */
-    {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, NO}},
+    {SEC_ARTIC, V_NOTKIT, PIC_SENV, PR_SOUND, "STEP ENV", {TP(TP_SEDST), TP(TP_SEAMT), TP(TP_SEDEF), NO}},   /* where the LIBRARY goes */
+    {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, {K_LIB, 3}}},   /* OCT: segment 1-8, then LOOP and NEXT */
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
     {SEC_MOD, V_ALL, PIC_LFO1, PR_NONE, "LFOS", {GP(GP_LFO1RATE), GP(GP_LFO1SHAPE), GP(GP_LFO2RATE), GP(GP_LFO2SHAPE)}},
@@ -193,6 +194,7 @@ static struct {
     uint8_t lane[RV_TRACKS];                 /* each KIT track's chosen lane */
     uint8_t lane_row;                        /* the LANE pages: which row of the lane's settings the knobs hold */
     uint8_t lfo_row;                         /* LFO SHAPE: LFO 1 or LFO 2 on the knobs */
+    uint8_t lib_row;                         /* LIBRARY: segment 1-8 on the knobs, or (8) start, time, loop and next */
     uint32_t step_key_held;                  /* step keys held (bit = white key index) */
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
@@ -487,7 +489,11 @@ static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "
 static const char *const bank_actions[] = {"LOAD", "SAVE", "CLEAR"};
 static const char *const bank_letters[] = {"A", "B", "C", "D"};
 static const char *const curve_names[] = {"LINEAR", "EXP", "LOG", "S"};
-static const char *const lib_names[] = {"ATTACK", "BODY", "DEATH"};
+static const char *const lib_names[2][4] = {{"LEVEL", "TIME", "BEND", "SEGS"}, {"START", "TIME", "LOOP", "NEXT"}};
+static const char *const lib_time[] = {"STEPS", "FREE"};
+static const char *const lib_loop[] = {"OFF", "TO 1", "TO 2", "TO 3", "TO 4", "TO 5", "TO 6", "TO 7", "TO 8"};
+static const char *const lib_next[RV_SENV + 1] = {"NONE", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                                                  "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"};
 
 typedef struct { const char *name; int min, max; uint8_t fmt; const char *const *names; } kinfo_t;
 
@@ -543,7 +549,7 @@ static kinfo_t kb_info(kb_t k)
         case SF_ACC: { static const char *const oo[] = {"OFF", "ON"}; r.max = 1; r.fmt = PF_ENUM; r.names = oo; break; }
         case SF_RCURVE: r.max = 5; r.fmt = PF_ENUM; r.names = rcurve_names; break;
         case SF_COND: r.max = RV_NCOND - 1; r.fmt = PF_ENUM; r.names = rv_cond_names; break;
-        case SF_ENV: r.max = 256; break;
+        case SF_ENV: r.max = RV_SENV; break;
         case SF_CUT: r.max = 3; r.fmt = PF_ENUM; r.names = cut_names; break;
         case SF_TIE: r.max = 1; r.fmt = PF_ONOFF; break;
         default: r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS); break;   /* cords: steps 1..LENGTH */
@@ -636,10 +642,19 @@ static kinfo_t kb_info(kb_t k)
         r.name = "DENSITY";
         r.max = 100;
         break;
-    case K_LIB:
-        r.name = lib_names[k.id];
-        r.max = 127;
+    case K_LIB: {                              /* the LIBRARY: a segment's LEVEL, TIME, BEND (and SEGS), or the envelope's own */
+        int set = ui.lib_row >= RV_SENV_SEG;
+        r.name = lib_names[set][k.id & 3];
+        switch ((set << 2) | (k.id & 3)) {
+        case 0: case 1: case 4: r.max = 127; break;
+        case 2: r.min = -7; r.max = 7; r.fmt = PF_BI; break;
+        case 3: r.max = RV_SENV_SEG; break;
+        case 5: r.max = 1; r.fmt = PF_ENUM; r.names = lib_time; break;
+        case 6: r.max = RV_SENV_SEG; r.fmt = PF_ENUM; r.names = lib_loop; break;
+        default: r.max = RV_SENV; r.fmt = PF_ENUM; r.names = lib_next; break;
+        }
         break;
+    }
     case K_SAVE:
         r.name = "ACTION";
         r.max = 5;
@@ -796,7 +811,13 @@ static int kb_get(kb_t k)
             return rv.arr_len ? rv.arr_len : 1;
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
-    case K_LIB: return rv.lib[ui.cur_lib & 255][k.id];
+    case K_LIB: {
+        const rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
+        int sg = ui.lib_row % RV_SENV_SEG;
+        if (ui.lib_row >= RV_SENV_SEG)
+            return k.id == 0 ? e->start : k.id == 1 ? SENV_FREE(e) : k.id == 2 ? e->loop : e->next;
+        return k.id == 0 ? e->lvl[sg] : k.id == 1 ? e->tim[sg] : k.id == 2 ? senv_crv(e, sg) : SENV_NSEG(e);
+    }
     case K_CZ: {
         const rv_czline *pl = &rv.cz[ui.track].line[(k.id >> 8) & 1];
         const rv_czenv *e = &pl->env[clampi((k.id >> 4) & 15, 0, 2)];
@@ -1029,9 +1050,27 @@ static void kb_set(kb_t k, int v)
     case K_ARC:
         rv.arcs[ui.track][ui.cur_arc & 15] = (uint8_t)v;
         break;
-    case K_LIB:
-        rv.lib[ui.cur_lib & 255][k.id] = (uint8_t)v;
+    case K_LIB: {
+        rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
+        int sg = ui.lib_row % RV_SENV_SEG;
+        if (ui.lib_row >= RV_SENV_SEG) {
+            if (k.id == 0) e->start = (uint8_t)v;
+            else if (k.id == 1) e->flags = (uint8_t)((e->flags & 15) | (v ? 16 : 0));
+            else if (k.id == 2) e->loop = (uint8_t)v;
+            else e->next = (uint8_t)v;
+            break;
+        }
+        if (k.id == 3) {
+            e->flags = (uint8_t)((e->flags & 16) | v);
+            break;
+        }
+        if (k.id == 0) e->lvl[sg] = (uint8_t)v;
+        else if (k.id == 1) e->tim[sg] = (uint8_t)v;
+        else senv_set_crv(e, sg, v);
+        if (SENV_NSEG(e) < sg + 1)                    /* editing a segment past the end brings it in */
+            e->flags = (uint8_t)((e->flags & 16) | (sg + 1));
         break;
+    }
     case K_CZ: {
         rv_czline *pl = &rv.cz[ui.track].line[(k.id >> 8) & 1];
         rv_czenv *e = &pl->env[clampi((k.id >> 4) & 15, 0, 2)];
@@ -1147,12 +1186,25 @@ static void kb_format(kb_t k, int v, char *o)
         }
         return;
     }
-    if (k.kind == K_STEP && k.id == SF_ENV) {
+    if (k.kind == K_STEP && k.id == SF_ENV) {      /* the LIBRARY envelope the step starts (STEP ENV) */
         if (!v)
-            sx_cat(o, "TRACK");
+            sx_cat(o, "-");
+        else
+            sx_int(o, v);
+        return;
+    }
+    if (k.kind == K_LIB && k.id == 1 && ui.lib_row < RV_SENV_SEG) {   /* a segment's time: steps (in eighths), or FREE */
+        if (SENV_FREE(&rv.senv[ui.cur_lib % RV_SENV]))
+            rv_param_format(PID_T(ui.track, TP_ATK), v, o, 12);
         else {
-            sx_cat(o, "#");
-            sx_int(o + 1, v);
+            static const char *const fr[8] = {"", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8"};
+            if (v / 8 || !(v % 8))
+                sx_int(o, v / 8);
+            if (v % 8) {
+                if (v / 8)
+                    sx_cat(o, " ");
+                sx_cat(o, fr[v % 8]);
+            }
         }
         return;
     }
@@ -1324,7 +1376,7 @@ static void knob_turn(int i, int d)
     }
     if (btn & (1u << B_ENV) && held >= 0 && i == 0 && !is_kit_ui(ui.track)) {   /* ENV held with a step: its library shape */
         rv_step *s = step_ptr(held);
-        s->env = (uint8_t)clampi(s->env + d, 0, 255);
+        s->env = (uint8_t)clampi(s->env + d, 0, RV_SENV);
         ui.layer_used[B_ENV] = 1;
         ui.step_turned = 1;
         return;
@@ -1495,7 +1547,7 @@ static void preset_turn(int d)
     case PR_SCENE: ui.cur_scene = (uint8_t)clampi(ui.cur_scene + d, 0, RV_SCENES - 1); break;
     case PR_ARR: ui.cur_arr = (uint8_t)clampi(ui.cur_arr + d, 0, (rv.arr_len ? rv.arr_len : 1) - 1); break;
     case PR_ARC: ui.cur_arc = (uint8_t)clampi(ui.cur_arc + d, 0, 15); break;
-    case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_LIB - 1); break;
+    case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_SENV - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
     case PR_BANK: {                                   /* the slots, on through the banks: A32 then B1 */
         int at = clampi(rv_bank_current() * RV_BANK_N + ui.cur_sound + d, 0, RV_BANKS * RV_BANK_N - 1);
@@ -1891,6 +1943,10 @@ static void buttons(uint32_t now_btn)
         ui.cz_row = (uint8_t)((ui.cz_row + ((down & (1u << B_OCTUP)) ? 1 : 4)) % 5);   /* the next two stages */
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_LIB) {
+        ui.lib_row = (uint8_t)((ui.lib_row + ((down & (1u << B_OCTUP)) ? 1 : RV_SENV_SEG)) % (RV_SENV_SEG + 1));   /* segment 1-8, then the envelope's own */
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
+    }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_LFOROW) {
         ui.lfo_row ^= 1;                              /* LFO SHAPE: the other LFO on the knobs */
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
@@ -2136,7 +2192,17 @@ static void draw_footer(void)
     case PR_SCENE: hint = "KEYS: LAUNCH  SAVE+KEY: STORE"; break;
     case PR_ARR: hint = "PRESETS: ROW"; break;
     case PR_ARC: hint = "PRESETS: BAR"; break;
-    case PR_LIB: hint = "PRESETS: SHAPE"; break;
+    case PR_LIB: {
+        static char lh[34];
+        lh[0] = 0;
+        if (ui.lib_row >= RV_SENV_SEG)
+            sx_cat(lh, "PRESETS: ENVELOPE  OCT: SEGMENTS");
+        else {
+            sx_int(lh + sx_cat(lh, "PRESETS: ENVELOPE  OCT: SEG "), ui.lib_row + 1);
+        }
+        hint = lh;
+        break;
+    }
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
     case PR_BANK:
@@ -2206,7 +2272,7 @@ static void pic_scope(int t, int y0, int h, uint16_t c)
     if (g > 6.0f)
         g = 6.0f;
     for (i = 0; i < 64; i++) {
-        float v = rv_live.scope[t][(rv_live.scope_w + i) & 63] * g;
+        float v = (float)rv_live.scope[t][(rv_live.scope_w + i) & 63] * (1.0f / 8192.0f) * g;
         int y = y0 + h / 2 - (int)(clampf(v, -1.0f, 1.0f) * (float)(h / 2 - 2));
         int x = 8 + i * 224 / 63;
         if (i)
@@ -2751,41 +2817,111 @@ static void pic_env(void)
     }
 }
 
-static void pic_lib(void)
+/* a LIBRARY envelope across the screen: its segments with their bends, the step grid (synced), the
+ * loop, where it chains to, the segment on the knobs (sel, or -1) and the playing position of track t */
+static void senv_draw(int idx, int sel, int t)
 {
-    int i, k;
-    for (k = -3; k <= 3; k++) {
-        int idx = (int)ui.cur_lib + k, x0 = 120 + k * 33 - 15, prev = 0;
-        const uint8_t *l;
-        char b[6];
-        if (idx < 0 || idx >= RV_LIB)
-            continue;
-        l = rv.lib[idx];
-        if (!k)
-            g_fill(x0 - 2, PIC_Y + 30, 34, 70, C_PANEL);
-        for (i = 0; i <= 30; i++) {
-            float u = (float)i / 30.0f, a = l[0] / 127.0f, bd = l[1] / 127.0f, d = l[2] / 127.0f, y;
-            float ea = 0.05f + a * 0.3f, eb = ea + 0.25f + bd * 0.2f, ed = eb + 0.1f + d * 0.3f;
-            if (u < ea)
-                y = u / ea;
-            else if (u < eb)
-                y = 1.0f - (1.0f - bd * bd) * (u - ea) / (eb - ea);
-            else if (u < ed)
-                y = bd * bd * (1.0f - (u - eb) / (ed - eb));
-            else
-                y = 0.0f;
-            {
-                int py = PIC_Y + 90 - (int)(y * 50.0f);
-                if (i)
-                    g_line(x0 + i - 1, prev, x0 + i, py, k ? C_DIM : C_TEAL);
+    const rv_senv *e = &rv.senv[idx % RV_SENV];
+    int n = SENV_NSEG(e), i, x[RV_SENV_SEG + 1], top = PIC_Y + 22, base = PIC_Y + 100, tot8 = 0;
+    float w[RV_SENV_SEG], tw = 0.0f, lv0 = (float)e->start / 127.0f;
+    char b[32];
+    if (!n) {
+        g_text_c(120, PIC_Y + 46, &FONT_B, "EMPTY", C_DIM);
+        g_text_c(120, PIC_Y + 70, &FONT_T, "EDIT A SEGMENT, OR TURN SEGS", C_DIM);
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        float sec = rv_time_s(e->tim[i]);
+        w[i] = SENV_FREE(e) ? (e->tim[i] ? 6.0f + fm_sqrtf(sec) * 40.0f : 2.0f) : (e->tim[i] ? (float)e->tim[i] : 0.6f);
+        tw += w[i];
+        tot8 += e->tim[i];
+    }
+    x[0] = 8;
+    for (i = 0; i < n; i++)
+        x[i + 1] = x[i] + (int)(w[i] * 224.0f / tw + 0.5f);
+    x[n] = 232;
+    if (sel >= 0 && sel < n)
+        g_fill(x[sel], top - 6, x[sel + 1] - x[sel] > 2 ? x[sel + 1] - x[sel] : 2, base - top + 8, C_PANEL);
+    g_hline(8, base, 224, C_LINE);
+    if (!SENV_FREE(e) && tot8 > 0)                     /* the steps under it */
+        for (i = 0; i <= tot8; i += 8) {
+            int gx = 8 + (int)((float)i * 224.0f / tw);
+            g_vline(gx, base + 1, (i / 8) % 4 ? 3 : 6, C_DIM);
+        }
+    {
+        float from = lv0;
+        int prev = base - (int)(from * (float)(base - top));
+        for (i = 0; i < n; i++) {
+            float to = (float)e->lvl[i] / 127.0f, k = (float)senv_crv(e, i) * 0.9f;
+            int xx, py;
+            for (xx = x[i]; xx <= x[i + 1]; xx++) {
+                float u = x[i + 1] > x[i] ? (float)(xx - x[i]) / (float)(x[i + 1] - x[i]) : 1.0f;
+                py = base - (int)((from + (to - from) * fe_bend(u, k)) * (float)(base - top));
+                g_line(xx > 8 ? xx - 1 : xx, prev, xx, py, i == sel ? C_WHITE : C_TEAL);
                 prev = py;
             }
+            from = to;
         }
-        sx_int(b, idx + 1);
-        g_text_c(x0 + 15, PIC_Y + 104, &FONT_T, b, k ? C_DIM : C_WHITE);
     }
-    g_text(8, PIC_Y + 4, &FONT_XS, "SHAPES A STEP CAN RECALL", C_MID);
-    g_text(8, PIC_Y + 120, &FONT_T, "SEQ: STEP SHAPE > ENV", C_DIM);
+    if (e->loop && e->loop <= n) {                     /* the loop: back from the end to its segment */
+        int lx = x[e->loop - 1];
+        g_hline(lx, top - 12, 232 - lx, C_AMBER_D);
+        g_vline(lx, top - 12, 5, C_AMBER_D);
+        g_vline(231, top - 12, 5, C_AMBER_D);
+        g_text_c((lx + 232) / 2, top - 18, &FONT_T, "LOOP", C_AMBER);
+    } else if (e->next) {
+        b[0] = 0;
+        sx_int(b + sx_cat(b, "THEN "), e->next);
+        g_text_r(232, top - 18, &FONT_T, b, C_AMBER);
+    }
+    if (senv[t & 7].on && senv[t & 7].env == idx % RV_SENV && senv[t & 7].seg < n) {   /* playing */
+        int sg = senv[t & 7].seg, px = x[sg] + (int)(clampf(senv[t & 7].u, 0.0f, 1.0f) * (float)(x[sg + 1] - x[sg]));
+        g_disc(px, base - (int)(clampf(senv[t & 7].lvl, 0.0f, 1.0f) * (float)(base - top)), 4, C_WHITE);
+    }
+    b[0] = 0;
+    sx_int(b + sx_cat(b, "ENV "), idx % RV_SENV + 1);
+    g_text(8, PIC_Y + 2, &FONT_XS, b, C_INK);
+    b[0] = 0;
+    if (SENV_FREE(e))
+        sx_cat(b, "FREE TIME");
+    else {
+        int st = tot8 / 8;
+        sx_int(b, st);
+        sx_cat(b, tot8 % 8 ? "+ STEPS" : st == 1 ? " STEP" : " STEPS");
+    }
+    g_text(62, PIC_Y + 4, &FONT_T, b, C_DIM);
+}
+
+static void pic_lib(void)
+{
+    int t = ui.track;
+    senv_draw(ui.cur_lib, ui.lib_row < RV_SENV_SEG ? ui.lib_row : -1, t);
+    if (ui.lib_row >= RV_SENV_SEG)
+        g_text(8, PIC_Y + 112, &FONT_T, "START, TIME BASE, LOOP, NEXT", C_AMBER);
+    else {
+        char b[24];
+        b[0] = 0;
+        sx_int(b + sx_cat(b, "SEGMENT "), ui.lib_row + 1);
+        g_text(8, PIC_Y + 112, &FONT_T, b, C_MID);
+    }
+    g_text_r(232, PIC_Y + 112, &FONT_T, "SEQ: STEP SHAPE > ENV", C_DIM);
+}
+
+/* STEP ENV: the envelope this track is playing (or the one its notes start), and where it goes */
+static void pic_senv(void)
+{
+    int t = ui.track, e = senv[t].on ? senv[t].env : rv.tp[t][TP_SEDEF] - 1;
+    char b[30];
+    if (e < 0) {
+        g_text_c(120, PIC_Y + 36, &FONT_B, "NO ENVELOPE YET", C_DIM);
+        g_text_c(120, PIC_Y + 60, &FONT_T, "STEPS PICK ONE ON SEQ > STEP SHAPE > ENV", C_DIM);
+        g_text_c(120, PIC_Y + 74, &FONT_T, "OR SE NOTE STARTS ONE ON EVERY NOTE", C_DIM);
+    } else
+        senv_draw(e, -1, t);
+    b[0] = 0;
+    sx_cat(b, "INTO ");
+    rv_param_format(PID_T(t, TP_SEDST), rv.tp[t][TP_SEDST], b + 5, 20);
+    g_text(8, PIC_Y + 112, &FONT_T, b, rv.tp[t][TP_SEAMT] ? C_MID : C_DIM);
 }
 
 static void pic_matrix(void)
@@ -3554,6 +3690,7 @@ static void draw_picture(void)
     case PIC_LANE: pic_lane(); break;
     case PIC_BANK: pic_bank(); break;
     case PIC_FENV: pic_fenv(); break;
+    case PIC_SENV: pic_senv(); break;
     default: break;
     }
 }

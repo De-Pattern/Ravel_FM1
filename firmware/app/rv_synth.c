@@ -17,20 +17,6 @@ static void artic_cfg_track(artic_cfg_t *c, const float *eff)
     c->tail = clampf(eff[TP_TAIL] * (1.0f / 127.0f), 0.0f, 1.0f);
 }
 
-/* a library shape: attack shape, body, death (Avenir's Envion idea: three values make an envelope) */
-static void artic_cfg_lib(artic_cfg_t *c, const uint8_t *l, const float *eff)
-{
-    float a = l[0] * (1.0f / 127.0f), b = l[1] * (1.0f / 127.0f), d = l[2] * (1.0f / 127.0f);
-    artic_cfg_track(c, eff);                     /* keeps give, loop and tail from the track */
-    c->atk = 0.0005f * fm_exp2f(a * 12.0f);      /* 0.5 ms .. 2 s */
-    c->curve = 0.6f - a * 1.2f;                  /* fast attacks bow out, slow ones swell */
-    c->over = a < 0.2f ? 0.15f : 0.0f;
-    c->dec = 0.02f * fm_exp2f(b * 7.0f);         /* 20 ms .. 2.5 s */
-    c->sus = b * b;                              /* percussive .. held */
-    c->rel = 0.005f * fm_exp2f(d * 10.0f);       /* 5 ms .. 5 s */
-    c->tail = d > 0.7f ? (d - 0.7f) * 2.0f : c->tail;
-}
-
 /* the shapes (rv_shapes.h, after the XAOC Zadar's library): the WAVE engine's ENV reads them, a shape
  * at u (0..1), WARP bending time and MORPH crossfading toward the next */
 #define SHP_DATA

@@ -27,7 +27,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, or clock any other.
-- **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, and a 256-shape envelope library that steps can recall.
+- **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets with curves, conditions, chance. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
 - **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM or a long Clouds-style plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
@@ -136,7 +136,7 @@ The ten sections:
 | --- | --- | --- |
 | **HOME** | Tracks | All eight tracks at a glance, and the influence grid |
 | **EDIT** | Voice | The current track's sound: engine, source pages, pitch, filter, skin, insert, mix, sends |
-| **ENV** | Articulation | How a note starts, holds and ends, and the 256-shape library |
+| **ENV** | Articulation | How a note starts, holds and ends, the FILTER ENV, and the step envelopes (STEP ENV, LIBRARY) |
 | **LFO** | Mod | Mod matrix, the two LFOs, dust, macros |
 | **FX** | Buses | Delay, space, feedback, filter pair, vocoder, bands, master |
 | **SCL** | Scale | Root, scale, transpose, interval |
@@ -427,7 +427,7 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 
 | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
 | --- | --- | --- | --- |
-| TABLE 1: osc 1's wavetable | SEMI 2: osc 2's interval, ±24 semitones | XMOD: OFF, SYNC (osc 2 restarts with osc 1), RING, FM (osc 1 bends osc 2's phase), SYNC+FM | WAVE ENV: OFF, or a shape from the SHAPE library (ENV › SHAPE) that sweeps both positions |
+| TABLE 1: osc 1's wavetable | SEMI 2: osc 2's interval, ±24 semitones | XMOD: OFF, SYNC (osc 2 restarts with osc 1), RING, FM (osc 1 bends osc 2's phase), SYNC+FM | WAVE ENV: OFF, or one of 32 shapes (PLUCK, SWELL, STAIRS and the rest) that sweeps both positions |
 | POS 1: where in the table (0–63) | DETUNE: osc 2 a little sharp | XM AMT: how much | WE AMT: how far it sweeps (±63 positions) |
 | TABLE 2: osc 2's wavetable | MIX: osc 1 to osc 2 (0 = osc 1 alone) | WARP: OFF, SYNC, BEND, PWM, MIRROR, REMAP 2, REMAP 4, SQUEEZE, FLIP, QUANT | WE TIME: one pass of the wave envelope |
 | POS 2 | SAT: the mixer's saturation | WARP AMT | ASIC: 0 smooth; 1–63 the positions step through 64 whole waves (the PPG's zipper); 64–127 raw, unsmoothed reading, a truncated phase and a coarser output (sizzle) |
@@ -611,18 +611,48 @@ The filter has its own envelope: delay, attack, hold, decay, sustain and release
 - **Moving it:** F ATK, F DEC, F SUS, F REL, F RATE and ENV>CUT are modulation destinations.
 - **Older projects and sounds** load with a FILTER ENV copied from their volume envelope, so they sound as they did (the one envelope used to drive both). The factory presets do the same. The SHAPE envelopes of earlier versions are gone; a project that used one plays the classic volume envelope.
 
-### LIBRARY
+### STEP ENV and the LIBRARY
 
-<p align="center"><img src="docs/manual/artic-library.png" alt="The envelope LIBRARY" width="320"></p>
+<p align="center"><img src="docs/manual/artic-library.png" alt="The LIBRARY of step envelopes" width="320"></p>
 
-Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can mix short, long and swelling notes on the same track.
+The **LIBRARY** holds 32 **step envelopes**: shapes a step starts, that move one parameter across that step and on through the steps after it. A filter blip on one step, a fold that climbs over four, a pitch that drops on the last step of a bar. One number on a step calls up a whole motion, and envelopes can chain into each other for longer, more complicated moves.
 
-- **PRESETS** browses the shapes; the picture shows the chosen one in the middle with its neighbours.
-- **KNOB 1–3** edit the chosen shape: **ATTACK** (instant to slow swell), **BODY** (percussive to held), **DEATH** (cut short to long tail).
-- Play the keys to hear the current track with that shape.
-- To give a step a shape:
-  - go to SEQ › STEP SHAPE and set **ENV** to the shape's number (0 = the track's own envelope); or
-  - hold **SEQ** and **ENV**, hold the step's key, and turn KNOB 1.
+**STEP ENV** says where they go, one destination per track:
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **STEP ENV** | SE DEST: the parameter it moves (any modulation destination of the track) | SE DEPTH: how far (±) | SE NOTE: OFF, or an envelope every note starts when its step names none | – |
+
+- **Starting one:** set a step's **ENV** on SEQ › STEP SHAPE (or hold SEQ and ENV, hold the step's key and turn KNOB 1). When that step plays, its envelope starts from the beginning and replaces the one running.
+- **Carrying on:** steps without an ENV leave the running envelope alone, so a long envelope or a chain moves through them. Set **SE NOTE** to have every such note start an envelope instead.
+- **At the end** an envelope loops back to one of its segments, or hands over to its **NEXT** (a chain: the next one starts from where the last ended), or holds its last level. Stopping the sequencer puts the parameter back where its knob is.
+- The picture on STEP ENV draws the envelope playing on the track, with a dot where it is.
+
+**Editing an envelope (LIBRARY):** **PRESETS** picks the envelope (1–32). **OCT− / OCT+** step through its rows; the picture marks the segment on the knobs.
+
+| Row | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **Segment 1–8** | LEVEL it goes to (0–127) | TIME it takes: in steps, to an eighth of a step (0 = a jump), or 0.5 ms to 8 s in FREE time | BEND: + exponential (slow, then a rush), − logarithmic (a rush, then slow) | SEGS: how many segments it has (1–8) |
+| **The envelope's own** | START level | TIME: STEPS (synced to the track, the default) or FREE | LOOP: OFF, or back to segment 1–8 at the end | NEXT: NONE, or the envelope (1–32) that takes over |
+
+Editing a segment past the last one adds it. The twelve factory envelopes, all synced:
+
+| # | Name | What it does |
+| --- | --- | --- |
+| 1 | RAMP UP | rises over four steps and stays |
+| 2 | RAMP DOWN | falls over four steps |
+| 3 | BLIP | up at once, down in half a step |
+| 4 | SWELL | in and out over four steps |
+| 5 | DOUBLE | two blips half a step apart |
+| 6 | STAIRS | four stairs, a step each |
+| 7 | TRIANGLE | a two-step cycle, looping |
+| 8 | S CURVE | slow, quick, slow, over four steps |
+| 9 | DROP | holds a step, then falls |
+| 10 | WOBBLE | a quarter-step flutter, looping |
+| 11 | BUILD | eight steps up, then chains to 12 |
+| 12 | FALL | down in a step (BUILD's ending) |
+
+13 to 32 start empty. Projects made before this version get the twelve factory envelopes, and their steps' old library numbers are cleared (the old library swapped a step's volume envelope; set SE DEST to LEVEL for something like it).
 
 ## 8. LFO: modulation and macros
 
@@ -849,7 +879,7 @@ Editing a held empty step switches it on.
 | --- | --- | --- | --- | --- |
 | **STEPS** | NOTE | VELO | LENGTH: in eighths of a step (8 = one step, "7 1/2") | CHANCE: 0–100 % that it plays |
 | **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER; "-F" versions fade out | CONDITN, see below |
-| **STEP SHAPE** | ENV: library shape (0 = the track's own) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | – |
+| **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | – |
 | **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST |
 | **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | – | – | – |
 
@@ -1013,7 +1043,7 @@ Ravel starts on a blank project every time it is switched on (or the emulator is
 
 There are seven project slots. (Before v0.5.0 there were eight; the eighth's room now holds the sound banks, so a project saved in slot 8 is gone after updating. Load it and save it to slots 1–7 first.)
 
-A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the envelope library. **It does not hold the tape audio.** Catch or resample again after loading.
+A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the LIBRARY of step envelopes. **It does not hold the tape audio.** Catch or resample again after loading.
 
 ### Sounds: your own bank
 
@@ -1046,7 +1076,7 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 | Hold | Then | Does |
 | --- | --- | --- |
 | **SEQ** | white keys | Steps, from any page. Hold a step and turn a knob to lock that value on that step. |
-| **SEQ + ENV** | hold a step, turn KNOB 1 | The step's library shape |
+| **SEQ + ENV** | hold a step, turn KNOB 1 | The step's LIBRARY envelope |
 | **LFO** | KNOB 1–4 | Macros 1–4 |
 | **FX** | white keys 1–8 | Punch-ins: loop, reverse, stutter, freeze, low pass, high pass, throw, fill |
 | **ARP** | white keys | Jump the tape track's playhead from any page |

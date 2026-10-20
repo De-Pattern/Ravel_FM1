@@ -100,7 +100,6 @@ typedef struct {
     artic_t a;
     artic_cfg_t cfg;
     fenv_t fe;                      /* the FILTER ENV */
-    uint8_t cfg_lib;                /* the step recalled a library shape: keep cfg */
     uint8_t e_eng;                  /* the engine e's state belongs to, + 1 (0 = none) */
     ladder_t lad;
     svf_t svf, svf2;               /* svf2: the XT filters' second stage */
@@ -133,7 +132,6 @@ typedef struct {
     uint32_t age;
     artic_t a;
     artic_cfg_t cfg;
-    uint8_t cfg_lib;
     float t;                        /* seconds since the hit */
     float exc_env, trans_env, pitch_env;
     uint32_t rng, dust_rng;

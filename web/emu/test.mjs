@@ -93,4 +93,20 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   rv.web_bank_load(1, 0); rv.web_bank_select(0);
   check(rv.web_tp(1, 81) === 44, 'its sounds get a FILTER ENV from their envelope');
 }
+{                                                           // the LIBRARY: step envelopes, chained, and a step that starts one
+  rv.rv_boot(); rv.rv_run(250);
+  const run = ms => { while (ms > 0) { rv.rv_run(Math.min(ms, 250)); ms -= 250; } };
+  rv.web_senv_start(0, 0); run(250);                          // 1 RAMP UP: four steps (0.5 s at 120)
+  const mid = rv.web_senv(0); run(400);
+  check(mid > 0.35 && mid < 0.65 && rv.web_senv(0) > 0.99 && rv.web_senv_env(0) === -1, `RAMP UP climbs over four steps (${mid.toFixed(2)} halfway) and holds`);
+  rv.web_senv_start(0, 10); run(1100);                        // 11 BUILD: eight steps up, then 12 FALL
+  check(rv.web_senv_env(0) === 11, 'BUILD hands over to FALL (a chain)');
+  run(300);
+  check(rv.web_senv(0) < 0.05, 'and FALL comes down');
+  rv.web_step_set(0, 0, 1, 3);                                // step 1 starts envelope 3 (BLIP)
+  rv.web_transport(1); let seen = -1; for (let k = 0; k < 40 && seen < 0; k++) { rv.rv_run(25); if (rv.web_senv_env(0) >= 0) seen = rv.web_senv_env(0); }
+  check(seen === 2, 'a step starts its LIBRARY envelope');
+  rv.web_transport(0); run(50);
+  check(rv.web_senv(0) === 0, 'stopping puts it back');
+}
 process.exit(fails ? 1 : 0);

@@ -66,9 +66,10 @@ wait 150
 expect page FILTER ENV
 wait 600
 shot artic-fenv.png
-turn SELECT 3
+turn SELECT 4
 wait 150
 expect page LIBRARY
+turn PRESET 10
 wait 600
 shot artic-library.png
 tap LFO

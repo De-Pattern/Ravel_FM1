@@ -33,6 +33,9 @@ static const char *const lfo_modes[] = {"LOOP", "RETRIG", "1 SHOT"};
 static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const senv_names[RV_SENV + 1] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                                                     "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"};
+typedef char senv_size_check[sizeof(rv_senv) == 24 ? 1 : -1];   /* the LIBRARY fills the triplets' room exactly */
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
@@ -328,6 +331,10 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_FDCRV] = {"D BEND", -64, 63, 0, PF_BI, 0},         /* decay and release: > 0 exponential (a fast fall, a long tail), < 0 logarithmic */
     [TP_FLOOP] = {"F LOOP", 0, 1, 0, PF_ONOFF, 0},         /* delay to decay, round again while held */
     [TP_FRATE] = {"F RATE", -64, 63, 0, PF_BI, 0},         /* every stage faster (+) or slower (-), x16 to /16 */
+    /* STEP ENV: the LIBRARY envelope a step (or a note, DEFAULT) starts, into one parameter */
+    [TP_SEDST] = {"SE DEST", 0, TP_N - 1, TP_CUT, PF_DEST, 0},
+    [TP_SEAMT] = {"SE DEPTH", -64, 63, 0, PF_BI, 0},
+    [TP_SEDEF] = {"SE NOTE", 0, RV_SENV, 0, PF_ENUM, senv_names},  /* what every note starts when its step names none */
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -642,6 +649,8 @@ int rv_tp_applies(int t, int p)
     const int16_t *tp = rv.tp[t];
     if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
+    if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_SEDST || p == TP_SEAMT || p == TP_SEDEF))
+        return 0;                                                      /* a KIT's steps keep their lanes' accents where a step envelope would go */
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_POLY || p == TP_SEQMODE || p == TP_DIR || p == TP_PITCH || p == TP_FINE))
         return 0;                                                      /* a KIT: a voice per lane, steps forward */
     if (p == TP_VELO && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)   /* strike and tape take velocity as it comes */
@@ -767,7 +776,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_SEAMT: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
@@ -952,14 +961,7 @@ void rv_project_init(void)
                 st->chance = 100;
             }
     }
-    /* the envelope library: 256 shapes from three values each (attack shape, body, death),
-     * laid out so neighbours are related: the low nibble walks attack and body, the high death */
-    for (i = 0; i < RV_LIB; i++) {
-        int a = i & 7, b = (i >> 3) & 3, d = (i >> 5) & 7;
-        rv.lib[i][0] = (uint8_t)(a * 18);                  /* attack: instant .. slow swell */
-        rv.lib[i][1] = (uint8_t)(b * 42);                  /* body: percussive .. held */
-        rv.lib[i][2] = (uint8_t)(d * 18);                  /* death: cut .. long tail */
-    }
+    rv_senv_factory();
     for (i = 0; i < RV_MATRIX; i++)
         rv.mat[i].src = MS_OFF;
     for (i = 0; i < RV_MACROS; i++)
@@ -987,4 +989,38 @@ void rv_fenv_from_env(int16_t *tp)
     tp[TP_FDCRV] = 0;
     tp[TP_FLOOP] = 0;
     tp[TP_FRATE] = 0;
+}
+
+/* the LIBRARY's factory envelopes: twelve, synced to the steps (times in eighths of a step), the
+ * rest empty. Each: start level, then segments of level, time, bend; loop; next. */
+void rv_senv_factory(void)
+{
+    static const struct { uint8_t start, n, loop, next; uint8_t s[8][2]; int8_t c[8]; } f[12] = {
+        {0, 1, 0, 0, {{127, 32}}, {0}},                                              /* 1 RAMP UP: over four steps */
+        {127, 1, 0, 0, {{0, 32}}, {0}},                                              /* 2 RAMP DOWN */
+        {0, 2, 0, 0, {{127, 0}, {0, 4}}, {0, -4}},                                    /* 3 BLIP: up at once, down in half a step */
+        {0, 2, 0, 0, {{127, 16}, {0, 16}}, {5, -5}},                                  /* 4 SWELL: in and out over four steps */
+        {0, 4, 0, 0, {{127, 0}, {0, 4}, {100, 0}, {0, 4}}, {0, -4, 0, -4}},           /* 5 DOUBLE: two blips a step apart */
+        {0, 8, 0, 0, {{32, 0}, {32, 8}, {64, 0}, {64, 8}, {96, 0}, {96, 8}, {127, 0}, {127, 8}}, {0}},   /* 6 STAIRS: a step a stair */
+        {0, 2, 1, 0, {{127, 8}, {0, 8}}, {0}},                                        /* 7 TRIANGLE: a two-step cycle, looping */
+        {0, 2, 0, 0, {{64, 16}, {127, 16}}, {5, -5}},                                 /* 8 S CURVE: slow, quick, slow */
+        {127, 2, 0, 0, {{127, 8}, {0, 2}}, {0, -6}},                                  /* 9 DROP: holds a step, then falls */
+        {0, 2, 1, 0, {{127, 2}, {40, 2}}, {0}},                                       /* 10 WOBBLE: a quarter-step flutter, looping */
+        {0, 1, 0, 12, {{127, 64}}, {6}},                                              /* 11 BUILD: eight steps up, then 12 */
+        {127, 1, 0, 0, {{0, 8}}, {-6}},                                               /* 12 FALL: what BUILD hands over to */
+    };
+    int i, k;
+    __builtin_memset(rv.senv, 0, sizeof(rv.senv));
+    for (i = 0; i < 12; i++) {
+        rv_senv *e = &rv.senv[i];
+        e->start = f[i].start;
+        e->flags = f[i].n;
+        e->loop = f[i].loop;
+        e->next = f[i].next;
+        for (k = 0; k < f[i].n; k++) {
+            e->lvl[k] = f[i].s[k][0];
+            e->tim[k] = f[i].s[k][1];
+            senv_set_crv(e, k, f[i].c[k]);
+        }
+    }
 }

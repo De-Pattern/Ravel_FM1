@@ -21,7 +21,8 @@
 #define RV_PATTERNS 2               /* patterns per track (A, B) kept in RAM */
 #define RV_SCENES 16
 #define RV_ARR 32                   /* arrangement rows */
-#define RV_LIB 256                  /* envelope library shapes */
+#define RV_SENV 32                  /* the LIBRARY: step envelopes a step can trigger */
+#define RV_SENV_SEG 8               /* segments in one */
 #define RV_MATRIX 8
 #define RV_MACROS 4
 #define RV_MACRO_DESTS 8
@@ -76,6 +77,7 @@ enum {
     TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
     TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
     TP_FREL, TP_FACRV, TP_FDCRV, TP_FLOOP, TP_FRATE,   /* the FILTER ENV, continued */
+    TP_SEDST, TP_SEAMT, TP_SEDEF,   /* (format 13) STEP ENV: where the step envelopes go, how far, the one a note starts */
     TP_N
 };
 #define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
@@ -165,6 +167,28 @@ typedef struct {
 
 typedef struct { rv_step s[RV_STEPS]; } rv_pattern;
 
+/* a step envelope (the LIBRARY): up to eight segments, each to a level in a time along a bend,
+ * from a start level; then it loops back to a segment, or hands over to the NEXT envelope (a
+ * chain), or holds. Times are in eighths of a step (synced) or 0.5 ms to 8 s (FREE). 24 bytes,
+ * so the 32 of them take exactly the room the old triplet library had (formats 1-12). */
+typedef struct {
+    uint8_t lvl[RV_SENV_SEG];       /* 0..127 */
+    uint8_t tim[RV_SENV_SEG];       /* 0..127: eighths of a step, or the time scale (FREE) */
+    uint8_t crv[RV_SENV_SEG / 2];   /* two bends a byte, each -7..7 (low nibble: the even segment) */
+    uint8_t flags;                  /* bits 0-3: segments 1..8 (0: empty), bit 4: FREE time */
+    uint8_t loop;                   /* 0: no loop, 1..8: back to that segment at the end */
+    uint8_t next;                   /* 0: none, 1..32: the envelope that takes over at the end */
+    uint8_t start;                  /* 0..127: where it starts (a chained one starts where the last ended) */
+} rv_senv;
+#define SENV_NSEG(e) ((e)->flags & 15)
+#define SENV_FREE(e) (((e)->flags >> 4) & 1)
+static inline int senv_crv(const rv_senv *e, int i) { int v = (e->crv[(i >> 1) & 3] >> ((i & 1) * 4)) & 15; return v > 7 ? v - 16 : v; }
+static inline void senv_set_crv(rv_senv *e, int i, int v)
+{
+    int sh = (i & 1) * 4;
+    e->crv[(i >> 1) & 3] = (uint8_t)((e->crv[(i >> 1) & 3] & ~(15 << sh)) | (((v < -7 ? -7 : v > 7 ? 7 : v) & 15) << sh));
+}
+
 /* --------------------------------------------------------------- influence --- */
 enum { RT_OFF, RT_MOD, RT_TRIG, RT_EXCITE, RT_TAPE, RT_CLOCK, RT_RING, RT_N };
 typedef struct {
@@ -191,7 +215,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 12                /* 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 13                /* 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -234,7 +258,7 @@ typedef struct {
     uint8_t arr_len, scene_cur, mute, solo;
     uint8_t pat_cur[RV_TRACKS];
     uint8_t arcs[RV_TRACKS][16];           /* density per bar, 0..100 (100 = every step) */
-    uint8_t lib[RV_LIB][3];                /* envelope library: attack shape, body, death */
+    rv_senv senv[RV_SENV];                 /* (format 13) the LIBRARY of step envelopes, where the triplets were */
     rv_pattern pat[RV_TRACKS][RV_PATTERNS];
     rv_cz cz[RV_TRACKS];                   /* (format 4) last, so older projects load in front of it */
     rv_kit kit[RV_TRACKS];                 /* (format 7) after that */
@@ -251,7 +275,8 @@ extern rv_project rv;                      /* the project being played */
 #else
 #define RV_RAMBSS
 #endif
-void rv_fenv_from_env(int16_t *tp);         /* the FILTER ENV from the volume envelope (older work) */
+void rv_fenv_from_env(int16_t *tp);
+void rv_senv_factory(void);                 /* the LIBRARY's twelve shapes, the rest empty */         /* the FILTER ENV from the volume envelope (older work) */
 void moom_start(void);                     /* the hidden game (rv_moom.c) */
 int moom_active(void);
 void moom_exit(void);
@@ -278,7 +303,7 @@ typedef struct {
     uint8_t hit[RV_TRACKS];                /* counts up on each trigger (flash the screen) */
     uint8_t route_fire[RV_TRACKS][RV_TRACKS];
     float master_l, master_r;
-    float scope[RV_TRACKS][64];            /* recent output of each track, decimated */
+    int16_t scope[RV_TRACKS][64];          /* recent output of each track, decimated (x 8192: half the RAM of floats) */
     uint8_t scope_w;
     float lfo1, lfo2, dust, clock_env;
     float msrc[MS_N];

@@ -221,6 +221,11 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     float v = (float)vel * (1.0f / 127.0f);
     if (vel > 0)
         lfo_note_trig = 1;
+    if (vel > 0 && !(kind == KIND_PERC && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
+        int e = env > 0 ? env : rv.tp[t][TP_SEDEF];
+        if (e > 0)
+            senv_trigger(t, e - 1);
+    }
     if (kind == KIND_SYNTH) {
         int poly = clampi(rv.tp[t][TP_POLY], 0, 3) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;
@@ -281,13 +286,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         vo->track = (uint8_t)t;
         vo->age = ++age_ctr;
         synth_voice_note_on(vo, note, v, legato, clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1));
-        if (env > 0) {
-            artic_cfg_lib(&vo->cfg, rv.lib[(env - 1) & 255], tr->eff);
-            vo->cfg_lib = 1;
-        } else {
-            artic_cfg_track(&vo->cfg, tr->eff);
-            vo->cfg_lib = 0;
-        }
+        artic_cfg_track(&vo->cfg, tr->eff);
         if (!legato) {
             artic_start(&vo->a, &vo->cfg);
             fenv_start(&vo->fe);
@@ -342,13 +341,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         sv->age = ++age_ctr;
         sv->rng = xs32(&eng_rng) | 1u;
         sv->gate = 1;
-        if (env > 0) {
-            artic_cfg_lib(&sv->cfg, rv.lib[(env - 1) & 255], tr->eff);
-            sv->cfg_lib = 1;
-        } else {
-            artic_cfg_track(&sv->cfg, tr->eff);
-            sv->cfg_lib = 0;
-        }
+        artic_cfg_track(&sv->cfg, tr->eff);
         if (!sv->on)
             sv->a.p = sv->a.s = sv->a.v = 0.0f;
         strike_note_on(sv, note, v, tr->eff);
@@ -386,10 +379,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u, kit ? rv.kit[t].mach[lane] : -1, lane);
     } else {
         tapetrk_t *tt = &tr->tape;
-        if (env > 0)
-            artic_cfg_lib(&tt->cfg, rv.lib[(env - 1) & 255], tr->eff);
-        else
-            artic_cfg_track(&tt->cfg, tr->eff);
+        artic_cfg_track(&tt->cfg, tr->eff);
         tape_track_note(tr, note, v);
     }
     tr->lead_vel = v;
@@ -467,8 +457,10 @@ static void cmd_drain(void)
         case C_TRANSPORT:
             if (c.b && !playing)
                 seq_start();
-            else if (!c.b && playing)
+            else if (!c.b && playing) {
                 seq_stop();
+                __builtin_memset(senv, 0, sizeof senv);   /* STEP ENV: stopped, every parameter back where its knob is */
+            }
             rv_live.playing = playing;
             break;
         case C_CATCH:
@@ -725,8 +717,7 @@ static void render_sub(float *outl, float *outr, int n)
             v->on = 0;
             continue;
         }
-        if (!v->cfg_lib)
-            artic_cfg_track(&v->cfg, tr->eff);
+        artic_cfg_track(&v->cfg, tr->eff);
         lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
         if (buf_bad(tr->buf, n) || !(lv == lv)) {
             fault(100 + rv.tp[v->track][TP_ENGINE]);
@@ -756,8 +747,7 @@ static void render_sub(float *outl, float *outr, int n)
             v->on = 0;
             continue;
         }
-        if (!v->cfg_lib)
-            artic_cfg_track(&v->cfg, tr->eff);
+        artic_cfg_track(&v->cfg, tr->eff);
         lv = strike_render(v, tr, tr->buf, n);
         if (buf_bad(tr->buf, n) || !(lv == lv)) {
             fault(200 + rv.tp[v->track][TP_S0]);
@@ -902,7 +892,7 @@ static void render_sub(float *outl, float *outr, int n)
         rv_live.env[t] = tr->lead_env;
         /* the scope: one point per 16 samples */
         for (i = 0; i < n; i += 16) {
-            rv_live.scope[t][(rv_live.scope_w + i / 16) & 63] = tr->buf[i];
+            rv_live.scope[t][(rv_live.scope_w + i / 16) & 63] = (int16_t)clampf(tr->buf[i] * 8192.0f, -32767.0f, 32767.0f);
         }
         for (i = 0; i < n; i++)
             tr->prev[i] = tr->buf[i];

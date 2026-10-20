@@ -18,7 +18,7 @@ typedef struct {
     union { rv_cz cz; rv_kit kit; } x;
 } rv_sound;
 typedef struct {
-    uint32_t magic, version;                       /* 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
+    uint32_t magic, version;                       /* 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
     rv_sound s[RV_BANK_N];
 } rv_bank_t;
 /* the first bank's old shape (version 1), read once to move it to bank A */
@@ -55,17 +55,23 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 3;
+    bank.version = 4;
 }
 
-/* sounds kept before the FILTER ENV: theirs as their one envelope was */
-static void bank_to_v3(void)
+/* sounds kept before the FILTER ENV (version 2): theirs as their one envelope was; and before STEP
+ * ENV (2, 3): it off */
+static void bank_upgrade(void)
 {
     int i;
     for (i = 0; i < RV_BANK_N; i++)
-        if (bank.s[i].used)
-            rv_fenv_from_env(bank.s[i].tp);
-    bank.version = 3;
+        if (bank.s[i].used) {
+            if (bank.version < 3)
+                rv_fenv_from_env(bank.s[i].tp);
+            bank.s[i].tp[TP_SEDST] = TP_CUT;
+            bank.s[i].tp[TP_SEAMT] = 0;
+            bank.s[i].tp[TP_SEDEF] = 0;
+        }
+    bank.version = 4;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -87,15 +93,16 @@ static void bank_from_v1(void)
     }
     __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
     bank.magic = RV_BANK_MAGIC;
-    bank_to_v3();
+    bank.version = 2;
+    bank_upgrade();
 }
 
 static int bank_read(int b)
 {
-    if (plat_load(PLAT_BANK0 + b, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 3)
+    if (plat_load(PLAT_BANK0 + b, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 4)
         return 0;
-    if (bank.version == 2)                             /* (kept as version 3 the next time it is written) */
-        bank_to_v3();
+    if (bank.version < 4)                              /* (kept as version 4 the next time it is written) */
+        bank_upgrade();
     return 1;
 }
 

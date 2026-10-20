@@ -152,6 +152,12 @@ EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
 EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }
 EXPORT(web_meter) float web_meter(int t) { return rv_live.meter[t & 7]; }
 EXPORT(web_fenv) float web_fenv(int t) { return rv_live.fenv[t & 7]; }   /* the FILTER ENV of the newest voice */
+float rv_senv_level(int t, int *env);
+void rv_senv_start(int t, int e);
+EXPORT(web_senv) float web_senv(int t) { return rv_senv_level(t & 7, 0); }   /* STEP ENV: its level now */
+EXPORT(web_senv_env) int web_senv_env(int t) { int e = -1; rv_senv_level(t & 7, &e); return e; }   /* the envelope playing (0-31), or -1 */
+EXPORT(web_senv_start) void web_senv_start(int t, int e) { rv_senv_start(t & 7, e); }   /* (tests) */
+EXPORT(web_step_set) void web_step_set(int t, int s, int on, int env) { rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[s & 63]; p->flags = on ? (uint8_t)(p->flags | ST_ON) : (uint8_t)(p->flags & ~ST_ON); p->env = (uint8_t)env; if (on && !p->vel) { p->vel = 100; p->len = 4; p->note = 60; p->chance = 100; } }
 EXPORT(web_master_l) float web_master_l(void) { return rv_live.master_l; }
 EXPORT(web_master_r) float web_master_r(void) { return rv_live.master_r; }
 EXPORT(web_playing) int web_playing(void) { return rv_live.playing; }

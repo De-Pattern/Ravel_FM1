@@ -147,7 +147,19 @@ int rv_load(int slot)
                 rv.tp[t][TP_OSC1] = 127;
             if (f <= 11)                               /* (format 12) SHAPE's slots: the FILTER ENV, as the one envelope was */
                 rv_fenv_from_env(rv.tp[t]);
+            if (f <= 12) {                             /* (format 13) STEP ENV: off; the steps' old triplet numbers go */
+                int p, s;
+                rv.tp[t][TP_SEDST] = TP_CUT;
+                rv.tp[t][TP_SEAMT] = 0;
+                rv.tp[t][TP_SEDEF] = 0;
+                if (!(rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1))   /* (a kit's env bits are its accents) */
+                    for (p = 0; p < RV_PATTERNS; p++)
+                        for (s = 0; s < RV_STEPS; s++)
+                            rv.pat[t][p].s[s].env = 0;
+            }
         }
+        if (f <= 12)                                   /* the triplets' room: the LIBRARY's factory envelopes */
+            rv_senv_factory();
     }
     if (f == 2)
         upgrade_from_2();
