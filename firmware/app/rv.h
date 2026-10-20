@@ -68,6 +68,7 @@ enum {
      * traversal shapes, which move each head's rate against the clock) */
     TP_SEQMODE, TP_H1ROLE, TP_H1SHAPE, TP_H1DEPTH, TP_H1CYCLE, TP_H1COMB, TP_H1TRANS,
     TP_H2TARGET, TP_H2SHAPE, TP_H2DEPTH, TP_H2CYCLE, TP_H2COMB, TP_H2TRANS,
+    TP_BANDS,                       /* (format 5) the send into the BANDS bus */
     TP_N
 };
 #define RV_TP 80                    /* room for more track parameters without moving pids */
@@ -90,9 +91,12 @@ enum {
     /* more of each bus */
     GP_DLYSPREAD, GP_DLYWOB, GP_DLYFREEZE, GP_REVMOD, GP_REVDIFF, GP_REVLOW,
     GP_VOCATK, GP_VOCSHIFT, GP_VOCQ, GP_PAIRT1, GP_PAIRT2,
+    /* (format 5) BANDS: eight fixed resonant bands (after the Moog MuRF) and the sweep across them */
+    GP_BAND1, GP_BAND2, GP_BAND3, GP_BAND4, GP_BAND5, GP_BAND6, GP_BAND7, GP_BAND8,
+    GP_BANDQ, GP_BANDSHIFT, GP_BANDLEVEL, GP_BANDSHAPE, GP_BANDRATE, GP_BANDDEPTH, GP_BANDWIDTH,
     GP_N
 };
-#define RV_GP 96
+#define RV_GP 128                   /* (format 5: was 96) */
 #define RV_GPID (RV_TRACKS * RV_TP)
 #define RV_NPID (RV_GPID + RV_GP)
 #define PID_T(t, p) ((t) * RV_TP + (p))
@@ -165,7 +169,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 4                 /* 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 5                 /* 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -222,6 +226,7 @@ typedef struct {
     float lfo1, lfo2, dust, clock_env;
     float msrc[MS_N];
     float voc_band[8];
+    float band_g[8];                       /* BANDS: each band's gain now, sweep included */
     float fb_env;
     uint32_t cpu;                          /* render time, % of the budget */
     uint8_t voices_synth, voices_strike;

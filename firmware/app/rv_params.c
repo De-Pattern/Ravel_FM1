@@ -29,6 +29,7 @@ static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", 
 static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
 static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
 static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
 static const char *const qual_names[] = {"DIRTY", "TAPE", "CLEAN"};   /* = bd_res: 8, 12, 16 bit */
@@ -200,6 +201,7 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_H2CYCLE] = {"CYCLE", 2, 64, 16, PF_NUM, 0},
     [TP_H2COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
     [TP_H2TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
+    [TP_BANDS] = {"BANDS", 0, 127, 0, PF_NUM, 0},
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -284,6 +286,17 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_VOCQ] = {"NARROW", 0, 127, 64, PF_NUM, 0},
     [GP_PAIRT1] = {"TYPE 1", 0, N(ptype_names), 0, E(ptype_names)},
     [GP_PAIRT2] = {"TYPE 2", 0, N(ptype_names), 1, E(ptype_names)},
+    [GP_BAND1] = {"150", 0, 127, 100, PF_NUM, 0}, [GP_BAND2] = {"240", 0, 127, 100, PF_NUM, 0},
+    [GP_BAND3] = {"380", 0, 127, 100, PF_NUM, 0}, [GP_BAND4] = {"600", 0, 127, 100, PF_NUM, 0},
+    [GP_BAND5] = {"950", 0, 127, 100, PF_NUM, 0}, [GP_BAND6] = {"1.5K", 0, 127, 100, PF_NUM, 0},
+    [GP_BAND7] = {"2.4K", 0, 127, 100, PF_NUM, 0}, [GP_BAND8] = {"3.8K", 0, 127, 100, PF_NUM, 0},
+    [GP_BANDQ] = {"RESO", 0, 127, 80, PF_NUM, 0},
+    [GP_BANDSHIFT] = {"SHIFT", -12, 12, 0, PF_SEMI, 0},
+    [GP_BANDLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
+    [GP_BANDSHAPE] = {"SWEEP", 0, N(bandshape_names), 0, E(bandshape_names)},
+    [GP_BANDRATE] = {"RATE", 0, 127, 50, PF_NUM, 0},
+    [GP_BANDDEPTH] = {"DEPTH", 0, 127, 0, PF_NUM, 0},
+    [GP_BANDWIDTH] = {"WIDTH", 0, 127, 30, PF_NUM, 0},
 };
 
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
@@ -527,7 +540,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:

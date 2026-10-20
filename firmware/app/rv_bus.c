@@ -385,6 +385,73 @@ static void space_run(const float *in, int n, float *l, float *r)
     }
 }
 
+/* -------------------------------------------------------------- bands --- */
+/* BANDS: eight resonant bandpass filters at fixed frequencies, after the Moog MuRF. Each band
+ * has its own level (sculpt the spectrum), all share RESO, and SHIFT moves the whole set.
+ * The sweep is a spotlight that travels across the bands: SWEEP picks its path (up, down,
+ * ping-pong, random, or stepping band to band like the MuRF's patterns), RATE how fast, WIDTH
+ * how many bands it lights at once, DEPTH how dark the unlit bands go (0: no sweep, just the
+ * sculpted bands). Odd bands lean left and even ones right, so the sweep crosses the stereo. */
+static const float band_hz[8] = {150.0f, 240.0f, 380.0f, 600.0f, 950.0f, 1500.0f, 2400.0f, 3800.0f};
+static svf_t band_f[8];
+static float band_gs[8], band_ph, band_pos, band_k = 1.0f;
+static uint32_t band_rng = 0x3A7Fu;
+static int16_t band_set_q = -999, band_set_shift = -999;
+
+static void bands_run(const float *in, int n, float *l, float *r)
+{
+    int i, k, shape = clampi(rv.gp[GP_BANDSHAPE], 0, 5), wrapped;
+    float lvl = rv.gp[GP_BANDLEVEL] * (1.0f / 127.0f) * 1.6f, depth = rv.gp[GP_BANDDEPTH] * (1.0f / 127.0f);
+    float width = 0.6f + rv.gp[GP_BANDWIDTH] * (3.4f / 127.0f), rate = 0.03f * fm_exp2f(rv.gp[GP_BANDRATE] * (9.5f / 127.0f));
+    float target[8], sm = 1.0f - fm_expf(-(float)n * RV_DT / 0.004f), gl[8];
+    if (rv.gp[GP_BANDQ] != band_set_q || rv.gp[GP_BANDSHIFT] != band_set_shift) {
+        float q = 2.0f + rv.gp[GP_BANDQ] * rv.gp[GP_BANDQ] * (40.0f / 16129.0f), sh = fm_exp2f(rv.gp[GP_BANDSHIFT] * (1.0f / 12.0f));
+        band_set_q = rv.gp[GP_BANDQ];
+        band_set_shift = rv.gp[GP_BANDSHIFT];
+        for (k = 0; k < 8; k++)
+            svf_set(&band_f[k], band_hz[k] * sh, q);
+        band_k = band_f[0].k;                         /* k x band = unity at the peak */
+    }
+    /* the spotlight */
+    band_ph += rate * (float)n * RV_DT;
+    wrapped = band_ph >= 1.0f;
+    band_ph -= fm_floorf(band_ph);
+    switch (shape) {
+    case 0: band_pos = band_ph * 8.0f; break;                                     /* UP */
+    case 1: band_pos = 8.0f - band_ph * 8.0f; break;                              /* DOWN */
+    case 2: band_pos = (band_ph < 0.5f ? band_ph * 2.0f : 2.0f - band_ph * 2.0f) * 7.0f; break;   /* PINGPNG */
+    case 3: if (wrapped) band_pos = (float)(xs32(&band_rng) % 8u); break;          /* RANDOM: a new band each cycle */
+    case 4: band_pos = fm_floorf(band_ph * 8.0f); break;                          /* STEP UP: eight steps a cycle */
+    default:                                                                      /* STEP RND */
+        if ((int)(band_ph * 8.0f) != (int)((band_ph - rate * (float)n * RV_DT) * 8.0f) || wrapped)
+            band_pos = (float)(xs32(&band_rng) % 8u);
+        break;
+    }
+    for (k = 0; k < 8; k++) {
+        float d = fm_fabsf((float)k - band_pos), spot;
+        if (shape == 0 || shape == 1 || shape == 4)   /* the paths that wrap: 8 sits next to 1 */
+            d = fm_minf(d, 8.0f - d);
+        spot = clampf(1.0f - d / width, 0.0f, 1.0f);
+        spot = spot * spot * (3.0f - 2.0f * spot);
+        target[k] = rv.gp[GP_BAND1 + k] * (1.0f / 127.0f) * (1.0f - depth + depth * spot);
+        band_gs[k] += (target[k] - band_gs[k]) * sm;
+        gl[k] = band_gs[k] * band_k;
+        rv_live.band_g[k] = band_gs[k];
+    }
+    for (i = 0; i < n; i++) {
+        float x = in[i], sl = 0.0f, sr = 0.0f, bp;
+        for (k = 0; k < 8; k++) {
+            svf_tick(&band_f[k], x, &bp, 0);
+            if (k & 1)
+                sr += bp * gl[k], sl += bp * gl[k] * 0.4f;
+            else
+                sl += bp * gl[k], sr += bp * gl[k] * 0.4f;
+        }
+        l[i] += sat(sl * lvl * 0.6f) * 1.4f;
+        r[i] += sat(sr * lvl * 0.6f) * 1.4f;
+    }
+}
+
 /* ---------------------------------------------------------- microcuts --- */
 static int16_t cut_buf[RV_CUT_SAMPLES] RV_BIG;
 static int32_t cut_w, cut_start, cut_len, cut_pos, cut_left, cut_fade;
@@ -447,6 +514,9 @@ static void buses_reset(void)
     __builtin_memset(fb_hq, 0, sizeof(fb_hq));
     fb_env = fb_dcx = fb_dcy = fb_comblp = fb_shph = fb_crush = 0.0f;
     __builtin_memset(pair_f, 0, sizeof(pair_f));
+    __builtin_memset(band_f, 0, sizeof(band_f));
+    __builtin_memset(band_gs, 0, sizeof(band_gs));
+    band_set_q = band_set_shift = -999;
     pair_ph[0] = pair_ph[1] = pair_prev = 0.0f;
     __builtin_memset(dly_buf, 0, sizeof(dly_buf));
     dly_lp = dly_fbv = 0.0f;

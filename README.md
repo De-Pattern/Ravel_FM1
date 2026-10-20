@@ -264,7 +264,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
-| **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | – |
+| **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | BANDS send |
 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
 
@@ -493,7 +493,7 @@ The comb reaches down to about F3; notes below that stop there.
 
 ## 9. FX: the buses
 
-Each track can send part of its sound into five shared effects (buses). Their outputs go back into the mix.
+Each track can send part of its sound into six shared effects (buses). Their outputs go back into the mix.
 
 **How the sends work.**
 
@@ -514,9 +514,15 @@ Each track can send part of its sound into five shared effects (buses). Their ou
 | **FILTER PAIR** | ROUTING: SERIES, PARALLEL, FEEDBACK | FREQ 1 | FREQ 2 | RESO |
 | **PAIR 2** | TYPE 1: LOWPASS, BANDPASS, HIGHPASS | TYPE 2 | LEVEL | T SEND |
 | **PAIR LFOS** | LFO 1 rate (moves filter 1) | LFO 2 rate (moves filter 2) | DEPTH | – |
+| **BANDS** | T SEND | LEVEL | RESO: from broad bands to narrow, ringing ones | SHIFT: moves all eight bands, ±12 semitones |
+| **BAND SWEEP** | SWEEP: UP, DOWN, PINGPNG, RANDOM (a new band each cycle), STEP UP and STEP RND (band to band, eight steps a cycle) | RATE: about 0.03 to 20 sweeps a second | DEPTH: how dark the unlit bands go (0 = no sweep) | WIDTH: how many bands the sweep lights at once |
+| **BANDS 1-4** | 150 Hz band's level | 240 Hz | 380 Hz | 600 Hz |
+| **BANDS 5-8** | 950 Hz | 1.5 kHz | 2.4 kHz | 3.8 kHz |
 | **VOCODER** | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL | T SEND |
 | **VOCODER 2** | ATTACK | RELEASE | SHIFT: moves the bands (±24 semitones) | NARROW: sharper, more resonant bands |
 | **MASTER** | DRIVE: master saturation | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
+
+**BANDS** is a resonant filter bank in the manner of the Moog MuRF: eight bandpass filters at fixed frequencies, each with its own level. With DEPTH at 0 it sculpts: turn bands down to carve the sound into a few ringing peaks, and raise RESO to make them sing. Raise DEPTH and a spotlight travels across the bands at RATE, lighting WIDTH bands at a time and dimming the rest, so a held chord or a drum loop becomes a moving, rhythmic pattern of resonances. STEP UP and STEP RND jump from band to band like the MuRF's patterns; UP, DOWN and PINGPNG glide. Odd bands lean left and even ones right, so the sweep moves across the stereo field. The picture shows each band's level (outline) and its gain right now (filled). LFO 1 and 2, the macros and the matrix can move every BANDS knob.
 
 <p align="center"><img src="docs/manual/bus-delay.png" alt="DELAY" width="240"> <img src="docs/manual/bus-feedback.png" alt="FEEDBACK" width="240"> <img src="docs/manual/bus-vocoder.png" alt="VOCODER" width="240"></p>
 
@@ -1051,6 +1057,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).

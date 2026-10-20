@@ -477,7 +477,7 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
-    static float voc_in[RV_SUB], fb_in[RV_SUB], pair_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB];
+    static float voc_in[RV_SUB], fb_in[RV_SUB], pair_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB], band_in[RV_SUB];
     static float fb_out[RV_SUB];                    /* kept: the feedback return reads the last step's */
     static float tape_src[RV_SUB], bus_mono[RV_SUB], tape_fb[RV_SUB];
     int offs[8], np, i, t, k;
@@ -499,7 +499,7 @@ static void render_sub(float *outl, float *outr, int n)
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
-        voc_in[i] = fb_in[i] = pair_in[i] = dly_in[i] = rev_in[i] = tape_fb[i] = 0.0f;
+        voc_in[i] = fb_in[i] = pair_in[i] = band_in[i] = dly_in[i] = rev_in[i] = tape_fb[i] = 0.0f;
     }
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
@@ -679,6 +679,7 @@ static void render_sub(float *outl, float *outr, int n)
                 voc_in[i] += m * eff[TP_VOC] * (1.0f / 127.0f);
                 fb_in[i] += m * eff[TP_FBS] * (1.0f / 127.0f);
                 pair_in[i] += m * eff[TP_PAIRS] * (1.0f / 127.0f);
+                band_in[i] += m * eff[TP_BANDS] * (1.0f / 127.0f);
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
                 rev_in[i] += m * (punch[6] ? 0.8f : eff[TP_REVS] * (1.0f / 127.0f));
             }
@@ -743,6 +744,11 @@ static void render_sub(float *outl, float *outr, int n)
     pair_run(pair_in, n, outl, outr);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(700);
+        buses_reset();
+    }
+    bands_run(band_in, n, outl, outr);
+    if (buf_fix(outl, n) | buf_fix(outr, n)) {
+        fault(750);
         buses_reset();
     }
     delay_run(dly_in, n, outl, outr);

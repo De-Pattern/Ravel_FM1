@@ -13,7 +13,11 @@ int rv_save(int slot)
     return plat_save(slot, &rv, sizeof(rv));
 }
 
-#define RV_SIZE_OLD ((int)(sizeof(rv) - sizeof(rv.cz)))   /* formats 2 and 3: no CZ patches */
+/* older formats: 96 globals (format 4), and no CZ patches either (2 and 3) */
+#define RV_GP_OLD 96
+#define RV_GROW ((int)((RV_GP - RV_GP_OLD) * sizeof(int16_t)))
+#define RV_SIZE_4 ((int)sizeof(rv) - RV_GROW)
+#define RV_SIZE_OLD (RV_SIZE_4 - (int)sizeof(rv.cz))
 
 static int head_ok(int slot, rv_head *h)
 {
@@ -22,7 +26,22 @@ static int head_ok(int slot, rv_head *h)
         return 0;
     if (h->format == RV_FORMAT)
         return n == (int)sizeof(rv);
+    if (h->format == 4)
+        return n == RV_SIZE_4;
     return (h->format == 2 || h->format == 3) && n == RV_SIZE_OLD;
+}
+
+/* formats 2-4 had 96 globals: what followed them moves up to make room, and the new globals
+ * (BANDS) and the BANDS send start at their defaults */
+static void upgrade_globals(int loaded)
+{
+    uint8_t *base = (uint8_t *)&rv, *from = (uint8_t *)&rv.gp[RV_GP_OLD];
+    int keep = loaded - (int)(from - base), t, g;
+    __builtin_memmove(from + RV_GROW, from, (unsigned)keep);
+    for (g = RV_GP_OLD; g < RV_GP; g++)
+        rv.gp[g] = (int16_t)(g < GP_N ? rv_pinfo_global(g)->def : 0);
+    for (t = 0; t < RV_TRACKS; t++)
+        rv.tp[t][TP_BANDS] = 0;
 }
 
 /* formats 2 and 3 had the PD engine where CZ is now: its tracks start from the CZ defaults */
@@ -65,8 +84,16 @@ int rv_load(int slot)
             return -1;
         return 0;
     }
+    if (h.format == 4) {
+        if (plat_load(slot, &rv, (uint32_t)RV_SIZE_4) != RV_SIZE_4)
+            return -1;
+        upgrade_globals(RV_SIZE_4);
+        rv.format = RV_FORMAT;
+        return 0;
+    }
     if (plat_load(slot, &rv, (uint32_t)RV_SIZE_OLD) != RV_SIZE_OLD)
         return -1;
+    upgrade_globals(RV_SIZE_OLD);
     if (rv.format == 2)
         upgrade_from_2();
     upgrade_cz();

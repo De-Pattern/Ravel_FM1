@@ -42,7 +42,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV };
+       PIC_CZWAVE, PIC_CZENV, PIC_BANDS };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ };
@@ -90,7 +90,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_VOC), NO, NO}},
     {SEC_VOICE, V_ALL, PIC_INSERT, PR_SOUND, "INSERT", {TP(TP_INS), TP(TP_INA), TP(TP_INB), TP(TP_INMIX)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
-    {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), NO}},
+    {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
 
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), TP(TP_VELO)}},
@@ -115,6 +115,10 @@ static const page_t pages[] = {
     {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "FILTER PAIR", {GP(GP_PAIRMODE), GP(GP_PAIRF1), GP(GP_PAIRF2), GP(GP_PAIRRES)}},
     {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR 2", {GP(GP_PAIRT1), GP(GP_PAIRT2), GP(GP_PAIRLEVEL), TP(TP_PAIRS)}},
     {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR LFOS", {GP(GP_PAIRLFO1), GP(GP_PAIRLFO2), GP(GP_PAIRDEPTH), NO}},
+    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS", {TP(TP_BANDS), GP(GP_BANDLEVEL), GP(GP_BANDQ), GP(GP_BANDSHIFT)}},
+    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BAND SWEEP", {GP(GP_BANDSHAPE), GP(GP_BANDRATE), GP(GP_BANDDEPTH), GP(GP_BANDWIDTH)}},
+    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 1-4", {GP(GP_BAND1), GP(GP_BAND2), GP(GP_BAND3), GP(GP_BAND4)}},
+    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 5-8", {GP(GP_BAND5), GP(GP_BAND6), GP(GP_BAND7), GP(GP_BAND8)}},
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER", {GP(GP_VOCBODY), GP(GP_VOCTILT), GP(GP_VOCLEVEL), TP(TP_VOC)}},
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER 2", {GP(GP_VOCATK), GP(GP_VOCREL), GP(GP_VOCSHIFT), GP(GP_VOCQ)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER", {GP(GP_MDRIVE), GP(GP_CUTSIZE), GP(GP_CUTREP), GP(GP_CUTMIX)}},
@@ -341,7 +345,7 @@ static kinfo_t kb_info(kb_t k)
     case K_TP:
         pi = rv_pinfo_track(ui.track, k.id);
         r.name = pi->name;
-        if (ui.sec == SEC_BUS && (k.id == TP_DLYS || k.id == TP_REVS || k.id == TP_FBS || k.id == TP_PAIRS || k.id == TP_VOC)) {
+        if (ui.sec == SEC_BUS && (k.id == TP_DLYS || k.id == TP_REVS || k.id == TP_FBS || k.id == TP_PAIRS || k.id == TP_VOC || k.id == TP_BANDS)) {
             static char send[12];                    /* on a bus page a track's send reads as its own */
             send[0] = 'T';
             send[1] = (char)('1' + ui.track);
@@ -1963,11 +1967,11 @@ static void pic_mix(void)
     g_fill(110, PIC_Y + 60, 20, 70, C_LINE);
     g_fill(110, PIC_Y + 130 - h, 20, h, C_TEAL);
     {
-        static const int sends[5] = {TP_FBS, TP_PAIRS, TP_DLYS, TP_REVS, TP_VOC};
-        static const char *const sn[5] = {"FB", "PAIR", "DLY", "SPC", "VOC"};
+        static const int sends[6] = {TP_FBS, TP_PAIRS, TP_BANDS, TP_DLYS, TP_REVS, TP_VOC};
+        static const char *const sn[6] = {"FB", "PAIR", "BND", "DLY", "SPC", "VOC"};
         int i;
-        for (i = 0; i < 5; i++) {
-            int sx = i < 2 ? 20 + i * 36 : 148 + (i - 2) * 28, sh = rv.tp[t][sends[i]] * 50 / 127;
+        for (i = 0; i < 6; i++) {
+            int sx = i < 3 ? 14 + i * 30 : 148 + (i - 3) * 28, sh = rv.tp[t][sends[i]] * 50 / 127;
             g_fill(sx, PIC_Y + 80, 10, 50, C_LINE);
             g_fill(sx, PIC_Y + 130 - sh, 10, sh, C_AMBER);
             g_text(sx - 2, PIC_Y + 66, &FONT_T, sn[i], C_DIM);
@@ -2224,6 +2228,20 @@ static void pic_pair(void)
                 g_line(8 + i - 2, prev, 8 + i, y, k ? C_AMBER : C_TEAL);
             prev = y;
         }
+    }
+}
+
+/* BANDS: eight bars, each band's level (outline) and its gain now, sweep included (filled) */
+static void pic_bands(void)
+{
+    static const char *const hz[8] = {"150", "240", "380", "600", "950", "1.5K", "2.4K", "3.8K"};
+    int k;
+    for (k = 0; k < 8; k++) {
+        int x = 12 + k * 28, full = rv.gp[GP_BAND1 + k] * 96 / 127, now = (int)(clampf(rv_live.band_g[k], 0.0f, 1.0f) * 96.0f);
+        g_fill(x, PIC_Y + 104 - 96, 20, 96, C_LINE);
+        g_frame(x, PIC_Y + 104 - full, 20, full > 0 ? full : 1, C_TEAL_D);
+        g_fill(x + 3, PIC_Y + 104 - now, 14, now, C_TEAL);
+        g_text_c(x + 10, PIC_Y + 110, &FONT_XS, hz[k], C_DIM);
     }
 }
 
@@ -2668,6 +2686,7 @@ static void draw_picture(void)
     case PIC_DELAY: pic_delay(); break;
     case PIC_SPACE: pic_space(); break;
     case PIC_MASTER: pic_master(); break;
+    case PIC_BANDS: pic_bands(); break;
     case PIC_SCALE: pic_scale(); break;
     case PIC_TAPE: pic_tape(); break;
     case PIC_STEPS: pic_steps(); break;

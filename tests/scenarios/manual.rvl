@@ -121,12 +121,19 @@ tap FX
 turn SELECT -20
 turn SELECT 10
 wait 150
+expect page BANDS
+wait 600
+shot bus-bands.png
+tap FX
+turn SELECT -20
+turn SELECT 14
+wait 150
 expect page VOCODER
 wait 600
 shot bus-vocoder.png
 tap FX
 turn SELECT -20
-turn SELECT 12
+turn SELECT 16
 wait 150
 expect page MASTER
 wait 600
