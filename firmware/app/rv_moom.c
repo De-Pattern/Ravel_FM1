@@ -907,7 +907,14 @@ static void mm_draw_view(void)
             if (mm.zbuf[x] < along)
                 continue;
             for (y = sy0 < y0 ? y0 : sy0; y < sy0 + size && y < y1; y++) {
-                uint16_t c = mm_sprite_px(e, (float)(x - sx0) / size, (float)(y - sy0) / size);
+                float su = (float)(x - sx0) / size, sv = (float)(y - sy0) / size;
+                uint16_t c;
+                if (e->kind != ME_COFFEE) {             /* the enemies, slightly pixelated: blocks of 2 px, or 1/64 of a big one */
+                    int q = size / 64 > 2 ? size / 64 : 2;
+                    su = (float)((x - sx0) / q * q + q / 2) / size;
+                    sv = (float)((y - sy0) / q * q + q / 2) / size;
+                }
+                c = mm_sprite_px(e, su, sv);
                 if (c)
                     gb[(y - g_y0) * PLAT_W + x] = mm_dim(c, shade);
             }
