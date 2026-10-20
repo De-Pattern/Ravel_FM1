@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* MOOM: a hidden first-person game. A major incident manager in business casual walks the bank's
  * infrastructure (server racks, log walls, dashboards) with a mouse-shaped blaster and resolves
- * bugs, failed changes and 500 errors before the uptime runs out. Level 2 goes inside the bridge call
+ * bugs, failed changes and 500 errors before the uptime runs out. Level 2 goes inside the bridge
  * itself: a desktop in 3D with a browser open, where incident graphs and lines of code from bad
  * changes attack, and ghouls crawl out of CHANGE REQUEST portals until each portal is rejected. A raycaster (as Wolfenstein 3D
  * drew it) on the 240 x 240 screen, drawn band by band like the rest of the UI; every wall,
@@ -82,7 +82,7 @@ static const char *const mm_levels[2][MM_W] = {
      "W.....B..g.V...W",
      "W...........XX.W",
      "WWWWWWWWWWWWWWWW"}};
-static const char *const mm_names[2] = {"DATA CENTER A", "INSIDE THE BRIDGE CALL"};
+static const char *const mm_names[2] = {"DATA CENTER A", "INSIDE THE BRIDGE"};
 
 /* each kind: how fast it comes, how much uptime it takes a second up close, its hit points, how
  * wide a target it is, how big it's drawn */
@@ -328,7 +328,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     if (mm.state != 0) {                               /* a message, then on */
         mm.state_t -= dt;
         if (mm.state_t <= 0.0f) {
-            if (mm.state == 1 && mm.level == 0) {      /* level 1 done: into the bridge call */
+            if (mm.state == 1 && mm.level == 0) {      /* level 1 done: inside the bridge */
                 mm_load(1);
                 mm.state = 4;
                 mm.state_t = 3.2f;
@@ -993,14 +993,14 @@ static void mm_draw_hud(void)
         g_fill(30, 80, 180, 64, RGB(8, 12, 10));
         g_frame(30, 80, 180, 64, C_AMBER);
         g_text_c(120, 88, &FONT_B, "BRIDGE ON HOLD", C_AMBER);
-        g_text_c(120, 110, &FONT_T, "PLAY: BACK TO THE CALL", C_MID);
+        g_text_c(120, 110, &FONT_T, "PLAY: BACK TO THE BRIDGE", C_MID);
         g_text_c(120, 124, &FONT_T, "HOME: LEAVE MOOM", C_DIM);
     }
     if (mm.state == 1 || mm.state == 2) {
         g_fill(20, 86, 200, 52, RGB(8, 12, 10));
         g_frame(20, 86, 200, 52, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
         g_text_c(120, 94, &FONT_B, mm.state == 2 ? "SLA BREACHED" : mm.level ? "CHANGE ROLLED BACK" : "INCIDENT RESOLVED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
-        g_text_c(120, 116, &FONT_T, mm.state == 2 ? "BRIDGE REOPENS..." : mm.level ? "BRIDGE CLOSED. RCA DUE FRIDAY" : "NEW BRIDGE CALL INCOMING...", C_MID);
+        g_text_c(120, 116, &FONT_T, mm.state == 2 ? "BRIDGE REOPENS..." : mm.level ? "BRIDGE CLOSED. RCA DUE FRIDAY" : "NEW BRIDGE INCOMING...", C_MID);
     }
 }
 
@@ -1058,7 +1058,7 @@ static void mm_draw_title(void)
     }
     g_text_c(120, 140, &FONT_T, "THE BRIDGE IS OPEN. THE BUGS ARE IN.", C_MID);
     if (((int)(mm.t * 2.0f) & 1) == 0)
-        g_text_c(120, 196, &FONT_T, "PRESS PLAY TO JOIN THE CALL", C_AMBER);
+        g_text_c(120, 196, &FONT_T, "PRESS PLAY TO JOIN THE BRIDGE", C_AMBER);
     g_text_c(120, 222, &FONT_T, "HOME (ESC): BACK TO RAVEL", C_DIM);
 }
 
@@ -1092,7 +1092,7 @@ static void mm_draw_join(void)
     g_fill(x0, y0, x1 - x0, y1 - y0, RGB(14, 28, 70));
     g_frame(x0, y0, x1 - x0, y1 - y0, RGB(130, 120, 240));
     g_text_c((x0 + x1) / 2, (y0 + y1) / 2 - 6, z > 0.4f ? &FONT_B : &FONT_T, "YOU", C_WHITE);
-    g_text_c(120, 224, &FONT_T, z > 0.05f ? "GOING INSIDE THE CALL..." : "JOINING THE BRIDGE...", C_AMBER);
+    g_text_c(120, 224, &FONT_T, z > 0.05f ? "GOING INSIDE THE BRIDGE..." : "JOINING THE BRIDGE...", C_AMBER);
 }
 
 /* one frame: input, the world, then the picture band by band */
