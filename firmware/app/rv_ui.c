@@ -32,7 +32,7 @@ enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC,
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
-enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END };
+enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END, CZF_SLOT0 };   /* CZF_SLOT0-3: an envelope page's knobs, by OCT row; RATE/LEVEL carry their stage in bits 9-11 */
 enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC };
 enum { RF_TYPE, RF_AMT, RF_ARG, RF_CHANCE };
 enum { MF_SRC, MF_TRACK, MF_PARAM, MF_AMT };
@@ -86,13 +86,13 @@ static const page_t pages[] = {
     {SEC_VOICE, V_KIT, PIC_SOURCE, PR_SOUND, "KIT FILTER", {TP(TP_S13), TP(TP_S14), TP(TP_S15), NO}},
     /* the CZ engine's lines: waves and key follow, then the three 8-step envelopes each */
     {SEC_VOICE, V_CZL1, PIC_CZWAVE, PR_SOUND, "LINE 1", {CZW(0, CZF_WAVE1), CZW(0, CZF_WAVE2), CZW(0, CZF_KFA), CZW(0, CZF_KFW)}},
-    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCO 1", {CZE(0, CZE_DCO, CZF_RATE), CZE(0, CZE_DCO, CZF_LEVEL), CZE(0, CZE_DCO, CZF_SUS), CZE(0, CZE_DCO, CZF_END)}},
-    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCW 1", {CZE(0, CZE_DCW, CZF_RATE), CZE(0, CZE_DCW, CZF_LEVEL), CZE(0, CZE_DCW, CZF_SUS), CZE(0, CZE_DCW, CZF_END)}},
-    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCA 1", {CZE(0, CZE_DCA, CZF_RATE), CZE(0, CZE_DCA, CZF_LEVEL), CZE(0, CZE_DCA, CZF_SUS), CZE(0, CZE_DCA, CZF_END)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCO 1", {CZE(0, CZE_DCO, CZF_SLOT0), CZE(0, CZE_DCO, CZF_SLOT0 + 1), CZE(0, CZE_DCO, CZF_SLOT0 + 2), CZE(0, CZE_DCO, CZF_SLOT0 + 3)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCW 1", {CZE(0, CZE_DCW, CZF_SLOT0), CZE(0, CZE_DCW, CZF_SLOT0 + 1), CZE(0, CZE_DCW, CZF_SLOT0 + 2), CZE(0, CZE_DCW, CZF_SLOT0 + 3)}},
+    {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCA 1", {CZE(0, CZE_DCA, CZF_SLOT0), CZE(0, CZE_DCA, CZF_SLOT0 + 1), CZE(0, CZE_DCA, CZF_SLOT0 + 2), CZE(0, CZE_DCA, CZF_SLOT0 + 3)}},
     {SEC_VOICE, V_CZL2, PIC_CZWAVE, PR_SOUND, "LINE 2", {CZW(1, CZF_WAVE1), CZW(1, CZF_WAVE2), CZW(1, CZF_KFA), CZW(1, CZF_KFW)}},
-    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCO 2", {CZE(1, CZE_DCO, CZF_RATE), CZE(1, CZE_DCO, CZF_LEVEL), CZE(1, CZE_DCO, CZF_SUS), CZE(1, CZE_DCO, CZF_END)}},
-    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCW 2", {CZE(1, CZE_DCW, CZF_RATE), CZE(1, CZE_DCW, CZF_LEVEL), CZE(1, CZE_DCW, CZF_SUS), CZE(1, CZE_DCW, CZF_END)}},
-    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCA 2", {CZE(1, CZE_DCA, CZF_RATE), CZE(1, CZE_DCA, CZF_LEVEL), CZE(1, CZE_DCA, CZF_SUS), CZE(1, CZE_DCA, CZF_END)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCO 2", {CZE(1, CZE_DCO, CZF_SLOT0), CZE(1, CZE_DCO, CZF_SLOT0 + 1), CZE(1, CZE_DCO, CZF_SLOT0 + 2), CZE(1, CZE_DCO, CZF_SLOT0 + 3)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCW 2", {CZE(1, CZE_DCW, CZF_SLOT0), CZE(1, CZE_DCW, CZF_SLOT0 + 1), CZE(1, CZE_DCW, CZF_SLOT0 + 2), CZE(1, CZE_DCW, CZF_SLOT0 + 3)}},
+    {SEC_VOICE, V_CZL2, PIC_CZENV, PR_CZSTEP, "DCA 2", {CZE(1, CZE_DCA, CZF_SLOT0), CZE(1, CZE_DCA, CZF_SLOT0 + 1), CZE(1, CZE_DCA, CZF_SLOT0 + 2), CZE(1, CZE_DCA, CZF_SLOT0 + 3)}},
     {SEC_VOICE, V_ALL, PIC_SOURCE, PR_SOUND, "PITCH", {TP(TP_PITCH), TP(TP_FINE), TP(TP_GLIDE), TP(TP_KTRK)}},   /* VCF KEY: the filter follows the note */
     {SEC_VOICE, V_ALL, PIC_FILTER, PR_SOUND, "FILTER", {TP(TP_FTYPE), TP(TP_CUT), TP(TP_RES), TP(TP_EFILT)}},   /* ENV>CUT: also on TERMINATION, the same setting */
     {SEC_VOICE, V_SEM, PIC_FILTER, PR_SOUND, "SEM", {TP(TP_FMODE), TP(TP_FBP), TP(TP_CUT), TP(TP_RES)}},
@@ -186,7 +186,7 @@ static struct {
     uint8_t layer_used[NB];
     uint8_t step_page;                       /* SEQ: which 16 steps the keys show */
     int16_t step_cur;                        /* the step the step pages edit */
-    uint8_t cz_step;                         /* the step the CZ envelope pages edit, 0..7 */
+    uint8_t cz_row;                          /* the CZ envelope pages: stages 1-2, 3-4, 5-6, 7-8, or SUS and END (OCT) */
     uint8_t lane[RV_TRACKS];                 /* each KIT track's chosen lane */
     uint8_t lane_row;                        /* the LANE pages: which row of the lane's settings the knobs hold */
     uint8_t lfo_row;                         /* LFO SHAPE: LFO 1 or LFO 2 on the knobs */
@@ -374,6 +374,14 @@ static kb_t page_knob(const page_t *pg, int i)
         static const uint8_t g[2][3] = {{GP_LFO1SYM, GP_LFO1PHASE, GP_LFO1MODE}, {GP_LFO2SYM, GP_LFO2PHASE, GP_LFO2MODE}};
         k.kind = K_GP;
         k.id = g[ui.lfo_row & 1][k.id % 3];
+    } else if (k.kind == K_CZ && (k.id & 15) >= CZF_SLOT0) {   /* a CZ envelope: two stages a row, then SUS and END */
+        int slot = (k.id & 15) - CZF_SLOT0, row = ui.cz_row % 5, base = k.id & ~15;
+        if (row < 4)
+            k.id = (uint16_t)(base | ((2 * row + (slot >> 1)) << 9) | ((slot & 1) ? CZF_LEVEL : CZF_RATE));
+        else if (slot < 2)
+            k.id = (uint16_t)(base | (slot ? CZF_END : CZF_SUS));
+        else
+            k.kind = K_NONE;
     } else if (k.kind == K_OSC) {
         const uint8_t *m = osc_mix_map(rv.tp[ui.track][TP_ENGINE]);
         int p = m ? m[k.id & 3] : 0;
@@ -646,8 +654,10 @@ static kinfo_t kb_info(kb_t k)
         static const char *const w1[] = {"SAW", "SQUARE", "PULSE", "DBL SIN", "SAW PLS", "RESO 1", "RESO 2", "RESO 3"};
         static const char *const w2[] = {"OFF", "SAW", "SQUARE", "PULSE", "DBL SIN", "SAW PLS", "RESO 1", "RESO 2", "RESO 3"};
         static const char *const sus[] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8"};
+        static const char *const rn[8] = {"RATE 1", "RATE 2", "RATE 3", "RATE 4", "RATE 5", "RATE 6", "RATE 7", "RATE 8"};
+        static const char *const ln[8] = {"LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4", "LEVEL 5", "LEVEL 6", "LEVEL 7", "LEVEL 8"};
         int f = k.id & 15, l = (k.id >> 8) & 1;
-        r.name = fn[f];
+        r.name = f == CZF_RATE ? rn[(k.id >> 9) & 7] : f == CZF_LEVEL ? ln[(k.id >> 9) & 7] : fn[f & 7];
         switch (f) {
         case CZF_WAVE1: r.min = 1; r.max = 8; r.fmt = PF_ENUM; r.names = w1; break;
         case CZF_WAVE2:                              /* two resonant waves cannot be cascaded */
@@ -761,8 +771,8 @@ static int kb_get(kb_t k)
         case CZF_WAVE2: return pl->wave2;
         case CZF_KFA: return pl->kf_dca;
         case CZF_KFW: return pl->kf_dcw;
-        case CZF_RATE: return e->rate[ui.cz_step & 7];
-        case CZF_LEVEL: return e->level[ui.cz_step & 7];
+        case CZF_RATE: return e->rate[(k.id >> 9) & 7];
+        case CZF_LEVEL: return e->level[(k.id >> 9) & 7];
         case CZF_SUS: return e->sus;
         default: return e->end;
         }
@@ -997,15 +1007,13 @@ static void kb_set(kb_t k, int v)
         case CZF_WAVE2: pl->wave2 = (uint8_t)v; break;
         case CZF_KFA: pl->kf_dca = (uint8_t)v; break;
         case CZF_KFW: pl->kf_dcw = (uint8_t)v; break;
-        case CZF_RATE: e->rate[ui.cz_step & 7] = (uint8_t)v; break;
-        case CZF_LEVEL: e->level[ui.cz_step & 7] = (uint8_t)v; break;
+        case CZF_RATE: e->rate[(k.id >> 9) & 7] = (uint8_t)v; break;
+        case CZF_LEVEL: e->level[(k.id >> 9) & 7] = (uint8_t)v; break;
         case CZF_SUS: e->sus = (uint8_t)(v > e->end ? e->end : v); break;   /* the sustain step is never after the end */
         default:
             e->end = (uint8_t)v;
             if (e->sus > e->end)
                 e->sus = e->end;
-            if (ui.cz_step >= v)
-                ui.cz_step = (uint8_t)(v - 1);
             break;
         }
         break;
@@ -1310,7 +1318,8 @@ static void preset_turn(int d)
     const page_t *pg = cur_page();
     int t = ui.track;
     switch (pg->pr) {
-    case PR_SOUND: {
+    case PR_SOUND:
+    case PR_CZSTEP: {                                 /* (the CZ envelope pages: OCT walks the stages, PRESETS the sounds) */
         int cur = ui.preset_idx[t] >= 0 ? ui.preset_idx[t] : (d > 0 ? -1 : 0), i;
         int n = d > 0 ? d : -d;
         for (i = 0; i < n; i++)
@@ -1351,7 +1360,6 @@ static void preset_turn(int d)
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_LIB - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
     case PR_STEPCUR: ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, clampi(rv.tp[t][TP_LEN], 1, 64) - 1); break;
-    case PR_CZSTEP: ui.cz_step = (uint8_t)clampi(ui.cz_step + d, 0, 7); break;
     default: break;
     }
 }
@@ -1732,6 +1740,10 @@ static void buttons(uint32_t now_btn)
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
     }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_CZSTEP) {
+        ui.cz_row = (uint8_t)((ui.cz_row + ((down & (1u << B_OCTUP)) ? 1 : 4)) % 5);   /* the next two stages */
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
+    }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_LFOROW) {
         ui.lfo_row ^= 1;                              /* LFO SHAPE: the other LFO on the knobs */
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
@@ -1972,7 +1984,11 @@ static void draw_footer(void)
     case PR_LIB: hint = "PRESETS: SHAPE"; break;
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: hint = "PRESETS: STEP"; break;
-    case PR_CZSTEP: hint = "PRESETS: STEP 1-8"; break;
+    case PR_CZSTEP: {
+        static const char *const rh[5] = {"OCT+: STAGES 3-4", "OCT+: STAGES 5-6", "OCT+: STAGES 7-8", "OCT+: SUS, END", "OCT+: STAGES 1-2"};
+        hint = rh[ui.cz_row % 5];
+        break;
+    }
     case PR_LFOROW: hint = ui.lfo_row ? "LFO 2 ON THE KNOBS  OCT: LFO 1" : "LFO 1 ON THE KNOBS  OCT: LFO 2"; break;
     case PR_LANE: hint = held_step() >= 0 ? "TURN A KNOB: LOCK IT FOR THIS STEP" : "PRESETS: MACHINE  OCT: KNOB ROW"; break;
     default:
@@ -2213,9 +2229,12 @@ static void pic_czenv(void)
     g_hline(x0, PIC_Y + 104, 8 * w, C_LINE);
     for (i = 0; i < 8; i++) {
         int x = x0 + (i + 1) * w, y = PIC_Y + 104 - e->level[i] * 88 / 99, on = i < e->end;
-        uint16_t c = !on ? C_LINE : i == ui.cz_step ? C_WHITE : C_SYNTH;
+        int lit = ui.cz_row % 5 < 4 && i / 2 == ui.cz_row % 5;   /* the two stages on the knobs */
+        uint16_t c = !on ? (lit ? C_DIM : C_LINE) : lit ? C_WHITE : C_SYNTH;
         g_line(prevx, prevy, x, y, c);
-        g_disc(x, y, i == ui.cz_step ? 3 : 2, c);
+        g_disc(x, y, lit ? 3 : 2, c);
+        if (lit)                                       /* which knobs hold this stage: RATE and LEVEL */
+            g_text_c(x, y < PIC_Y + 30 ? y + 6 : y - 16, &FONT_T, (i & 1) ? "3 4" : "1 2", C_TEAL);
         if (i == live)
             g_disc(x, PIC_Y + 112, 2, C_AMBER);
         b[0] = (char)('1' + i);
@@ -2224,26 +2243,32 @@ static void pic_czenv(void)
         if (e->sus == i + 1) {
             g_vline(x, PIC_Y + 14, 90, C_TEAL);
             if (e->end != i + 1)
-                g_text_c(x, PIC_Y + 4, &FONT_T, "SUS", C_TEAL);
+                g_text_c(x, PIC_Y + 4, &FONT_T, ui.cz_row % 5 == 4 ? "1 SUS" : "SUS", C_TEAL);   /* (on its row: knob 1) */
         }
         if (e->end == i + 1)
-            g_text_c(x, PIC_Y + 4, &FONT_T, e->sus == i + 1 ? "SUS+END" : "END", C_AMBER);
+            g_text_c(x, PIC_Y + 4, &FONT_T, e->sus == i + 1 ? (ui.cz_row % 5 == 4 ? "1 SUS 2 END" : "SUS+END") : ui.cz_row % 5 == 4 ? "2 END" : "END", C_AMBER);
         prevx = x;
         prevy = y;
     }
     b[0] = 0;
-    sx_cat(b, "STEP ");
-    sx_int(b + 5, ui.cz_step + 1);
-    if (which == CZE_DCO) {                            /* what the DCO level means */
-        int lv = e->level[ui.cz_step & 7], n;
-        n = sx_cat(b, lv <= 63 ? "  +" : "  +");
-        if (lv <= 63) {
-            n = sx_int(b + n, lv * 625 / 100);
-            sx_cat(b, " CENTS");
-        } else {
-            sx_int(b + n, (lv - 60) * 2);
-            sx_cat(b, " SEMITONES");
+    if (ui.cz_row % 5 == 4)
+        sx_cat(b, e->end < 8 ? "SUS HOLDS, END: THE LAST STAGE" : "SUS HOLDS WHILE THE KEY IS DOWN");
+    else if (which == CZE_DCO) {                       /* what the DCO levels mean: the pitch of the two stages */
+        int k;
+        for (k = 0; k < 2; k++) {
+            int st = (ui.cz_row % 5) * 2 + k, lv = e->level[st], n;
+            char nb[3] = {(char)('1' + st), ':', 0};
+            sx_cat(b, k ? "  " : "");
+            sx_cat(b, nb);
+            n = sx_cat(b, " +");
+            sx_int(b + n, lv <= 63 ? lv * 625 / 100 : (lv - 60) * 2);
+            sx_cat(b, lv <= 63 ? "C" : " ST");
         }
+    } else {
+        sx_cat(b, "KNOBS 1 2: STAGE  ");
+        b[17] = (char)('1' + (ui.cz_row % 5) * 2);
+        sx_cat(b, "   3 4: STAGE  ");
+        b[sx_cat(b, "") - 1] = (char)('2' + (ui.cz_row % 5) * 2);
     }
     g_text(8, PIC_Y + 126, &FONT_T, b, C_DIM);
 }

@@ -124,7 +124,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | **ALGORITHM** | Picks the track you are working on, **T1 to T8**. The keys play this track. |
 | **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE, rows on TAPE, steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
 | **KNOB 1–4** | Change the four values in the row at the top of the screen, left to right |
-| **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). |
+| **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). On pages with more settings than knobs they move the knobs to the next row instead; those pages show the rows on screen, number the knobs, and the footer says what OCT brings next: a kit's **LANE** pages (machine parameters, then LEVEL, CHANCE, LENGTH), the CZ's **DCO, DCW and DCA** envelopes (two stages at a time, then SUS and END), and **LFO SHAPE** (LFO 1 or LFO 2). |
 | **10 section buttons** | Each one opens a section (a group of pages). Tap it again for the section's next page. |
 | **PLAY** | Starts and stops the sequencer |
 | **REC** | Tap to arm recording on the current track; hold it for catch and resample |
@@ -331,9 +331,17 @@ Then, per line (LINE 1, LINE 2):
 
 And the envelopes, DCO 1, DCW 1, DCA 1 (and DCO 2, DCW 2, DCA 2):
 
-| PRESETS | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+Each envelope page holds all eight stages. **OCT+ and OCT−** move the four knobs through five rows; the picture lights the two stages on the knobs and marks them with the knob numbers (1 2, 3 4), and the footer says what OCT+ brings next. PRESETS still picks a sound.
+
+| OCT row | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| the step, 1–8 | RATE: how fast the step moves (0–99) | LEVEL it moves to (0–99) | SUS: the step the envelope holds while the key is down (OFF, 1–8) | END: its last step (1–8) |
+| 1 (stages 1–2) | RATE 1: how fast stage 1 moves (0–99) | LEVEL 1: the level it moves to (0–99) | RATE 2 | LEVEL 2 |
+| 2 (stages 3–4) | RATE 3 | LEVEL 3 | RATE 4 | LEVEL 4 |
+| 3 (stages 5–6) | RATE 5 | LEVEL 5 | RATE 6 | LEVEL 6 |
+| 4 (stages 7–8) | RATE 7 | LEVEL 7 | RATE 8 | LEVEL 8 |
+| 5 | SUS: the stage the envelope holds while the key is down (OFF, 1–8) | END: its last stage (1–8) | – | – |
+
+Stages after END are drawn dim: they keep their settings but don't play until END reaches them (set END to 8 to use all eight).
 
 - **How an envelope runs:** from step 1, each step moves at its RATE to its LEVEL, then the next step starts. At the SUS step it waits while the key is held; when you let go it goes on from the step after SUS. It stops at END. Rates and levels follow the CZ's own curves: rate 99 is a few milliseconds, rate 0 almost forever; DCA levels are on the CZ's logarithmic scale.
 - **DCO levels:** up to 63 the pitch rises in 6.25-cent steps (63 is almost 4 semitones); from 64 it jumps in 2-semitone steps (64 is 8 semitones, 99 is 78). The DCO envelope can only raise the pitch, as on the CZ.
@@ -341,7 +349,7 @@ And the envelopes, DCO 1, DCW 1, DCA 1 (and DCO 2, DCW 2, DCA 2):
 - **RESO waves** are a sine whose frequency rises with DCW, restarting every cycle under a falling window: like sweeping a resonant filter, with no filter.
 - **High notes** narrow DCW automatically, as the CZ does, so thin pulses stay audible.
 - **The DCA is the level envelope.** On a CZ track the ARTICULATION pages' shape knobs are greyed out; ENV>CUT, the envelope's DESTINATIONS and the influence routes follow the DCA instead.
-- **The pictures:** LINE pages draw the line's two cycles at its brightest DCW. Envelope pages draw the 8 steps, the SUS and END points, the step you are editing (white) and where the playing note is (amber dots).
+- **The pictures:** LINE pages draw the line's two cycles at its brightest DCW. Envelope pages draw the 8 stages, the SUS and END points, the two stages on the knobs (white, numbered with their knobs) and where the playing note is (amber dots).
 - **Presets:** CZ BRASS, CZ BELL (ring-modulated lines a twelfth apart), CZ STRINGS, RESO SWEEP, CZ BASS, NOISE HIT and FOAM.
 - **Projects from before the CZ** load with each CZ track set to a plain CZ tone.
 
