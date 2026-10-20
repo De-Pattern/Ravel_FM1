@@ -18,11 +18,11 @@
 #define MM_HZ ((MM_VY0 + MM_VY1) / 2)
 #define MM_NENT 40
 enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE, ME_TINY };   /* ME_TINY: little bugs, in swarms of three */
-enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE };
+enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, SFX_TITLE };
 
 typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive; } mm_ent;
 typedef struct {
-    uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down */
+    uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title */
     float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t;
     uint32_t last_ms, prev_btn, prev_keys;
     int open, total;
@@ -178,6 +178,9 @@ void moom_start(void)
     mm.prev_btn = plat_buttons();
     mm.prev_keys = plat_keys();
     mm_load(0);
+    mm.state = 3;                                     /* the title card and its riff first */
+    mm.state_t = 4.5f;
+    mm_sfx(SFX_TITLE);
 }
 
 static void moom_stop(void)
@@ -258,6 +261,12 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     float cx, cy, fwd = 0.0f, side = 0.0f, sp = 2.6f * dt;
     int i;
     mm.t += dt;
+    if (mm.state == 3) {                               /* the title: on its own, or PLAY / a key skips it */
+        mm.state_t -= dt;
+        if (mm.state_t <= 0.0f || (mm.state_t < 4.0f && ((down_btn & (1u << B_PLAY)) || down_keys)))
+            mm.state = 0;
+        return;
+    }
     if (mm.state != 0) {                               /* a message, then on */
         mm.state_t -= dt;
         if (mm.state_t <= 0.0f) {
@@ -666,12 +675,66 @@ static void mm_draw_hud(void)
         g_fill(0, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
         g_fill(PLAT_W - 4, MM_VY0, 4, MM_VY1 - MM_VY0, C_RED);
     }
-    if (mm.state) {
+    if (mm.state == 1 || mm.state == 2) {
         g_fill(20, 86, 200, 52, RGB(8, 12, 10));
         g_frame(20, 86, 200, 52, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
         g_text_c(120, 94, &FONT_B, mm.state == 1 ? "INCIDENT RESOLVED" : "SLA BREACHED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
         g_text_c(120, 116, &FONT_T, mm.state == 1 ? "POSTMORTEM SCHEDULED" : "BRIDGE REOPENS...", C_MID);
     }
+}
+
+/* the title card: MOOM in chunky letters, fire-coloured, outlined, with a drop shadow, over a log
+ * that scrolls (Ravel's own lettering) */
+static void mm_draw_title(void)
+{
+    static const uint8_t glyph[2][9] = {{0xC3, 0xE7, 0xFF, 0xDB, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3},   /* M, 8 x 9 */
+                                        {0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C}};  /* O */
+    static const uint8_t word[4] = {0, 1, 1, 0};
+    const int S = 6, X0 = 15, Y0 = 46, GAP = 6, W = 8 * S + GAP;
+    int L, r, c, y, row, pass;
+    g_fill(0, 0, PLAT_W, PLAT_H, RGB(6, 8, 7));
+    for (row = 0; row < 21; row++) {                    /* the log behind, scrolling up */
+        int yy = row * 12 - ((int)(mm.t * 30.0f) % 12);
+        uint32_t h = mm_hash((uint32_t)(row + (int)(mm.t * 2.5f)) * 2654435761u);
+        uint16_t col = (h & 7) == 0 ? RGB(70, 22, 20) : (h & 3) == 1 ? RGB(60, 48, 24) : RGB(20, 44, 40);
+        int x = 6, k;
+        for (k = 0; k < 6; k++) {
+            int w = 10 + (int)((h >> (k * 4)) & 15) * 3;
+            g_fill(x, yy + 3, w, 5, col);
+            x += w + 5;
+        }
+    }
+    for (pass = 0; pass < 2; pass++)                    /* the shadow, then a dark outline */
+        for (L = 0; L < 4; L++)
+            for (r = 0; r < 9; r++)
+                for (c = 0; c < 8; c++)
+                    if ((glyph[word[L]][r] >> (7 - c)) & 1) {
+                        int bx = X0 + L * W + c * S, by = Y0 + r * S;
+                        if (pass == 0)
+                            g_fill(bx + 5, by + 6, S, S, RGB(34, 4, 4));
+                        else
+                            g_fill(bx - 2, by - 2, S + 4, S + 4, RGB(60, 10, 6));
+                    }
+    for (L = 0; L < 4; L++)
+        for (r = 0; r < 9; r++)
+            for (c = 0; c < 8; c++) {
+                const uint8_t *g = glyph[word[L]];
+                int bx = X0 + L * W + c * S, by = Y0 + r * S, up = r > 0 && ((g[r - 1] >> (7 - c)) & 1);
+                if (!((g[r] >> (7 - c)) & 1))
+                    continue;
+                for (y = 0; y < S; y++) {               /* fire, top to bottom: pale yellow, orange, deep red */
+                    float f = (float)(r * S + y) / (9.0f * S);
+                    int R = 255 - (int)(f * 80.0f), G = f < 0.5f ? 230 - (int)(f * 2.0f * 120.0f) : 110 - (int)((f - 0.5f) * 2.0f * 85.0f), B = 80 - (int)(f * 70.0f);
+                    g_hline(bx, by + y, S, RGB(R, G, B));
+                }
+                if (!up)
+                    g_hline(bx, by, S, RGB(255, 246, 200));   /* a lit top edge */
+            }
+    g_text_c(120, 116, &FONT_B, "MAJOR INCIDENT EDITION", C_TEAL);
+    g_text_c(120, 140, &FONT_T, "THE BRIDGE IS OPEN. THE BUGS ARE IN.", C_MID);
+    if (((int)(mm.t * 2.0f) & 1) == 0)
+        g_text_c(120, 196, &FONT_T, "PRESS PLAY TO JOIN THE CALL", C_AMBER);
+    g_text_c(120, 222, &FONT_T, "SEV1  /  MTTR STARTS NOW", C_DIM);
 }
 
 /* one frame: input, the world, then the picture band by band */
@@ -696,6 +759,15 @@ void moom_frame(void)
     mm.prev_btn = btn;
     mm.prev_keys = keys;
     mm_update(dt, keys, down_keys, btn, down_btn, turn);
+    if (mm.state == 3) {
+        for (b = 0; b < PLAT_H; b += GB_H) {
+            g_band(b);
+            mm_draw_title();
+            g_send();
+        }
+        plat_leds(1u << B_PLAY, 0);
+        return;
+    }
     mm_cast();
     for (b = 0; b < PLAT_H; b += GB_H) {
         g_band(b);

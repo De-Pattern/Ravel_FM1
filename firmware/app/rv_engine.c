@@ -37,6 +37,43 @@ static float sfx_tick(void)
     case 5: f = t < 0.06f ? 660.0f : 990.0f; a = t < 0.12f ? 0.15f : 0.0f; break;   /* PICKUP */
     case 6: f = win[clampi((int)(t / 0.09f), 0, 3)]; a = t < 0.36f ? 0.16f : 0.0f; break;   /* WIN */
     case 7: f = 400.0f * fm_expf(-t * 3.5f) + 50.0f; a = t < 0.7f ? 0.2f * (1.0f - t / 0.7f) : 0.0f; break;   /* DOWN */
+    case 8: {                                        /* TITLE: an original galloping riff on A, then a held power chord */
+        static const uint8_t riff[16] = {45, 45, 45, 0, 48, 0, 45, 45, 50, 0, 49, 0, 45, 45, 52, 51};
+        const float st = 0.11f;
+        int k = (int)(t / st);
+        float loc = t - (float)k * st, x;
+        sfx_t += RV_DT;
+        if (k < 16) {
+            float y = 0.0f;
+            if (riff[k] && loc < st * 0.8f) {         /* palm-muted: short, dark, pushed into a clip */
+                float hz = 440.0f * fm_exp2f(((float)riff[k] - 69.0f) * (1.0f / 12.0f));
+                sfx_ph += hz * RV_DT;
+                sfx_ph -= fm_floorf(sfx_ph);
+                x = (sfx_ph < 0.5f ? 1.0f : -1.0f) + (2.0f * sfx_ph - 1.0f);
+                y = sat(x * 1.6f) * 0.2f * fm_expf(-loc * 9.0f);
+            }
+            if ((k & 7) == 4) {                       /* the snare on 2 and 4 */
+                sfx_rng = sfx_rng * 1664525u + 1013904223u;
+                y += ((float)(sfx_rng >> 9) * (2.0f / 8388608.0f) - 1.0f) * 0.18f * fm_expf(-loc * 28.0f);
+            }
+            return y;
+        }
+        loc = t - 16.0f * st;
+        if (loc < 1.2f) {                             /* A2, E3, A3 rung out */
+            static float p2, p3;
+            float g = 0.16f * fm_expf(-loc * 2.2f);
+            sfx_ph += 110.0f * RV_DT;
+            p2 += 164.81f * RV_DT;
+            p3 += 220.0f * RV_DT;
+            sfx_ph -= fm_floorf(sfx_ph);
+            p2 -= fm_floorf(p2);
+            p3 -= fm_floorf(p3);
+            x = (2.0f * sfx_ph - 1.0f) + (2.0f * p2 - 1.0f) + 0.7f * (2.0f * p3 - 1.0f);
+            return sat(x * 1.3f) * g;
+        }
+        sfx_kind = 0;
+        return 0.0f;
+    }
     default: return 0.0f;
     }
     sfx_t += RV_DT;
