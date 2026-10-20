@@ -429,6 +429,8 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
         const rv_pinfo *tab;
         if (kind == KIND_PERC) {
             const rv_pinfo *q = perc_pinfo(rv.tp[t & 7][TP_S0], s);
+            if (rv.tp[t & 7][TP_ENGINE] == 1 && s <= 8)   /* a KIT: the lanes hold the machines (LANE pages) */
+                return &NONE;
             return q->name ? q : &NONE;
         }
         tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
@@ -440,6 +442,11 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
     if ((p == TP_CUT || p == TP_RES) && rv.tp[t & 7][TP_FTYPE] >= FT_ZVOWEL) {   /* Z filters: two axes */
         static const rv_pinfo morph = {"MORPH", 0, 127, 90, PF_NUM, 0}, xform = {"XFORM", 0, 127, 20, PF_NUM, 0};
         return p == TP_CUT ? &morph : &xform;
+    }
+    if (p == TP_ENGINE && rv.tp[t & 7][TP_KIND] == KIND_PERC) {   /* PERC: one machine, or a kit of six */
+        static const char *const pm[] = {"SINGLE", "KIT"};
+        static const rv_pinfo mode = {"MODE", 0, 1, 0, PF_ENUM, pm};
+        return &mode;
     }
     if (p == TP_POLY && (rv.tp[t & 7][TP_KIND] == KIND_STRIKE || rv.tp[t & 7][TP_KIND] == KIND_PERC)) {
         static const rv_pinfo strike_poly = {"VOICES", 0, 1, 1, PF_ENUM, polys};
@@ -607,8 +614,10 @@ const char *rv_pid_label(int pid, char *buf, int max)
 int rv_tp_applies(int t, int p)
 {
     const int16_t *tp = rv.tp[t];
-    if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH)
+    if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
+    if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_POLY || p == TP_SEQMODE || p == TP_DIR || p == TP_PITCH || p == TP_FINE))
+        return 0;                                                      /* a KIT: a voice per lane, steps forward */
     if (p == TP_VELO && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)   /* strike and tape take velocity as it comes */
         return 0;
     if (tp[TP_KIND] == KIND_PERC) {                                    /* the machines make their own envelopes */
@@ -803,6 +812,22 @@ void rv_engine_track_defaults(int t, int engine)
     }
 }
 
+/* a kit: kick, snare, closed and open hats, clap, rim (TRX), each at its machine's defaults */
+void rv_kit_init(int t)
+{
+    static const uint8_t m[RV_LANES] = {PM_TRX_BD, PM_TRX_SD, PM_TRX_CH, PM_TRX_OH, PM_TRX_CP, PM_TRX_RS};
+    rv_kit *k = &rv.kit[t & 7];
+    int l, i;
+    for (l = 0; l < RV_LANES; l++) {
+        k->mach[l] = m[l];
+        for (i = 0; i < 8; i++)
+            k->p[l][i] = (uint8_t)(perc_pi[m[l]][i].name ? perc_pi[m[l]][i].def : 0);
+        k->level[l] = 100;
+        k->len[l] = 0;
+        k->chance[l] = 100;
+    }
+}
+
 void rv_cz_init(int t)
 {
     static const rv_czline plain = {
@@ -829,6 +854,7 @@ void rv_track_defaults(int t, int kind, int engine)
     if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO))
         rv_engine_track_defaults(t, engine);
     if (kind == KIND_PERC) {
+        rv_kit_init(t);
         rv.tp[t][TP_POLY] = 0;
         rv.tp[t][TP_VELO] = 64;
     }

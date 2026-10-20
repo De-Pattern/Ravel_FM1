@@ -23,7 +23,8 @@ static uint32_t seq_rng = 0x5EED5EEDu;
 static uint64_t turn_bits[RV_TRACKS];
 
 /* ------------------------------------------------- graph mode and heads --- */
-static int is_graph(int t) { return rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH; }
+static int is_kit(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
+static int is_graph(int t) { return !is_kit(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH); }
 /* HEAD 2 picks the pair: OFF or NOTES (head 1 plays notes too), MELODY (head 2 sets the pitch,
  * head 1 plays it: ROLE_PITCH) or RHYTHM (head 2 plays head 1's pitches: ROLE_GATE). Head 1's role
  * follows, so no setting leaves the track silent. */
@@ -269,6 +270,61 @@ static int next_step(int t, int h, int cur)
 }
 
 /* a step plays: locks, then notes (with ratchets), jumps and cuts, all scheduled */
+/* a KIT's step: each lane reads its own step (a lane with its own LENGTH runs against the others),
+ * a step holds which lanes play (note: a bit per lane), which are accented (env) and which ratchet
+ * (len); velocity, chance, timing and conditions belong to the step, and each lane adds its chance */
+static void kit_fire(int t, int si, uint32_t when)
+{
+    const rv_kit *k = &rv.kit[t];
+    rv_pattern *pt = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
+    int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), l, r;
+    float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant = rv.gp[GP_QUANT] * 0.01f;
+    float density = rv.arcs[t][song_bar & 15];
+    for (l = 0; l < RV_LANES; l++) {
+        int len = k->len[l] ? clampi(k->len[l], 1, RV_STEPS) : tlen, li, cnt, curve, sw;
+        const rv_step *s;
+        float chance;
+        event_t e;
+        li = len == tlen ? si : (int)((sq[t].travelled[0] - 1u) % (uint32_t)len);
+        rv_live.lane_step[t][l] = (int8_t)li;
+        s = &pt->s[li];
+        if (!(s->flags & ST_ON) || !((s->note >> l) & 1))
+            continue;
+        if (!cond_pass(s, t))
+            continue;
+        chance = (float)s->chance * (float)k->chance[l] * 0.01f;
+        if (chance < 100.0f && xs_uni(&seq_rng) * 100.0f >= chance)
+            continue;
+        if (density < 100 && (float)step_rank(li) >= density * 0.16f)
+            continue;
+        sw = (li & 1) ? rv.gp[GP_SWING] : 0;
+        e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.005f * sd * RV_FS);
+        e.track = (uint8_t)t;
+        e.chain = (uint16_t)(1u << t);
+        e.env = 0;
+        e.step = (uint8_t)li;
+        e.head = 0;
+        e.type = EV_ON;
+        e.note = (uint8_t)(60 + l);
+        e.len_s = 0.0f;
+        cnt = ((s->len >> l) & 1) ? (s->ratchet & 7) + 1 : 1;
+        curve = (s->ratchet >> 3) & 3;
+        for (r = 0; r < cnt; r++) {
+            float u = (float)r / (float)cnt;
+            event_t on = e;
+            if (curve == 1)
+                u = fm_powf(u, 0.6f);
+            else if (curve == 2)
+                u = fm_powf(u, 1.6f);
+            on.vel = (uint8_t)(((s->env >> l) & 1) ? 127 : clampi(s->vel ? s->vel : 100, 1, 110));   /* accent */
+            if ((s->ratchet & 32) && cnt > 1)
+                on.vel = (uint8_t)clampi((int)((float)on.vel * (1.0f - 0.6f * u)), 1, 127);
+            on.when = e.when + (uint32_t)(u * sd * RV_FS);
+            ev_push(&on);
+        }
+    }
+}
+
 static void step_fire(int t, int h, int si, uint32_t when)
 {
     rv_step *s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
@@ -293,6 +349,11 @@ static void step_fire(int t, int h, int si, uint32_t when)
         tape_boundary(&trk[t], 1);
     } else {
         rv_live.step[t][1] = (int16_t)si;
+    }
+    if (is_kit(t)) {
+        if (h == 0)
+            kit_fire(t, si, when);
+        return;
     }
     if (!(s->flags & ST_ON))
         return;
@@ -772,6 +833,21 @@ static void record_note(int t, int note, int vel)
         return;
     si = live_step_pos(t, &micro);
     s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+    if (is_kit(t)) {                                  /* a kit: the key's lane plays on this step */
+        if (vel > 0) {
+            if (!(s->flags & ST_ON)) {
+                s->note = 0;
+                s->env = 0;
+                s->len = 0;
+                s->vel = 100;
+                s->chance = 100;
+                s->micro = (int8_t)micro;
+            }
+            s->flags |= ST_ON;
+            s->note |= (uint8_t)(1u << perc_lane_of(note));
+        }
+        return;
+    }
     if (vel > 0) {
         s->flags = ST_ON;
         s->note = (uint8_t)note;

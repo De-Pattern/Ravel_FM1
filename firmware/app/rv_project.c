@@ -19,7 +19,10 @@ int rv_save(int slot)
 static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
-    int n = (int)sizeof(rv) - (RV_TP - RV_TP_OLD) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
+    int n = (int)sizeof(rv) - (int)sizeof(rv.kit);    /* no kits before format 7 */
+    if (f >= 6)
+        return n;
+    n -= (RV_TP - RV_TP_OLD) * RV_TRACKS * 2 + (RV_GP - old_gp(f)) * 2;
     return f >= 4 ? n : n - (int)sizeof(rv.cz);
 }
 
@@ -119,11 +122,17 @@ int rv_load(int slot)
     n = old_size(f);
     if (plat_load(slot, &rv, (uint32_t)n) != n)
         return -1;
-    upgrade_layout(f, n);
+    if (f <= 5)
+        upgrade_layout(f, n);
     if (f == 2)
         upgrade_from_2();
     if (f <= 3)
         upgrade_cz();
+    {
+        int t;
+        for (t = 0; t < RV_TRACKS; t++)
+            rv_kit_init(t);
+    }
     rv.format = RV_FORMAT;
     return 0;
 }

@@ -45,7 +45,15 @@ static inline float pk_modes(perc_t *v, int n, float x)
 /* the TRX hat and cymbal metal: six square waves at inharmonic ratios */
 static const float pk_metal[6] = {1.0f, 1.483f, 1.801f, 2.546f, 2.630f, 3.897f};
 
-static void perc_note_on(perc_t *v, int note, float vel, const float *eff, uint32_t rng)
+/* a KIT's lane from a key: C4 and up are lanes 1-6, other octaves fold onto them */
+static int perc_lane_of(int note)
+{
+    int k = ((note - 60) % 12 + 12) % 12;
+    return k < RV_LANES ? k : k % RV_LANES;
+}
+
+/* mach: the machine (-1: the track's SOURCE 1); lane: the kit lane, -1 for a single machine */
+static void perc_note_on(perc_t *v, int note, float vel, const float *eff, uint32_t rng, int mach, int lane)
 {
     int k;
     if (!v->on) {                                     /* a fresh voice: clear it, keeping whose it is */
@@ -64,7 +72,10 @@ static void perc_note_on(perc_t *v, int note, float vel, const float *eff, uint3
     v->vel = vel;
     v->rng = rng;
     v->t = 0.0f;
-    v->mach = (uint8_t)clampi((int)(eff[TP_S0] + 0.5f), 0, PM_N - 1);
+    v->mach = (uint8_t)clampi(mach >= 0 ? mach : (int)(eff[TP_S0] + 0.5f), 0, PM_N - 1);
+    v->lane = (int8_t)lane;
+    if (lane >= 0)
+        v->note = 60;                                 /* a lane plays its machine at its own pitch */
     v->aenv = 1.0f;
     v->penv = 1.0f;
     v->menv = 1.0f;
@@ -509,9 +520,16 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
     const float *eff = tr->eff;
     float buf[RV_SUB], p[8], amd, amf, eqf, eqg, flo, fhi, fq, peak = 0.0f, velamt, g;
     int i, k;
-    for (k = 0; k < 8; k++)
-        p[k] = clampf(eff[TP_S1 + k] * (1.0f / 127.0f), 0.0f, 1.0f);
-    perc_machine(v, p, (float)v->note - 60.0f + eff[TP_PITCH] + eff[TP_FINE] * 0.01f, buf, n);
+    if (v->lane >= 0) {                               /* a kit lane: its own machine and settings */
+        const rv_kit *kt = &rv.kit[v->track & 7];
+        for (k = 0; k < 8; k++)
+            p[k] = kt->p[v->lane][k] * (1.0f / 127.0f);
+        perc_machine(v, p, 0.0f, buf, n);
+    } else {
+        for (k = 0; k < 8; k++)
+            p[k] = clampf(eff[TP_S1 + k] * (1.0f / 127.0f), 0.0f, 1.0f);
+        perc_machine(v, p, (float)v->note - 60.0f + eff[TP_PITCH] + eff[TP_FINE] * 0.01f, buf, n);
+    }
     /* the track effects */
     amd = eff[TP_S9] * (1.0f / 127.0f);
     amf = 0.1f * fm_exp2f(eff[TP_S10] * (14.5f / 127.0f));   /* 0.1 Hz .. 2.3 kHz */
@@ -528,6 +546,8 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
         svf_set(&v->eq, eqf, 1.2f);
     velamt = eff[TP_VELO] * (1.0f / 127.0f);
     g = (1.0f - velamt + velamt * v->vel) * 0.7f;
+    if (v->lane >= 0)
+        g *= rv.kit[v->track & 7].level[v->lane] * (1.0f / 100.0f);
     for (i = 0; i < n; i++) {
         float y = buf[i], bp, hp;
         if (amd > 0.0f) {

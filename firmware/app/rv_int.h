@@ -109,7 +109,7 @@ typedef struct {
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */
 typedef struct {
     uint8_t on, track, gate, mach, cnt, quiet;
-    int8_t note;
+    int8_t note, lane;              /* lane: a KIT's lane, -1 for a SINGLE machine */
     float vel, t, level;
     uint32_t age, rng;
     float ph[6], aenv, penv, menv, nenv, xenv, exc, next, fbv, last, hp_s, hp_s2, am_ph;

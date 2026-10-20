@@ -237,6 +237,17 @@ static const int8_t d_metal[] = {TP_S0, PM_PI_ML, TP_S1, 80, TP_S12, 30, TP_S15,
 static const int8_t d_gndsub[] = {TP_S0, PM_GND_SN, TP_S1, 20, TP_S2, 80, TP_S3, 40, TP_S4, 30, TP_LEVEL, 110, END};
 static const int8_t d_blip[] = {TP_S0, PM_GND_IM, TP_S1, 30, TP_S3, 60, TP_S4, 90, TP_LEVEL, 96, TP_DLYS, 40, END};
 
+/* PERC KITs: the six lanes' machines (each at its defaults); the track is a KIT (engine 1) */
+static const int8_t k_kit[] = {TP_LEVEL, 104, END};
+static const int8_t k_kitrev[] = {TP_LEVEL, 104, TP_REVS, 30, END};
+typedef struct { const char *name; uint8_t m[RV_LANES]; } kit_preset_t;
+static const kit_preset_t kit_presets[] = {
+    {"TRX KIT", {PM_TRX_BD, PM_TRX_SD, PM_TRX_CH, PM_TRX_OH, PM_TRX_CP, PM_TRX_RS}},
+    {"EFM KIT", {PM_EFM_BD, PM_EFM_SD, PM_EFM_HH, PM_EFM_CY, PM_EFM_CP, PM_EFM_RS}},
+    {"PI KIT", {PM_PI_BD, PM_PI_SD, PM_PI_HH, PM_PI_RC, PM_PI_MT, PM_PI_MA}},
+    {"MD MIX KIT", {PM_TRX_BD, PM_PI_SD, PM_EFM_HH, PM_TRX_OH, PM_TRX_CP, PM_PI_ML}},
+};
+
 /* ----------------------------------------------------------------- tape --- */
 static const int8_t t_mlr[] = {TP_S0, TAPE_MLR, TP_S1, 0, TP_S2, 6, TP_S4, 1, TP_LEVEL, 100, END};
 static const int8_t t_cloud[] = {TP_S0, TAPE_BEADS, TP_S1, 0, TP_S6, 60, TP_S7, 84, TP_S8, 80, TP_S10, 96, TP_S12, 127, TP_LEVEL, 96, TP_REVS, 50, END};
@@ -278,6 +289,8 @@ static const rv_preset presets[] = {
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},
     {"CLOCKWORK", KIND_STRIKE, 0, s_clockwork, 0}, {"FM TOM", KIND_STRIKE, 0, s_fmtom, 0}, {"PIPE", KIND_STRIKE, 0, s_pipe, 0},
     {"LISTENER", KIND_STRIKE, 0, s_listen, 0},
+    {"TRX KIT", KIND_PERC, 1, k_kit, 0}, {"EFM KIT", KIND_PERC, 1, k_kit, 0}, {"PI KIT", KIND_PERC, 1, k_kitrev, 0},
+    {"MD MIX KIT", KIND_PERC, 1, k_kit, 0},
     {"TRX KICK", KIND_PERC, 0, d_trxkick, 0}, {"TRX SNARE", KIND_PERC, 0, d_trxsnare, 0}, {"TRX CLAP", KIND_PERC, 0, d_trxclap, 0},
     {"TRX HAT", KIND_PERC, 0, d_trxhat, 0}, {"TRX OPEN HAT", KIND_PERC, 0, d_trxopen, 0}, {"TRX COWBELL", KIND_PERC, 0, d_trxcow, 0},
     {"EFM KICK", KIND_PERC, 0, d_efmkick, 0}, {"EFM SNARE", KIND_PERC, 0, d_efmsnare, 0}, {"EFM HAT", KIND_PERC, 0, d_efmhat, 0},
@@ -298,7 +311,33 @@ void rv_preset_apply(int t, int i)
     const int8_t *v;
     if (i < 0 || i >= NPRESETS)
         return;
-    rv_track_defaults(t, presets[i].kind, presets[i].engine);
+    {
+        int was_kit = rv.tp[t & 7][TP_KIND] == KIND_PERC && rv.tp[t & 7][TP_ENGINE] == 1;
+        int is_kit = presets[i].kind == KIND_PERC && presets[i].engine == 1;
+        rv_track_defaults(t, presets[i].kind, presets[i].engine);
+        if (was_kit != is_kit) {                      /* lanes and notes don't read each other's steps */
+            int pt = rv.pat_cur[t & 7];
+            for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)
+                rv_pattern_clear(t);
+            rv.pat_cur[t & 7] = (uint8_t)pt;
+        }
+    }
+    if (presets[i].kind == KIND_PERC && presets[i].engine == 1) {   /* a kit: its lanes' machines */
+        unsigned k;
+        int l, j;
+        for (k = 0; k < sizeof(kit_presets) / sizeof(kit_presets[0]); k++) {
+            const char *a = kit_presets[k].name, *b = presets[i].name;
+            while (*a && *a == *b)
+                a++, b++;
+            if (*a == 0 && *b == 0)
+                for (l = 0; l < RV_LANES; l++) {
+                    int m = kit_presets[k].m[l];
+                    rv.kit[t & 7].mach[l] = (uint8_t)m;
+                    for (j = 0; j < 8; j++)
+                        rv.kit[t & 7].p[l][j] = (uint8_t)(perc_pi[m][j].name ? perc_pi[m][j].def : 0);
+                }
+        }
+    }
     if (presets[i].kind == KIND_PERC) {               /* the machine first, so its own defaults load */
         for (v = presets[i].v; *v >= 0; v += 2)
             if (v[0] == TP_S0)

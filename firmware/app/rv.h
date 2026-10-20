@@ -28,7 +28,7 @@
 #define RV_ROUTES_MAX 16            /* influence routes that may be active at once */
 #define RV_SYNTH_VOICES 8
 #define RV_STRIKE_VOICES 4
-#define RV_PERC_VOICES 8
+#define RV_PERC_VOICES 12
 #define RV_BEADS 2                  /* grain engines for tape tracks */
 #define RV_ROWS 4
 
@@ -183,7 +183,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 6                 /* 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 7                 /* 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -198,6 +198,15 @@ typedef struct {
     rv_czenv env[3];                /* DCO (pitch), DCW (waveform), DCA (level) */
 } rv_czline;
 typedef struct { rv_czline line[2]; } rv_cz;
+/* a PERC track in KIT mode: six lanes, each its own machine, sequenced together (format 7) */
+#define RV_LANES 6
+typedef struct {
+    uint8_t mach[RV_LANES];
+    uint8_t p[RV_LANES][8];                /* each lane's machine parameters, 0..127 */
+    uint8_t level[RV_LANES];               /* 0..127 */
+    uint8_t len[RV_LANES];                 /* the lane's own length in steps, 0 = the track's LENGTH */
+    uint8_t chance[RV_LANES];              /* 0..100 */
+} rv_kit;
 typedef struct {
     uint32_t magic, format;
     char name[12];
@@ -214,6 +223,7 @@ typedef struct {
     uint8_t lib[RV_LIB][3];                /* envelope library: attack shape, body, death */
     rv_pattern pat[RV_TRACKS][RV_PATTERNS];
     rv_cz cz[RV_TRACKS];                   /* (format 4) last, so older projects load in front of it */
+    rv_kit kit[RV_TRACKS];                 /* (format 7) after that */
 } rv_project;
 
 extern rv_project rv;                      /* the project being played */
@@ -225,7 +235,8 @@ typedef struct {
     float env[RV_TRACKS];                  /* articulation level of the track's newest voice */
     float key[RV_TRACKS];
     float exc_in[RV_TRACKS];
-    int8_t cz_step[RV_TRACKS][6];          /* the newest CZ voice: each envelope's step (line 1 DCO DCW DCA, line 2) */               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
+    int8_t cz_step[RV_TRACKS][6];
+    int8_t lane_step[RV_TRACKS][RV_LANES];  /* a KIT: the step each lane is on */          /* the newest CZ voice: each envelope's step (line 1 DCO DCW DCA, line 2) */               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
     uint8_t stage[RV_TRACKS];              /* its stage: 0 onset, 1 continuant, 2 termination, 3 off */
     float stage_pos[RV_TRACKS];            /* 0..1 through the stage */
     int16_t step[RV_TRACKS][2];            /* playing step per head, -1 = none */
@@ -268,7 +279,8 @@ extern const char *const rv_scale_names[];
 void rv_track_defaults(int t, int kind, int engine);
 void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
 void rv_cz_init(int t);
-void rv_engine_track_defaults(int t, int engine);   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
+void rv_engine_track_defaults(int t, int engine);
+void rv_kit_init(int t);                         /* a PERC kit's six lanes at their defaults */   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
 void rv_project_init(void);
 
 /* rv_engine.c: the audio side */

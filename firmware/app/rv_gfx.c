@@ -40,6 +40,7 @@ static int g_y0, g_y1;
 #define C_SYNTH RGB(112, 192, 206)
 #define C_STRIKE RGB(226, 134, 94)
 #define C_TAPE RGB(214, 154, 88)
+#define C_PERC RGB(196, 62, 76)            /* a deep red, apart from the tape's amber and the strike's orange */
 
 static void g_band(int y0)
 {

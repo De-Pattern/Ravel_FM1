@@ -235,10 +235,11 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         strike_note_on(sv, note, v, tr->eff);
         artic_start(&sv->a, &sv->cfg);
     } else if (kind == KIND_PERC) {
-        int poly = clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
+        int kit = rv.tp[t][TP_ENGINE] == 1, lane = kit ? perc_lane_of(note) : -1;
+        int poly = kit ? 1 : clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;
-        for (i = 0; i < RV_PERC_VOICES; i++)          /* a drum chokes its own oldest hit past POLY */
-            if (ps[i].on && ps[i].track == t) {
+        for (i = 0; i < RV_PERC_VOICES; i++)          /* a drum chokes its own oldest hit past POLY (a kit: each lane its last) */
+            if (ps[i].on && ps[i].track == t && ps[i].lane == lane) {
                 count++;
                 if (ps[i].age < oldest) {
                     oldest = ps[i].age;
@@ -263,7 +264,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             pick = 0;
         ps[pick].track = (uint8_t)t;
         ps[pick].age = ++age_ctr;
-        perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u);
+        perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u, kit ? rv.kit[t].mach[lane] : -1, lane);
     } else {
         tapetrk_t *tt = &tr->tape;
         if (env > 0)
