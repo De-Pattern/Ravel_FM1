@@ -45,6 +45,25 @@ static inline float pk_modes(perc_t *v, int n, float x)
 /* the TRX hat and cymbal metal: six square waves at inharmonic ratios */
 static const float pk_metal[6] = {1.0f, 1.483f, 1.801f, 2.546f, 2.630f, 3.897f};
 
+/* the next kit hit's locks, found by the sequencer just before it plays (live hits have none) */
+static uint16_t perc_pend_mask;
+static uint8_t perc_pend_val[9];
+static void perc_lock_prepare(int t, int lane, int pat, int step)
+{
+    const rv_kitlock *k = rv.kitlk[t & 7];
+    uint8_t st = (uint8_t)((step & 63) | ((pat & 1) << 6));
+    int i;
+    perc_pend_mask = 0;
+    for (i = 0; i < RV_KITLOCKS; i++)
+        if (k[i].what != 0xFF && k[i].step == st && (k[i].what >> 4) == lane) {
+            int f = k[i].what & 15;
+            if (f <= KL_LEVEL) {
+                perc_pend_mask |= (uint16_t)(1u << f);
+                perc_pend_val[f] = k[i].val;
+            }
+        }
+}
+
 /* a KIT's lane from a key: C4 and up are lanes 1-6, other octaves fold onto them */
 static int perc_lane_of(int note)
 {
@@ -74,8 +93,14 @@ static void perc_note_on(perc_t *v, int note, float vel, const float *eff, uint3
     v->t = 0.0f;
     v->mach = (uint8_t)clampi(mach >= 0 ? mach : (int)(eff[TP_S0] + 0.5f), 0, PM_N - 1);
     v->lane = (int8_t)lane;
-    if (lane >= 0)
+    v->lk_mask = 0;
+    if (lane >= 0) {
         v->note = 60;                                 /* a lane plays its machine at its own pitch */
+        v->lk_mask = perc_pend_mask;                  /* and with this step's locks */
+        for (k = 0; k < 9; k++)
+            v->lk_val[k] = perc_pend_val[k];
+    }
+    perc_pend_mask = 0;
     v->aenv = 1.0f;
     v->penv = 1.0f;
     v->menv = 1.0f;
@@ -523,7 +548,7 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
     if (v->lane >= 0) {                               /* a kit lane: its own machine and settings */
         const rv_kit *kt = &rv.kit[v->track & 7];
         for (k = 0; k < 8; k++)
-            p[k] = kt->p[v->lane][k] * (1.0f / 127.0f);
+            p[k] = ((v->lk_mask >> k) & 1 ? v->lk_val[k] : kt->p[v->lane][k]) * (1.0f / 127.0f);
         perc_machine(v, p, 0.0f, buf, n);
     } else {
         for (k = 0; k < 8; k++)
@@ -547,7 +572,7 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
     velamt = eff[TP_VELO] * (1.0f / 127.0f);
     g = (1.0f - velamt + velamt * v->vel) * 0.7f;
     if (v->lane >= 0)
-        g *= rv.kit[v->track & 7].level[v->lane] * (1.0f / 100.0f);
+        g *= ((v->lk_mask >> KL_LEVEL) & 1 ? v->lk_val[KL_LEVEL] : rv.kit[v->track & 7].level[v->lane]) * (1.0f / 100.0f);
     for (i = 0; i < n; i++) {
         float y = buf[i], bp, hp;
         if (amd > 0.0f) {

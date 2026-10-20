@@ -301,9 +301,9 @@ static void kit_fire(int t, int si, uint32_t when)
         e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.005f * sd * RV_FS);
         e.track = (uint8_t)t;
         e.chain = (uint16_t)(1u << t);
-        e.env = 0;
+        e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);   /* the pattern and step its locks are found under */
         e.step = (uint8_t)li;
-        e.head = 0;
+        e.head = 0x40;                                /* a kit hit: look up its locks */
         e.type = EV_ON;
         e.note = (uint8_t)(60 + l);
         e.len_s = 0.0f;
@@ -635,6 +635,9 @@ static void seq_events(int n)
             seqtrk_t *q = &sq[e.track];
             if (q->tied && q->tied - 1 == e.note) {
                 /* a tie into the same note carries on: no new attack */
+            } else if (e.head & 0x40) {               /* a kit lane's hit: with its step's locks */
+                perc_lock_prepare(e.track, e.note - 60, e.env, e.step);
+                note_on_internal(e.track, e.note, e.vel, 0, e.chain);
             } else {
                 note_on_internal(e.track, e.note, e.vel, e.env, e.chain);
                 if (q->tied)
@@ -758,10 +761,48 @@ static void pattern_launch_now(int t, int p)
     pend_pat[t & 7] = (int8_t)(p % RV_PATTERNS);
 }
 
+/* ---------------------------------------------------------- kit locks --- */
+int rv_kitlock_find(int t, int pat, int step, int lane, int field)
+{
+    const rv_kitlock *k = rv.kitlk[t & 7];
+    uint8_t st = (uint8_t)((step & 63) | ((pat & 1) << 6)), w = (uint8_t)(lane << 4 | field);
+    int i;
+    for (i = 0; i < RV_KITLOCKS; i++)
+        if (k[i].what == w && k[i].step == st)
+            return i;
+    return -1;
+}
+
+int rv_kitlock_set(int t, int pat, int step, int lane, int field, int v)
+{
+    rv_kitlock *k = rv.kitlk[t & 7];
+    int i = rv_kitlock_find(t, pat, step, lane, field);
+    if (i < 0)
+        for (i = 0; i < RV_KITLOCKS && k[i].what != 0xFF; i++)
+            ;
+    if (i >= RV_KITLOCKS)
+        return 0;
+    k[i].step = (uint8_t)((step & 63) | ((pat & 1) << 6));
+    k[i].what = (uint8_t)(lane << 4 | field);
+    k[i].val = (uint8_t)clampi(v, 0, 127);
+    return 1;
+}
+
+void rv_kitlock_clear(int t, int pat, int step, int lane)
+{
+    rv_kitlock *k = rv.kitlk[t & 7];
+    int i;
+    for (i = 0; i < RV_KITLOCKS; i++)
+        if (k[i].what != 0xFF && (step < 0 || (k[i].step & 63) == (step & 63)) && ((k[i].step >> 6) & 1) == (pat & 1) &&
+            (lane < 0 || (k[i].what >> 4) == lane))
+            k[i].what = 0xFF;
+}
+
 void rv_pattern_clear(int t)
 {
     int i;
     rv_pattern *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS];
+    rv_kitlock_clear(t, rv.pat_cur[t & 7] % RV_PATTERNS, -1, -1);   /* a kit's locks go with its steps */
     for (i = 0; i < RV_STEPS; i++) {
         rv_step *s = &p->s[i];
         uint8_t *b = (uint8_t *)s;

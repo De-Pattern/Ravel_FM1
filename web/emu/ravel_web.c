@@ -144,7 +144,7 @@ EXPORT(web_page_title) const char *web_page_title(void) { return ui_page_title()
 EXPORT(web_kind) int web_kind(int t) { return rv.tp[t & 7][TP_KIND]; }
 EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
 EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
-EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { rv_track_defaults(t & 7, kind, engine); }
+EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }
 EXPORT(web_meter) float web_meter(int t) { return rv_live.meter[t & 7]; }
 EXPORT(web_master_l) float web_master_l(void) { return rv_live.master_l; }
 EXPORT(web_master_r) float web_master_r(void) { return rv_live.master_r; }

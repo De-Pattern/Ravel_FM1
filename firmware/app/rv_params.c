@@ -818,6 +818,8 @@ void rv_kit_init(int t)
     static const uint8_t m[RV_LANES] = {PM_TRX_BD, PM_TRX_SD, PM_TRX_CH, PM_TRX_OH, PM_TRX_CP, PM_TRX_RS};
     rv_kit *k = &rv.kit[t & 7];
     int l, i;
+    for (i = 0; i < RV_KITLOCKS; i++)
+        rv.kitlk[t & 7][i].what = 0xFF;
     for (l = 0; l < RV_LANES; l++) {
         k->mach[l] = m[l];
         for (i = 0; i < 8; i++)

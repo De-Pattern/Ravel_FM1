@@ -1,0 +1,17 @@
+# A PERC track starts as a KIT; SEQ opens on its DRUM page; the top-row buttons still open their sections.
+wait 300
+tap HOME
+turn SELECT -20
+turn K3 3
+wait 200
+expect tp 1 KIND 3
+expect tp 1 MODE 1
+tap SEQ
+wait 200
+expect page DRUM
+tap FX
+wait 200
+expect page DELAY
+tap SEQ
+wait 200
+expect page DRUM

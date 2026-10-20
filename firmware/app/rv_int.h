@@ -110,6 +110,8 @@ typedef struct {
 typedef struct {
     uint8_t on, track, gate, mach, cnt, quiet;
     int8_t note, lane;              /* lane: a KIT's lane, -1 for a SINGLE machine */
+    uint16_t lk_mask;               /* this hit's locks: bits 0-7 the parameters, 8 the level */
+    uint8_t lk_val[9];
     float vel, t, level;
     uint32_t age, rng;
     float ph[6], aenv, penv, menv, nenv, xenv, exc, next, fbv, last, hp_s, hp_s2, am_ph;

@@ -183,7 +183,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 7                 /* 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 8                 /* 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -207,6 +207,12 @@ typedef struct {
     uint8_t len[RV_LANES];                 /* the lane's own length in steps, 0 = the track's LENGTH */
     uint8_t chance[RV_LANES];              /* 0..100 */
 } rv_kit;
+/* a KIT's parameter locks: a lane's sound set for one step (format 8). what = lane << 4 | field
+ * (0-7 the machine's parameters, 8 its level); 0xFF = an empty entry. step: bits 0-5 the step,
+ * bit 6 pattern B */
+#define RV_KITLOCKS 48
+#define KL_LEVEL 8
+typedef struct { uint8_t step, what, val; } rv_kitlock;
 typedef struct {
     uint32_t magic, format;
     char name[12];
@@ -224,6 +230,7 @@ typedef struct {
     rv_pattern pat[RV_TRACKS][RV_PATTERNS];
     rv_cz cz[RV_TRACKS];                   /* (format 4) last, so older projects load in front of it */
     rv_kit kit[RV_TRACKS];                 /* (format 7) after that */
+    rv_kitlock kitlk[RV_TRACKS][RV_KITLOCKS];   /* (format 8) then the kits' locks */
 } rv_project;
 
 extern rv_project rv;                      /* the project being played */
@@ -309,6 +316,10 @@ void rv_record_arm(int t, int on);
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */
 void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed, records */
 void rv_pattern_clear(int t);
+int rv_kitlock_find(int t, int pat, int step, int lane, int field);   /* index, or -1 */
+int rv_kitlock_set(int t, int pat, int step, int lane, int field, int v);   /* 0: the table is full */
+void rv_kitlock_clear(int t, int pat, int step, int lane);   /* lane -1: every lane */
+void rv_track_set_kind(int t, int kind);           /* KIND changed: defaults, and steps cleared when lanes and notes swap */
 float rv_param_eff(int t, int p);              /* the value after modulation, for the screen */
 uint32_t rv_rng(void);
 

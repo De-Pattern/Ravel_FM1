@@ -306,6 +306,21 @@ int rv_preset_count(void) { return NPRESETS; }
 const char *rv_preset_name(int i) { return i >= 0 && i < NPRESETS ? presets[i].name : ""; }
 int rv_preset_kind(int i) { return i >= 0 && i < NPRESETS ? presets[i].kind : -1; }
 
+/* KIND changed on the track: its defaults (a PERC track starts as a KIT; a synth keeps its engine),
+ * and its steps cleared when it changes between lanes and notes, which can't read each other's */
+void rv_track_set_kind(int t, int kind)
+{
+    int was_kit = rv.tp[t & 7][TP_KIND] == KIND_PERC && rv.tp[t & 7][TP_ENGINE] == 1;
+    int eng = kind == KIND_PERC ? 1 : kind == KIND_SYNTH && rv.tp[t & 7][TP_KIND] == KIND_SYNTH ? rv.tp[t & 7][TP_ENGINE] : 0;
+    rv_track_defaults(t, kind, eng);
+    if (was_kit != (kind == KIND_PERC)) {
+        int pt = rv.pat_cur[t & 7];
+        for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)
+            rv_pattern_clear(t);
+        rv.pat_cur[t & 7] = (uint8_t)pt;
+    }
+}
+
 void rv_preset_apply(int t, int i)
 {
     const int8_t *v;

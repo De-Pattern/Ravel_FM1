@@ -193,7 +193,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 | **SYNTH** | An oscillator voice with twelve engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
-| **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). MODE SINGLE is one machine played by notes; MODE KIT is six machines in lanes, sequenced together on one track. | – (choose PERC on any track) |
+| **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
 
 How the sound flows:
 
@@ -478,6 +478,8 @@ With **EXT** as the exciter, the track makes no strike of its own: the body ring
 
 A PERC track is a drum machine after the **Elektron Machinedrum**. Its 33 machines come from the Machinedrum's four synthesis families. Elektron never published how the Machinedrum makes its sounds, so these are Ravel's own designs, built from what the Machinedrum's manual documents: each machine has the manual's parameters, in its order, doing what the manual says they do. They are not sample-perfect copies; the sampled E12 and ROM machines are left out.
 
+A PERC track has two MODEs (EDIT › SOUND, KNOB 2). It starts as a **KIT**: six machines in lanes, sequenced together on the one track (see *Kits* below). **SINGLE** is one machine played by notes, on the SOURCE pages:
+
 - **SOURCE 1, KNOB 1: MACHINE.** Choosing a machine loads its own defaults.
 - **The rest of SOURCE 1 and SOURCE 2:** the machine's own eight parameters (A–H on the Machinedrum). A machine with fewer leaves the rest greyed out.
 - **SOURCE 3 and 4: the Machinedrum's track effects.** AMD and AMF (amplitude modulation: depth and rate, up to audio rates), EQF and EQG (a one-band EQ: frequency and boost or cut), FLTF, FLTW and FLTQ (the band filter: a high-pass at FLTF and a low-pass FLTW above it; FLTF at 0 turns the high-pass off, FLTW at 127 the low-pass, FLTQ adds resonance to both). The Machinedrum's SRR and DIST are the track's own DEREZ and DRIVE on EDIT › SKIN.
@@ -531,26 +533,27 @@ A PERC track is a drum machine after the **Elektron Machinedrum**. Its 33 machin
 - **P-I:** HARD a harder hit, HAMR a softer mallet, TENS the pitch bend of a tight skin hit hard, DAMP damping, TUNE how the skin is tuned, SIZE the drum's size, POS where it is struck (centre to edge), RING metal that rings on, RVOL and RDEC the snare wires, GRNS and GLEN the maracas' grains and their length, CLSN the two hats touching, AG and AU more or fewer highs, BR the lows, CLOS and GRAB when the hat closes or a hand grabs the cymbal (127: never).
 ### Kits: six drums on one track
 
-Set a PERC track's **MODE** (EDIT › SOUND, KNOB 2) to **KIT** and it becomes a whole drum kit: six **lanes**, each its own machine, sequenced together on that one track, so a full rhythm takes one track and leaves the others free. Switching MODE starts the track's steps clean (notes mean nothing to lanes).
+A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit, starts its steps clean: notes and lane hits can't read each other.)
 
-**Picking a lane.** On a kit's DRUM and LANE pages, the six top-row buttons (FX, SCL, ENV, LFO, EDIT, GLO) pick lanes 1–6; their lights show which. Anywhere in SEQ, black keys 3–8 pick them too, and the LANE knob does as well. (While a kit's DRUM or LANE page is showing, the top row picks lanes instead of opening sections: go to another section through HOME, SEQ or the bottom row.)
+**One lane at a time.** Everything you edit on a kit (its sound, its steps, its locks) belongs to the **chosen lane**. Choose it with **black keys 3–8** (black keys 1 and 2 stay patterns A and B), or with the LANE knob. The screen names the lane and its machine as you pick it, and black keys 3–8 light the chosen one.
 
-**Programming.** SEQ › DRUM shows all six lanes over the sixteen steps on screen: the chosen lane in red, accents white, each lane's playhead in teal. The sixteen keys are the chosen lane's steps: tap once for a hit, again for an **accent** (full velocity), a third time to clear it. OCT- and OCT+ page through longer patterns, as on any track. Hold a step and turn a knob on **DRUM STEP** for the step's velocity, chance, ratchet (the chosen lane rolls; others in the step play once) or condition; **STEP TIMING** adds micro-timing and the ratchet's curve. With REC armed, playing the keys records hits into the lanes.
+**SEQ is the drum sequencer.** On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The step-by-step note pages (STEPS, STEP SHAPE) are hidden on a kit, since a drum hit has no note or length; STEP TIMING stays for micro-timing and the ratchet's curve.
 
-**Each lane** (EDIT › LANE, LANE SOUND, LANE SOUND 2, and SEQ › DRUM):
+- **The keys are the chosen lane's sixteen steps:** tap once for a hit, again for an **accent** (full velocity), a third time to clear it (and its locks). OCT- and OCT+ page through longer patterns.
+- **The DRUM pages:**
 
-| Knob | What it does |
-| --- | --- |
-| LANE | which lane the pages and keys work on |
-| MACHINE | any of the 33 machines; changing it loads that machine's defaults |
-| LEVEL | the lane's level in the kit |
-| CHANCE | how likely the lane is to play its hits (with each step's own CHANCE on top) |
-| LENGTH | the lane's own loop length: 0 follows the track's LENGTH; any other length runs against it, so a 12-step hat over a 16-step kick shifts every bar (polymeter) |
-| LANE SOUND / 2 | the lane machine's eight parameters, as on a SINGLE track |
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **DRUM** | LANE | LENGTH: the lane's own loop (0 follows the track's LENGTH; any other length runs against it: a 12-step hat over a 16-step kick shifts every bar) | CHANCE: how likely the lane plays its hits | LEVEL: the lane's level in the kit |
+| **DRUM SOUND** | the chosen lane's machine parameters A–D | | | |
+| **DRUM SOUND 2** | its parameters E–H | | | |
+| **DRUM STEP** | VELO (hold a step) | CHANCE | RATCHET: the chosen lane rolls on this step | CONDITION |
 
-- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and then again (key 7 is lane 1).
-- **Shared by the kit:** the track's SOURCE 3 and 4 (AMD, AMF, EQF, EQG, FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, sends and level act on the whole kit. Each lane is one voice: a new hit cuts its last.
-- **Presets:** TRX KIT (kick, snare, hats, clap, rim), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
+- **Parameter locks.** Hold a step key and turn a knob on DRUM SOUND, DRUM SOUND 2 or DRUM's LEVEL: that value is locked for the chosen lane on that step only (a teal dot marks it), while the knob shows the locked value as long as the step is held. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The track-wide sound (SOURCE 3 and 4's effects, SKIN, the insert) locks the usual way: hold SEQ and a step on those pages.
+- **The lane's machine and sound, away from the sequencer:** EDIT › **LANE** (LANE, MACHINE, LEVEL, CHANCE), **LANE SOUND** and **LANE SOUND 2** edit the chosen lane too. Changing a lane's MACHINE loads that machine's defaults.
+- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1); playing one also chooses it. With REC armed, what you play is recorded into the lanes.
+- **Shared by the whole kit:** the track's SOURCE 3 and 4 (AMD, AMF, EQF, EQG, FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, sends and level. A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
+- **Presets:** TRX KIT (kick, snare, hats, clap, rim; the kit a new PERC track starts with), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
 
 - **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
 

@@ -147,6 +147,8 @@ static const page_t pages[] = {
     {SEC_TAPE, V_SLICE, PIC_TAPE, PR_SOUND, "SLICES", {TP(TP_S14), TP(TP_S15), TP(TP_PITCH), TP(TP_LEVEL)}},
 
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_CHANCE), LF(LF_LEVEL)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM SOUND", {LF(LF_P0), LF(LF_P0 + 1), LF(LF_P0 + 2), LF(LF_P0 + 3)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM SOUND 2", {LF(LF_P0 + 4), LF(LF_P0 + 5), LF(LF_P0 + 6), LF(LF_P0 + 7)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET), SF(SF_COND)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_ALL, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
@@ -633,7 +635,12 @@ static int kb_get(kb_t k)
     }
     case K_LANE: {
         const rv_kit *kt = &rv.kit[ui.track];
-        int l = ui.lane[ui.track] % RV_LANES;
+        int l = ui.lane[ui.track] % RV_LANES, held = held_step();
+        if (held >= 0 && ((k.id >= LF_P0 && k.id < LF_P0 + 8) || k.id == LF_LEVEL)) {   /* a held step shows its lock */
+            int i = rv_kitlock_find(ui.track, rv.pat_cur[ui.track] % RV_PATTERNS, held, l, k.id == LF_LEVEL ? KL_LEVEL : k.id - LF_P0);
+            if (i >= 0)
+                return rv.kitlk[ui.track][i].val;
+        }
         switch (k.id) {
         case LF_SEL: return l;
         case LF_MACH: return kt->mach[l];
@@ -659,7 +666,7 @@ static void kb_set(kb_t k, int v)
     switch (k.kind) {
     case K_TP:
         if (k.id == TP_KIND && v != rv.tp[ui.track][TP_KIND]) {
-            rv_track_defaults(ui.track, v, rv.tp[ui.track][TP_ENGINE]);
+            rv_track_set_kind(ui.track, v);
             ui.preset_idx[ui.track] = -1;
             return;
         }
@@ -1086,7 +1093,7 @@ static void knob_turn(int i, int d)
         ui.turned_ms[i] = plat_ms();
         return;
     }
-    if (btn & (1u << B_ENV) && held >= 0 && i == 0) {   /* ENV held with a step: its library shape */
+    if (btn & (1u << B_ENV) && held >= 0 && i == 0 && !is_kit_ui(ui.track)) {   /* ENV held with a step: its library shape */
         rv_step *s = step_ptr(held);
         s->env = (uint8_t)clampi(s->env + d, 0, 255);
         ui.layer_used[B_ENV] = 1;
@@ -1101,6 +1108,31 @@ static void knob_turn(int i, int d)
         if (!step_lock_value(held, k.id, &v))
             v = rv.tp[ui.track][k.id];
         step_lock(held, k.id, clampi(v + d, kb_info(k).min, kb_info(k).max));
+        ui.step_turned = 1;
+        if (btn & (1u << B_SEQ))
+            ui.layer_used[B_SEQ] = 1;
+        ui.turned_ms[i] = plat_ms();
+        return;
+    }
+    if (held >= 0 && k.kind == K_LANE && ((k.id >= LF_P0 && k.id < LF_P0 + 8) || k.id == LF_LEVEL)) {
+        /* a kit step held: turning the lane's sound writes a lock for that lane on that step */
+        int l = ui.lane[ui.track] % RV_LANES, pat = rv.pat_cur[ui.track] % RV_PATTERNS;
+        int f = k.id == LF_LEVEL ? KL_LEVEL : k.id - LF_P0;
+        if (!rv_kitlock_set(ui.track, pat, held, l, f, clampi(kb_get(k) + d, 0, 127)))
+            msg("LOCKS FULL (48 A KIT)");
+        else {
+            rv_step *s = step_ptr(held);               /* a lock on an empty lane-step puts the hit there */
+            if (!(s->flags & ST_ON)) {
+                s->note = s->env = s->len = 0;
+                s->vel = 100;
+                s->chance = 100;
+                s->ratchet = 0;
+                s->micro = 0;
+                s->cond = 0;
+            }
+            s->note |= (uint8_t)(1u << l);
+            s->flags |= ST_ON;
+        }
         ui.step_turned = 1;
         if (btn & (1u << B_SEQ))
             ui.layer_used[B_SEQ] = 1;
@@ -1289,6 +1321,7 @@ static void key_event(int k, int on)
                             s->note &= (uint8_t)~bit;
                             s->env &= (uint8_t)~bit;
                             s->len &= (uint8_t)~bit;
+                            rv_kitlock_clear(t, rv.pat_cur[t] % RV_PATTERNS, ui.step_page * 16 + wi, ui.lane[t] % RV_LANES);
                         }
                         s->flags = (uint8_t)(s->note & 63 ? s->flags | ST_ON : s->flags & ~ST_ON);
                     } else {
@@ -1502,11 +1535,6 @@ static void buttons(uint32_t now_btn)
     for (s = 0; s < NSEC; s++) {
         b = sec_button[s];
         if ((up & (1u << b)) && !ui.layer_used[b] && ms - ui.btn_down_ms[b] < 600) {
-            if (is_kit_ui(ui.track) && cur_page()->pic == PIC_DRUM && b >= B_FX && b <= B_GLO) {
-                ui.lane[ui.track] = (uint8_t)(b - B_FX);   /* on a kit's pages the top row picks the lane */
-                lane_msg(ui.track);
-                continue;
-            }
             if (s == SEC_SAVE && ui.sec == SEC_SAVE) {
                 if (ui.save_confirm)
                     save_do();
@@ -1706,7 +1734,11 @@ static void draw_footer(void)
     case PR_MAT: hint = "PRESETS: SLOT"; break;
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
     case PR_ROW: hint = "REC+OCT- CATCH  REC+OCT+ RESAMPLE"; break;
-    case PR_PATTERN: hint = is_kit_ui(ui.track) ? "TOP ROW: LANE  TAP: ON, ACCENT, OFF" : "KEYS: STEPS  OCT: PAGE"; break;
+    case PR_PATTERN:
+        hint = !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
+               : held_step() >= 0 ? "TURN A SOUND KNOB: LOCK IT"
+               : "BLACK 3-8: LANE  TAP: ON, ACCENT, OFF";
+        break;
     case PR_SCENE: hint = "KEYS: LAUNCH  SAVE+KEY: STORE"; break;
     case PR_ARR: hint = "PRESETS: ROW"; break;
     case PR_ARC: hint = "PRESETS: BAR"; break;
@@ -2622,6 +2654,13 @@ static void pic_drum(void)
                 g_fill(x, y + (on ? 0 : 5), 10, on ? 14 : 4, c);
             if (on && ((s->len >> l) & 1))
                 g_fill(x + 3, y - 2, 4, 2, C_TEAL);  /* ratchet */
+            if (on) {                                /* a lock on this lane-step: a dot */
+                int f, lk = 0;
+                for (f = 0; f <= KL_LEVEL && !lk; f++)
+                    lk = rv_kitlock_find(t, rv.pat_cur[t] % RV_PATTERNS, si, l, f) >= 0;
+                if (lk)
+                    g_fill(x + 3, y + 5, 4, 4, C_TEAL);
+            }
             if (rv_live.playing && si == rv_live.lane_step[t][l])
                 g_frame(x - 1, y - 1, 12, 16, C_TEAL);
         }
@@ -2980,8 +3019,6 @@ static void leds(void)
         lk |= 1u << black_keys[rv.pat_cur[t] % RV_PATTERNS];
         if (kit) {
             lk |= 1u << black_keys[2 + l];
-            if (cur_page()->pic == PIC_DRUM)
-                lb |= 1u << (B_FX + l);
         }
     } else if (ui.sec == SEC_TAPE && rv.tp[t][TP_KIND] == KIND_TAPE) {
         float pos[2];
