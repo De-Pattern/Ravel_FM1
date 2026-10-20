@@ -15,6 +15,9 @@ if len(sys.argv) > 1:
     out = pathlib.Path(sys.argv[1])
 out.parent.mkdir(parents=True, exist_ok=True)
 page = page.replace('"__RAVEL_WASM__"', '"' + wasm + '"', 1)
+flow = (root / "docs" / "signal-flow.svg").read_text()      # the README's diagram, inline on the page
+assert "<!--RAVEL_FLOW-->" in page
+page = page.replace("<!--RAVEL_FLOW-->", flow.strip(), 1)
 sys.path.insert(0, str(root / "tools"))
 import ravel_icons
 page = ravel_icons.apply(page)

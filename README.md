@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth, strike and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (twelve engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -27,7 +27,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, and a 256-shape envelope library that steps can recall.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets with curves, conditions, chance. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
-- **Buses:** a stereo delay (spread, wobble, freeze), a space reverb (motion, diffusion, low cut), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
+- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM or a long Clouds-style plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
 - **Song:** patterns A and B per track, 16 scenes, a 32-row arrangement, mute and solo, tap tempo, 8 project slots.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
@@ -135,7 +135,7 @@ The ten sections:
 | **EDIT** | Voice | The current track's sound: engine, source pages, pitch, filter, skin, insert, mix, sends |
 | **ENV** | Articulation | How a note starts, holds and ends, and the 256-shape library |
 | **LFO** | Mod | Mod matrix, LFO 1, LFO 2, dust, macros |
-| **FX** | Buses | Delay, space, feedback, filter pair, vocoder, master |
+| **FX** | Buses | Delay, space, feedback, filter pair, vocoder, bands, master |
 | **SCL** | Scale | Root, scale, transpose, interval |
 | **ARP** | Tape | Capture, rows, and how a tape track plays the tape |
 | **SEQ** | Steps | Steps, step timing and shape, track settings, direction, graph and playheads |
@@ -197,8 +197,8 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 
 How the sound flows:
 
-1. **Each track** makes sound. On synth and strike tracks the sound goes: source → filter → skin (drive, fold, bits) → insert effect → articulation (the amplitude envelope) → level and pan.
-2. **The mixer** adds the tracks together. Each track also **sends** some of its sound to the five **buses** (delay, space, feedback, filter pair, vocoder), and the buses return into the mix.
+1. **Each track** makes sound. On synth, strike and perc tracks the sound goes: source → filter → skin (drive, fold, bits) → insert effect → articulation (the amplitude envelope) → level and pan.
+2. **The mixer** adds the tracks together. Each track also **sends** some of its sound to the six **buses** (delay or grains, space, feedback, filter pair, vocoder, bands), and the buses return into the mix.
 3. **The master** applies drive and microcuts, then a safety limiter, then goes to the output.
 4. **The capture tape** is always listening. By default it hears the master, but it can hear one track, the buses or the audio input instead (ARP › CAPTURE › SOURCE). When you **catch** or **resample**, what it heard is kept, and the **tape tracks** play it back. That is the loop at the heart of Ravel: *synthesize → catch → rebuild*.
 5. **Influence** connects tracks to each other. One track's notes or audio can trigger, modulate, excite, ring, clock or jump the tape of another (HOME › INFLUENCE).

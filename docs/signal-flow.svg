@@ -1,68 +1,77 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 472" width="760" height="472" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" role="img" aria-label="Tracks feed the tape, and the tape feeds the tracks">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 576" width="800" height="576" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" role="img" aria-label="Tracks feed the tape, and the tape feeds the tracks">
   <title>Tracks feed the tape, and the tape feeds the tracks</title>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <marker id="sf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#8a8f98"/>
     </marker>
-    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <marker id="sf-arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#2b8a99"/>
     </marker>
   </defs>
 
   <!-- own background so the drawing reads on GitHub's light and dark themes -->
-  <rect x="0" y="0" width="760" height="472" rx="12" fill="#0f1311"/>
+  <rect x="0" y="0" width="800" height="576" rx="12" fill="#0f1311"/>
 
   <text x="24" y="38" font-size="16" font-weight="600" fill="#dde5de">Tracks feed the tape, and the tape feeds the tracks</text>
-  <text x="24" y="60" font-size="12" fill="#8c998f">Synthesize, catch, reshape. Every track can act on every other.</text>
+  <text x="24" y="60" font-size="12" fill="#8c998f">Synthesize, catch, reshape. Every track can act on every other, and any track can be any kind.</text>
 
   <!-- influence band -->
-  <rect x="24" y="92" width="40" height="248" rx="8" fill="#62b8cb" fill-opacity="0.16" stroke="#62b8cb" stroke-width="2"/>
-  <text x="44" y="216" transform="rotate(-90 44 216)" text-anchor="middle" font-weight="600" fill="#dde5de">Influence</text>
+  <rect x="24" y="92" width="40" height="344" rx="8" fill="#62b8cb" fill-opacity="0.16" stroke="#62b8cb" stroke-width="2"/>
+  <text x="44" y="264" transform="rotate(-90 44 264)" text-anchor="middle" font-weight="600" fill="#dde5de">Influence</text>
   <g fill="none" stroke="#2b8a99" stroke-width="1.5">
-    <path d="M64 124H96" marker-end="url(#arrow-teal)" marker-start="url(#arrow-teal)"/>
-    <path d="M64 216H96" marker-end="url(#arrow-teal)" marker-start="url(#arrow-teal)"/>
-    <path d="M64 308H96" marker-end="url(#arrow-teal)" marker-start="url(#arrow-teal)"/>
+    <path d="M64 136H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
+    <path d="M64 230H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
+    <path d="M64 314H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
+    <path d="M64 398H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
   </g>
 
   <!-- tracks -->
   <g fill="#171d1a" stroke="#4a564f" stroke-width="1.25">
-    <rect x="96" y="92" width="236" height="64" rx="8"/>
-    <rect x="96" y="184" width="236" height="64" rx="8"/>
-    <rect x="96" y="276" width="236" height="64" rx="8"/>
+    <rect x="96" y="92" width="300" height="88" rx="8"/>
+    <rect x="96" y="198" width="300" height="64" rx="8"/>
+    <rect x="96" y="366" width="300" height="64" rx="8"/>
   </g>
-  <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4</text>
-  <text x="112" y="139" font-size="12" fill="#8c998f">VA, PD, FM, PHYS, formant, particle</text>
-  <text x="112" y="209" font-weight="600" fill="#dde5de">Strike  T5, T6</text>
-  <text x="112" y="231" font-size="12" fill="#8c998f">exciter into modes, strings, pings</text>
-  <text x="112" y="301" font-weight="600" fill="#dde5de">Tape  T7, T8</text>
-  <text x="112" y="323" font-size="12" fill="#8c998f">MLR playheads, Beads grains, slices</text>
+  <rect x="96" y="282" width="300" height="64" rx="8" fill="#c43e4c" fill-opacity="0.12" stroke="#c43e4c" stroke-width="1.5"/>
+  <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4 · twelve engines</text>
+  <text x="112" y="140" font-size="12" fill="#8c998f">VA, CZ, FM, PHYS, FORMANT, PARTICLE,</text>
+  <text x="112" y="158" font-size="12" fill="#8c998f">CHIP, SQ, WAVE, LOGIC, ORGAN, MONO</text>
+  <text x="112" y="223" font-weight="600" fill="#dde5de">Strike  T5, T6</text>
+  <text x="112" y="245" font-size="12" fill="#8c998f">exciter into modes, strings, pings</text>
+  <text x="112" y="307" font-weight="600" fill="#dde5de">Perc  any track</text>
+  <text x="112" y="329" font-size="12" fill="#c7a0a5">33 drum machines; a kit of six lanes on one track</text>
+  <text x="112" y="391" font-weight="600" fill="#dde5de">Tape  T7, T8</text>
+  <text x="112" y="413" font-size="12" fill="#8c998f">MLR playheads, Beads grains, slices</text>
 
   <!-- buses -->
-  <rect x="376" y="92" width="200" height="248" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
-  <text x="392" y="117" font-weight="600" fill="#dde5de">Mixer and buses</text>
-  <text x="392" y="146" font-size="12" fill="#8c998f">Material vocoder</text>
-  <text x="392" y="170" font-size="12" fill="#8c998f">Feedback bus</text>
-  <text x="392" y="194" font-size="12" fill="#8c998f">Filter pair</text>
-  <text x="392" y="218" font-size="12" fill="#8c998f">Delay and space</text>
+  <rect x="440" y="92" width="200" height="338" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
+  <text x="456" y="117" font-weight="600" fill="#dde5de">Mixer and buses</text>
+  <text x="456" y="150" font-size="12" fill="#8c998f">Material vocoder</text>
+  <text x="456" y="176" font-size="12" fill="#8c998f">Bands (eight resonant bands)</text>
+  <text x="456" y="202" font-size="12" fill="#8c998f">Feedback bus</text>
+  <text x="456" y="228" font-size="12" fill="#8c998f">Filter pair</text>
+  <text x="456" y="254" font-size="12" fill="#8c998f">Delay: tape or grains</text>
+  <text x="456" y="280" font-size="12" fill="#8c998f">Space: room or clouds</text>
+  <text x="456" y="306" font-size="12" fill="#8c998f">Master drive, punch-ins</text>
 
   <!-- master -->
-  <rect x="616" y="192" width="120" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
-  <text x="676" y="220" text-anchor="middle" font-weight="600" fill="#dde5de">Master out</text>
+  <rect x="664" y="237" width="112" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
+  <text x="720" y="265" text-anchor="middle" font-weight="600" fill="#dde5de">Master out</text>
 
   <!-- tape -->
-  <rect x="376" y="376" width="200" height="64" rx="8" fill="#d69a58" fill-opacity="0.16" stroke="#d69a58" stroke-width="2"/>
-  <text x="392" y="401" font-weight="600" fill="#dde5de">Capture tape</text>
-  <text x="392" y="423" font-size="12" fill="#c9b08e">120 KB, 4 rows, 1.4 to 5.5 s</text>
+  <rect x="440" y="476" width="200" height="64" rx="8" fill="#d69a58" fill-opacity="0.16" stroke="#d69a58" stroke-width="2"/>
+  <text x="456" y="501" font-weight="600" fill="#dde5de">Capture tape</text>
+  <text x="456" y="523" font-size="12" fill="#c9b08e">120 KB, 4 rows, 1.4 to 5.5 s</text>
 
   <!-- connections -->
   <g fill="none" stroke="#8a8f98" stroke-width="1.25">
-    <path d="M332 124H376" marker-end="url(#arrow)"/>
-    <path d="M332 216H376" marker-end="url(#arrow)"/>
-    <path d="M332 308H376" marker-end="url(#arrow)"/>
-    <path d="M576 216H616" marker-end="url(#arrow)"/>
-    <path d="M476 340V376" marker-end="url(#arrow)"/>
-    <path d="M376 408H206V340" marker-end="url(#arrow)"/>
+    <path d="M396 136H440" marker-end="url(#sf-arrow)"/>
+    <path d="M396 230H440" marker-end="url(#sf-arrow)"/>
+    <path d="M396 314H440" marker-end="url(#sf-arrow)"/>
+    <path d="M396 398H440" marker-end="url(#sf-arrow)"/>
+    <path d="M640 261H664" marker-end="url(#sf-arrow)"/>
+    <path d="M540 430V476" marker-end="url(#sf-arrow)"/>
+    <path d="M440 508H246V430" marker-end="url(#sf-arrow)"/>
   </g>
-  <text x="488" y="362" font-size="12" fill="#8c998f">catch, resample</text>
-  <text x="291" y="400" text-anchor="middle" font-size="12" fill="#8c998f">playback and grains</text>
+  <text x="552" y="458" font-size="12" fill="#8c998f">catch, resample</text>
+  <text x="343" y="500" text-anchor="middle" font-size="12" fill="#8c998f">playback and grains</text>
 </svg>

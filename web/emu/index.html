@@ -125,6 +125,13 @@ td:first-child { color: var(--ink); white-space: nowrap; font-weight: 500; }
 .mute.on { background: var(--red); color: #fff; border-color: var(--red); }
 kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; color: var(--ink); }
 .hint { font: 400 11.5px var(--mono); color: var(--muted); }
+.card.wide { grid-column: 1 / -1; }
+.flow svg { display: block; width: 100%; max-width: 800px; height: auto; margin: 0 auto; }
+.howto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 6px 24px; }
+.howto table { border-collapse: collapse; width: 100%; }
+.howto td { padding: 4px 8px 4px 0; vertical-align: top; border-top: 1px solid var(--line); }
+.howto td:first-child { white-space: nowrap; }
+@media (max-width: 1100px) { .howto { grid-template-columns: 1fr; } .howto td:first-child { white-space: normal; } }
 
 @media (max-width: 1100px) {
   .upper { grid-template-columns: auto minmax(0, 1fr); }
@@ -254,10 +261,31 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="krow" id="blackrow"></div>
         <div class="krow" id="whiterow"></div>
       </div>
-      <div class="hint">Drag or scroll the knobs. Click a button to press it; <b>right-click or shift-click</b> holds it down (for the hold layers), click again to let go. Keys: your mouse, touch, or your keyboard: <kbd>Z</kbd>…<kbd>M</kbd> play the lowest seven keys (F up to B, one key each), then <kbd>A</kbd>…<kbd>'</kbd> the white keys from C, with <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd> the black keys.</div>
+      <div class="hint">Mouse, touch or your computer keyboard: see <b>Playing it</b> below.</div>
     </section>
 
   <div class="lower">
+    <section class="card wide" aria-label="How Ravel fits together">
+      <h2>How it fits together</h2>
+      <div class="flow"><!--RAVEL_FLOW--></div>
+      <h2 style="margin-top:14px">Playing it</h2>
+      <div class="howto">
+        <table>
+          <tr><td><b>Knobs</b></td><td>drag up and down, or scroll over them</td></tr>
+          <tr><td><b>Buttons</b></td><td>click to press; <b>right-click</b> or <b>shift-click</b> holds one down for its hold layer, click again to let go; <kbd>Esc</kbd> lets go of all of them</td></tr>
+          <tr><td><b>Keys</b></td><td>click or touch them, or play them from your keyboard</td></tr>
+        </table>
+        <table>
+          <tr><td><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>B</kbd> <kbd>N</kbd> <kbd>M</kbd></td><td>the lowest seven keys in order: F, F♯, G, G♯, A, A♯, B</td></tr>
+          <tr><td><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> <kbd>'</kbd></td><td>the white keys from C4 up</td></tr>
+          <tr><td><kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd></td><td>the black keys from C♯4 up</td></tr>
+          <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>OCT- and OCT+</td></tr>
+          <tr><td><kbd>1</kbd>…<kbd>8</kbd></td><td>choose the track</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>SELECT: the page</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>PLAY</td></tr>
+        </table>
+      </div>
+    </section>
     <section class="card" aria-label="Controls guide">
       <h2>Controls guide <button class="hbtn" id="manualbtn2" style="float:right">Full manual</button></h2>
       <div class="tabs" id="gtabs"></div>
