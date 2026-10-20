@@ -45,7 +45,7 @@ void rv_transport(int run);
 #endif
 #define FELUCCA_UAC RAVEL_UAC
 #ifndef FELUCCA_ID
-#define FELUCCA_ID "FM-1_960"     /* package identity (tools/build_fm1.py sets the release's) */
+#define FELUCCA_ID "FM-1_82"     /* package identity (tools/build_fm1.py sets the release's) */
 #endif
 #include "usb.c"
 #ifndef RAVEL_TRS

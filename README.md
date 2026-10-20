@@ -1212,7 +1212,7 @@ sh tools/get_ac79_files.sh ~/ac79                      # three files of JieLi's 
 JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/ac79 python3 tools/build_fm1.py [--release 0.3]
 ```
 
-`build_fm1.py` builds Felucca's update loader and the app (the platform at `-Os`, the instrument and Beads at `-O2`), checks the image (entry point, no calls from RAM code into flash, no ROM references, no double-precision code, register access only in `hal/`, the RAM and pool budgets) and packages `build/fm1/Ravel-FM1.fwsc`. A release build's identity is `FM-1_96` and the version as two digits each (`0.3` is `FM-1_96000300`).
+`build_fm1.py` builds Felucca's update loader and the app (the platform at `-Os`, the instrument and Beads at `-O2`), checks the image (entry point, no calls from RAM code into flash, no ROM references, no double-precision code, register access only in `hal/`, the RAM and pool budgets) and packages `build/fm1/Ravel-FM1.fwsc`. A release build's identity is `FM-1_82` and the version as two digits each (`0.4.1` is `FM-1_82000401`); a build without a version is `FM-1_82`. 82 ("R") is Ravel's own: no other firmware uses an identity starting with it. (0.4.0 and earlier were `FM-1_96…`.)
 
 The site (what the Pages workflow publishes): `python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc VERSION`.
 

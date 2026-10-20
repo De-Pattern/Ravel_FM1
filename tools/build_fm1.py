@@ -56,7 +56,7 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_960"                # package identity; release builds are FM-1_96XXYYZZ (see main)
+PRODUCT = "FM-1_82"                 # package identity; release builds are FM-1_82XXYYZZ (see main). 82: "R"
 VERSION = None
 
 
@@ -347,17 +347,18 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y[.Z]", help="release build: identity FM-1_96XXYYZZ")
+    ap.add_argument("--release", metavar="X.Y[.Z]", help="release build: identity FM-1_82XXYYZZ")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "Ravel-FM1.fwsc"
     if a.release:
-        # identity FM-1_96 + major, minor, patch as two digits each (0.3 -> FM-1_96000300). FM-1 is the
-        # model the update tools match on; 96 is Ravel's, the rest the version
+        # identity FM-1_82 + major, minor, patch as two digits each (0.4.1 -> FM-1_82000401). FM-1 is the
+        # model the update tools match on; 82 ("R") is Ravel's own, used by no other firmware on the
+        # community hub's identity list; the rest is the version
         m = re.fullmatch(r"v?(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?(-[A-Za-z0-9]+)?", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y[.Z][-suffix], up to two digits each")
-        PRODUCT = "FM-1_96%02d%02d%02d" % (int(m[1]), int(m[2]), int(m[3] or 0))
+        PRODUCT = "FM-1_82%02d%02d%02d" % (int(m[1]), int(m[2]), int(m[3] or 0))
         VERSION = a.release
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
