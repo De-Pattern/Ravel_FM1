@@ -20,9 +20,12 @@ static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
     int n;
-    if (f >= 8)                                       /* format 8: the same layout */
+    if (f >= 10)
         return (int)sizeof(rv);
-    n = (int)sizeof(rv) - (int)sizeof(rv.kitlk);      /* no kit locks before format 8 */
+    n = (int)sizeof(rv) - (int)sizeof(rv.scene_tempo);   /* no scene tempos before format 10 */
+    if (f >= 8)                                       /* formats 8 and 9: the same layout */
+        return n;
+    n -= (int)sizeof(rv.kitlk);                       /* no kit locks before format 8 */
     if (f >= 7)
         return n;
     n -= (int)sizeof(rv.kit);                         /* no kits before format 7 */
@@ -130,9 +133,12 @@ int rv_load(int slot)
         return -1;
     if (f <= 5)
         upgrade_layout(f, n);
-    rv.gp[GP_SWING] = (int16_t)clampi(50 + (rv.gp[GP_SWING] + 2) / 4, 50, 100);   /* was a delay 0-75 (0.5% of a step each): now % */
-    rv.gp[GP_METRO] = 0;
-    rv.gp[GP_COUNTIN] = 1;
+    if (f <= 8) {
+        rv.gp[GP_SWING] = (int16_t)clampi(50 + (rv.gp[GP_SWING] + 2) / 4, 50, 100);   /* was a delay 0-75 (0.5% of a step each): now % */
+        rv.gp[GP_METRO] = 0;
+        rv.gp[GP_COUNTIN] = 1;
+    }
+    __builtin_memset(rv.scene_tempo, 0, sizeof(rv.scene_tempo));   /* every scene keeps the tempo */
     if (f == 2)
         upgrade_from_2();
     if (f <= 3)

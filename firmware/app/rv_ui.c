@@ -37,7 +37,7 @@ enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_C
 enum { RF_TYPE, RF_AMT, RF_ARG, RF_CHANCE };
 enum { MF_SRC, MF_TRACK, MF_PARAM, MF_AMT };
 enum { XF_DEST, XF_START, XF_END, XF_CURVE, XF_LO, XF_HI };
-enum { AF_SCENE, AF_BARS, AF_ROWS, AF_MODE };
+enum { AF_SCENE, AF_BARS, AF_ROWS, AF_MODE, AF_STEMPO };   /* AF_STEMPO: the current scene's own tempo */
 typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
@@ -47,7 +47,7 @@ enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_M
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_CLASSIC, V_SHAPED };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP };
@@ -96,22 +96,21 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_FILTER, PR_SOUND, "FILTER", {TP(TP_FTYPE), TP(TP_CUT), TP(TP_RES), TP(TP_KTRK)}},
     {SEC_VOICE, V_SEM, PIC_FILTER, PR_SOUND, "SEM", {TP(TP_FMODE), TP(TP_FBP), TP(TP_CUT), TP(TP_RES)}},
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN", {TP(TP_DRIVE), TP(TP_FOLD), TP(TP_BITS), TP(TP_DEREZ)}},
-    {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_VOC), NO, NO}},
+    {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), NO, NO, NO}},
     {SEC_VOICE, V_ALL, PIC_INSERT, PR_SOUND, "INSERT", {TP(TP_INS), TP(TP_INA), TP(TP_INB), TP(TP_INMIX)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
 
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), TP(TP_VELO)}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), TP(TP_EFILT), TP(TP_GIVE)}},
+    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
+    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), NO}},
+    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), TP(TP_EFILT), NO}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "DESTINATIONS", {TP(TP_EDST1), TP(TP_EAMT1), TP(TP_EDST2), TP(TP_EAMT2)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE", {TP(TP_ESHAPE), TP(TP_EMORPH), TP(TP_ETIME), TP(TP_EMODE)}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE 2", {TP(TP_EWARP), TP(TP_REL), TP(TP_GIVE), TP(TP_EFILT)}},
+    {SEC_ARTIC, V_SHAPED, PIC_ENV, PR_SOUND, "SHAPE 2", {TP(TP_EWARP), TP(TP_REL), TP(TP_GIVE), TP(TP_EFILT)}},
     {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, NO}},
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
-    {SEC_MOD, V_ALL, PIC_LFO1, PR_NONE, "LFO 1", {GP(GP_LFO1RATE), GP(GP_LFO1SHAPE), NO, NO}},
-    {SEC_MOD, V_ALL, PIC_LFO2, PR_NONE, "LFO 2", {GP(GP_LFO2RATE), GP(GP_LFO2SHAPE), NO, NO}},
+    {SEC_MOD, V_ALL, PIC_LFO1, PR_NONE, "LFOS", {GP(GP_LFO1RATE), GP(GP_LFO1SHAPE), GP(GP_LFO2RATE), GP(GP_LFO2SHAPE)}},
     {SEC_MOD, V_ALL, PIC_DUST, PR_NONE, "DUST", {GP(GP_DUSTRATE), GP(GP_DUSTDECAY), NO, NO}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO", {XF(XF_DEST), XF(XF_START), XF(XF_END), XF(XF_CURVE)}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO WINDOW", {XF(XF_LO), XF(XF_HI), {K_GP, GP_MACRO1}, {K_GP, GP_MACRO2}}},
@@ -152,9 +151,11 @@ static const page_t pages[] = {
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_CHANCE), GP(GP_SWING)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
-    {SEC_SEQ, V_ALL, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), NO}},
-    {SEC_SEQ, V_ALL, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), NO}},
     {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), NO, NO, NO}},
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "GRAPH", {SF(SF_CORDA), SF(SF_CORDB), TP(TP_BRANCH), TP(TP_H2ROLE)}},
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "HEAD 1", {TP(TP_H1TRANS), NO, NO, NO}},
@@ -164,7 +165,7 @@ static const page_t pages[] = {
 
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 1-4", {{K_TLEVEL, 0}, {K_TLEVEL, 1}, {K_TLEVEL, 2}, {K_TLEVEL, 3}}},
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 5-8", {{K_TLEVEL, 4}, {K_TLEVEL, 5}, {K_TLEVEL, 6}, {K_TLEVEL, 7}}},
-    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), GP(GP_TEMPO), NO, NO}},
+    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), NO}},
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, NO, NO, NO}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
@@ -247,9 +248,17 @@ static int track_has_steps(int t)
                 return 1;
     return 0;
 }
+static int track_has_pattern_steps(int t)          /* the current pattern only */
+{
+    int i;
+    for (i = 0; i < RV_STEPS; i++)
+        if (rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[i].flags & ST_ON)
+            return 1;
+    return 0;
+}
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET };
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_SCENE };
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -366,6 +375,8 @@ static int page_visible(int i)
     case V_KIT: return is_kit_ui(t);
     case V_NOTKIT: return !is_kit_ui(t);
     case V_SEM: return kind == KIND_SYNTH && rv.tp[t][TP_FTYPE] == FT_SEM;
+    case V_CLASSIC: return rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ);   /* SHAPE off */
+    case V_SHAPED: return !(rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ));
     default: return 1;
     }
 }
@@ -539,10 +550,20 @@ static kinfo_t kb_info(kb_t k)
         r.max = k.id ? 128 : 127;
         break;
     case K_ARR: {
-        static const char *const nm[] = {"SCENE", "BARS", "ROWS", "PLAYS"};
+        static const char *const nm[] = {"SCENE", "BARS", "ROWS", "PLAYS", "S TEMPO"};
+        static char sn[10] = "S1 TEMPO";
         r.name = nm[k.id];
         r.min = k.id == AF_MODE ? 0 : 1;
-        r.max = k.id == AF_SCENE ? 16 : k.id == AF_BARS ? 64 : k.id == AF_ROWS ? RV_ARR : 1;
+        r.max = k.id == AF_SCENE ? RV_ARR_END + 1 : k.id == AF_BARS ? 64 : k.id == AF_ROWS ? RV_ARR : 1;
+        if (k.id == AF_STEMPO) {                     /* 29 shows KEEP: the scene leaves the tempo alone */
+            int n = (rv.scene_cur & 15) + 1;
+            sn[0] = 'S';
+            sx_int(sn + 1, n);
+            sx_cat(sn, n < 10 ? " TEMPO" : " TEMP");   /* "S3 TEMPO", "S12 TEMP" */
+            r.name = sn;
+            r.min = 29;
+            r.max = 240;
+        }
         if (k.id == AF_MODE) {
             r.fmt = PF_ENUM;
             r.names = rv_pinfo_global(GP_SONGMODE)->names;
@@ -644,7 +665,10 @@ static int kb_get(kb_t k)
         case SF_LEN: return s->len ? s->len : 1;
         case SF_CHANCE: return s->chance;
         case SF_MICRO: return s->micro;
-        case SF_RATCHET: return (s->ratchet & 7) + 1;
+        case SF_RATCHET:                              /* a kit: the chosen lane's roll */
+            if (is_kit_ui(ui.track) && !((s->len >> (ui.lane[ui.track] % RV_LANES)) & 1))
+                return 1;
+            return (s->ratchet & 7) + 1;
         case SF_ACC: return (s->env >> (ui.lane[ui.track] % RV_LANES)) & 1;
         case SF_RCURVE: return ((s->ratchet >> 3) & 3) + ((s->ratchet & 32) ? 3 : 0);
         case SF_COND: return s->cond;
@@ -683,6 +707,8 @@ static int kb_get(kb_t k)
     case K_ARR:
         if (k.id == AF_SCENE)
             return rv.arr[ui.cur_arr].scene + 1;
+        if (k.id == AF_STEMPO)
+            return rv.scene_tempo[rv.scene_cur & 15] ? rv.scene_tempo[rv.scene_cur & 15] : 29;
         if (k.id == AF_BARS)
             return rv.arr[ui.cur_arr].bars ? rv.arr[ui.cur_arr].bars : 1;
         if (k.id == AF_ROWS)
@@ -898,6 +924,11 @@ static void kb_set(kb_t k, int v)
     case K_ARR:
         if (k.id == AF_SCENE)
             rv.arr[ui.cur_arr].scene = (uint8_t)(v - 1);
+        else if (k.id == AF_STEMPO) {
+            rv.scene_tempo[rv.scene_cur & 15] = (uint8_t)(v < 30 ? 0 : v);
+            if (v >= 30)
+                rv.gp[GP_TEMPO] = (int16_t)v;        /* hear it now */
+        }
         else if (k.id == AF_BARS)
             rv.arr[ui.cur_arr].bars = (uint8_t)v;
         else if (k.id == AF_ROWS) {
@@ -976,6 +1007,10 @@ static void kb_format(kb_t k, int v, char *o)
     kinfo_t in = kb_info(k);
     o[0] = 0;
     if (!in.name) {
+        return;
+    }
+    if (k.kind == K_ARR && ((k.id == AF_SCENE && v > RV_ARR_END) || (k.id == AF_STEMPO && v < 30))) {
+        sx_cat(o, k.id == AF_SCENE ? "END" : "KEEP");
         return;
     }
     if (k.kind == K_TP && k.id == TP_INA && rv.tp[ui.track][TP_INS] == INS_COMB) {
@@ -1334,8 +1369,11 @@ static void section_open(int s)
 {
     if (ui.sec == s) {                        /* tapping the section's button again: the next page */
         uint8_t list[SEC_PAGES_MAX];
-        int n = sec_page_list(s, list);
-        ui.page[s] = (uint8_t)(n ? (ui.page[s] + 1) % n : 0);
+        int n = sec_page_list(s, list), p = n ? (ui.page[s] + 1) % n : 0;
+        if (s == SEC_BUS && n)                       /* FX: on to the next bus, not just the next page */
+            while (p && pages[list[p]].pic == pages[list[(p + n - 1) % n]].pic)
+                p = (p + 1) % n;
+        ui.page[s] = (uint8_t)p;
     } else {
         ui.sec = (uint8_t)s;
     }
@@ -1479,7 +1517,15 @@ static void key_event(int k, int on)
     }
     if (btn & (1u << B_SAVE)) {
         if (on && wi >= 0) {
-            char b[20] = "SCENE ";
+            char b[24] = "SCENE ";
+            if (rv.scene[wi & 15].used) {            /* a stored scene: the first press asks */
+                char w[24] = "AGAIN: OVERWRITE S";
+                sx_int(w + 18, wi + 1);
+                if (!confirmed(CONF_SCENE + wi, w)) {
+                    ui.layer_used[B_SAVE] = 1;
+                    return;
+                }
+            }
             rv_scene_store(wi);
             sx_int(b + 6, wi + 1);
             sx_cat(b, " STORED");
@@ -1524,8 +1570,20 @@ static void key_event(int k, int on)
                 if (!rv_live.playing)
                     rv.pat_cur[t] = (uint8_t)bi;
                 msg(bi == 0 ? "PATTERN A" : "PATTERN B");
+            } else if (bi == 8) {                     /* black key 9: COPY */
+                char b[24] = "COPIED T1 A";
+                rv_pattern_copy(t);
+                b[8] = (char)('1' + t);
+                b[10] = (char)('A' + rv.pat_cur[t] % RV_PATTERNS);
+                msg(b);
+            } else if (bi == 9) {                     /* black key 10: PASTE (asks first over steps) */
+                int r;
+                if (track_has_pattern_steps(t) && !confirmed(CONF_PASTE, "PRESS AGAIN TO PASTE"))
+                    return;
+                r = rv_pattern_paste(t);
+                msg(r == 0 ? "PASTED" : r == -1 ? "COPY A PATTERN FIRST" : "KIT AND NOTES DON'T MIX");
             } else if (bi == 10) {
-                if (track_has_steps(t) && !confirmed(CONF_CLEAR, "PRESS AGAIN TO CLEAR"))
+                if (track_has_pattern_steps(t) && !confirmed(CONF_CLEAR, "PRESS AGAIN TO CLEAR"))
                     return;
                 rv_pattern_clear(t);
                 msg("PATTERN CLEARED");
@@ -1592,8 +1650,9 @@ static void key_event(int k, int on)
     /* --- otherwise the keys play the track --- */
     if (on) {
         if (is_kit_ui(t)) {                           /* a kit: the white keys play the lanes, 1-6 and again */
-            if (bi >= 2 && bi < 2 + RV_LANES) {       /* black keys 3-8: that lane's page */
-                lane_open(t, bi - 2);
+            if (bi >= 2 && bi < 2 + RV_LANES) {       /* black keys 3-8 on EDIT: that lane's page */
+                if (ui.sec == SEC_VOICE)
+                    lane_open(t, bi - 2);
                 return;
             }
             if (wi < 0)
@@ -2505,8 +2564,9 @@ static void pic_matrix(void)
 
 static void pic_lfo(int k)
 {
-    int i, prev = 0, shape = rv.gp[k ? GP_LFO2SHAPE : GP_LFO1SHAPE];
+    int i, prev = 0, shape = rv.gp[k ? GP_LFO2SHAPE : GP_LFO1SHAPE], yc = PIC_Y + 30 + k * 60;   /* LFO 1 above, LFO 2 below */
     float ph = lfo[k].ph;
+    g_text(200, yc - 28, &FONT_XS, k ? "LFO 2" : "LFO 1", C_DIM);
     for (i = 0; i <= 224; i += 2) {
         float p = (float)i / 224.0f, v;
         switch (shape) {
@@ -2518,14 +2578,14 @@ static void pic_lfo(int k)
         default: v = sin_lut(p * 3.0f) * 0.5f + sin_lut(p * 7.0f + 0.3f) * 0.3f; break;
         }
         {
-            int y = PIC_Y + 60 - (int)(v * 50.0f);
+            int y = yc - (int)(v * 22.0f);
             if (i)
                 g_line(8 + i - 2, prev, 8 + i, y, C_TEAL_D);
             prev = y;
         }
     }
-    g_vline(8 + (int)(ph * 224.0f), PIC_Y + 6, 108, C_TEAL);
-    g_disc(8 + (int)(ph * 224.0f), PIC_Y + 60 - (int)((k ? rv_live.lfo2 : rv_live.lfo1) * 50.0f), 4, C_WHITE);
+    g_vline(8 + (int)(ph * 224.0f), yc - 26, 52, C_TEAL);
+    g_disc(8 + (int)(ph * 224.0f), yc - (int)((k ? rv_live.lfo2 : rv_live.lfo1) * 22.0f), 3, C_WHITE);
 }
 
 static void pic_dust(void)
@@ -3070,13 +3130,20 @@ static void pic_arr(void)
         int w = (rv.arr[i].bars ? rv.arr[i].bars : 1) * 224 / tot;
         char b[4];
         g_fill(x, PIC_Y + 30, w - 1 > 0 ? w - 1 : 1, 40, i == ui.cur_arr ? C_TEAL_D : C_PANEL);
-        sx_int(b, rv.arr[i].scene + 1);
+        if (rv.arr[i].scene >= RV_ARR_END) {
+            b[0] = 'E';
+            b[1] = 'N';
+            b[2] = 'D';
+            b[3] = 0;
+        } else
+            sx_int(b, rv.arr[i].scene + 1);
         if (w > 10)
             g_text_c(x + w / 2, PIC_Y + 42, &FONT_XS, b, C_INK);
         x += w;
     }
     g_text(8, PIC_Y + 80, &FONT_T, rv.gp[GP_SONGMODE] ? "PLAYS THE ARRANGEMENT (SONG)" : "PLAYS PATTERNS: SET PLAYS TO SONG", C_MID);
-    g_text(8, PIC_Y + 92, &FONT_T, "NUMBERS ARE SCENES", C_DIM);
+    g_text(8, PIC_Y + 92, &FONT_T, "NUMBERS ARE SCENES. END STOPS THE SONG", C_DIM);
+    g_text(8, PIC_Y + 104, &FONT_T, "NO END: THE SONG LOOPS", C_DIM);
 }
 
 static void pic_arcs(void)
@@ -3157,7 +3224,7 @@ static void draw_picture(void)
     case PIC_ENV: pic_env(); break;
     case PIC_LIB: pic_lib(); break;
     case PIC_MATRIX: pic_matrix(); break;
-    case PIC_LFO1: pic_lfo(0); break;
+    case PIC_LFO1: pic_lfo(0); pic_lfo(1); break;
     case PIC_LFO2: pic_lfo(1); break;
     case PIC_DUST: pic_dust(); break;
     case PIC_MACRO: pic_macro(); break;

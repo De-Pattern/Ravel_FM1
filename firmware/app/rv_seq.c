@@ -16,6 +16,8 @@ static uint8_t playing;
 static uint32_t mpulse;                             /* master pulses since start */
 static float mpulse_f;
 static int8_t pend_scene = -1, pend_pat[RV_TRACKS];
+static uint8_t song_ended;
+static void seq_stop(void);
 static uint8_t arr_row, arr_bar_left;
 static uint32_t song_bar;
 static uint8_t fill_on;
@@ -503,6 +505,8 @@ static void apply_pending(void)
     if (pend_scene >= 0) {
         const rv_scene *sc = &rv.scene[pend_scene & 15];
         if (sc->used) {
+            if (rv.scene_tempo[pend_scene & 15])          /* a scene with its own tempo */
+                rv.gp[GP_TEMPO] = rv.scene_tempo[pend_scene & 15];
             for (t = 0; t < RV_TRACKS; t++) {
                 rv.pat_cur[t] = sc->pattern[t] % RV_PATTERNS;
                 rv.tp[t][TP_LEVEL] = sc->level[t];
@@ -541,6 +545,10 @@ static void bar_boundary(void)
         if (arr_bar_left == 0) {
             arr_row = (uint8_t)((arr_row + 1) % rv.arr_len);
             arr_bar_left = rv.arr[arr_row].bars ? rv.arr[arr_row].bars : 1;
+            if (rv.arr[arr_row].scene >= RV_ARR_END) {   /* an END row: the song stops here */
+                song_ended = 1;
+                return;
+            }
             pend_scene = (int8_t)rv.arr[arr_row].scene;
         }
     }
@@ -563,8 +571,15 @@ static void seq_pulse(int off)
     }
     if ((mpulse & 3) == 0)
         click_at(base + lat, (mpulse & 15) == 0, 0);
-    if ((mpulse & 15) == 0 && mpulse)
+    if ((mpulse & 15) == 0 && mpulse) {
         bar_boundary();
+        if (song_ended) {                             /* the arrangement's END: stop as the transport does */
+            song_ended = 0;
+            seq_stop();
+            rv_live.playing = 0;
+            return;
+        }
+    }
     rv_live.beat = (uint8_t)((mpulse >> 2) & 3);
     rv_live.bar = (uint8_t)(song_bar & 255);
     for (t = 0; t < RV_TRACKS; t++) {
@@ -622,7 +637,7 @@ static void seq_start(void)
     song_bar = 0;
     arr_row = 0;
     arr_bar_left = rv.arr_len ? (rv.arr[0].bars ? rv.arr[0].bars : 1) : 0;
-    if (rv.gp[GP_SONGMODE] == 1 && rv.arr_len)
+    if (rv.gp[GP_SONGMODE] == 1 && rv.arr_len && rv.arr[0].scene < RV_ARR_END)
         pend_scene = (int8_t)rv.arr[0].scene;
     for (t = 0; t < RV_TRACKS; t++) {
         sq[t].tied = 0;
@@ -839,6 +854,35 @@ void rv_kitlock_clear(int t, int pat, int step, int lane)
         if (k[i].what != 0xFF && (step < 0 || (k[i].step & 63) == (step & 63)) && ((k[i].step >> 6) & 1) == (pat & 1) &&
             (lane < 0 || (k[i].what >> 4) == lane))
             k[i].what = 0xFF;
+}
+
+/* COPY marks a pattern; PASTE copies it from where it is (no buffer: RAM is tight), with a kit's locks */
+static int8_t clip_t = -1, clip_p;
+
+void rv_pattern_copy(int t)
+{
+    clip_t = (int8_t)(t & 7);
+    clip_p = (int8_t)(rv.pat_cur[t & 7] % RV_PATTERNS);
+}
+
+/* 0 pasted; -1 nothing copied; -2 notes into a kit or lanes into notes */
+int rv_pattern_paste(int t)
+{
+    int pat = rv.pat_cur[t & 7] % RV_PATTERNS, i;
+    if (clip_t < 0)
+        return -1;
+    if (is_kit(clip_t) != is_kit(t & 7))
+        return -2;
+    if (clip_t == (t & 7) && clip_p == pat)
+        return 0;
+    rv.pat[t & 7][pat] = rv.pat[clip_t][clip_p];
+    rv_kitlock_clear(t, pat, -1, -1);
+    for (i = 0; i < RV_KITLOCKS; i++) {
+        rv_kitlock k = rv.kitlk[clip_t][i];       /* (a copy: the table may be the same one) */
+        if (k.what != 0xFF && ((k.step >> 6) & 1) == (clip_p & 1))
+            rv_kitlock_set(t, pat, k.step & 63, k.what >> 4, k.what & 15, k.val);
+    }
+    return 0;
 }
 
 void rv_pattern_clear(int t)

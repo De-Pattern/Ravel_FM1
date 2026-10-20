@@ -84,12 +84,12 @@ tap LFO
 turn SELECT -20
 turn SELECT 1
 wait 150
-expect page LFO 1
+expect page LFOS
 wait 600
 shot mod-lfo.png
 tap LFO
 turn SELECT -20
-turn SELECT 4
+turn SELECT 3
 wait 150
 expect page MACRO
 wait 600

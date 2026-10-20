@@ -428,7 +428,7 @@ function keyLabels() {
   else if (has("GLO")) { w = ["M1","M2","M3","M4","M5","M6","M7","M8","S1","S2","S3","S4","S5","S6","S7","S8"]; b = ["TAP"]; }
   else if (has("SAVE")) { w = Array.from({length:16}, (_, i) => "ST" + (i + 1)); }
   else if (has("SCL")) { w = WHITE.map(k => "ROOT " + NOTE[k % 12]); }
-  else if (has("SEQ") || sec === SEC.SEQ) { w = Array.from({length:16}, (_, i) => String(i + 1)); b = ["PAT A","PAT B","","","","","","","","","CLEAR"]; }
+  else if (has("SEQ") || sec === SEC.SEQ) { w = Array.from({length:16}, (_, i) => String(i + 1)); b = kind === 3 && rv.web_engine(t) === 1 ? ["PAT A","PAT B","LANE 1","LANE 2","LANE 3","LANE 4","LANE 5","LANE 6","COPY","PASTE","CLEAR"] : ["PAT A","PAT B","","","","","","","COPY","PASTE","CLEAR"]; }
   else if (sec === SEC.TAPE) {
     if (kind === 2 && rv.web_src0(t) === 0) { w = Array.from({length:16}, (_, i) => "POS " + (i + 1)); b = ["ROW 1","ROW 2","ROW 3","ROW 4","REV","1/2","X2","HOLD","CATCH","RESMP",""]; }
     else b = ["","","","","","","","","CATCH","RESMP",""];

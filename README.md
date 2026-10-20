@@ -134,7 +134,7 @@ The ten sections:
 | **HOME** | Tracks | All eight tracks at a glance, and the influence grid |
 | **EDIT** | Voice | The current track's sound: engine, source pages, pitch, filter, skin, insert, mix, sends |
 | **ENV** | Articulation | How a note starts, holds and ends, and the 256-shape library |
-| **LFO** | Mod | Mod matrix, LFO 1, LFO 2, dust, macros |
+| **LFO** | Mod | Mod matrix, the two LFOs, dust, macros |
 | **FX** | Buses | Delay, space, feedback, filter pair, vocoder, bands, master |
 | **SCL** | Scale | Root, scale, transpose, interval |
 | **ARP** | Tape | Capture, rows, and how a tape track plays the tape |
@@ -165,7 +165,7 @@ Short messages ("CAUGHT", "PATTERN B", "SAVED TO 3") flash on the screen when so
 Every page in Ravel works the same way:
 
 1. **Press a section button** to open the section.
-2. **Turn SELECT** (or tap the same button again) to walk its pages.
+2. **Turn SELECT** (or tap the same button again) to walk its pages. On FX, tapping FX again jumps to the next bus (DELAY, SPACE, FEEDBACK, FILTER PAIR, BANDS, VOCODER, MASTER); SELECT still goes page by page.
 3. **Turn ALGORITHM** to choose which track you are editing.
 4. **Turn KNOB 1–4** to change the four values shown.
 5. **Turn PRESETS** to browse whatever the page holds.
@@ -263,7 +263,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | – |
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | KEYTRK: the cutoff (or the morph) follows the note |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | DEREZ (sample-rate reduction) |
-| **SKIN 2** | BITMASK (digital grit) | VOCODER: this track's send into the vocoder bus | – | – |
+| **SKIN 2** | BITMASK (digital grit) | – | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
 | **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | BANDS send |
@@ -537,14 +537,14 @@ A PERC track has two MODEs (EDIT › SOUND, KNOB 2). It starts as a **KIT**: six
 
 A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit by KIND or a preset, starts its steps clean, since notes and lane hits can't read each other; if the track has steps, the first turn only warns, and turning again after a moment does it.)
 
-**Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. Outside SEQ, **black keys 3–8** jump straight to lanes 1–6 (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE and LENGTH, each with its bar and value.
+**Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. On EDIT, **black keys 3–8** jump straight to lanes 1–6 (in other sections they do nothing on a kit) (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE and LENGTH, each with its bar and value.
 
 - **PRESETS chooses the lane's machine** (any of the 33; each loads its own defaults).
 - **The knobs work through the list a row at a time**: OCT- and OCT+ move the knobs to the next group (parameters 1–4, parameters 5–8, then LEVEL, CHANCE and LENGTH). The rows the knobs are on are lit and numbered 1–4 in the list.
 - LEVEL is the lane's level in the kit. CHANCE is how likely the lane plays its hits. LENGTH is the lane's own loop (TRK follows the track's LENGTH; any other length runs against it: a 12-step hat over a 16-step kick shifts every bar).
 - **Shared by the whole kit:** EDIT › **KIT FX** (AMD, AMF, EQF, EQG) and **KIT FILTER** (FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, MIX and SENDS. A kit has no PITCH or synth FILTER page: each machine has its own pitch and tone.
 
-**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length; STEP TIMING stays for micro-timing and the ratchet's curve.
+**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps LENGTH, RATE and CLOCK. A kit's ratchets are set per lane on DRUM STEP only.
 
 - **In SEQ, black keys 3–8 choose the lane** you are sequencing, and **the white keys are its sixteen steps**: one tap puts a hit there, the next tap clears it (and its locks). OCT- and OCT+ page through longer patterns.
 - **The DRUM pages:**
@@ -552,7 +552,7 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | CHANCE | SWING (the same as GLO › CLOCK's) |
-| **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step |
+| **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step (1 = no roll; lanes rolling on one step share the count) |
 
 - **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
 - **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). With REC armed, what you play is recorded into the lanes.
@@ -570,15 +570,17 @@ Ravel's envelope is in three stages, named after how speech is described: the **
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **ONSET** | ATTACK time (0.5 ms to 8 s) | CURVE: − is a fast swell, + a slow one | OVERSHT: the attack overshoots and settles (a "bite") | GIVE: a spring in the level. It lags and bounces instead of moving straight. |
-| **CONTINUANT** | DECAY time | SUSTAIN level | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | VELO: velocity sensitivity |
-| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±) | GIVE (the same spring) |
+| **CONTINUANT** | DECAY time | SUSTAIN level | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | – |
+| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±) | – |
+
+(VELO, velocity sensitivity, is on EDIT › SOUND.)
 | **DESTINATIONS** | DEST 1: any parameter of this track | AMOUNT 1 (±) | DEST 2 | AMOUNT 2 (±) |
 
 DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVEL2 or CZ's DCW +-, so the timbre changes with the note.
 
 ### SHAPE
 
-SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above.
+SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above. While a shape is chosen, ONSET, CONTINUANT and TERMINATION are hidden and SHAPE 2 appears with what still applies; at OFF it is the other way round, so no knob is ever in two places.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -609,13 +611,12 @@ Ravel keeps **256 envelope shapes** that any step can recall, so one pattern can
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
 | --- | --- | --- | --- | --- | --- |
 | **MATRIX** | SOURCE | TRACK (1–8, or the global one) | PARAM | AMOUNT (±) | slot 1–8 |
-| **LFO 1** | RATE | SHAPE: SINE, TRI, RAMP, SAW, SQUARE, S&H, DRIFT | – | – | – |
-| **LFO 2** | RATE | SHAPE | – | – | – |
+| **LFOS** | L1 RATE | L1 SHAPE: SINE, TRI, RAMP, SAW, SQUARE, S&H, DRIFT | L2 RATE | L2 SHAPE | – |
 | **DUST** | RATE: how often random spikes happen | DECAY: how long each spike lasts | – | – | – |
 | **MACRO** | DEST: what this slot moves | START value (±) | END value (±) | CURVE: LINEAR, EXP, LOG, S | which macro and slot |
 | **MACRO WINDOW** | FROM %: where on the macro's travel this slot starts moving | TO %: where it stops | MACRO 1 | MACRO 2 | which macro and slot |
 
-<p align="center"><img src="docs/manual/mod-matrix.png" alt="MATRIX" width="240"> <img src="docs/manual/mod-lfo.png" alt="LFO 1" width="240"> <img src="docs/manual/mod-macro.png" alt="MACRO" width="240"></p>
+<p align="center"><img src="docs/manual/mod-matrix.png" alt="MATRIX" width="240"> <img src="docs/manual/mod-lfo.png" alt="LFOS" width="240"> <img src="docs/manual/mod-macro.png" alt="MACRO" width="240"></p>
 
 **Matrix sources:**
 
@@ -801,6 +802,7 @@ The picture shows the whole tape, the four rows (the current one bright), the pl
 Every track has its own sequencer, with **two patterns (A and B)** of up to **64 steps**.
 
 - **PRESETS** switches pattern while on SEQ pages, and so do black keys **1** and **2**.
+- **Black key 9 (COPY)** picks the current pattern as the source. **Black key 10 (PASTE)** copies that pattern, as it is at that moment and with a kit's locks, into the current one: switch to the other pattern, or to another track, first. A kit's pattern pastes only into a kit, and a note pattern only into a note track. Pasting over steps asks first: press it twice. The pattern's steps are copied; the track's LENGTH and RATE stay the target's own.
 - **Black key 11** clears the pattern: press it twice (the first press asks).
 - A pattern launched while playing waits for the current one to finish (its LENGTH, at its RATE), then starts from its first step, so patterns of any length change cleanly. (A GRAPH track has no end, so it changes on the next bar.) Scenes change on the next bar.
 
@@ -913,8 +915,8 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | --- | --- | --- | --- | --- | --- |
 | **MIXER 1-4** | T1 LEVEL | T2 LEVEL | T3 LEVEL | T4 LEVEL | – |
 | **MIXER 5-8** | T5 LEVEL | T6 LEVEL | T7 LEVEL | T8 LEVEL | – |
-| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | TEMPO | – | – | scene |
-| **ARRANGE** | SCENE for this row | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
+| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | – | scene |
+| **ARRANGE** | SCENE for this row, or END (past 16): the song stops when it gets there | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
 | **ARCS** | DENSITY of this bar (0–100 %) for the current track | – | – | – | bar 1–16 |
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
@@ -924,7 +926,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 
 **Scenes** are snapshots of every track's pattern (A/B), levels, influence routes, mutes and macros.
 
-- **Store:** hold **SAVE** and press a white key (1–16).
+- **Store:** hold **SAVE** and press a white key (1–16). Over a stored scene, the first press asks: press again to overwrite.
 - **Launch:** on the SCENES page, press a white key. It changes on the next bar. Black keys 1–2 there switch the current track's pattern.
 
 **Arrangement:** a list of up to 32 rows, each "play scene S for B bars".
@@ -932,6 +934,8 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 1. Set **ROWS** to the number of rows the song needs.
 2. Pick each row with **PRESETS** and set its SCENE and BARS.
 3. Set **PLAYS** to SONG and press PLAY.
+
+Without an END row the song loops back to row 1. Give the last row the scene END to have the transport stop there. A scene with its own tempo (S TEMPO) changes the tempo when its row starts.
 
 **Density arcs.** For each track, draw 16 bars of density.
 
@@ -1079,7 +1083,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | I want to… | Press / turn |
 | --- | --- |
 | Pick a track | ALGORITHM (emulator: 1–8) |
-| Next page | SELECT, or tap the section button again |
+| Next page | SELECT, or tap the section button again (FX: the next bus) |
 | Change a sound | PRESETS on any EDIT page |
 | Start / stop | PLAY (emulator: Space) |
 | Turn steps on | SEQ, tap white keys |
@@ -1091,7 +1095,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Jump the tape from anywhere | Hold ARP + white key |
 | Mute / solo | Hold GLO + white 1–8 / 9–16 |
 | Tap tempo | Hold GLO + black 1 |
-| Store a scene | Hold SAVE + white key |
+| Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
 | Punch-in effects | Hold FX + white 1–8 |

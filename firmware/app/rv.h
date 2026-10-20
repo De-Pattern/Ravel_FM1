@@ -188,7 +188,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 9                 /* 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 10                /* 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -236,7 +236,9 @@ typedef struct {
     rv_cz cz[RV_TRACKS];                   /* (format 4) last, so older projects load in front of it */
     rv_kit kit[RV_TRACKS];                 /* (format 7) after that */
     rv_kitlock kitlk[RV_TRACKS][RV_KITLOCKS];   /* (format 8) then the kits' locks */
+    uint8_t scene_tempo[RV_SCENES];        /* (format 10) the tempo a scene sets, 0 = it keeps the tempo */
 } rv_project;
+#define RV_ARR_END 16                      /* an arrangement row's scene: the song stops there */
 
 extern rv_project rv;                      /* the project being played */
 
@@ -325,7 +327,9 @@ void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed,
 void rv_pattern_clear(int t);
 int rv_kitlock_find(int t, int pat, int step, int lane, int field);   /* index, or -1 */
 int rv_kitlock_set(int t, int pat, int step, int lane, int field, int v);   /* 0: the table is full */
-void rv_kitlock_clear(int t, int pat, int step, int lane);   /* lane -1: every lane */
+void rv_kitlock_clear(int t, int pat, int step, int lane);
+void rv_pattern_copy(int t);                    /* the current pattern onto the clipboard */
+int rv_pattern_paste(int t);                    /* 0, or -1 nothing copied, -2 kit and notes don't mix */   /* lane -1: every lane */
 void rv_track_set_kind(int t, int kind);           /* KIND changed: defaults, and steps cleared when lanes and notes swap */
 float rv_param_eff(int t, int p);              /* the value after modulation, for the screen */
 uint32_t rv_rng(void);
