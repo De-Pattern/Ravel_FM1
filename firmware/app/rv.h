@@ -70,13 +70,12 @@ enum {
     TP_SEQMODE, TP_H1ROLE, TP_H1SHAPE, TP_H1DEPTH, TP_H1CYCLE, TP_H1COMB, TP_H1TRANS,
     TP_H2TARGET, TP_H2SHAPE, TP_H2DEPTH, TP_H2CYCLE, TP_H2COMB, TP_H2TRANS,
     TP_BANDS,                       /* (format 5) the send into the BANDS bus */
-    /* (format 6) SHAPE: the articulation from a library of complex shapes, after the XAOC Zadar */
-    TP_ESHAPE, TP_EMORPH, TP_ETIME, TP_EMODE, TP_EWARP,
+    /* (format 12) the FILTER ENV, in the slots SHAPE had (formats 6-11): delay, attack, hold,
+     * decay, sustain; release, the attack's and the decay's bends, loop and rate follow below */
+    TP_FDLY, TP_FATK, TP_FHOLD, TP_FDEC, TP_FSUS,
     TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
     TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
-    /* SHAPE, more of the Zadar's tools: BEND (the level's response), REVERSE, REPEAT (how many
-     * plays), PHASE (where it starts); all 0 = as before, so older projects load unchanged */
-    TP_EBEND, TP_EREV, TP_EREP, TP_EPHASE,
+    TP_FREL, TP_FACRV, TP_FDCRV, TP_FLOOP, TP_FRATE,   /* the FILTER ENV, continued */
     TP_N
 };
 #define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
@@ -133,7 +132,6 @@ enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_SQ80, FT_ZV
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
 enum { DIR_FWD, DIR_REV, DIR_PING, DIR_SNAKE, DIR_GRAPH, DIR_N };   /* DIR_GRAPH: old projects; now TP_SEQMODE */
 enum { SEQ_STEPS, SEQ_GRAPH };
-enum { SHM_ONESHOT, SHM_GATED, SHM_LOOP, SHM_CYCLE };   /* how a SHAPE articulation plays */
 enum { ROLE_OFF, ROLE_NOTES, ROLE_GATE, ROLE_PITCH };   /* what a playhead does at a step */
 enum { FG_OFF, FG_RISE, FG_FALL, FG_ARCH, FG_DECAY, FG_SWELL, FG_LFO1, FG_LFO2, FG_DUST, FG_N };
 enum { COMB_SCALE, COMB_ADD };                   /* function generator against the clock: times, or plus */
@@ -193,7 +191,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 11                /* 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 12                /* 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -253,6 +251,7 @@ extern rv_project rv;                      /* the project being played */
 #else
 #define RV_RAMBSS
 #endif
+void rv_fenv_from_env(int16_t *tp);         /* the FILTER ENV from the volume envelope (older work) */
 void moom_start(void);                     /* the hidden game (rv_moom.c) */
 int moom_active(void);
 void moom_exit(void);
@@ -270,6 +269,8 @@ typedef struct {
     int8_t lane_step[RV_TRACKS][RV_LANES];  /* a KIT: the step each lane is on */          /* the newest CZ voice: each envelope's step (line 1 DCO DCW DCA, line 2) */               /* what reaches a strike body from outside: EXCITE, feedback, input */                  /* the track's newest note, semitones from C4 */
     uint8_t stage[RV_TRACKS];              /* its stage: 0 onset, 1 continuant, 2 termination, 3 off */
     float stage_pos[RV_TRACKS];            /* 0..1 through the stage */
+    float fenv[RV_TRACKS], fenv_pos[RV_TRACKS];   /* the FILTER ENV of that voice: its level, 0..1 through its stage */
+    uint8_t fenv_stage[RV_TRACKS];         /* FE_* (rv_int.h) */
     int16_t step[RV_TRACKS][2];            /* playing step per head, -1 = none */
     float fg[RV_TRACKS][2];                /* each head's function generator: value 0..1 */
     float fg_pos[RV_TRACKS][2];            /* where in its cycle, 0..1 */

@@ -61,14 +61,12 @@ wait 150
 expect page ONSET
 wait 600
 shot artic-onset.png
-tap ENV
-turn SELECT -20
 turn SELECT 4
 wait 150
-expect page SHAPE
-tap ENV
-turn SELECT -20
-turn SELECT 6
+expect page FILTER ENV
+wait 600
+shot artic-fenv.png
+turn SELECT 3
 wait 150
 expect page LIBRARY
 wait 600

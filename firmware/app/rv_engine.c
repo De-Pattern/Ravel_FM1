@@ -288,9 +288,10 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             artic_cfg_track(&vo->cfg, tr->eff);
             vo->cfg_lib = 0;
         }
-        if (!legato)
+        if (!legato) {
             artic_start(&vo->a, &vo->cfg);
-        else
+            fenv_start(&vo->fe);
+        } else
             vo->a.gate = 1;
         if (rv.tp[t][TP_ENGINE] == ENG_PHYS)
             phys_strike(vo, tr->eff);
@@ -405,6 +406,7 @@ static void note_off_internal(int t, int note)
         for (i = 0; i < RV_SYNTH_VOICES; i++)
             if (vs[i].on && vs[i].track == t && vs[i].note == note && vs[i].a.gate) {
                 artic_release(&vs[i].a, &vs[i].cfg);
+                fenv_release(&vs[i].fe);
             }
     } else if (kind == KIND_STRIKE) {
         for (i = 0; i < RV_STRIKE_VOICES; i++)
@@ -425,8 +427,10 @@ static void all_off_now(void)
 {
     int i;
     for (i = 0; i < RV_SYNTH_VOICES; i++)
-        if (vs[i].on)
+        if (vs[i].on) {
             artic_release(&vs[i].a, &vs[i].cfg);
+            fenv_release(&vs[i].fe);
+        }
     for (i = 0; i < RV_STRIKE_VOICES; i++)
         if (ss[i].on) {
             ss[i].gate = 0;
@@ -736,6 +740,9 @@ static void render_sub(float *outl, float *outr, int n)
             tr->lead_env = lv;
             rv_live.stage[v->track] = v->a.stage;
             rv_live.stage_pos[v->track] = v->a.u;
+            rv_live.fenv[v->track] = v->fe.lvl;
+            rv_live.fenv_pos[v->track] = v->fe.u;
+            rv_live.fenv_stage[v->track] = v->fe.stage;
         }
     }
     for (k = 0; k < RV_STRIKE_VOICES; k++) {

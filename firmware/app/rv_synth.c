@@ -15,15 +15,6 @@ static void artic_cfg_track(artic_cfg_t *c, const float *eff)
     c->loop = eff[TP_LOOP] < 0.5f ? 0.0f : 4.0f * fm_exp2f(-eff[TP_LOOP] * (13.0f / 127.0f));   /* 4 s .. 0.5 ms */
     c->give = clampf(eff[TP_GIVE] * (1.0f / 127.0f), 0.0f, 1.0f);
     c->tail = clampf(eff[TP_TAIL] * (1.0f / 127.0f), 0.0f, 1.0f);
-    c->shape = (uint8_t)clampi((int)(eff[TP_ESHAPE] + 0.5f), 0, SHP_N);
-    c->smode = (uint8_t)clampi((int)(eff[TP_EMODE] + 0.5f), 0, 3);
-    c->morph = clampf(eff[TP_EMORPH] * (1.0f / 127.0f), 0.0f, 1.0f);
-    c->stime = rv_time_f(eff[TP_ETIME]);
-    c->warp = clampf(eff[TP_EWARP] * (1.0f / 64.0f), -1.0f, 1.0f);
-    c->bend = (int8_t)clampi((int)fm_floorf(eff[TP_EBEND] + 0.5f), -64, 63);
-    c->rev = eff[TP_EREV] >= 0.5f;
-    c->reps = (uint8_t)clampi((int)(eff[TP_EREP] + 0.5f), 0, 15);
-    c->phase = (uint8_t)clampi((int)(eff[TP_EPHASE] + 0.5f), 0, 99);
 }
 
 /* a library shape: attack shape, body, death (Avenir's Envion idea: three values make an envelope) */
@@ -31,7 +22,6 @@ static void artic_cfg_lib(artic_cfg_t *c, const uint8_t *l, const float *eff)
 {
     float a = l[0] * (1.0f / 127.0f), b = l[1] * (1.0f / 127.0f), d = l[2] * (1.0f / 127.0f);
     artic_cfg_track(c, eff);                     /* keeps give, loop and tail from the track */
-    c->shape = 0;                                /* a library recall is a classic articulation */
     c->atk = 0.0005f * fm_exp2f(a * 12.0f);      /* 0.5 ms .. 2 s */
     c->curve = 0.6f - a * 1.2f;                  /* fast attacks bow out, slow ones swell */
     c->over = a < 0.2f ? 0.15f : 0.0f;
@@ -41,8 +31,8 @@ static void artic_cfg_lib(artic_cfg_t *c, const uint8_t *l, const float *eff)
     c->tail = d > 0.7f ? (d - 0.7f) * 2.0f : c->tail;
 }
 
-/* SHAPE: the library (rv_shapes.h), a shape read at u (0..1), WARP bending time and MORPH
- * crossfading toward the next shape */
+/* the shapes (rv_shapes.h, after the XAOC Zadar's library): the WAVE engine's ENV reads them, a shape
+ * at u (0..1), WARP bending time and MORPH crossfading toward the next */
 #define SHP_DATA
 #include "rv_shapes.h"
 static float shp_eval(int shape, float morph, float warp, float u)
@@ -63,31 +53,91 @@ static float shp_eval(int shape, float morph, float warp, float u)
     b = shp_tab[s1][i] + (shp_tab[s1][i + 1] - shp_tab[s1][i]) * fr;
     return (a + (b - a) * morph) * (1.0f / 255.0f);
 }
-/* a track's shape at u: warped, maybe reversed (with a short fade so it ends at rest), its level bent */
-static float shp_eval_c(const artic_cfg_t *c, float u)
+/* the FILTER ENV ----------------------------------------------------------------------------- */
+static void fenv_start(fenv_t *e)
 {
-    float y;
-    u = clampf(u, 0.0f, 1.0f);
-    if (c->rev) {
-        float w = c->warp > 0.01f || c->warp < -0.01f ? fm_powf(u, fm_exp2f(c->warp)) : u;
-        y = shp_eval(c->shape, c->morph, 0.0f, 1.0f - w) * clampf((1.0f - u) * 40.0f, 0.0f, 1.0f);
-    } else
-        y = shp_eval(c->shape, c->morph, c->warp, u);
-    if (c->bend && y > 0.0f)
-        y = fm_powf(y, fm_exp2f((float)c->bend * (-2.0f / 64.0f)));   /* > 0: fuller, < 0: leaner and spikier */
-    return y;
+    e->stage = FE_DLY;
+    e->u = 0.0f;
+    e->from = e->lvl;                            /* a new note rises from wherever it is */
 }
-
-/* where a GATED shape waits: the morphed shapes' hold points (in shape time, before the warp) */
-static float shp_hold_u(const artic_cfg_t *c)
+static void fenv_release(fenv_t *e)
 {
-    float h0 = shp_hold[(c->shape - 1) % SHP_N], h1 = shp_hold[c->shape % SHP_N];
-    float h = (h0 + (h1 - h0) * c->morph) * (1.0f / (float)(SHP_LEN - 1));
-    if (c->rev)
-        h = 1.0f - h;                            /* reversed: the hold point mirrors */
-    if (c->warp > 0.01f || c->warp < -0.01f)
-        h = fm_powf(h, fm_exp2f(-c->warp));   /* the time that maps onto it */
-    return h;
+    if (e->stage == FE_OFF || e->stage == FE_REL)
+        return;
+    e->stage = FE_REL;
+    e->u = 0.0f;
+    e->from = e->lvl;
+}
+/* a bend: k = 0 straight, k > 0 exponential (slow, then a rush), k < 0 logarithmic (a rush, then slow) */
+static float fe_bend(float u, float k)
+{
+    if (k > -0.05f && k < 0.05f)
+        return u;
+    return (fm_expf(k * u) - 1.0f) / (fm_expf(k) - 1.0f);
+}
+/* dt seconds on (a block); returns the level 0..1 */
+static float fenv_tick(fenv_t *e, const float *eff, float dt)
+{
+    float sc = fm_exp2f(-eff[TP_FRATE] * (1.0f / 16.0f)), sus = clampf(eff[TP_FSUS] * (1.0f / 127.0f), 0.0f, 1.0f), t;
+    float ka = eff[TP_FACRV] * (6.0f / 64.0f), kd = -eff[TP_FDCRV] * (6.0f / 64.0f);
+    switch (e->stage) {
+    case FE_DLY:
+        t = rv_time_f(eff[TP_FDLY]) * sc;
+        e->u += t > 0.0005f ? dt / t : 1.0f;
+        if (e->u >= 1.0f) {
+            e->stage = FE_ATK;
+            e->u = 0.0f;
+        }
+        e->lvl = e->from;
+        break;
+    case FE_ATK:
+        t = rv_time_f(eff[TP_FATK]) * sc;
+        e->u += dt / (t > 0.0002f ? t : 0.0002f);
+        if (e->u >= 1.0f) {
+            e->stage = FE_HOLD;
+            e->u = 0.0f;
+            e->lvl = 1.0f;
+        } else
+            e->lvl = e->from + (1.0f - e->from) * fe_bend(e->u, ka);
+        break;
+    case FE_HOLD:
+        t = rv_time_f(eff[TP_FHOLD]) * sc;
+        e->u += t > 0.0005f ? dt / t : 1.0f;
+        if (e->u >= 1.0f) {
+            e->stage = FE_DEC;
+            e->u = 0.0f;
+            e->from = 1.0f;
+        }
+        e->lvl = 1.0f;
+        break;
+    case FE_DEC:
+        t = rv_time_f(eff[TP_FDEC]) * sc;
+        e->u += dt / (t > 0.0005f ? t : 0.0005f);
+        if (e->u >= 1.0f) {
+            e->lvl = sus;
+            e->u = 0.0f;
+            e->from = sus;
+            e->stage = eff[TP_FLOOP] >= 0.5f ? FE_DLY : FE_SUS;   /* LOOP: round again from the delay, while held */
+        } else
+            e->lvl = e->from + (sus - e->from) * fe_bend(e->u, kd);
+        break;
+    case FE_SUS:
+        e->lvl = sus;                            /* (follows the knob) */
+        break;
+    case FE_REL:
+        t = rv_time_f(eff[TP_FREL]) * sc;
+        e->u += dt / (t > 0.0005f ? t : 0.0005f);
+        if (e->u >= 1.0f) {
+            e->stage = FE_OFF;
+            e->lvl = 0.0f;
+        } else
+            e->lvl = e->from * (1.0f - fe_bend(e->u, kd));
+        break;
+    default:
+        e->lvl = 0.0f;
+        break;
+    }
+    return e->lvl;
 }
 
 static inline float shape_up(float u, float c) { return u + c * u * (1.0f - u); }     /* c > 0: fast start */
@@ -95,8 +145,6 @@ static inline float shape_down(float u) { float r = 1.0f - u; return 1.0f - r * 
 
 static void artic_start(artic_t *a, const artic_cfg_t *c)
 {
-    a->sp = c->shape ? (float)c->phase * 0.01f : 0.0f;   /* SHAPE: PHASE picks where it starts */
-    a->plays = 0;
     a->stage = AS_ONSET;
     a->gate = 1;
     a->looping = 0;
@@ -111,10 +159,6 @@ static void artic_release(artic_t *a, const artic_cfg_t *c)
 {
     if (a->stage == AS_OFF || a->stage == AS_TERM)
         return;
-    if (c->shape && c->smode != SHM_LOOP) {          /* SHAPE: one-shot, gated and cycle play on */
-        a->gate = 0;
-        return;
-    }
     a->gate = 0;
     a->stage = AS_TERM;
     a->from = a->p;
@@ -128,36 +172,6 @@ static void artic_release(artic_t *a, const artic_cfg_t *c)
 static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
 {
     float o;
-    if (c->shape && a->stage != AS_OFF && a->stage != AS_TERM) {   /* SHAPE (LOOP's release is the classic one) */
-        float hold;
-        a->sp += RV_DT / (c->stime > 0.002f ? c->stime : 0.002f);
-        switch (c->smode) {
-        case SHM_GATED:
-            hold = shp_hold_u(c);
-            if (a->gate && a->sp >= hold && a->sp - RV_DT / (c->stime > 0.002f ? c->stime : 0.002f) <= hold + 1e-4f)
-                a->sp = hold;                        /* held: wait at the hold point */
-            break;
-        case SHM_LOOP:
-        case SHM_CYCLE:                              /* round again while held, up to REPEAT's plays */
-            if (a->sp >= 1.0f && a->gate && (!c->reps || ++a->plays <= c->reps))
-                a->sp -= 1.0f;
-            break;
-        default:                                     /* ONESHOT: REPEAT plays it again, held or not */
-            if (a->sp >= 1.0f && c->reps && ++a->plays <= c->reps)
-                a->sp -= 1.0f;
-            break;
-        }
-        if (a->sp >= 1.0f) {
-            a->p = 0.0f;
-            a->stage = AS_OFF;
-        } else {
-            a->p = shp_eval_c(c, a->sp);
-            a->stage = AS_CONT;
-        }
-        a->u = a->sp;
-        a->tailv *= 0.9993f;
-        goto spring;
-    }
     switch (a->stage) {
     case AS_ONSET:
         a->u += a->du;
@@ -203,7 +217,6 @@ static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
         a->tailv *= 0.9993f;
         break;
     }
-spring:
     if (c->give > 0.001f) {                         /* the spring: 9 Hz, lightly damped */
         const float k = 3197.0f, damp = 2.0f * 0.16f * 56.5f;
         a->v += (k * (a->p - a->s) - damp * a->v) * RV_DT;
@@ -1292,7 +1305,7 @@ static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
  * 8 key waves and POS (0-63) moves between them. Osc 1 can hard-sync osc 2, ring-modulate it or
  * frequency-modulate it (XMOD, by XM AMT). Both read through a phase WARP (after Serum's: SYNC,
  * BEND, PWM, MIRROR, REMAP 2/4, SQUEEZE, FLIP, QUANT). MIX balances them into a mixer that
- * saturates prettily as SAT rises. The WAVE ENV is a shape from the SHAPE library that sweeps both
+ * saturates prettily as SAT rises. The WAVE ENV is a shape from the shape library that sweeps both
  * positions (by WE AMT), looping while the key is held, as the Microwave's wave envelope loops.
  * ASIC: at 0 the positions glide and the waves are band-limited; up to 63 the positions step
  * through 64 waves as the PPG and Microwave did; above, the samples are read raw and unsmoothed,
@@ -1812,7 +1825,7 @@ static int sem_bp;
 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
 {
     const float *eff = tr->eff;
-    float buf[RV_SUB], f, lvl0, cut, res, ktrk, env_amt, lvl;
+    float buf[RV_SUB], f, lvl0, fl, cut, res, ktrk, env_amt, lvl;
     int i, eng = clampi((int)(eff[TP_ENGINE] + 0.5f), 0, ENG_N - 1), ft = clampi((int)(eff[TP_FTYPE] + 0.5f), 0, FT_N - 1);
     float glide = eff[TP_GLIDE] < 0.5f ? 1.0f : 1.0f - fm_expf(-(float)n * RV_DT / (0.002f + eff[TP_GLIDE] * eff[TP_GLIDE] * 0.00012f));
     float velamt = eff[TP_VELO] * (1.0f / 127.0f);
@@ -1836,11 +1849,14 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_MONO: mono_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
-    /* the filter: cutoff from its knob, the articulation (CZ: its DCA), the key */
-    lvl0 = eng == ENG_CZ ? v->e.cz.level : eng == ENG_SQ ? v->e.sq.e2 : v->a.out;   /* SQ: ENV 2 */
+    /* the filter: cutoff from its knob, the FILTER ENV (SQ: its own ENV 2), the key */
+    lvl0 = eng == ENG_CZ ? v->e.cz.level : v->a.out;  /* the level's envelope (CZ: its DCA): the LPG follows it */
+    fl = fenv_tick(&v->fe, eff, (float)n * RV_DT);
+    if (eng == ENG_SQ)
+        fl = v->e.sq.e2;
     ktrk = eff[TP_KTRK] * (1.0f / 127.0f);
     env_amt = eff[TP_EFILT] * (1.0f / 64.0f);
-    cut = eff[TP_CUT] + env_amt * 64.0f * lvl0 + ktrk * ((float)v->note - 60.0f) * (127.0f / 120.0f);
+    cut = eff[TP_CUT] + env_amt * 64.0f * fl + ktrk * ((float)v->note - 60.0f) * (127.0f / 120.0f);
     res = eff[TP_RES] * (1.0f / 127.0f);
     if (eng == ENG_MONO)                              /* VEL>CUT: a harder note is brighter */
         cut += eff[TP_S12] * (70.0f / 127.0f) * (v->vel - 0.5f);

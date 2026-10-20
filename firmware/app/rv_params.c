@@ -33,9 +33,6 @@ static const char *const lfo_modes[] = {"LOOP", "RETRIG", "1 SHOT"};
 static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
-static const char *const eshape_names[] = {"OFF", SHP_NAMES};
-static const char *const emode_names[] = {"ONESHOT", "GATED", "LOOP", "CYCLE"};
-static const char *const erep_names[] = {"OFF", "2X", "3X", "4X", "5X", "6X", "7X", "8X", "9X", "10X", "11X", "12X", "13X", "14X", "15X", "16X"};
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
@@ -317,18 +314,20 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_H2COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
     [TP_H2TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
     [TP_BANDS] = {"BANDS", 0, 127, 0, PF_NUM, 0},
-    [TP_ESHAPE] = {"SHAPE", 0, SHP_N, 0, E(eshape_names)},
-    [TP_EMORPH] = {"MORPH", 0, 127, 0, PF_NUM, 0},
-    [TP_ETIME] = {"TIME", 0, 127, 90, PF_TIME, 0},
-    [TP_EMODE] = {"PLAY", 0, N(emode_names), SHM_GATED, E(emode_names)},
-    [TP_EWARP] = {"WARP", -64, 63, 0, PF_BI, 0},
+    /* the FILTER ENV: delay, attack, hold, decay, sustain, release (the volume's defaults) */
+    [TP_FDLY] = {"F DELAY", 0, 127, 0, PF_TIME, 0},
+    [TP_FATK] = {"F ATK", 0, 127, 4, PF_TIME, 0},
+    [TP_FHOLD] = {"F HOLD", 0, 127, 0, PF_TIME, 0},
+    [TP_FDEC] = {"F DEC", 0, 127, 70, PF_TIME, 0},
+    [TP_FSUS] = {"F SUS", 0, 127, 90, PF_NUM, 0},
     [TP_FMODE] = {"LP-HP", 0, 127, 0, PF_NUM, 0},   /* 0 low pass, 64 notch, 127 high pass */
     [TP_FBP] = {"BP", 0, 1, 0, PF_ONOFF, 0},
     [TP_OSC1] = {"OSC LVL", 0, 127, 127, PF_NUM, 0},
-    [TP_EBEND] = {"BEND", -64, 63, 0, PF_BI, 0},           /* the shape's level: > 0 fuller, < 0 leaner */
-    [TP_EREV] = {"REVERSE", 0, 1, 0, PF_ONOFF, 0},
-    [TP_EREP] = {"REPEAT", 0, 15, 0, E(erep_names)},       /* OFF: once (a loop, while held); 2X..16X: that many plays */
-    [TP_EPHASE] = {"PHASE", 0, 100, 0, PF_PCT, 0},         /* where in the shape it starts */
+    [TP_FREL] = {"F REL", 0, 127, 60, PF_TIME, 0},
+    [TP_FACRV] = {"A BEND", -64, 63, 0, PF_BI, 0},         /* the attack: > 0 exponential (slow, then a rush), < 0 logarithmic */
+    [TP_FDCRV] = {"D BEND", -64, 63, 0, PF_BI, 0},         /* decay and release: > 0 exponential (a fast fall, a long tail), < 0 logarithmic */
+    [TP_FLOOP] = {"F LOOP", 0, 1, 0, PF_ONOFF, 0},         /* delay to decay, round again while held */
+    [TP_FRATE] = {"F RATE", -64, 63, 0, PF_BI, 0},         /* every stage faster (+) or slower (-), x16 to /16 */
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -650,8 +649,7 @@ int rv_tp_applies(int t, int p)
     if (tp[TP_KIND] == KIND_PERC) {                                    /* the machines make their own envelopes */
         switch (p) {
         case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_REL: case TP_TAIL:
-        case TP_GIVE: case TP_ESHAPE: case TP_EMORPH: case TP_ETIME: case TP_EMODE: case TP_EWARP:
-        case TP_EBEND: case TP_EREV: case TP_EREP: case TP_EPHASE:
+        case TP_GIVE:
             return 0;
         default: break;
         }
@@ -666,20 +664,8 @@ int rv_tp_applies(int t, int p)
         return tp[TP_FTYPE] == FT_SEM && !tp[TP_FBP];
     if (p == TP_FBP)
         return tp[TP_FTYPE] == FT_SEM;
-    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ && (p == TP_ESHAPE || p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP ||
-                                                                 p == TP_EBEND || p == TP_EREV || p == TP_EREP || p == TP_EPHASE))
-        return 0;                                                      /* the CZ's DCA envelopes are its level */
-    if (tp[TP_ESHAPE] > 0 && !(tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_CZ)) {   /* SHAPE replaces the classic articulation */
-        switch (p) {
-        case TP_ATK: case TP_ACURVE: case TP_OVER: case TP_DEC: case TP_SUS: case TP_LOOP: case TP_TAIL:
-            return 0;
-        case TP_REL: return tp[TP_EMODE] == SHM_LOOP;                  /* LOOP lets go the classic way */
-        case TP_EREP: return tp[TP_EMODE] != SHM_GATED;                /* a gated shape waits instead */
-        default: break;
-        }
-    } else if (p == TP_EMORPH || p == TP_ETIME || p == TP_EMODE || p == TP_EWARP || p == TP_EBEND || p == TP_EREV || p == TP_EREP || p == TP_EPHASE) {
-        return 0;
-    }
+    if ((p >= TP_FDLY && p <= TP_FSUS) || (p >= TP_FREL && p <= TP_FRATE))   /* the FILTER ENV: a synth's filter, not the LPG */
+        return tp[TP_KIND] == KIND_SYNTH && tp[TP_FTYPE] != FT_LPG && tp[TP_ENGINE] != ENG_SQ;   /* (the SQ's ENV 2 is its own) */
     if (tp[TP_KIND] == KIND_STRIKE) {
         int exc = tp[TP_S0], body = tp[TP_S1];
         int grains = exc == EXC_DUST || exc == EXC_RAIN;
@@ -781,7 +767,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_EMORPH: case TP_ETIME: case TP_EWARP: case TP_EBEND: case TP_EPHASE: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
@@ -985,4 +971,20 @@ void rv_project_init(void)
     rv.arr_len = 1;
     rv.arr[0].scene = 0;
     rv.arr[0].bars = 4;
+}
+
+/* the FILTER ENV as the volume's envelope was, for what was made before it existed (projects before
+ * format 12, sounds kept before it, the presets): the one envelope then drove the filter too */
+void rv_fenv_from_env(int16_t *tp)
+{
+    tp[TP_FDLY] = 0;
+    tp[TP_FATK] = tp[TP_ATK];
+    tp[TP_FHOLD] = 0;
+    tp[TP_FDEC] = tp[TP_DEC];
+    tp[TP_FSUS] = tp[TP_SUS];
+    tp[TP_FREL] = tp[TP_REL];
+    tp[TP_FACRV] = 0;
+    tp[TP_FDCRV] = 0;
+    tp[TP_FLOOP] = 0;
+    tp[TP_FRATE] = 0;
 }

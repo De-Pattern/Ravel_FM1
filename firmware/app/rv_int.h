@@ -24,23 +24,24 @@ typedef struct {
     float loop;                     /* loop period, seconds; 0 = no loop */
     float give;                     /* 0..1 */
     float tail;                     /* 0..1 release texture */
-    uint8_t shape;                  /* SHAPE: library shape + 1 (0 = the classic articulation) */
-    uint8_t smode : 2, rev : 1, reps : 5;   /* how it plays; reversed; extra plays (0: once, or a loop while held) */
-    uint8_t phase;                  /* where it starts, 0..99 % */
-    int8_t bend;                    /* the level's response, -64..63 (these four fill what was padding: the pool is tight) */
-    float morph, stime, warp;       /* toward the next shape 0..1, seconds for the whole shape, -1..1 */
 } artic_cfg_t;
 typedef struct {
     uint8_t stage, gate, looping;
-    uint8_t plays;                  /* SHAPE: plays finished (REPEAT) */
     float u, du;                    /* progress through the segment */
     float from, to;                 /* the segment's ends */
     float p;                        /* the path */
     float s, v;                     /* the spring */
     float out;                      /* the level: path, or the spring as far as give allows */
     float tailv;                    /* the release texture's envelope */
-    float sp;                       /* SHAPE: where in the shape, 0..1 */
 } artic_t;
+
+/* the FILTER ENV: delay, attack, hold, decay, sustain, release, worked out a block at a time from
+ * the track's settings (so it follows them live), its own bends, looping while held */
+typedef struct {
+    uint8_t stage;                  /* FE_* */
+    float u, from, lvl;             /* through the stage 0..1, where the stage started, the level */
+} fenv_t;
+enum { FE_OFF, FE_DLY, FE_ATK, FE_HOLD, FE_DEC, FE_SUS, FE_REL };
 
 /* -------------------------------------------------------------- voices --- */
 typedef struct { float ph, ph2, sub, drift, drift_t; float sph[7]; uint32_t ns; } va_t;
@@ -98,6 +99,7 @@ typedef struct {
     float pitch, target;            /* semitones (glide) */
     artic_t a;
     artic_cfg_t cfg;
+    fenv_t fe;                      /* the FILTER ENV */
     uint8_t cfg_lib;                /* the step recalled a library shape: keep cfg */
     uint8_t e_eng;                  /* the engine e's state belongs to, + 1 (0 = none) */
     ladder_t lad;

@@ -44,10 +44,10 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK };
+       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_CLASSIC, V_SHAPED, V_OSCMIX };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK };
@@ -102,13 +102,14 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
 
-    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
-    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), NO}},
-    {SEC_ARTIC, V_CLASSIC, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), TP(TP_EFILT), NO}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), NO}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), NO, NO}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "DESTINATIONS", {TP(TP_EDST1), TP(TP_EAMT1), TP(TP_EDST2), TP(TP_EAMT2)}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "SHAPE", {TP(TP_ESHAPE), TP(TP_EMORPH), TP(TP_ETIME), TP(TP_EMODE)}},
-    {SEC_ARTIC, V_SHAPED, PIC_ENV, PR_SOUND, "SHAPE 2", {TP(TP_EWARP), TP(TP_REL), TP(TP_GIVE), TP(TP_EFILT)}},
-    {SEC_ARTIC, V_SHAPED, PIC_ENV, PR_SOUND, "SHAPE 3", {TP(TP_EBEND), TP(TP_EREV), TP(TP_EREP), TP(TP_EPHASE)}},   /* more of the Zadar's tools */
+    /* the FILTER ENV: its own delay, attack, hold, decay, sustain, release, bends, loop and rate */
+    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FILTER ENV", {TP(TP_FATK), TP(TP_FDEC), TP(TP_FSUS), TP(TP_FREL)}},
+    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV SHAPE", {TP(TP_FDLY), TP(TP_FHOLD), TP(TP_FACRV), TP(TP_FDCRV)}},
+    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV LOOP", {TP(TP_FLOOP), TP(TP_FRATE), TP(TP_EFILT), TP(TP_KTRK)}},   /* ENV>CUT: its depth (also on FILTER) */
     {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, NO}},
 
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
@@ -426,8 +427,6 @@ static int page_visible(int i)
     case V_NOTKIT: return !is_kit_ui(t);
     case V_SEM: return kind == KIND_SYNTH && rv.tp[t][TP_FTYPE] == FT_SEM;
     case V_OSCMIX: return kind == KIND_SYNTH && osc_mix_map(rv.tp[t][TP_ENGINE]) != 0;
-    case V_CLASSIC: return rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ);   /* SHAPE off */
-    case V_SHAPED: return !(rv.tp[t][TP_ESHAPE] == 0 || (kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ));
     default: return 1;
     }
 }
@@ -2612,45 +2611,73 @@ static void pic_mix(void)
 }
 
 /* the articulation: onset, continuant, termination, drawn from the track's knobs */
-/* SHAPE: the morphed, warped shape across the screen, the hold point, and the playing voice */
-static void pic_shape(int t)
+/* the FILTER ENV: delay, attack, hold, decay, sustain, release as drawn with their bends, the
+ * loop when it is on, the playing voice, and how deep it goes into the cutoff */
+static void pic_fenv(void)
 {
-    artic_cfg_t c;
-    int i, prev = 0, top = PIC_Y + 14, base = PIC_Y + 112;
-    float hold;
-    char b[24];
-    c.shape = (uint8_t)clampi(rv.tp[t][TP_ESHAPE], 1, SHP_N);
-    c.morph = clampf(rv_param_eff(t, TP_EMORPH) / 127.0f, 0.0f, 1.0f);
-    c.warp = clampf(rv_param_eff(t, TP_EWARP) / 64.0f, -1.0f, 1.0f);
-    c.bend = (int8_t)clampi((int)fm_floorf(rv_param_eff(t, TP_EBEND) + 0.5f), -64, 63);
-    c.rev = rv.tp[t][TP_EREV] != 0;
-    c.reps = (uint8_t)rv.tp[t][TP_EREP];
-    c.phase = (uint8_t)clampi((int)(rv_param_eff(t, TP_EPHASE) + 0.5f), 0, 99);
-    c.smode = (uint8_t)rv.tp[t][TP_EMODE];
-    hold = shp_hold_u(&c);
+    int t = ui.track, i, prev = 0, x[6], top = PIC_Y + 18, base = PIC_Y + 108;
+    float sc = fm_exp2f(-rv_param_eff(t, TP_FRATE) / 16.0f), sus = rv_param_eff(t, TP_FSUS) / 127.0f;
+    float ka = rv_param_eff(t, TP_FACRV) * (6.0f / 64.0f), kd = -rv_param_eff(t, TP_FDCRV) * (6.0f / 64.0f);
+    static const uint8_t tp_of[5] = {TP_FDLY, TP_FATK, TP_FHOLD, TP_FDEC, TP_FREL};
+    float w[6], tot = 0.0f;
+    int loop = rv.tp[t][TP_FLOOP] != 0, amt = rv.tp[t][TP_EFILT];
+    char b[28];
+    if (rv.tp[t][TP_KIND] != KIND_SYNTH || rv.tp[t][TP_FTYPE] == FT_LPG || rv.tp[t][TP_ENGINE] == ENG_SQ) {
+        g_text_c(120, PIC_Y + 40, &FONT_B, rv.tp[t][TP_KIND] != KIND_SYNTH ? "NO FILTER HERE" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "THE SQ HAS ITS OWN" : "THE LPG FOLLOWS", C_DIM);
+        g_text_c(120, PIC_Y + 62, &FONT_T, rv.tp[t][TP_KIND] != KIND_SYNTH ? "THE FILTER ENV IS FOR SYNTH TRACKS" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "ENV 2 (SOURCE PAGES) MOVES ITS FILTER" : "THE VOLUME ENVELOPE", C_DIM);
+        return;
+    }
+    for (i = 0; i < 5; i++) {
+        float s = rv_time_s((int)rv_param_eff(t, tp_of[i])) * sc;
+        w[i < 4 ? i : 5] = (i == 0 || i == 2) && s < 0.001f ? 0.0f : 10.0f + fm_sqrtf(s) * 36.0f;
+    }
+    w[4] = 30.0f;                                      /* the sustain */
+    for (i = 0; i < 6; i++)
+        tot += w[i];
+    x[0] = 8 + (int)(w[0] * 224.0f / tot);
+    for (i = 1; i < 6; i++)
+        x[i] = x[i - 1] + (int)(w[i] * 224.0f / tot);
+    x[5] = 232;
     g_hline(8, base, 224, C_LINE);
-    if (c.smode == SHM_GATED)
-        g_vline(8 + (int)(hold * 224.0f), top - 6, base - top + 6, C_TEAL_D);
-    for (i = 0; i <= 224; i++) {
-        float y = shp_eval_c(&c, (float)i / 224.0f);
-        int py = base - (int)(clampf(y, 0.0f, 1.0f) * (float)(base - top));
-        if (i)
-            g_line(8 + i - 1, prev, 8 + i, py, C_TEAL);
+    for (i = 8; i <= 232; i++) {
+        float y, u;
+        int py;
+        if (i < x[0])
+            y = 0.0f;
+        else if (i < x[1])
+            u = (float)(i - x[0]) / (float)(x[1] - x[0] > 0 ? x[1] - x[0] : 1), y = fe_bend(u, ka);
+        else if (i < x[2])
+            y = 1.0f;
+        else if (i < x[3])
+            u = (float)(i - x[2]) / (float)(x[3] - x[2] > 0 ? x[3] - x[2] : 1), y = 1.0f + (sus - 1.0f) * fe_bend(u, kd);
+        else if (i < x[4])
+            y = sus;
+        else
+            u = (float)(i - x[4]) / (float)(x[5] - x[4] > 0 ? x[5] - x[4] : 1), y = sus * (1.0f - fe_bend(u, kd));
+        py = base - (int)(clampf(y, 0.0f, 1.0f) * (float)(base - top));
+        if (i > 8)
+            g_line(i - 1, prev, i, py, i < x[3] ? C_TEAL : i < x[4] ? C_INK : C_AMBER);
         prev = py;
     }
-    if (c.phase)                                       /* PHASE: where it starts */
-        g_vline(8 + c.phase * 224 / 100, top - 6, base - top + 6, C_AMBER_D);
-    rv_param_format(PID_T(t, TP_ETIME), rv.tp[t][TP_ETIME], b, 24);
-    if (c.reps && c.smode != SHM_GATED) {
-        sx_cat(b, "  ");
-        sx_cat(b, rv_pinfo_track(t, TP_EREP)->names[c.reps]);
+    if (loop) {                                        /* the loop: from the end of the decay back to the delay */
+        g_hline(8, top - 10, x[3] - 8, C_AMBER_D);
+        g_vline(8, top - 10, 6, C_AMBER_D);
+        g_vline(x[3] - 1, top - 10, 6, C_AMBER_D);
+        g_text_c((8 + x[3]) / 2, top - 15, &FONT_T, "LOOPS WHILE HELD", C_AMBER);
     }
-    g_text(10, base + 4, &FONT_T, b, C_DIM);
-    g_text_r(232, base + 4, &FONT_T, c.smode == SHM_GATED ? "HOLDS AT THE LINE" : c.smode == SHM_LOOP ? "LOOPS WHILE HELD" : c.smode == SHM_CYCLE ? "LOOPS, ENDS ITS CYCLE" : "PLAYS THROUGH", C_DIM);
-    if (rv_live.stage[t] != AS_OFF && rv_live.env[t] > 0.001f) {
-        float u = clampf(rv_live.stage_pos[t], 0.0f, 1.0f), lv = clampf(rv_live.env[t], 0.0f, 1.0f);
-        g_disc(8 + (int)(u * 224.0f), base - (int)(lv * (float)(base - top)), 4, C_WHITE);
+    {   /* the playing voice */
+        int st = rv_live.fenv_stage[t];
+        float u = clampf(rv_live.fenv_pos[t], 0.0f, 1.0f), lv = clampf(rv_live.fenv[t], 0.0f, 1.0f);
+        int px = st == FE_DLY ? 8 + (int)(u * (float)(x[0] - 8)) : st == FE_ATK ? x[0] + (int)(u * (float)(x[1] - x[0]))
+               : st == FE_HOLD ? x[1] + (int)(u * (float)(x[2] - x[1])) : st == FE_DEC ? x[2] + (int)(u * (float)(x[3] - x[2]))
+               : st == FE_SUS ? (x[3] + x[4]) / 2 : st == FE_REL ? x[4] + (int)(u * (float)(x[5] - x[4])) : -10;
+        if (st != FE_OFF && rv_live.stage[t] != AS_OFF && rv_live.env[t] > 0.001f)
+            g_disc(px, base - (int)(lv * (float)(base - top)), 4, C_WHITE);
     }
+    b[0] = 0;
+    sx_int(b + sx_cat(b, amt > 0 ? "ENV>CUT +" : "ENV>CUT "), amt);
+    g_text(10, base + 4, &FONT_T, b, amt ? C_MID : C_DIM);
+    g_text_r(232, base + 4, &FONT_T, "D A H D S R", C_DIM);
 }
 
 static void pic_env(void)
@@ -2667,10 +2694,6 @@ static void pic_env(void)
         g_text_c(120, PIC_Y + 40, &FONT_B, "THE MACHINE MAKES", C_PERC);
         g_text_c(120, PIC_Y + 62, &FONT_B, "ITS OWN ENVELOPE", C_PERC);
         g_text_c(120, PIC_Y + 92, &FONT_T, rv.tp[t][TP_ENGINE] == 1 ? "SET DECAYS ON EDIT > LANE 1-6" : "SET ITS DECAY ON THE SOURCE PAGES", C_DIM);
-        return;
-    }
-    if (rv.tp[t][TP_ESHAPE] > 0) {
-        pic_shape(t);
         return;
     }
     int top = PIC_Y + 14, base = PIC_Y + 112;
@@ -3530,6 +3553,7 @@ static void draw_picture(void)
     case PIC_DRUM: pic_drum(); break;
     case PIC_LANE: pic_lane(); break;
     case PIC_BANK: pic_bank(); break;
+    case PIC_FENV: pic_fenv(); break;
     default: break;
     }
 }

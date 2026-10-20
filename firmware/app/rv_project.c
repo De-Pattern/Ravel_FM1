@@ -142,8 +142,12 @@ int rv_load(int slot)
         __builtin_memset(rv.scene_tempo, 0, sizeof(rv.scene_tempo));   /* every scene keeps the tempo */
     {
         int t;
-        for (t = 0; t < RV_TRACKS; t++)                    /* (format 11) the first oscillator at full, as it was */
-            rv.tp[t][TP_OSC1] = 127;
+        for (t = 0; t < RV_TRACKS; t++) {
+            if (f <= 10)                               /* (format 11) the first oscillator at full, as it was */
+                rv.tp[t][TP_OSC1] = 127;
+            if (f <= 11)                               /* (format 12) SHAPE's slots: the FILTER ENV, as the one envelope was */
+                rv_fenv_from_env(rv.tp[t]);
+        }
     }
     if (f == 2)
         upgrade_from_2();

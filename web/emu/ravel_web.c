@@ -151,6 +151,7 @@ EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
 EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
 EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }
 EXPORT(web_meter) float web_meter(int t) { return rv_live.meter[t & 7]; }
+EXPORT(web_fenv) float web_fenv(int t) { return rv_live.fenv[t & 7]; }   /* the FILTER ENV of the newest voice */
 EXPORT(web_master_l) float web_master_l(void) { return rv_live.master_l; }
 EXPORT(web_master_r) float web_master_r(void) { return rv_live.master_r; }
 EXPORT(web_playing) int web_playing(void) { return rv_live.playing; }
@@ -160,6 +161,10 @@ EXPORT(web_transport) void web_transport(int run) { rv_transport(run); }
 EXPORT(web_catch) void web_catch(void) { rv_catch(); }
 EXPORT(web_resample) void web_resample(void) { rv_resample(); }
 EXPORT(web_all_off) void web_all_off(void) { rv_all_off(); }
+int rv_save(int slot);
+int rv_load(int slot);
+EXPORT(web_save) int web_save(int slot) { return rv_save(slot); }   /* (tests) */
+EXPORT(web_load) int web_load(int slot) { return rv_load(slot); }
 EXPORT(web_demo) void web_demo(int which)
 {
     rv_transport(0);

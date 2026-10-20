@@ -267,7 +267,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the envelope opens the filter (±); the same setting as on ENV › TERMINATION, so turning either moves both |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV LOOP, so turning either moves both |
 | **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -348,7 +348,7 @@ Stages after END are drawn dim: they keep their settings but don't play until EN
 - **Two waves on a line** alternate cycle by cycle, so the note sounds an octave lower with a mix of both characters (the CZ's "cascade"). Two RESO waves cannot be combined, as on the CZ.
 - **RESO waves** are a sine whose frequency rises with DCW, restarting every cycle under a falling window: like sweeping a resonant filter, with no filter.
 - **High notes** narrow DCW automatically, as the CZ does, so thin pulses stay audible.
-- **The DCA is the level envelope.** On a CZ track the ARTICULATION pages' shape knobs are greyed out; ENV>CUT, the envelope's DESTINATIONS and the influence routes follow the DCA instead.
+- **The DCA is the level envelope.** On a CZ track the ARTICULATION pages' shape knobs are greyed out; the envelope's DESTINATIONS and the influence routes follow the DCA instead; the filter has its own FILTER ENV.
 - **The pictures:** LINE pages draw the line's two cycles at its brightest DCW. Envelope pages draw the 8 stages, the SUS and END points, the two stages on the knobs (white, numbered with their knobs) and where the playing note is (amber dots).
 - **Presets:** CZ BRASS, CZ BELL (ring-modulated lines a twelfth apart), CZ STRINGS, RESO SWEEP, CZ BASS, NOISE HIT and FOAM.
 - **Projects from before the CZ** load with each CZ track set to a plain CZ tone.
@@ -579,35 +579,37 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 
 <p align="center"><img src="docs/manual/artic-onset.png" alt="ONSET page" width="320"></p>
 
-Ravel's envelope is in three stages, named after how speech is described: the **onset** (how a sound starts), the **continuant** (how it holds) and the **termination** (how it ends). The picture draws the shape as you turn the knobs.
+Each track has two envelopes. The **volume envelope** (ONSET, CONTINUANT, TERMINATION, DESTINATIONS) shapes the level and can move two more parameters. The **FILTER ENV** (three pages after it) opens and closes the filter.
+
+The volume envelope is in three stages, named after how speech is described: the **onset** (how a sound starts), the **continuant** (how it holds) and the **termination** (how it ends). The picture draws the shape as you turn the knobs.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **ONSET** | ATTACK time (0.5 ms to 8 s) | CURVE: − is a fast swell, + a slow one | OVERSHT: the attack overshoots and settles (a "bite") | GIVE: a spring in the level. It lags and bounces instead of moving straight. |
 | **CONTINUANT** | DECAY time | SUSTAIN level | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | – |
-| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | ENV>CUT: how much the envelope opens the filter (±); also on EDIT › FILTER | – |
+| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | – | – |
 
 (VELO, velocity sensitivity, is on EDIT › SOUND.)
 | **DESTINATIONS** | DEST 1: any parameter of this track | AMOUNT 1 (±) | DEST 2 | AMOUNT 2 (±) |
 
 DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVEL2 or CZ's DCW +-, so the timbre changes with the note.
 
-### SHAPE
+### FILTER ENV
 
-SHAPE replaces the three stages with a complex shape from a library, after the XAOC Zadar, a Eurorack envelope generator built around a big library of shapes that can be morphed. Leave SHAPE at OFF for the classic envelope above. While a shape is chosen, ONSET, CONTINUANT and TERMINATION are hidden and SHAPE 2 and SHAPE 3 appear with what still applies; at OFF it is the other way round, so no knob is ever in two places.
+<p align="center"><img src="docs/manual/artic-fenv.png" alt="The FILTER ENV" width="320"></p>
+
+The filter has its own envelope: delay, attack, hold, decay, sustain and release, with a bend on the attack and one on the falls, a loop and a speed. **ENV>CUT** sets how far it moves the cutoff, up or down. It is the same setting as on EDIT › FILTER, so turning either moves both.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **SHAPE** | SHAPE: OFF, or one of 32 shapes | MORPH: crossfades toward the next shape in the list | TIME: how long the whole shape takes (0.5 ms to 8 s) | PLAY: ONESHOT, GATED, LOOP, CYCLE |
-| **SHAPE 2** | WARP: bends time inside the shape (+ lingers at the start, − rushes through it) | RELEASE (used by LOOP) | GIVE (the same spring) | ENV>CUT |
-| **SHAPE 3** | BEND: bends the level (+ fuller, the shape swells toward the top; − leaner, only its peaks stay) | REVERSE: plays the shape backwards (a pluck becomes a swell) | REPEAT: OFF, or 2X to 16X plays | PHASE: where in the shape it starts (0 to 100 %) |
+| **FILTER ENV** | F ATK: attack time (0.5 ms to 8 s) | F DEC: decay time | F SUS: sustain level | F REL: release time |
+| **FENV SHAPE** | F DELAY: a wait before the attack | F HOLD: how long it stays at the top before the decay | A BEND: the attack's curve, + exponential (slow, then a rush), − logarithmic (a rush, then slow) | D BEND: the decay's and release's curve, + exponential (a fast fall, a long tail), − logarithmic |
+| **FENV LOOP** | F LOOP: ON runs delay, attack, hold and decay round again while the key is held (with SUSTAIN at 0 it is a filter LFO that starts with the note) | F RATE: every stage faster (+) or slower (−), up to 16 times | ENV>CUT: its depth (±) | VCF KEY (also on PITCH) |
 
-- **The shapes:** PLUCK, HIT, DOUBLE, TRIPLE, BOUNCE, STUTTER, PULSES, STAIRS UP, STAIRS DN, RAMP UP, REVERSE, SWELL, HUMP, TWIN HUMP, SWELL HIT, ADSR, ORGAN, TREMOLO, WOBBLE, FLUTTER, SAW BURST, SPIKES, DRIP, BREATH, SNAP BACK (a slow rise that snaps down to a low tail), CHIRP (gates that speed up), RATCHET (four hits, each louder), EUCLID (five gates out of eight), DAMPED (a ringing decay), PLATEAU, RANDOM (smoothed random steps) and PUMP (four sidechain-style ducks). Neighbours are related, so MORPH between them makes sense: DOUBLE into TRIPLE adds a hit, STUTTER into PULSES evens out the rhythm, TREMOLO into WOBBLE slows the ripple.
-- **PLAY:** ONESHOT plays the whole shape whatever the key does. GATED plays to the shape's hold point (the line in the picture), waits there while the key is held, then plays the rest. LOOP repeats the shape while held and lets go with RELEASE. CYCLE repeats it while held, then finishes the cycle it is in.
-- **REPEAT and PHASE:** REPEAT plays a ONESHOT shape that many times in a row, and stops a LOOP or CYCLE after that many rounds instead of going on while held (OFF keeps the old behaviour). GATED waits at its hold point instead, so REPEAT greys out there. PHASE starts the shape partway in, for example skipping a swell to land on its peak; the picture marks it with an amber line.
-- **Moving it:** MORPH, TIME, WARP, BEND and PHASE are modulation destinations. An LFO on MORPH, or a macro, sweeps the shape between its neighbours, note to note or while it plays.
-- **Everywhere:** SHAPE works on synth, strike and tape tracks. It drives the level, the filter envelope (ENV>CUT) and the ENV source in the matrix, and the DESTINATIONS follow it too. CZ tracks keep their own DCA envelopes, so SHAPE greys out there. A step that recalls a LIBRARY envelope plays the classic envelope for that step.
-- The knobs SHAPE doesn't use grey out while it's on.
+- **The picture** draws the whole envelope with its bends, marks the loop when it is on, and shows the playing note as a dot.
+- **Which tracks:** synth tracks. With the LPG the filter follows the volume envelope instead, and the SQ engine's ENV 2 (on its source pages) is its own filter envelope, so these pages grey out there. The CZ engine uses it like any other.
+- **Moving it:** F ATK, F DEC, F SUS, F REL, F RATE and ENV>CUT are modulation destinations.
+- **Older projects and sounds** load with a FILTER ENV copied from their volume envelope, so they sound as they did (the one envelope used to drive both). The factory presets do the same. The SHAPE envelopes of earlier versions are gone; a project that used one plays the classic volume envelope.
 
 ### LIBRARY
 
@@ -1288,7 +1290,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
-- XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
+- XAOC Devices' Zadar, whose library of morphing shapes the WAVE engine's WAVE ENV follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Maxime Denuc's Nachthorn and Dorian Concept's SH-101 playing, which the ORGAN and MONO engines are made to sound like (Ravel's own synthesis; no recordings used).

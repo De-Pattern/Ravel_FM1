@@ -366,6 +366,7 @@ void rv_preset_apply(int t, int i)
     }
     for (v = presets[i].v; *v >= 0; v += 2)
         rv.tp[t][v[0]] = v[1];
+    rv_fenv_from_env(rv.tp[t & 7]);                   /* the presets were made with one envelope for both */
     if (presets[i].cz)
         rv.cz[t & 7] = *presets[i].cz;
 }

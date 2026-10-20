@@ -1,0 +1,36 @@
+# ENV > FILTER ENV: its three pages; LOOP and the bends; a held note runs it; the volume
+# envelope's pages stay; SHAPE is gone
+wait 300
+tap ENV
+turn SELECT -20
+wait 100
+expect page ONSET
+turn SELECT 3
+wait 100
+expect page DESTINATIONS
+turn SELECT 1
+wait 100
+expect page FILTER ENV
+turn K3 -1
+wait 200
+turn SELECT 1
+wait 100
+expect page FENV SHAPE
+turn K3 1
+wait 200
+turn K4 -1
+wait 200
+turn SELECT 1
+wait 100
+expect page FENV LOOP
+turn K1 1
+wait 200
+key 12 down
+wait 600
+expect voices 1
+shot fenv.png
+key 12 up
+wait 300
+turn SELECT 1
+wait 100
+expect page LIBRARY

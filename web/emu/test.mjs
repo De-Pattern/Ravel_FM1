@@ -74,4 +74,23 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   rv.web_moom(); rv.rv_run(50);
   check(rv.web_moom_on() === 0, 'MOOM leaves');
 }
+{                                                           // the FILTER ENV: a project from before it (format 11) gets one copied from the volume envelope
+  const ATK = 23, DEC = 26, SUS = 27, REL = 29, FATK = 81, FDEC = 83, FSUS = 84, FREL = 88, FLOOP = 91;
+  rv.web_tp_set(0, ATK, 30); rv.web_tp_set(0, DEC, 50); rv.web_tp_set(0, SUS, 40); rv.web_tp_set(0, REL, 70);
+  rv.web_tp_set(0, FATK, 99); rv.web_tp_set(0, FLOOP, 1);
+  rv.web_save(3);
+  new DataView(rv.memory.buffer, rv.rv_store(3), 8).setUint32(4, 11, true);   // as if saved before format 12
+  rv.web_load(3);
+  check(rv.web_tp(0, FATK) === 30 && rv.web_tp(0, FDEC) === 50 && rv.web_tp(0, FSUS) === 40 && rv.web_tp(0, FREL) === 70 && rv.web_tp(0, FLOOP) === 0,
+        'an older project gets a FILTER ENV from its envelope');
+}
+{                                                           // a sound kept before the FILTER ENV (bank version 2) gets one from its envelope
+  rv.web_tp_set(0, 23, 44); rv.web_bank_select(2); rv.web_bank_store(0, 0); rv.web_bank_select(0);
+  const st = new DataView(rv.memory.buffer, rv.rv_store(11), 400);
+  st.setUint32(4, 2, true); st.setInt16(24 + 81 * 2, 99, true);   // version 2, a stray F ATK
+  rv.web_bank_select(2);
+  check(rv.web_bank_used(0) === 1, 'a version 2 bank still loads');
+  rv.web_bank_load(1, 0); rv.web_bank_select(0);
+  check(rv.web_tp(1, 81) === 44, 'its sounds get a FILTER ENV from their envelope');
+}
 process.exit(fails ? 1 : 0);
