@@ -642,6 +642,8 @@ static void kb_set(kb_t k, int v)
                 rv_cz_init(ui.track);
             if (v == ENG_SQ)                          /* the SQ comes with its own filter */
                 rv.tp[ui.track][TP_FTYPE] = FT_SQ80;
+            if (v == ENG_ORGAN || v == ENG_MONO)
+                rv_engine_track_defaults(ui.track, v);
             return;
         }
         rv_pid_set(PID_T(ui.track, k.id), v);
@@ -1878,7 +1880,8 @@ static void pic_source(void)
         static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO CZ: 2 LINES, 8-STEP DCO DCW DCA",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
-                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS"};
+                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
+                                                "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         g_text(8, PIC_Y + 6, &FONT_B, rv_engine_names[e], C_SYNTH);
         g_text(8, PIC_Y + 30, &FONT_T, desc[e], C_MID);

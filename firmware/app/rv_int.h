@@ -69,6 +69,10 @@ typedef struct {
 typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
 /* WAVE: two wavetable oscillators and the wave envelope (where in its shape, 0..1) */
 typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
+/* ORGAN: seven ranks and a celeste, each pipe's own onset, the chiff, air, wind and tremulant */
+typedef struct { float ph[8], dly[8], cents[8], t, chiff, air_lp, wind, wind_v, trem_ph; svf_t ch; uint32_t ns; } organ_t;
+/* MONO: one oscillator (saw, pulse, sub, noise), the scoop, delayed vibrato and drift */
+typedef struct { float ph, sub, scoop, vib_t, vib_ph, drift, drift_v; uint32_t ns; } mono_t;
 /* LOGIC: three sources, the smoothing, and the grains' memory (the voice's own last 23 ms) */
 #define RV_LOGIC_BUF 1024
 typedef struct {
@@ -99,7 +103,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; } e;
 } voice_t;
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */

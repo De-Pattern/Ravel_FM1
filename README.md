@@ -18,7 +18,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), ten engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains).
+- **Synth tracks** (T1 to T4), twelve engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
@@ -190,7 +190,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with ten engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with twelve engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). Mono or 2 voices. | – (choose PERC on any track) |
@@ -224,7 +224,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -293,7 +293,7 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The ten synth engines (SOURCE pages)
+### The twelve synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -435,6 +435,31 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **Where to start:** XOR or NAND between a SAW and a TRI at a ratio of 3/2 or 2, then fewer BITS for a cruder pattern. A>B between a SINE and a TRI at ratio 1 with a little B DRIFT gives a slowly breathing pulse. Ratios that aren't whole numbers make the pattern repeat at a lower common period, so the pitch can drop: 3/2 sounds an octave down, for example.
 - **Greyed knobs:** C, OP 2 and C RATIO grey out while OP 2 AMT is 0; BITS while no bit operator or QUANT is in use; PW while no source is PULSE; G SPRAY and G PITCH while GRAIN is 0.
 - **Presets:** LOGIC XOR, COMPARATOR, GRAIN VOX and BIT CRUNCH.
+
+**ORGAN:** a pipe organ played like a synthesizer, after the euphoric, breathing organ records of Maxime Denuc (Nachthorn, made on a computer-controlled church organ). Seven ranks of pipes, one per footage, sound together over one stop family, and each pipe behaves like a pipe: it speaks a moment after the key, comes in slightly flat and with a puff of air (the chiff), and the wind that feeds it is never quite steady. The pipe spectra are Ravel's own, from harmonic recipes; there are no samples. The church is the SPACE bus: set its MODE to CLOUDS and turn DECAY up for the long, stone-room tail, and give the track plenty of SPACE send (the ORGAN presets do).
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- |
+| STOP: FLUTE (stopped, nearly pure), NACHTHORN (a wide open flute, hollow and soft), PRINCIPAL (the bright, even organ tone), GAMBA (a string stop), TRUMPET (a reed) | 2 2/3': the twelfth (a fifth over the 4') | CHIFF: the puff of air as each pipe starts | WIND: the air supply wavers, pitch and level, and pipes sit a few cents apart |
+| 16': an octave down | 2': two octaves up | SPEECH: how long a pipe takes to speak, 10 to 150 ms | TREMLNT: the tremulant, a throb in level and pitch |
+| 8': the pitch you play | 1 3/5': the tierce (two octaves and a third up) | SPREAD: how far apart the ranks start, up to 35 ms | TREM RT: its speed, 3 to 9 Hz |
+| 4': an octave up | 1': three octaves up | AIR: a breath under the tone | CELESTE: a second 8' rank tuned sharp, so it beats (a voix céleste) |
+
+- **Registration:** the seven footage knobs are the drawstops: pull out 8' and 4' for a clear voice, add 2 2/3' and 2' for a bright, singing mixture, 16' for weight. Ranks too high for a note fall silent, as real pipes run out.
+- **Playing it:** organs don't respond to how hard you play, so VELO starts at 0. The track's ENV is the swell around it all: leave ATTACK short and let SPEECH do the onset; RELEASE about 100 ms is a pipe letting go. The sequencer's interlocking patterns (two playheads in GRAPH mode, INTERVAL, scenes changing registration via the macros) do what the record's pattern-based organ playing does.
+- **Presets:** INFINITE, PLENUM, VOX CELESTE, FLUTE 4' and TROMPETTE.
+
+**MONO:** a monosynth after the Roland SH-101, played like a wind or bowed instrument, after the way Dorian Concept phrases it. One oscillator, as on the 101: saw, pulse and sub all come from the same source, so nothing detunes or thickens. Choosing MONO sets the track up as the 101 does it: one voice, the SH-101 filter, key tracking full, cutoff about 1.1 kHz, resonance about 12%, the envelope opening the filter by about half, and a bowed-or-plucked envelope (22 ms attack, 260 ms decay, sustain about half, 120 ms release).
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- |
+| SAW: its level | NOISE | SCOOP T: how quickly the scoop arrives | VEL>CUT: a harder note opens the filter further |
+| PULSE | PW: the pulse's width | VIBRATO: depth, up to 50 cents | DRIFT: the pitch breathes a few cents |
+| SUB: the sub oscillator's level | PWM: the vibrato's LFO moves the width | VIB RATE: 1 to 9 Hz | RETRIG: LEGATO (overlapping notes slur: the envelope carries on and GLIDE slides) or ALWAYS (every note starts again) |
+| SUB OCT: -1 OCT, -2 OCT, -2 PULSE (a quarter-width pulse, as on the 101) | SCOOP: a detached note starts below and bends up into pitch, up to 3 semitones | VIB DLY: the vibrato fades in after this long, up to 1.5 s | DRIVE: pushes the oscillator into the filter |
+
+- **Playing it:** overlap notes for slurred phrases (the envelope doesn't restart and GLIDE carries the pitch), lift between notes to articulate them (each starts again, with its scoop). A little vibrato that waits before it starts, and VELO with VEL>CUT, make held notes feel blown or bowed. For layered parts, record one mono line, then another on a second MONO track, as Dorian Concept builds his from many single passes.
+- **Presets:** ORGANIC SAW (the settings above with a hint of vibrato), WOODWIND, CELLO LINE, RUBBER BASS and SCOOP LEAD.
 
 ### Strike tracks (SOURCE pages)
 
@@ -1170,6 +1195,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - XAOC Devices' Zadar, whose library of morphing shapes the SHAPE articulation follows (the shapes are Ravel's own).
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
+- Maxime Denuc's Nachthorn and Dorian Concept's SH-101 playing, which the ORGAN and MONO engines are made to sound like (Ravel's own synthesis; no recordings used).
 - Elektron's Machinedrum, whose synthesis machines and their documented parameters the PERC tracks are built from (Ravel's own designs; no Elektron code or data).
 - Kurzweil's VAST and E-mu's patch-cord functions, whose idea of building sound from function blocks the LOGIC engine follows.
 - Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).

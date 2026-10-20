@@ -167,6 +167,27 @@ static const int8_t l_crunch[] = {TP_S0, LW_SAW, TP_S1, 16, TP_S2, LW_SAW, TP_S3
                                   TP_S7, 60, TP_S8, 3, TP_S12, 20, TP_FTYPE, FT_MS20, TP_CUT, 80, TP_RES, 50, TP_EFILT, 30,
                                   TP_ATK, 0, TP_DEC, 50, TP_SUS, 50, TP_REL, 20, TP_POLY, 0, TP_LEVEL, 92, END};
 
+/* ORGAN: S0 STOP (0 FLUTE, 1 NACHTHORN, 2 PRINCIPAL, 3 GAMBA, 4 TRUMPET), S1-S7 16' 8' 4' 2 2/3' 2' 1 3/5' 1',
+ * S8 CHIFF, S9 SPEECH, S10 SPREAD, S11 AIR, S12 WIND, S13 TREMLNT, S14 TREM RT, S15 CELESTE */
+static const int8_t o_infinite[] = {TP_S0, 1, TP_S1, 0, TP_S2, 110, TP_S3, 80, TP_S4, 50, TP_S5, 60, TP_S8, 55, TP_S9, 62, TP_S10, 70,
+                                    TP_S11, 40, TP_S12, 40, TP_REVS, 110, TP_LEVEL, 96, END};
+static const int8_t o_plenum[] = {TP_S0, 2, TP_S1, 70, TP_S2, 110, TP_S3, 90, TP_S4, 60, TP_S5, 80, TP_S6, 40, TP_S7, 60, TP_S8, 30,
+                                  TP_REVS, 100, TP_LEVEL, 92, END};
+static const int8_t o_celeste[] = {TP_S0, 3, TP_S2, 110, TP_S3, 30, TP_S13, 30, TP_S14, 60, TP_S15, 70, TP_S8, 15, TP_REVS, 100, TP_LEVEL, 96, END};
+static const int8_t o_flute[] = {TP_S0, 0, TP_S2, 50, TP_S3, 110, TP_S8, 85, TP_S9, 40, TP_S11, 30, TP_REVS, 90, TP_LEVEL, 100, END};
+static const int8_t o_trompette[] = {TP_S0, 4, TP_S2, 110, TP_S3, 60, TP_S8, 20, TP_S9, 30, TP_REVS, 80, TP_LEVEL, 90, END};
+/* MONO: S0 SAW, S1 PULSE, S2 SUB, S3 SUB OCT, S4 NOISE, S5 PW, S6 PWM, S7 SCOOP, S8 SCOOP T, S9 VIBRATO,
+ * S10 VIB RATE, S11 VIB DLY, S12 VEL>CUT, S13 DRIFT, S14 RETRIG, S15 DRIVE (the engine sets the SH-101
+ * filter, key tracking and the envelope; these change what differs) */
+static const int8_t m_organic[] = {TP_S0, 127, TP_S2, 8, TP_S9, 4, TP_S10, 89, TP_S11, 40, TP_LEVEL, 100, END};
+static const int8_t m_woodwind[] = {TP_S0, 30, TP_S1, 100, TP_S5, 30, TP_S7, 40, TP_S9, 15, TP_S11, 70, TP_ATK, 60, TP_CUT, 65, TP_RES, 30,
+                                    TP_LEVEL, 100, END};
+static const int8_t m_cello[] = {TP_S0, 127, TP_S9, 18, TP_S10, 80, TP_S11, 60, TP_S15, 50, TP_ATK, 62, TP_CUT, 68, TP_RES, 20, TP_KTRK, 110,
+                                 TP_LEVEL, 100, END};
+static const int8_t m_rubber[] = {TP_S0, 90, TP_S2, 70, TP_S7, 0, TP_S9, 0, TP_S14, 1, TP_CUT, 50, TP_RES, 40, TP_EFILT, 50, TP_ATK, 0,
+                                  TP_DEC, 60, TP_SUS, 30, TP_PITCH, -12, TP_LEVEL, 106, END};
+static const int8_t m_scoop[] = {TP_S0, 40, TP_S1, 80, TP_S5, 40, TP_S6, 40, TP_S7, 70, TP_S8, 60, TP_S9, 20, TP_LEVEL, 100, TP_DLYS, 30, END};
+
 /* the Z filters: CUTOFF is MORPH, RESO is XFORM */
 static const int8_t p_talkbox[] = {TP_S0, 30, TP_S2, 3, TP_S3, 30, TP_FTYPE, FT_ZTALK, TP_CUT, 10, TP_RES, 70, TP_EFILT, 60,
                                    TP_KTRK, 0, TP_ATK, 30, TP_DEC, 70, TP_SUS, 70, TP_REL, 40, TP_POLY, 0, TP_GLIDE, 20,
@@ -246,6 +267,12 @@ static const rv_preset presets[] = {
     {"VOX SWEEP", KIND_SYNTH, ENG_WAVE, w_voxsweep, 0}, {"REMAP STEP", KIND_SYNTH, ENG_WAVE, w_remap, 0},
     {"LOGIC XOR", KIND_SYNTH, ENG_LOGIC, l_xor, 0}, {"COMPARATOR", KIND_SYNTH, ENG_LOGIC, l_comp, 0},
     {"GRAIN VOX", KIND_SYNTH, ENG_LOGIC, l_grainvox, 0}, {"BIT CRUNCH", KIND_SYNTH, ENG_LOGIC, l_crunch, 0},
+    {"INFINITE", KIND_SYNTH, ENG_ORGAN, o_infinite, 0}, {"PLENUM", KIND_SYNTH, ENG_ORGAN, o_plenum, 0},
+    {"VOX CELESTE", KIND_SYNTH, ENG_ORGAN, o_celeste, 0}, {"FLUTE 4'", KIND_SYNTH, ENG_ORGAN, o_flute, 0},
+    {"TROMPETTE", KIND_SYNTH, ENG_ORGAN, o_trompette, 0},
+    {"ORGANIC SAW", KIND_SYNTH, ENG_MONO, m_organic, 0}, {"WOODWIND", KIND_SYNTH, ENG_MONO, m_woodwind, 0},
+    {"CELLO LINE", KIND_SYNTH, ENG_MONO, m_cello, 0}, {"RUBBER BASS", KIND_SYNTH, ENG_MONO, m_rubber, 0},
+    {"SCOOP LEAD", KIND_SYNTH, ENG_MONO, m_scoop, 0},
     {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},

@@ -1566,6 +1566,175 @@ static void logic_render(voice_t *v, const float *eff, float f, float *out, int 
     }
 }
 
+/* -------------------------------------------------------------- ORGAN --- */
+/* A pipe organ played like a synthesizer, after the organ records of Maxime Denuc (Nachthorn). Seven
+ * ranks by footage (16' to 1') over one stop family, each pipe a cycle with that family's spectrum
+ * (rv_organ.h). Pipes don't start together or cleanly: each rank speaks after its own small delay
+ * (SPREAD), rises over SPEECH (the higher ranks a little quicker) and comes in slightly flat, with a
+ * CHIFF of air at the onset. AIR keeps a breath under the tone, WIND makes the supply waver (pitch
+ * and level), the TREMULANT throbs, and CELESTE adds a second 8' rank tuned sharp so it beats. The
+ * church is the SPACE bus: CLOUDS, with a long DECAY. */
+#define ORG_DATA
+#include "rv_organ.h"
+static const float org_gain[5] = {1.0f, 1.05f, 1.5f, 2.4f, 2.4f};
+static const float org_ratio[8] = {0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 8.0f, 1.0f};
+
+static void organ_note(voice_t *v, const float *eff)
+{
+    organ_t *o = &v->e.og;
+    int k;
+    float spread = eff[TP_S10] * (0.035f / 127.0f), wind = eff[TP_S12] * (4.0f / 127.0f);
+    if (!o->ns)
+        o->ns = v->rng | 1u;
+    o->t = 0.0f;
+    o->chiff = 1.0f;
+    for (k = 0; k < 8; k++) {
+        o->dly[k] = spread * (xs_bi(&o->ns) * 0.5f + 0.5f);   /* each pipe speaks in its own time */
+        o->cents[k] = wind * 0.5f * xs_bi(&o->ns);           /* and is a touch out with its neighbours */
+        o->ph[k] = xs_bi(&o->ns) * 0.5f + 0.5f;
+    }
+}
+
+static void organ_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    organ_t *o = &v->e.og;
+    int stop = clampi((int)(eff[TP_S0] + 0.5f), 0, ORG_STOPS - 1), i, k, nr = 0;
+    float speech = 0.01f * fm_exp2f(eff[TP_S9] * (3.9f / 127.0f)), dt = (float)n * RV_DT;
+    float chiff = eff[TP_S8] * (1.0f / 127.0f), air = eff[TP_S11] * (0.06f / 127.0f), wind = eff[TP_S12] * (1.0f / 127.0f);
+    float trem = eff[TP_S13] * (1.0f / 127.0f), trem_hz = 3.0f * fm_exp2f(eff[TP_S14] * (1.6f / 127.0f));
+    float celeste = eff[TP_S15] * (14.0f / 127.0f), lvl[8], inc[8], share[8], tot = 0.0f, onset = 0.0f, tr, wob;
+    int idx[8];
+    /* the wind: a slow wander in pitch and level; the tremulant */
+    o->wind_v += (xs_bi(&o->ns) - o->wind_v) * dt * 3.0f;
+    o->wind += (o->wind_v - o->wind) * dt * 1.5f;
+    o->trem_ph += trem_hz * dt;
+    o->trem_ph -= fm_floorf(o->trem_ph);
+    tr = trem * fm_sin_turns(o->trem_ph);
+    wob = o->wind * wind;
+    for (k = 0; k < 8; k++) {
+        float lv = k < 7 ? eff[TP_S1 + k] * (1.0f / 127.0f) : (celeste > 0.01f ? eff[TP_S2] * (0.8f / 127.0f) : 0.0f);
+        float age = o->t - o->dly[k], sp = speech * (1.0f - (float)(k < 7 ? k : 1) * 0.07f), g, fr, cents;
+        if (lv < 0.002f)
+            continue;
+        g = age <= 0.0f ? 0.0f : 1.0f - fm_expf(-age / sp);
+        cents = o->cents[k] - (1.0f - g) * 18.0f + wob * 3.0f + tr * 6.0f + (k == 7 ? celeste : 0.0f);   /* pipes come in flat */
+        fr = f * org_ratio[k] * fm_exp2f(cents * (1.0f / 1200.0f));
+        if (fr > 0.45f * (float)RV_FS)                 /* above what a pipe could sound */
+            continue;
+        idx[nr] = k;
+        lvl[nr] = lv * g * (1.0f + tr * 0.22f + wob * 0.03f);
+        inc[nr] = fr * RV_DT * (float)ORG_N;
+        {                                              /* the harmonics that fit: full (24), plain (4) or pure (1) */
+            float room = 0.45f * (float)RV_FS / fr;
+            share[nr] = room >= 24.0f ? 0.0f : room >= 4.0f ? (24.0f - room) / 20.0f : 1.0f + clampf((4.0f - room) / 3.0f, 0.0f, 1.0f);
+        }
+        nr++;
+        tot += lv;
+        onset += g;
+    }
+    tot = 0.55f / (tot > 1.0f ? fm_sqrtf(tot) : 1.0f) * org_gain[stop];   /* the bright stops' peaks sit higher: level them */
+    svf_set(&o->ch, f * 3.0f < 9000.0f ? f * 3.0f : 9000.0f, 5.0f);
+    for (i = 0; i < n; i++) {
+        float y = 0.0f, ns = xs_bi(&o->ns), bp;
+        for (k = 0; k < nr; k++) {
+            int r = idx[k], i0;
+            float x, fr, a, b;
+            o->ph[r] += inc[k];
+            if (o->ph[r] >= (float)ORG_N)
+                o->ph[r] -= (float)ORG_N;
+            x = o->ph[r];
+            i0 = (int)x;
+            fr = x - (float)i0;
+            {                                          /* share 0..1: full to plain, 1..2: plain to pure */
+                int lo = share[k] < 1.0f ? 0 : 1, i1 = (i0 + 1) & (ORG_N - 1);
+                float sh = share[k] - (float)lo;
+                const int8_t *ta = org_tab[stop][lo], *tb = org_tab[stop][lo + 1];
+                a = ta[i0] + (ta[i1] - ta[i0]) * fr;
+                if (sh > 0.001f) {
+                    b = tb[i0] + (tb[i1] - tb[i0]) * fr;
+                    a += (b - a) * sh;
+                }
+            }
+            y += a * lvl[k];
+        }
+        y *= (1.0f / 127.0f);
+        svf_tick(&o->ch, ns, &bp, 0);                  /* the chiff: air through the pipe's mouth */
+        o->air_lp += (ns - o->air_lp) * 0.08f;
+        y += bp * chiff * o->chiff * 0.5f + o->air_lp * air * (0.3f + 0.7f * (nr ? onset / (float)nr : 0.0f));
+        out[i] = y * tot;
+        o->chiff *= 0.9992f;
+    }
+    o->t += dt;
+}
+
+/* --------------------------------------------------------------- MONO --- */
+/* After the SH-101 as Dorian Concept plays it, like a wind or bowed instrument. One oscillator
+ * (the 101's way: saw, pulse and a sub all from one source, so nothing detunes), mixed as on its
+ * panel; the track filter defaults to SH-101 and follows the keys. Notes played legato keep the
+ * envelope going and glide (RETRIG ALWAYS starts each one again); a detached note SCOOPs up into
+ * pitch; the vibrato fades in after VIB DLY; DRIFT lets the pitch breathe; VEL>CUT opens the
+ * filter with velocity; DRIVE pushes into the filter. */
+static void mono_note(voice_t *v, const float *eff, int legato)
+{
+    mono_t *m = &v->e.mo;
+    (void)eff;
+    if (!m->ns)
+        m->ns = v->rng | 1u;
+    if (!legato) {
+        m->scoop = 1.0f;
+        m->vib_t = 0.0f;
+    }
+}
+
+static void mono_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    mono_t *m = &v->e.mo;
+    int sub_mode = clampi((int)(eff[TP_S3] + 0.5f), 0, 2), i;
+    float saw = eff[TP_S0] * (1.0f / 127.0f), pul = eff[TP_S1] * (1.0f / 127.0f), sub = eff[TP_S2] * (1.0f / 127.0f);
+    float noise = eff[TP_S4] * (1.0f / 127.0f), pwm = eff[TP_S6] * (1.0f / 127.0f), dt = (float)n * RV_DT;
+    float scoop = eff[TP_S7] * (3.0f / 127.0f), stime = 0.005f * fm_exp2f(eff[TP_S8] * (5.3f / 127.0f));
+    float vib = eff[TP_S9] * (50.0f / 127.0f), vrate = fm_exp2f(eff[TP_S10] * (3.17f / 127.0f));
+    float vdly = eff[TP_S11] * (1.5f / 127.0f), drift = eff[TP_S13] * (3.0f / 127.0f), drive = 1.0f + eff[TP_S15] * (2.0f / 127.0f);
+    float lfo, cents, d, pw, mixn, sd;
+    m->vib_t += dt;
+    m->vib_ph += vrate * dt;
+    m->vib_ph -= fm_floorf(m->vib_ph);
+    lfo = fm_sin_turns(m->vib_ph);
+    m->drift_v += (xs_bi(&m->ns) - m->drift_v) * dt * 2.0f;
+    m->drift += (m->drift_v - m->drift) * dt * 0.8f;
+    cents = vib * lfo * clampf(vdly > 0.01f ? m->vib_t / vdly : 1.0f, 0.0f, 1.0f) + drift * m->drift * 2.0f - scoop * 100.0f * m->scoop;
+    m->scoop *= fm_expf(-dt / stime);
+    d = clampf(f * fm_exp2f(cents * (1.0f / 1200.0f)) * RV_DT, 0.0f, 0.45f);
+    pw = clampf(0.5f - eff[TP_S5] * (0.42f / 127.0f) + pwm * 0.4f * lfo, 0.05f, 0.95f);
+    mixn = saw + pul + sub + noise;
+    mixn = drive * 0.5f / (mixn > 1.0f ? mixn : 1.0f);
+    sd = d * (sub_mode == 0 ? 0.5f : 0.25f);
+    for (i = 0; i < n; i++) {
+        float y = 0.0f, p2;
+        m->ph += d;
+        if (m->ph >= 1.0f)
+            m->ph -= 1.0f;
+        m->sub += sd;
+        if (m->sub >= 1.0f)
+            m->sub -= 1.0f;
+        if (saw > 0.0f)
+            y += saw * (2.0f * m->ph - 1.0f - blep(m->ph, d));
+        if (pul > 0.0f) {
+            p2 = m->ph + (1.0f - pw);
+            p2 -= fm_floorf(p2);
+            y += pul * ((m->ph < pw ? 1.0f : -1.0f) + blep(m->ph, d) - blep(p2, d));
+        }
+        if (sub > 0.0f) {
+            float spw = sub_mode == 2 ? 0.25f : 0.5f, s2 = m->sub + (1.0f - spw);
+            s2 -= fm_floorf(s2);
+            y += sub * ((m->sub < spw ? 1.0f : -1.0f) + blep(m->sub, sd) - blep(s2, sd));
+        }
+        if (noise > 0.0f)
+            y += noise * xs_bi(&m->ns);
+        out[i] = y * mixn;
+    }
+}
+
 static void voice_engine_reset(voice_t *v, int eng)
 {
     __builtin_memset(&v->e, 0, sizeof(v->e));
@@ -1629,6 +1798,8 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_SQ: sq_render(v, eff, f, buf, n); break;
     case ENG_WAVE: wave_render(v, eff, f, buf, n); break;
     case ENG_LOGIC: logic_render(v, eff, f, buf, n); break;
+    case ENG_ORGAN: organ_render(v, eff, f, buf, n); break;
+    case ENG_MONO: mono_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the articulation (CZ: its DCA), the key */
@@ -1637,6 +1808,8 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     env_amt = eff[TP_EFILT] * (1.0f / 64.0f);
     cut = eff[TP_CUT] + env_amt * 64.0f * lvl0 + ktrk * ((float)v->note - 60.0f) * (127.0f / 120.0f);
     res = eff[TP_RES] * (1.0f / 127.0f);
+    if (eng == ENG_MONO)                              /* VEL>CUT: a harder note is brighter */
+        cut += eff[TP_S12] * (70.0f / 127.0f) * (v->vel - 0.5f);
     if (ft == FT_LPG) {
         float target = clampf(lvl0, 0.0f, 1.0f);
         v->lpg += (target - v->lpg) * 0.35f;          /* a vactrol lags a little */

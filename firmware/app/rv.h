@@ -108,7 +108,7 @@ enum {
 #define PID_G(g) (RV_GPID + (g))
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum */
-enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_SQ, ENG_WAVE, ENG_LOGIC, ENG_N };   /* ENG_CZ: was PD */
+enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_SQ, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_N };   /* ENG_CZ: was PD */
 enum { SQM_OFF, SQM_SYNC, SQM_AM, SQM_BOTH };   /* SQ: osc 1 on osc 2 */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
@@ -267,7 +267,8 @@ extern const char *const rv_scale_names[];
 #define RV_NCOND 14
 void rv_track_defaults(int t, int kind, int engine);
 void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
-void rv_cz_init(int t);                         /* a plain CZ patch on track t */
+void rv_cz_init(int t);
+void rv_engine_track_defaults(int t, int engine);   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
 void rv_project_init(void);
 
 /* rv_engine.c: the audio side */

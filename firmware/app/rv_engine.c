@@ -117,7 +117,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
                         vs[i].on = 0;
                 }
             if (pick >= 0)
-                legato = vs[pick].a.gate && rv.tp[t][TP_GLIDE] > 0;
+                legato = vs[pick].a.gate && (rv.tp[t][TP_ENGINE] == ENG_MONO ? rv.tp[t][TP_S14] == 0   /* MONO: held notes slur */
+                                                                              : rv.tp[t][TP_GLIDE] > 0);
         } else {
             for (i = 0; i < RV_SYNTH_VOICES; i++)
                 if (vs[i].on && vs[i].track == t) {
@@ -185,6 +186,10 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             wave_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_LOGIC)
             logic_note(vo, tr->eff);
+        else if (rv.tp[t][TP_ENGINE] == ENG_ORGAN)
+            organ_note(vo, tr->eff);
+        else if (rv.tp[t][TP_ENGINE] == ENG_MONO)
+            mono_note(vo, tr->eff, legato);
     } else if (kind == KIND_STRIKE) {
         int poly = clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;

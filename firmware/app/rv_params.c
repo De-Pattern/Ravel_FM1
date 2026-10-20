@@ -4,10 +4,11 @@
 #include "rv_sqwaves.h"
 #include "rv_shapes.h"
 #include "rv_wavetables.h"
+#include "rv_organ.h"
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -67,6 +68,9 @@ static const char *const wenv_names[] = {"OFF", SHP_NAMES};
 static const char *const lw_names[] = {"SAW", "TRI", "SQUARE", "SINE", "PULSE", "NOISE"};
 static const char *const lr_names[] = {"1/4", "1/3", "1/2", "2/3", "3/4", "1", "5/4", "4/3", "3/2", "5/3", "2", "5/2", "3", "4", "5", "6", "7", "8", "11", "16"};
 static const char *const lo_names[] = {"A+B", "A*B", "MIN", "MAX", "AND", "OR", "XOR", "NAND", "A>B", "GATE", "DIFF", "QUANT", "MOD", "SIN(A+B)", "A(B)"};
+static const char *const org_names[] = {ORG_NAMES};
+static const char *const mono_subs[] = {"-1 OCT", "-2 OCT", "-2 PULSE"};
+static const char *const mono_trig[] = {"LEGATO", "ALWAYS"};
 static const char *const sq_mods[] = {"OFF", "SYNC", "AM", "SYNC+AM"};
 static const char *const phys_models[] = {"STRING", "BOWED", "BLOWN", "MEMBRAN"};
 static const char *const form_modes[] = {"FILTER", "FOF"};
@@ -170,7 +174,23 @@ static const rv_pinfo SRC_LOGIC[16] = {
     {"BITS", 1, 12, 6, PF_NUM, 0}, {"PW", 0, 127, 64, PF_NUM, 0}, {"B DRIFT", 0, 127, 0, PF_NUM, 0},
     {"DRY A", 0, 127, 0, PF_NUM, 0}, {"SMOOTH", 0, 127, 30, PF_NUM, 0}, {"GRAIN", 0, 127, 0, PF_NUM, 0},
     {"G SPRAY", 0, 127, 20, PF_NUM, 0}, {"G PITCH", -24, 24, 0, PF_SEMI, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC};
+/* ORGAN: pipe ranks by footage over one stop family, each pipe speaking in its own time */
+static const rv_pinfo SRC_ORGAN[16] = {
+    {"STOP", 0, ORG_STOPS - 1, 1, E(org_names)}, {"16'", 0, 127, 0, PF_NUM, 0}, {"8'", 0, 127, 110, PF_NUM, 0},
+    {"4'", 0, 127, 70, PF_NUM, 0}, {"2 2/3'", 0, 127, 0, PF_NUM, 0}, {"2'", 0, 127, 40, PF_NUM, 0},
+    {"1 3/5'", 0, 127, 0, PF_NUM, 0}, {"1'", 0, 127, 0, PF_NUM, 0}, {"CHIFF", 0, 127, 40, PF_NUM, 0},
+    {"SPEECH", 0, 127, 50, PF_NUM, 0}, {"SPREAD", 0, 127, 40, PF_NUM, 0}, {"AIR", 0, 127, 25, PF_NUM, 0},
+    {"WIND", 0, 127, 30, PF_NUM, 0}, {"TREMLNT", 0, 127, 0, PF_NUM, 0}, {"TREM RT", 0, 127, 60, PF_NUM, 0},
+    {"CELESTE", 0, 127, 0, PF_NUM, 0}};
+/* MONO: one oscillator in the SH-101's way, played like a wind instrument */
+static const rv_pinfo SRC_MONO[16] = {
+    {"SAW", 0, 127, 127, PF_NUM, 0}, {"PULSE", 0, 127, 0, PF_NUM, 0}, {"SUB", 0, 127, 8, PF_NUM, 0},
+    {"SUB OCT", 0, N(mono_subs), 0, E(mono_subs)}, {"NOISE", 0, 127, 0, PF_NUM, 0}, {"PW", 0, 127, 64, PF_NUM, 0},
+    {"PWM", 0, 127, 0, PF_NUM, 0}, {"SCOOP", 0, 127, 20, PF_NUM, 0}, {"SCOOP T", 0, 127, 40, PF_NUM, 0},
+    {"VIBRATO", 0, 127, 10, PF_NUM, 0}, {"VIB RATE", 0, 127, 70, PF_NUM, 0}, {"VIB DLY", 0, 127, 50, PF_NUM, 0},
+    {"VEL>CUT", 0, 127, 40, PF_NUM, 0}, {"DRIFT", 0, 127, 20, PF_NUM, 0}, {"RETRIG", 0, 1, 0, E(mono_trig)},
+    {"DRIVE", 0, 127, 30, PF_NUM, 0}};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO};
 
 /* PERC (rv_perc.c): the machine list and each machine's eight parameters (0 = unused), with their defaults */
 static const rv_pinfo perc_pi[PM_N][8] = {
@@ -652,6 +672,22 @@ int rv_tp_applies(int t, int p)
         default: return 1;
         }
     }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_ORGAN) {
+        switch (p) {
+        case TP_S14: return tp[TP_S13] > 0;                                 /* TREM RT: with TREMLNT */
+        default: return 1;
+        }
+    }
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_MONO) {
+        switch (p) {
+        case TP_S3: return tp[TP_S2] > 0;                                   /* SUB OCT: with SUB */
+        case TP_S5: case TP_S6: return tp[TP_S1] > 0;                       /* PW, PWM: with PULSE */
+        case TP_S8: return tp[TP_S7] > 0;                                   /* SCOOP T: with SCOOP */
+        case TP_S10: case TP_S11: return tp[TP_S9] > 0;                     /* the vibrato's rate and delay */
+        case TP_S14: return tp[TP_POLY] == 0;                               /* RETRIG: a mono track */
+        default: return 1;
+        }
+    }
     if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_LOGIC) {
         int bitop = tp[TP_S5] >= LO_AND && tp[TP_S5] <= LO_NAND, bitop2 = tp[TP_S6] >= LO_AND && tp[TP_S6] <= LO_NAND;
         int quant = tp[TP_S5] == LO_QUANT || tp[TP_S6] == LO_QUANT, c = tp[TP_S7] > 0;
@@ -735,6 +771,38 @@ static void track_src_defaults(int t)
 void rv_track_src_defaults(int t) { track_src_defaults(t); }
 
 /* a plain CZ tone: line 1 a saw whose DCW opens and settles, DCA up, held, released */
+/* the track around an engine that needs one: ORGAN wants open, held pipes; MONO the SH-101's filter
+ * following the keys, one voice, the bowed-or-plucked envelope (cutoff 1.1 kHz, reso 12%, env 55%,
+ * key tracking full, A 22 ms D 260 ms S 48% R 120 ms, glide 18 ms) */
+void rv_engine_track_defaults(int t, int engine)
+{
+    int16_t *tp = rv.tp[t & 7];
+    if (engine == ENG_ORGAN) {
+        tp[TP_POLY] = 3;
+        tp[TP_FTYPE] = FT_LP;
+        tp[TP_CUT] = 127;
+        tp[TP_RES] = 0;
+        tp[TP_EFILT] = 0;
+        tp[TP_KTRK] = 0;
+        tp[TP_ATK] = 8;
+        tp[TP_SUS] = 127;
+        tp[TP_REL] = 66;
+        tp[TP_VELO] = 0;
+    } else if (engine == ENG_MONO) {
+        tp[TP_POLY] = 0;
+        tp[TP_FTYPE] = FT_SH101;
+        tp[TP_CUT] = 73;
+        tp[TP_RES] = 15;
+        tp[TP_EFILT] = 35;
+        tp[TP_KTRK] = 127;
+        tp[TP_ATK] = 50;
+        tp[TP_DEC] = 82;
+        tp[TP_SUS] = 61;
+        tp[TP_REL] = 72;
+        tp[TP_GLIDE] = 12;
+    }
+}
+
 void rv_cz_init(int t)
 {
     static const rv_czline plain = {
@@ -758,6 +826,8 @@ void rv_track_defaults(int t, int kind, int engine)
         rv_cz_init(t);
     if (kind == KIND_SYNTH && engine == ENG_SQ)
         rv.tp[t][TP_FTYPE] = FT_SQ80;
+    if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO))
+        rv_engine_track_defaults(t, engine);
     if (kind == KIND_PERC) {
         rv.tp[t][TP_POLY] = 0;
         rv.tp[t][TP_VELO] = 64;
