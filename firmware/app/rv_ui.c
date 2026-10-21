@@ -875,8 +875,8 @@ static void kb_set(kb_t k, int v)
             ui.preset_idx[ui.track] = -1;
             return;
         }
-        if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH && rv.tp[ui.track][TP_ENGINE] == ENG_RESIN) {
-            int p;                                   /* RESIN: the other model starts from its own settings */
+        if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH && (rv.tp[ui.track][TP_ENGINE] == ENG_RESIN || rv.tp[ui.track][TP_ENGINE] == ENG_TINE)) {
+            int p;                                   /* RESIN, TINE: another model starts from its own settings */
             rv.tp[ui.track][TP_S0] = (int16_t)v;
             for (p = TP_S1; p <= TP_S15; p++) {
                 const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
@@ -904,7 +904,7 @@ static void kb_set(kb_t k, int v)
                 rv_cz_init(ui.track);
             if (v == ENG_SQ)                          /* the SQ comes with its own filter */
                 rv.tp[ui.track][TP_FTYPE] = FT_SQ80;
-            if (v == ENG_ORGAN || v == ENG_MONO)
+            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE)
                 rv_engine_track_defaults(ui.track, v);
             return;
         }
@@ -2619,7 +2619,7 @@ static void pic_source(void)
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
                                                 "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN",
-                                                "BOWED STRING OR REED, AND QUAKE"};
+                                                "BOWED STRING OR REED, AND QUAKE", "KALIMBA, MARIMBA, ELECTRIC PIANO"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
             const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);

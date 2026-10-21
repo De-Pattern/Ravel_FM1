@@ -37,7 +37,7 @@ static int g_y0, g_y1;
 #define C_K1 RGB(91, 143, 214)
 #define C_K2 RGB(93, 190, 142)
 #define C_K3 RGB(230, 230, 226)
-#define C_K4 RGB(158, 136, 206)            /* a pale, deep purple */
+#define C_K4 RGB(196, 62, 76)              /* the perc red */
 /* the perc tracks keep the earlier greens (their lanes and machines are drawn as they were) */
 #define C_O_PANEL RGB(28, 35, 31)
 #define C_O_LINE RGB(48, 58, 52)

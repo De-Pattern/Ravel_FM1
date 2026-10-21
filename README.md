@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -21,7 +21,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake).
+- **Synth tracks** (T1 to T4), fourteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
@@ -193,7 +193,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with fourteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
@@ -227,7 +227,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -301,7 +301,7 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The thirteen synth engines (SOURCE pages)
+### The fourteen synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -492,6 +492,26 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 
 - **Playing it:** the filter is open by default; shape the note with the volume envelope (a slow attack and long release for a bowed line) and VELO. Use one voice and GLIDE for a single player sliding between notes. QUAKE is the performance knob: put it on an LFO, the matrix or a step envelope (STEP ENV) for a hand that gives out on certain steps.
 - **Presets:** WRAITH (a low cello, pressed hard, with wide slow vibrato and drift), UPSTAIRS (a frantic, scraping violin line, one voice gliding), RESIN VIOLIN (a cleaner violin), FOGHORN (a low, overblown reed) and THROAT SAX (a growling, sung-into reed).
+
+**TINE:** things that are struck or plucked and then ring: metal tines and wooden bars. Each note is a handful of resonant modes (the bar's or tine's own overtones, which are not the harmonics of a string) set ringing by a short strike; a harder PLUCK, MALLET or HAMMER is a shorter strike, which reaches the higher modes. Choosing TINE opens the track up for it: four voices, the filter open, the envelope held at full sustain so the instrument decays by itself, and velocity at 100. MODEL chooses **KALIMBA**, **MARIMBA** or **EPIANO**; changing it sets the other knobs to that model's defaults, and their names change with it.
+
+| | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- | --- |
+| **KALIMBA** | MODEL | RUST: old iron tines, out of true: stray partials that die fast, grit in the pluck, a slow beat between the tine's two swings | BOX: the wooden box's resonance | DETUNE: each note a little off, as hand-tuned tines are, up to 40 cents |
+| | PLUCK: how sharply the thumb lets go | BUZZ: the metal rings (or bottle caps) on the tines, rattling | HOLE: the sound hole, covered (lower, darker) to open | BEND: a hard pluck starts sharp and settles |
+| | DECAY: how long the tines ring | RATTLE: how readily the rings rattle; low, only on hard plucks | WAH: a hand opening and closing the hole, 1 to 8 Hz (0 off) | DAMP: how fast a released note stops (0 lets it ring) |
+| | TONE: how long the high partials last | THICK: thick tines, fuller and lower in their overtones | THUMB: the thumbnail's click | DRIFT: the pitch wanders a few cents |
+| **MARIMBA** | MODEL | POSITN: where the mallet lands, from the centre (pure) toward the end (more overtones) | ROLL: held notes are rolled, struck again and again (0 off) | DETUNE |
+| | MALLET: soft yarn to hard | TUBE: the resonator tube under each bar, which carries the fundamental | ROLL RT: 5 to 24 strokes a second | HUMAN: an uneven roll |
+| | DECAY | WOOD: the bar's wood, darker to brighter | BUZZ: a balafon's gourds, their membranes buzzing | DAMP |
+| | TONE | STICK: the mallet's click | RATTLE: how readily the gourds buzz | DRIFT |
+| **EPIANO** | MODEL | BELL: the tine's bright, quick high partial | TREM: tremolo depth (0 off) | DETUNE |
+| | HAMMER: felt soft to hard | BARK: how hard a hard note drives the pickup, for the growl | TREM RT: 1.5 to 9 Hz | KEY OFF: the dampers' noise as a key is let go |
+| | DECAY | PICKUP: how far off centre the tine swings past its pickup: more of the second harmonic | DRIVE: the amp breaking up | DAMP: how fast the dampers stop a released note |
+| | TONE | TONEBAR: the tonebar's sustain and its slow beat with the tine | THUMP: the hammer's low thud | DRIFT |
+
+- **Playing it:** TINE answers velocity: harder notes are brighter, a kalimba's rings rattle and an electric piano barks. With DAMP at 0 notes ring on after release, like a kalimba or a marimba without dampers; raise it for an electric piano's dampers.
+- **Presets:** THUMB PIANO, NAIL KALIMBA (thick, rusty tines with loud rings, an octave down), HAND WAH, MARIMBA, MARIMBA ROLL, BALAFON, SUITCASE (an electric piano with tremolo), GLASS TINE (all bell, little bark) and BARKING EP.
 
 ### Strike tracks (SOURCE pages)
 

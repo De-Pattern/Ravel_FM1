@@ -76,6 +76,17 @@ static const int8_t p_foghorn[] = {TP_S0, 1, TP_PITCH, -12, TP_S1, 104, TP_S2, 8
 static const int8_t p_throatsax[] = {TP_S0, 1, TP_PITCH, -12, TP_S1, 90, TP_S2, 70, TP_S3, 30, TP_S4, 90, TP_S5, 30, TP_S6, 90, TP_S7, 70,
                                      TP_S8, 60, TP_S9, 25, TP_S10, 40, TP_S11, 25, TP_S12, 45, TP_S13, 20, TP_S14, 50, TP_S15, 40, RS_OPEN,
                                      TP_ATK, 30, TP_SUS, 127, TP_REL, 60, TP_REVS, 30, TP_LEVEL, 100, END};
+/* TINE: thumb pianos, bars and tines; the track open and held, the engine's own decay */
+#define TN_OPEN TP_POLY, 3, TP_FTYPE, FT_LP, TP_CUT, 127, TP_RES, 0, TP_EFILT, 0, TP_KTRK, 0, TP_ATK, 0, TP_SUS, 127, TP_REL, 90, TP_VELO, 100, TP_LEVEL, 100
+static const int8_t p_thumbpiano[] = {TP_S0, 0, TP_S1, 75, TP_S2, 75, TP_S3, 60, TP_S4, 55, TP_S5, 50, TP_S6, 60, TP_S7, 60, TP_S8, 60, TP_S9, 64, TP_S10, 0, TP_S11, 45, TP_S12, 25, TP_S13, 30, TP_S14, 50, TP_S15, 15, TN_OPEN, TP_REVS, 30, END};
+static const int8_t p_nailkalimba[] = {TP_S0, 0, TP_S1, 80, TP_S2, 80, TP_S3, 45, TP_S4, 110, TP_S5, 95, TP_S6, 95, TP_S7, 105, TP_S8, 85, TP_S9, 50, TP_S10, 0, TP_S11, 60, TP_S12, 55, TP_S13, 55, TP_S14, 45, TP_S15, 25, TN_OPEN, TP_PITCH, -12, TP_REVS, 25, TP_LEVEL, 88, END};
+static const int8_t p_handwah[] = {TP_S0, 0, TP_S1, 70, TP_S2, 80, TP_S3, 65, TP_S4, 45, TP_S5, 40, TP_S6, 55, TP_S7, 55, TP_S8, 90, TP_S9, 70, TP_S10, 45, TP_S11, 35, TP_S12, 20, TP_S13, 20, TP_S14, 50, TP_S15, 15, TN_OPEN, TP_REVS, 35, END};
+static const int8_t p_marimba[] = {TP_S0, 1, TP_S1, 55, TP_S2, 60, TP_S3, 55, TP_S4, 25, TP_S5, 85, TP_S6, 50, TP_S7, 25, TP_S8, 0, TP_S9, 64, TP_S10, 0, TP_S11, 60, TP_S12, 5, TP_S13, 0, TP_S14, 50, TP_S15, 10, TN_OPEN, TP_PITCH, -12, TP_REVS, 30, END};
+static const int8_t p_marroll[] = {TP_S0, 1, TP_S1, 50, TP_S2, 55, TP_S3, 50, TP_S4, 30, TP_S5, 90, TP_S6, 45, TP_S7, 15, TP_S8, 90, TP_S9, 75, TP_S10, 0, TP_S11, 60, TP_S12, 5, TP_S13, 40, TP_S14, 60, TP_S15, 10, TN_OPEN, TP_PITCH, -12, TP_REVS, 40, END};
+static const int8_t p_balafon[] = {TP_S0, 1, TP_S1, 75, TP_S2, 50, TP_S3, 70, TP_S4, 40, TP_S5, 60, TP_S6, 90, TP_S7, 45, TP_S8, 0, TP_S9, 64, TP_S10, 95, TP_S11, 95, TP_S12, 25, TP_S13, 20, TP_S14, 50, TP_S15, 15, TN_OPEN, TP_REVS, 25, END};
+static const int8_t p_suitcase[] = {TP_S0, 2, TP_S1, 60, TP_S2, 80, TP_S3, 55, TP_S4, 50, TP_S5, 55, TP_S6, 60, TP_S7, 65, TP_S8, 60, TP_S9, 48, TP_S10, 15, TP_S11, 30, TP_S12, 5, TP_S13, 25, TP_S14, 55, TP_S15, 15, TN_OPEN, TP_REVS, 30, END};
+static const int8_t p_glasstine[] = {TP_S0, 2, TP_S1, 75, TP_S2, 85, TP_S3, 80, TP_S4, 100, TP_S5, 20, TP_S6, 25, TP_S7, 55, TP_S8, 0, TP_S9, 50, TP_S10, 0, TP_S11, 15, TP_S12, 5, TP_S13, 15, TP_S14, 45, TP_S15, 10, TN_OPEN, TP_REVS, 45, END};
+static const int8_t p_barkep[] = {TP_S0, 2, TP_S1, 70, TP_S2, 70, TP_S3, 60, TP_S4, 45, TP_S5, 115, TP_S6, 100, TP_S7, 50, TP_S8, 0, TP_S9, 50, TP_S10, 55, TP_S11, 45, TP_S12, 5, TP_S13, 35, TP_S14, 60, TP_S15, 10, TN_OPEN, TP_REVS, 20, END};
 static const int8_t p_bowed[] = {TP_S0, 1, TP_S1, 70, TP_S4, 110, TP_S7, 110, TP_S6, 60, TP_FTYPE, FT_LP, TP_CUT, 110, TP_EFILT, 0,
                                   TP_ATK, 56, TP_SUS, 116, TP_REL, 76, TP_GIVE, 30, TP_REVS, 60, TP_LEVEL, 66, END};
 static const int8_t p_breath[] = {TP_S0, 2, TP_S1, 60, TP_S4, 96, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 100, TP_EFILT, 10, TP_ATK, 40,
@@ -285,6 +296,15 @@ static const rv_preset presets[] = {
     {"WRAITH", KIND_SYNTH, ENG_RESIN, p_wraith, 0}, {"UPSTAIRS", KIND_SYNTH, ENG_RESIN, p_upstairs, 0},
     {"RESIN VIOLIN", KIND_SYNTH, ENG_RESIN, p_violin, 0}, {"FOGHORN", KIND_SYNTH, ENG_RESIN, p_foghorn, 0},
     {"THROAT SAX", KIND_SYNTH, ENG_RESIN, p_throatsax, 0},
+    {"THUMB PIANO", KIND_SYNTH, ENG_TINE, p_thumbpiano, 0},
+    {"NAIL KALIMBA", KIND_SYNTH, ENG_TINE, p_nailkalimba, 0},
+    {"HAND WAH", KIND_SYNTH, ENG_TINE, p_handwah, 0},
+    {"MARIMBA", KIND_SYNTH, ENG_TINE, p_marimba, 0},
+    {"MARIMBA ROLL", KIND_SYNTH, ENG_TINE, p_marroll, 0},
+    {"BALAFON", KIND_SYNTH, ENG_TINE, p_balafon, 0},
+    {"SUITCASE", KIND_SYNTH, ENG_TINE, p_suitcase, 0},
+    {"GLASS TINE", KIND_SYNTH, ENG_TINE, p_glasstine, 0},
+    {"BARKING EP", KIND_SYNTH, ENG_TINE, p_barkep, 0},
     {"BREATH", KIND_SYNTH, ENG_PHYS, p_breath, 0}, {"MEMBRANE", KIND_SYNTH, ENG_PHYS, p_membrane, 0}, {"VOWEL", KIND_SYNTH, ENG_FORMANT, p_vowel, 0},
     {"CHOIR FOF", KIND_SYNTH, ENG_FORMANT, p_fof, 0}, {"PULSAR", KIND_SYNTH, ENG_PARTICLE, p_pulsar, 0}, {"SWARM", KIND_SYNTH, ENG_PARTICLE, p_swarm, 0},
     {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice, 0},

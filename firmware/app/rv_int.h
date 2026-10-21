@@ -78,6 +78,13 @@ typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
 typedef struct { float ph[8], dly[8], cents[8], t, chiff, air_lp, wind, wind_v, trem_ph; svf_t ch; uint32_t ns; } organ_t;
 /* MONO: one oscillator (saw, pulse, sub, noise), the scoop, delayed vibrato and drift */
 typedef struct { float ph, sub, scoop, vib_t, vib_ph, drift, drift_v; uint32_t ns; } mono_t;
+/* TINE: a struck or plucked bar or tine as a bank of modes (KALIMBA, MARIMBA, EPIANO): re/im
+ * rotate per mode; rat is each mode's ratio to the note, lr its log2, w how hard it is struck */
+#define TN_M 8
+typedef struct { float re[TN_M], im[TN_M], w[TN_M], rat[TN_M], lr[TN_M], dk[TN_M];
+  float exc_n, exc_len, exc_amp, bend, drift, drift_v, detune, roll_t, trem_ph, wah_ph, blp, click, thump, thlp, offn, held;
+  uint8_t nm, gate_was; svf_t box[2]; uint32_t ns; } tine_t;
+
 /* RESIN: a bowed string (BOW) or a reed and bore (HORN) in two waveguide segments that meet at the bow
  * or the reed; its own vibrato, drift and QUAKE; a small body (three modes) or a throat filter */
 #define RS_BR 640                           /* the bridge (or bell) side: the short one */
@@ -121,7 +128,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; } e;
 } voice_t;
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */

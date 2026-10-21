@@ -5,6 +5,8 @@ tap EDIT
 wait 200
 expect page SOUND
 turn K2 20
+wait 100
+turn K2 -1
 wait 200
 expect tp 1 ENGINE 12
 wav resin.wav

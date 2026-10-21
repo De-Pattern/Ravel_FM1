@@ -1,0 +1,41 @@
+# TINE: KALIMBA, MARIMBA and EPIANO all ring; a model change renames the knobs and resets them
+wait 300
+tap EDIT
+wait 200
+expect page SOUND
+turn K2 20
+wait 200
+expect tp 1 ENGINE 13
+wav tine.wav
+key 12 down
+wait 600
+expect voices 1
+expect peak_db_min -30
+shot tine_kalimba.png
+key 12 up
+wait 400
+turn SELECT 1
+wait 200
+turn K1 1
+wait 200
+expect tp 1 MODEL 1
+expect tp 1 MALLET 55
+key 7 down
+wait 600
+expect peak_db_min -30
+key 7 up
+wait 400
+turn K1 1
+wait 200
+expect tp 1 MODEL 2
+expect tp 1 HAMMER 60
+key 16 down
+key 19 down
+wait 600
+expect voices 2
+expect peak_db_min -30
+shot tine_epiano.png
+key 16 up
+key 19 up
+wait 600
+wavstop

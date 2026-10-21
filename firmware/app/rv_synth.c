@@ -1772,6 +1772,7 @@ static void voice_engine_reset(voice_t *v, int eng)
     case ENG_FORMANT: v->e.fo.ns = v->rng | 1u; break;
     case ENG_PARTICLE: v->e.pa.ns = v->rng | 1u; break;
     case ENG_RESIN: v->e.rs.ns = v->rng | 1u; break;
+    case ENG_TINE: v->e.tn.ns = v->rng | 1u; break;
     default: break;
     }
     v->e_eng = (uint8_t)(eng + 1);
@@ -1988,11 +1989,255 @@ static void resin_render(voice_t *v, const float *eff, float f, float *out, int 
     }
 }
 
+
+/* --------------------------------------------------------------- TINE --- */
+/* Struck and plucked metal and wood as a bank of up to eight modes, each a decaying rotation
+ * (re, im) that a short half-sine pulse sets ringing; a harder PLUCK, MALLET or HAMMER is a
+ * shorter pulse, which reaches the higher modes. KALIMBA: a thick tine's clamped-bar modes,
+ * a second, slightly detuned fundamental (the tine also swings sideways) and RUST's stray,
+ * quickly dying partials; the rings on the tines (BUZZ) rattle when the tine swings past
+ * RATTLE's reach; a box with a hole (HOLE, WAH as a hand opening and closing it). MARIMBA: bars
+ * tuned 1 : 4 : 10, struck at POSITN, a tube under each (TUBE) that carries the fundamental,
+ * ROLL for held notes, BUZZ for a balafon's gourds. EPIANO: a tine and its tonebar before a
+ * pickup (after the Rhodes): BELL the tine's high partial, PICKUP how far off centre the tine
+ * swings (the second harmonic), BARK how hard a hard note drives it, TREM, DRIVE, THUMP and
+ * the dampers' KEY OFF. All: DECAY, TONE (how much faster the high modes die), DETUNE (each
+ * note a little out, as tines are), DAMP (how fast a released note stops), DRIFT. */
+#define TN_KAL 0
+#define TN_MAR 1
+#define TN_EP 2
+
+static void tine_add(tine_t *s, float rat, float w, float dk)
+{
+    if (s->nm >= TN_M)
+        return;
+    s->rat[s->nm] = rat;
+    s->lr[s->nm] = fm_log2f(rat > 1.0f ? rat : 1.0f);
+    s->w[s->nm] = w;
+    s->dk[s->nm] = dk;                                /* this mode's decay, as a share of its natural one */
+    s->nm++;
+}
+
+static void tine_strike(tine_t *s, const float *eff, float vel, float amp)
+{
+    int model = clampi((int)(eff[TP_S0] + 0.5f), 0, 2);
+    float hard = eff[TP_S1] * (1.0f / 127.0f), sc = model == TN_KAL ? 0.3f : model == TN_EP ? 0.55f : 1.0f;   /* a thumb lets go sharply; felt is softer */
+    s->exc_len = (0.00012f + (1.0f - hard) * (1.0f - hard) * 0.0032f) * (1.25f - 0.5f * vel) * sc * 44100.0f;
+    if (s->exc_len < 3.0f)
+        s->exc_len = 3.0f;
+    s->exc_amp = amp * 3.14159265f / (2.0f * s->exc_len);   /* a pulse of area amp */
+    s->exc_n = 0.0f;
+}
+
+static void tine_note(voice_t *v, const float *eff)
+{
+    tine_t *s = &v->e.tn;
+    int model = clampi((int)(eff[TP_S0] + 0.5f), 0, 2), k;
+    float vel = v->vel, r1 = xs_bi(&s->ns), r2 = xs_bi(&s->ns);
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    s->nm = 0;
+    if (model == TN_KAL) {
+        float rust = eff[TP_S4] * (1.0f / 127.0f), thick = eff[TP_S7] * (1.0f / 127.0f), sh = 1.0f - 0.16f * thick;
+        tine_add(s, 1.0f, 1.0f, 1.0f);
+        tine_add(s, 1.0f + 0.0025f + rust * 0.007f * (1.0f + 0.5f * r1), 0.25f + 0.35f * rust, 0.8f);
+        tine_add(s, 6.267f * sh * (1.0f + rust * 0.03f * r2), 0.55f - 0.2f * thick, 1.0f);
+        tine_add(s, 17.55f * sh * (1.0f + rust * 0.04f * xs_bi(&s->ns)), 0.3f - 0.1f * thick, 1.0f);
+        tine_add(s, 34.39f * sh, 0.12f, 1.0f);
+        if (rust > 0.05f) {                           /* rust: stray partials that die fast */
+            tine_add(s, 2.71f * (1.0f + 0.1f * xs_bi(&s->ns)), rust * 0.3f, 0.12f);
+            tine_add(s, 11.3f * (1.0f + 0.1f * xs_bi(&s->ns)), rust * 0.25f, 0.08f);
+        }
+        s->click = eff[TP_S11] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * 0.5f;
+        s->bend = eff[TP_S13] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * 0.045f;
+    } else if (model == TN_MAR) {
+        float pos = eff[TP_S4] * (1.0f / 127.0f), wood = eff[TP_S6] * (1.0f / 127.0f);
+        tine_add(s, 1.0f, 1.0f - 0.35f * pos, 1.0f + eff[TP_S5] * (1.6f / 127.0f));   /* the tube carries it */
+        tine_add(s, 3.99f, 0.15f + 0.85f * pos, 1.0f);
+        tine_add(s, 9.8f + 0.6f * wood, 0.55f + 0.25f * (1.0f - pos), 1.0f);
+        tine_add(s, 17.6f, 0.25f * pos + 0.1f, 0.7f);
+        tine_add(s, 27.0f, 0.12f, 0.5f);
+        s->click = eff[TP_S7] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * 0.35f;
+        s->bend = 0.0f;
+        s->roll_t = 0.0f;
+    } else {
+        float bell = eff[TP_S4] * (1.0f / 127.0f), bar = eff[TP_S7] * (1.0f / 127.0f);
+        tine_add(s, 1.0f, 1.0f, 1.0f + bar * 1.2f);
+        tine_add(s, 1.0f + 0.0006f + 0.0016f * bar, 0.2f + 0.5f * bar, 1.2f);       /* the tonebar beside it */
+        tine_add(s, 2.0f, 0.04f, 0.6f);
+        tine_add(s, 7.1f, bell * (0.25f + 0.55f * vel), 0.1f);                     /* the bell: bright, quick */
+        tine_add(s, 17.4f, bell * 0.18f * vel, 0.04f);
+        s->thump = eff[TP_S11] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * 0.6f;
+        s->bend = 0.0f;
+        s->click = 0.0f;
+    }
+    s->detune = eff[TP_S12] * (40.0f / 127.0f) * xs_bi(&s->ns);   /* cents, this note */
+    s->offn = 0.0f;
+    s->held = 0.0f;
+    s->gate_was = 1;
+    for (k = s->nm; k < TN_M; k++)
+        s->re[k] = s->im[k] = 0.0f;
+    tine_strike(s, eff, vel, 1.0f);
+}
+
+static void tine_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    tine_t *s = &v->e.tn;
+    int model = clampi((int)(eff[TP_S0] + 0.5f), 0, 2), i, k, nm = s->nm > TN_M ? TN_M : s->nm;
+    float dt = (float)n * RV_DT, vel = v->vel, cs[TN_M], sn[TN_M], rr[TN_M];
+    float decay = eff[TP_S2] * (1.0f / 127.0f), tone = eff[TP_S3] * (1.0f / 127.0f), t60, texp, damp;
+    float buzz = 0.0f, th = 1.0f, bha = 0.25f, boxa = 0.0f, trem = 0.0f, drive = 0.0f, bias = 0.0f, pk = 1.0f, gain;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    if (!nm)
+        return;
+    for (k = 0; k < nm; k++)
+        if (!(s->re[k] == s->re[k]) || fm_fabsf(s->re[k]) > 50.0f)
+            s->re[k] = s->im[k] = 0.0f;
+    rs_wander(&s->drift, &s->drift_v, &s->ns, 0.5f, dt);
+    s->held += dt;
+    if (!v->a.gate && s->gate_was) {                  /* released: the dampers, and their noise */
+        s->gate_was = 0;
+        if (model == TN_EP)
+            s->offn = eff[TP_S13] * (1.0f / 127.0f) * 0.12f;
+    }
+    /* pitch: DETUNE, DRIFT, the tine's bend as it settles */
+    s->bend *= fm_expf(-dt / 0.04f);
+    f *= fm_exp2f((s->detune + eff[TP_S15] * (14.0f / 127.0f) * s->drift) * (1.0f / 1200.0f)) * (1.0f + s->bend);
+    /* how long it rings */
+    if (model == TN_KAL) {
+        t60 = 0.3f + decay * decay * 9.0f;
+        texp = 1.6f - tone * 1.2f + eff[TP_S4] * (0.5f / 127.0f);
+    } else if (model == TN_MAR) {
+        t60 = 0.15f + decay * decay * 4.5f;
+        texp = 1.5f - tone * 1.0f + eff[TP_S6] * (0.4f / 127.0f);
+    } else {
+        t60 = 0.6f + decay * decay * 14.0f;
+        texp = 1.3f - tone * 0.9f;
+    }
+    t60 *= fm_minf(2.0f, fm_powf(261.6f / (f > 20.0f ? f : 20.0f), 0.45f));   /* high notes die sooner */
+    damp = eff[TP_S14] * (1.0f / 127.0f);
+    if (!v->a.gate && damp > 0.0f)
+        t60 = fm_minf(t60, 0.03f + (1.0f - damp) * (1.0f - damp) * 3.0f);
+    for (k = 0; k < nm; k++) {
+        float fk = f * s->rat[k], w, g, tk, r;
+        if (fk > 18000.0f) {
+            cs[k] = 1.0f;
+            sn[k] = 0.0f;
+            rr[k] = 0.0f;
+            continue;
+        }
+        w = 6.28318531f * fk * RV_DT;
+        cs[k] = fm_cosf(w);
+        sn[k] = fm_sinf(w);
+        g = 1.0f / fm_sqrtf(cs[k] * cs[k] + sn[k] * sn[k]);
+        cs[k] *= g;
+        sn[k] *= g;
+        tk = t60 * s->dk[k] * fm_exp2f(-texp * s->lr[k]);
+        if (tk < 0.004f)
+            tk = 0.004f;
+        r = fm_expf(-6.9078f * RV_DT / tk);
+        rr[k] = r;
+    }
+    /* the model's surroundings */
+    if (model == TN_KAL) {
+        float hole = eff[TP_S9] * (1.0f / 127.0f), wah = eff[TP_S10] * (1.0f / 127.0f);
+        buzz = eff[TP_S5] * (1.0f / 127.0f);
+        th = 0.35f + (1.0f - eff[TP_S6] * (1.0f / 127.0f)) * 1.1f;
+        bha = 0.35f;
+        boxa = eff[TP_S8] * (1.0f / 127.0f);
+        if (wah > 0.0f) {                             /* WAH: a hand over the hole, at 1 to 8 Hz */
+            s->wah_ph += (1.0f + wah * 7.0f) * dt;
+            s->wah_ph -= fm_floorf(s->wah_ph);
+            hole *= 0.5f + 0.5f * sin_lut(s->wah_ph);
+        }
+        svf_set(&s->box[0], 110.0f + hole * 300.0f, 3.0f + hole * 2.0f);   /* the hole: Helmholtz, lower when covered */
+        svf_set(&s->box[1], 820.0f, 2.0f);
+        gain = 0.3f;
+    } else if (model == TN_MAR) {
+        float roll = eff[TP_S8] * (1.0f / 127.0f);
+        buzz = eff[TP_S10] * (1.0f / 127.0f);
+        th = 0.3f + (1.0f - eff[TP_S11] * (1.0f / 127.0f)) * 1.0f;
+        bha = 0.06f;                                  /* the gourds: lower, more nasal */
+        if (roll > 0.0f && v->a.gate) {               /* ROLL: held notes struck again and again */
+            float rate = 5.0f + eff[TP_S9] * (19.0f / 127.0f), hum = eff[TP_S13] * (1.0f / 127.0f);
+            s->roll_t += dt;
+            if (s->roll_t >= 1.0f / rate) {
+                s->roll_t -= (1.0f / rate) * (1.0f + hum * 0.25f * xs_bi(&s->ns));
+                tine_strike(s, eff, vel * (1.0f - hum * 0.3f * xs_uni(&s->ns)), roll * (0.4f + 0.25f * xs_uni(&s->ns)));
+            }
+        }
+        gain = 0.5f;
+    } else {
+        float tr = eff[TP_S8] * (1.0f / 127.0f), pick = eff[TP_S6] * (1.0f / 127.0f), bark = eff[TP_S5] * (1.0f / 127.0f);
+        if (tr > 0.0f) {
+            s->trem_ph += (1.5f + eff[TP_S9] * (7.5f / 127.0f)) * dt;
+            s->trem_ph -= fm_floorf(s->trem_ph);
+            trem = tr * 0.5f;
+        }
+        bias = pick * 0.9f;
+        pk = 0.7f + bark * 3.5f * vel * vel + tone * 0.4f;
+        drive = eff[TP_S10] * (1.0f / 127.0f);
+        gain = 0.65f / pk;
+    }
+    for (i = 0; i < n; i++) {
+        float x = 0.0f, y = 0.0f, nz = xs_bi(&s->ns);
+        if (s->exc_n < s->exc_len) {
+            x = s->exc_amp * sin_lut(0.5f * s->exc_n / s->exc_len);
+            s->exc_n += 1.0f;
+            if (model == TN_KAL)                      /* rust grinds in the pluck */
+                x *= 1.0f + eff[TP_S4] * (0.6f / 127.0f) * nz;
+        }
+        for (k = 0; k < nm; k++) {
+            float re = s->re[k], im = s->im[k];
+            s->re[k] = rr[k] * (cs[k] * re - sn[k] * im) + x * s->w[k];
+            s->im[k] = rr[k] * (sn[k] * re + cs[k] * im);
+            y += s->im[k];
+        }
+        if (model == TN_EP) {                         /* the pickup: off centre, so it bends the wave */
+            float z = y * pk + bias, b0 = bias / (1.0f + fm_fabsf(bias)), d0 = 1.0f / ((1.0f + fm_fabsf(bias)) * (1.0f + fm_fabsf(bias)));
+            y = (z / (1.0f + fm_fabsf(z)) - b0) / d0;
+            if (drive > 0.0f) {
+                float dz = y * (1.0f + drive * 4.0f);
+                y = dz / (1.0f + fm_fabsf(dz)) * (1.0f + drive);
+            }
+            if (s->thump > 0.0005f) {                 /* the hammer's thud */
+                s->thlp += (nz - s->thlp) * 0.02f;
+                y += s->thump * s->thlp * 6.0f;
+                s->thump *= 0.9985f;
+            }
+            if (trem > 0.0f)
+                y *= 1.0f - trem * (1.0f + sin_lut(s->trem_ph));
+        } else {
+            if (buzz > 0.0f) {                        /* the rings (or gourds) rattle past their reach */
+                float a = fm_fabsf(y) - th, b = a > 0.0f ? a * (0.8f + 0.2f * nz) * (y > 0.0f ? 1.0f : -1.0f) : 0.0f;
+                s->blp += (b - s->blp) * bha;
+                y += buzz * (b - s->blp) * 2.5f;
+            }
+            if (boxa > 0.0f) {
+                float b0, b1;
+                svf_tick(&s->box[0], y, &b0, 0);
+                svf_tick(&s->box[1], y, &b1, 0);
+                y += boxa * (b0 * 0.9f + b1 * 0.35f);
+            }
+            if (s->click > 0.0005f) {                 /* thumbnail or stick on the attack */
+                y += s->click * nz;
+                s->click *= 0.982f;
+            }
+        }
+        if (s->offn > 0.0005f) {
+            y += s->offn * nz;
+            s->offn *= 0.996f;
+        }
+        out[i] = y * gain;
+    }
+}
+
 #include "rv_zplane.h"
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 static float sem_m;
@@ -2023,6 +2268,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_ORGAN: organ_render(v, eff, f, buf, n); break;
     case ENG_MONO: mono_render(v, eff, f, buf, n); break;
     case ENG_RESIN: resin_render(v, eff, f, buf, n); break;
+    case ENG_TINE: tine_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the FILTER ENV (SQ: its own ENV 2), the key */

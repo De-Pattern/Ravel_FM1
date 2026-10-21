@@ -8,7 +8,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -129,6 +129,26 @@ static const rv_pinfo SRC_RESIN_HORN[16] = {
     {"BORE", 0, 127, 30, PF_NUM, 0}, {"GROWL", 0, 127, 0, PF_NUM, 0}, {"MULTI", 0, 127, 0, PF_NUM, 0},
     {"THROAT", 0, 127, 50, PF_NUM, 0}, {"SIZE", 0, 127, 60, PF_NUM, 0}, RS_MOVE,
     {"ATTACK", 0, 127, 35, PF_NUM, 0}, {"KEYS", 0, 127, 40, PF_NUM, 0}, {"AIR", 0, 127, 25, PF_NUM, 0}};
+/* TINE: KALIMBA (a thumb piano's rusty tines, the rings that buzz on them, its box and hole),
+ * MARIMBA (tuned bars, tube resonators, rolls, a balafon's buzzing gourds) and EPIANO (a tine and
+ * tonebar before a pickup, after the Rhodes); each model names its own knobs */
+static const char *const tine_models[] = {"KALIMBA", "MARIMBA", "EPIANO"};
+#define TN_TAIL(a, b) {"DETUNE", 0, 127, a, PF_NUM, 0}, {b, 0, 127, 0, PF_NUM, 0}, {"DAMP", 0, 127, 50, PF_NUM, 0}, {"DRIFT", 0, 127, 15, PF_NUM, 0}
+static const rv_pinfo SRC_TINE[16] = {
+    {"MODEL", 0, N(tine_models), 0, E(tine_models)}, {"PLUCK", 0, 127, 70, PF_NUM, 0}, {"DECAY", 0, 127, 70, PF_NUM, 0},
+    {"TONE", 0, 127, 60, PF_NUM, 0}, {"RUST", 0, 127, 50, PF_NUM, 0}, {"BUZZ", 0, 127, 40, PF_NUM, 0},
+    {"RATTLE", 0, 127, 60, PF_NUM, 0}, {"THICK", 0, 127, 60, PF_NUM, 0}, {"BOX", 0, 127, 60, PF_NUM, 0},
+    {"HOLE", 0, 127, 64, PF_NUM, 0}, {"WAH", 0, 127, 0, PF_NUM, 0}, {"THUMB", 0, 127, 40, PF_NUM, 0}, TN_TAIL(25, "BEND")};
+static const rv_pinfo SRC_TINE_MAR[16] = {
+    {"MODEL", 0, N(tine_models), 1, E(tine_models)}, {"MALLET", 0, 127, 55, PF_NUM, 0}, {"DECAY", 0, 127, 60, PF_NUM, 0},
+    {"TONE", 0, 127, 55, PF_NUM, 0}, {"POSITN", 0, 127, 25, PF_NUM, 0}, {"TUBE", 0, 127, 70, PF_NUM, 0},
+    {"WOOD", 0, 127, 50, PF_NUM, 0}, {"STICK", 0, 127, 25, PF_NUM, 0}, {"ROLL", 0, 127, 0, PF_NUM, 0},
+    {"ROLL RT", 0, 127, 64, PF_NUM, 0}, {"BUZZ", 0, 127, 0, PF_NUM, 0}, {"RATTLE", 0, 127, 60, PF_NUM, 0}, TN_TAIL(5, "HUMAN")};
+static const rv_pinfo SRC_TINE_EP[16] = {
+    {"MODEL", 0, N(tine_models), 2, E(tine_models)}, {"HAMMER", 0, 127, 60, PF_NUM, 0}, {"DECAY", 0, 127, 75, PF_NUM, 0},
+    {"TONE", 0, 127, 55, PF_NUM, 0}, {"BELL", 0, 127, 50, PF_NUM, 0}, {"BARK", 0, 127, 45, PF_NUM, 0},
+    {"PICKUP", 0, 127, 55, PF_NUM, 0}, {"TONEBAR", 0, 127, 60, PF_NUM, 0}, {"TREM", 0, 127, 0, PF_NUM, 0},
+    {"TREM RT", 0, 127, 50, PF_NUM, 0}, {"DRIVE", 0, 127, 15, PF_NUM, 0}, {"THUMP", 0, 127, 30, PF_NUM, 0}, TN_TAIL(5, "KEY OFF")};
 static const rv_pinfo SRC_FORM[16] = {
     {"VOWEL", 0, 127, 0, PF_NUM, 0}, {"SHIFT", -64, 63, 0, PF_BI, 0}, {"WIDTH", 0, 127, 50, PF_NUM, 0},
     {"MODE", 0, N(form_modes), 0, E(form_modes)}, {"BREATH", 0, 127, 10, PF_NUM, 0}, {"GLOTTAL", 0, 127, 60, PF_NUM, 0},
@@ -209,7 +229,7 @@ static const rv_pinfo SRC_MONO[16] = {
     {"VIBRATO", 0, 127, 10, PF_NUM, 0}, {"VIB RATE", 0, 127, 70, PF_NUM, 0}, {"VIB DLY", 0, 127, 50, PF_NUM, 0},
     {"VEL>CUT", 0, 127, 40, PF_NUM, 0}, {"DRIFT", 0, 127, 20, PF_NUM, 0}, {"RETRIG", 0, 1, 0, E(mono_trig)},
     {"DRIVE", 0, 127, 30, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO, SRC_RESIN};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO, SRC_RESIN, SRC_TINE};
 
 /* PERC (rv_perc.c): the machine list and each machine's eight parameters (0 = unused), with their defaults */
 static const rv_pinfo perc_pi[PM_N][8] = {
@@ -477,6 +497,8 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
                                                                                    : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
         if (tab == SRC_RESIN && rv.tp[t & 7][TP_S0] == 1)
             tab = SRC_RESIN_HORN;                     /* the reed: its own names */
+        if (tab == SRC_TINE && rv.tp[t & 7][TP_S0] >= 1)
+            tab = rv.tp[t & 7][TP_S0] == 1 ? SRC_TINE_MAR : SRC_TINE_EP;
         return tab[s].name ? &tab[s] : &NONE;
     }
     if (p < 0 || p >= TP_N || !TRACK[p].name)
@@ -861,6 +883,17 @@ void rv_engine_track_defaults(int t, int engine)
         tp[TP_SUS] = 127;
         tp[TP_REL] = 66;
         tp[TP_VELO] = 0;
+    } else if (engine == ENG_TINE) {                 /* struck: open, held, the engine's own decay */
+        tp[TP_POLY] = 3;
+        tp[TP_FTYPE] = FT_LP;
+        tp[TP_CUT] = 127;
+        tp[TP_RES] = 0;
+        tp[TP_EFILT] = 0;
+        tp[TP_KTRK] = 0;
+        tp[TP_ATK] = 0;
+        tp[TP_SUS] = 127;
+        tp[TP_REL] = 90;
+        tp[TP_VELO] = 100;
     } else if (engine == ENG_MONO) {
         tp[TP_POLY] = 0;
         tp[TP_FTYPE] = FT_SH101;
@@ -917,7 +950,7 @@ void rv_track_defaults(int t, int kind, int engine)
         rv_cz_init(t);
     if (kind == KIND_SYNTH && engine == ENG_SQ)
         rv.tp[t][TP_FTYPE] = FT_SQ80;
-    if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO))
+    if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO || engine == ENG_TINE))
         rv_engine_track_defaults(t, engine);
     if (kind == KIND_PERC) {
         rv_kit_init(t);
