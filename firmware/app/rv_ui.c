@@ -1708,6 +1708,14 @@ static int tape_track(void)
 }
 
 /* a key went down (on) or up */
+/* on a SEQ page the keys are the steps, except while recording on a synth, strike or tape track:
+ * then they play (and record) notes, and holding SEQ makes them steps again */
+static int seq_keys_play(int t)
+{
+    int kind = rv.tp[t][TP_KIND];
+    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_TAPE);
+}
+
 static void key_event(int k, int on)
 {
     uint32_t btn = plat_buttons();
@@ -1816,7 +1824,7 @@ static void key_event(int k, int on)
         return;
     }
     /* --- steps: the SEQ section, or SEQ held on any page --- */
-    if (ui.sec == SEC_SEQ || (btn & (1u << B_SEQ))) {
+    if ((ui.sec == SEC_SEQ || (btn & (1u << B_SEQ))) && !seq_keys_play(t)) {
         if (btn & (1u << B_SEQ))
             ui.layer_used[B_SEQ] = 1;
         if (wi >= 0) {
@@ -1982,13 +1990,13 @@ static void buttons(uint32_t now_btn)
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
     if (down & (1u << B_OCTDN)) {
-        if (ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ)))
+        if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track))
             ui.step_page = (uint8_t)(ui.step_page ? ui.step_page - 1 : 0);
         else if (ui.octave > -3)
             ui.octave--;
     }
     if (down & (1u << B_OCTUP)) {
-        if (ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) {
+        if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track)) {
             int pages_n = (clampi(rv.tp[ui.track][TP_LEN], 1, 64) + 15) / 16;
             if (ui.step_page + 1 < pages_n)
                 ui.step_page++;
@@ -2251,7 +2259,8 @@ static void draw_footer(void)
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
     case PR_ROW: hint = "REC+OCT- CATCH  REC+OCT+ RESAMPLE"; break;
     case PR_PATTERN:
-        hint = !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
+        hint = seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
+               : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
                : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
                : "BLACK 3-8: LANE  KEYS: STEPS ON/OFF";
         break;

@@ -1139,6 +1139,8 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 
 Turning ALGORITHM while armed moves recording to the new track.
 
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth, strike or tape track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
+
 ## 17. Recipes, step by step
 
 **Make a first sound**

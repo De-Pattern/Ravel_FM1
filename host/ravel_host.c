@@ -21,6 +21,7 @@
  *   expect gp NAME VALUE          a global parameter
  *   expect frozen 0|1             the tape is caught (1) or listening (0)
  *   expect page TITLE             the page on screen
+ *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
 #include <stdio.h>
@@ -361,6 +362,13 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "steps")) {                /* steps on in track T's (1..8) current pattern */
+                int tt = atoi(w1) - 1, i2;
+                const rv_pattern *pp = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS];
+                got = 0;
+                for (i2 = 0; i2 < RV_STEPS; i2++)
+                    got += (pp->s[i2].flags & ST_ON) != 0;
+                want = atoi(w2);
             } else if (!strcmp(b, "voices")) {               /* synth and strike voices sounding */
                 got = rv_live.voices_synth + rv_live.voices_strike;
                 want = atoi(w1);

@@ -1,0 +1,34 @@
+# Recording from a SEQ page: with REC armed on a synth track the keys play and record notes;
+# holding SEQ turns them back into steps. Not armed, they are steps as before.
+wait 300
+tap SEQ
+wait 150
+expect steps 1 0
+tapkey 12
+wait 100
+expect steps 1 1
+tapkey 12
+wait 100
+expect steps 1 0
+tap PLAY
+tap REC
+wait 200
+key 12 down
+wait 120
+key 12 up
+wait 300
+key 16 down
+wait 120
+key 16 up
+wait 300
+shot rec_seq.png
+expect steps 1 2
+press SEQ
+tapkey 2
+release SEQ
+wait 100
+expect steps 1 3
+tap REC
+tap PLAY
+wait 200
+expect page STEPS
