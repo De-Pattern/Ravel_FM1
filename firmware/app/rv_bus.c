@@ -670,7 +670,7 @@ static void bands_run(const float *in, int n, float *l, float *r)
 }
 
 /* ---------------------------------------------------------- microcuts --- */
-static int16_t cut_buf[RV_CUT_SAMPLES] RV_BIG;
+static int16_t cut_buf[RV_CUT_SAMPLES] RV_RAMBSS;   /* (in plain RAM: the pool keeps its room) */
 static int32_t cut_w, cut_start, cut_len, cut_pos, cut_left, cut_fade;
 static uint8_t cut_rev;
 static uint32_t cut_rng = 0xA5A5A5u;

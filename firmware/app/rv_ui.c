@@ -3539,6 +3539,11 @@ static void pic_steps(void)
                 sx_note(b, s->note);
             }
             g_text_c(x + 13, y + 3, &FONT_T, b, C_INK);
+            if (!(s->flags & ST_JUMP) && (s->chord[0] || s->chord[1] || s->chord[2])) {   /* a chord: how many notes */
+                int nn = 1 + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
+                char cb[4] = {'X', (char)('0' + nn), 0, 0};
+                g_text_c(x + 13, y + 12, &FONT_T, cb, C_TEAL);
+            }
             g_rbox(x + 4, y + 38 - vh, 2, vh > 2 ? vh : 2, 1, lt, 1);   /* its velocity */
             if (s->lp[0] || s->lp[1])
                 g_fill(x + 20, y + 16, 3, 3, C_AMBER);

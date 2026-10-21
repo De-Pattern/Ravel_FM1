@@ -1,0 +1,19 @@
+# Recording a chord from STEPS: three keys down together make one step of three notes (X3)
+wait 300
+tap SEQ
+wait 150
+tap PLAY
+tap REC
+wait 300
+key 12 down
+key 16 down
+key 19 down
+wait 200
+key 12 up
+key 16 up
+key 19 up
+wait 400
+expect steps 1 1
+shot rec_chord.png
+tap REC
+tap PLAY

@@ -1159,12 +1159,14 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 2. **Tap REC.** "RECORDING ARMED" flashes and a red dot appears in the footer.
 3. Press **PLAY**.
 4. Now, while it plays:
-   - **notes you play** are written into the steps, with their timing kept as microtiming;
+   - **notes you play** are written into the steps, with their timing kept as microtiming; **chords** too: keys pressed together land on one step as a chord of up to four notes (the step's note and up to three more), and play back together. A note played on a step while none of its keys is still down replaces what was there;
    - **knobs you turn** are written as parameter locks on the playing step;
    - on a tape track in MLR, **jumps you make** are written as jump steps.
 5. **Tap REC** again to stop recording.
 
 Turning ALGORITHM while armed moves recording to the new track.
+
+**Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
 **Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth, strike or tape track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
 

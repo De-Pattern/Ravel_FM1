@@ -22,6 +22,8 @@ static int old_size(int f)
     int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
     if (f < 16)
         n -= (int)sizeof(rv.kit_rate);                /* no lane rates before format 16 */
+    if (f < 17)
+        n -= (int)(sizeof(rv_step) - RV_STEP_OLD) * RV_TRACKS * RV_PATTERNS * RV_STEPS;   /* steps without chords */
     if (f >= 10)
         return n;
     n -= (int)sizeof(rv.scene_tempo);                 /* no scene tempos before format 10 */
@@ -88,6 +90,22 @@ static void upgrade_layout(int f, int loaded)
             rv.macro[i].d[k].dst = remap_pid(rv.macro[i].d[k].dst, tpo, gpo);
 }
 
+/* steps from before format 17 (no chords): what follows the patterns moves up, then each step
+ * spreads out from the last, its chord empty. have: the bytes loaded, in today's layout up to the patterns */
+static void upgrade_steps(int have)
+{
+    uint8_t *base = (uint8_t *)&rv;
+    int pat_off = (int)((uint8_t *)&rv.pat[0][0].s[0] - base), nst = RV_TRACKS * RV_PATTERNS * RV_STEPS, i;
+    int tail_old = pat_off + nst * RV_STEP_OLD, tail_new = pat_off + nst * (int)sizeof(rv_step);
+    if (have > tail_old)
+        __builtin_memmove(base + tail_new, base + tail_old, (unsigned)(have - tail_old));
+    for (i = nst - 1; i >= 0; i--) {
+        uint8_t *dst = base + pat_off + i * (int)sizeof(rv_step);
+        __builtin_memmove(dst, base + pat_off + i * RV_STEP_OLD, RV_STEP_OLD);
+        __builtin_memset(dst + RV_STEP_OLD, 0, sizeof(rv_step) - RV_STEP_OLD);
+    }
+}
+
 /* formats 2 and 3 had the PD engine where CZ is now: its tracks start from the CZ defaults */
 static void upgrade_cz(void)
 {
@@ -133,10 +151,12 @@ int rv_load(int slot)
     n = old_size(f);
     if (plat_load(slot, &rv, (uint32_t)n) != n)
         return -1;
-    if (f <= 15)                                       /* (format 16) every kit lane at the track's rate */
-        __builtin_memset(rv.kit_rate, 0, sizeof(rv.kit_rate));
     if (f <= 14)                                       /* (fewer track parameters, or globals): spread out */
         upgrade_layout(f, n);
+    if (f <= 16)                                       /* (steps without chords): spread out */
+        upgrade_steps(n + (RV_TP - old_tp(f)) * RV_TRACKS * 2 + (RV_GP - old_gp(f)) * 2);
+    if (f <= 15)                                       /* (format 16) every kit lane at the track's rate */
+        __builtin_memset(rv.kit_rate, 0, sizeof(rv.kit_rate));
     if (f <= 8) {
         rv.gp[GP_SWING] = (int16_t)clampi(50 + (rv.gp[GP_SWING] + 2) / 4, 50, 100);   /* was a delay 0-75 (0.5% of a step each): now % */
         rv.gp[GP_METRO] = 0;

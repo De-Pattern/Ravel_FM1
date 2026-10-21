@@ -258,6 +258,7 @@ typedef struct {
     uint8_t first_take;             /* recording into an empty pattern */
     int16_t take_steps;
     int8_t held_note[16];           /* live notes being recorded: step they wrote, -1 none */
+    int8_t held_key[16];            /* and the key each is */
     uint32_t held_on[16];
     uint32_t travelled[2];          /* steps each head has moved (its function generator's time) */
     int16_t pitch_reg;              /* the pitch a PITCH head set, for a GATE head to play */

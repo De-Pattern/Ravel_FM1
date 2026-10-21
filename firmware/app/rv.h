@@ -165,7 +165,10 @@ typedef struct {
     uint8_t cut;                    /* microcut: 0 none, 1 loop, 2 reverse, 3 stutter */
     uint8_t lp[2], lv[2];           /* parameter locks: local id + 1 (0 = none), value - min */
     uint8_t to[2];                  /* graph cords: step + 1, 0 = the next step */
+    int8_t chord[3];                /* (format 17) more notes on the step, in semitones from note (0 = none): a chord of up to four */
 } rv_step;
+#define RV_STEP_OLD 16                  /* a step's size before format 17 */
+_Static_assert(sizeof(rv_step) == RV_STEP_OLD + 3, "a step: 16 bytes, then its chord");
 
 typedef struct { rv_step s[RV_STEPS]; } rv_pattern;
 
@@ -217,7 +220,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 16                /* 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 17                /* 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */

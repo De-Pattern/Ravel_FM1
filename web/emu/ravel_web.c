@@ -259,3 +259,8 @@ EXPORT(web_eff) float web_eff(int t, int p) { return rv_param_eff(t & 7, p); }  
 EXPORT(web_kit_rate) void web_kit_rate(int t, int l, int v) { rv.kit_rate[t & 7][l % RV_LANES] = (uint8_t)RV_LRATE_STORE(v); }   /* (tests) v: 0..8, 4 = the track's */
 EXPORT(web_kit_hit) void web_kit_hit(int t, int s, int l) { rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[s & 63]; p->flags |= ST_ON; p->note |= (uint8_t)(1u << l); p->vel = 100; p->chance = 100; }
 EXPORT(web_lane_step) int web_lane_step(int t, int l) { return rv_live.lane_step[t & 7][l % RV_LANES]; }
+EXPORT(web_step_info) int web_step_info(int t, int st, int what)   /* (tests) 0: on, 1: note, 2: notes in its chord (1-4) */
+{
+    const rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[st & 63];
+    return what == 0 ? (p->flags & ST_ON) != 0 : what == 1 ? p->note : 1 + (p->chord[0] != 0) + (p->chord[1] != 0) + (p->chord[2] != 0);
+}

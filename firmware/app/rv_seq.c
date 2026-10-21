@@ -417,25 +417,31 @@ static void step_fire(int t, int h, int si, uint32_t when)
         ev_push(&e);
         return;
     }
-    note = s->note;
+    {   /* the step's note, then its chord's (each through the transposition and the scale) */
+    int ci, nch = 1 + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
+    for (ci = 0; ci < 4; ci++) {
+    if (ci && !s->chord[ci - 1])
+        continue;
+    note = s->note + (ci ? s->chord[ci - 1] : 0);
     if (rv.tp[tt][TP_KIND] != KIND_TAPE) {
         int ivl = clampi(rv.tp[t][TP_INTERVAL], 1, 12);
         if (is_graph(t))
             note += rv.tp[t][h ? TP_H2TRANS : TP_H1TRANS];
         note += rv.gp[GP_TRANSPOSE];
         note = rv_quantize_note(note);
-        if (role == ROLE_PITCH) {                    /* a PITCH head only sets the pitch */
+        if (role == ROLE_PITCH) {                    /* a PITCH head only sets the pitch (the step's own note) */
             sq[t].pitch_reg = (int16_t)note;
             sq[t].pitch_set = 1;
             return;
         }
-        if (role == ROLE_GATE && sq[t].pitch_set)    /* a GATE head plays the PITCH head's note */
-            note = sq[t].pitch_reg;
-        else if (ivl > 1 && ((note - rv.gp[GP_ROOT]) % ivl + ivl) % ivl)
-            return;                                 /* INTERVAL: only notes a multiple of N semitones from the root */
+        if (role == ROLE_GATE && sq[t].pitch_set) {  /* a GATE head plays the PITCH head's note (and its chord's intervals) */
+            note = sq[t].pitch_reg + (ci ? s->chord[ci - 1] : 0);
+        } else if (ivl > 1 && ((note - rv.gp[GP_ROOT]) % ivl + ivl) % ivl)
+            continue;                               /* INTERVAL: only notes a multiple of N semitones from the root */
     } else if (role == ROLE_PITCH) {
         return;
     }
+    (void)nch;
     cnt = (s->ratchet & 7) + 1;
     curve = (s->ratchet >> 3) & 3;
     for (k = 0; k < cnt; k++) {
@@ -461,6 +467,8 @@ static void step_fire(int t, int h, int si, uint32_t when)
                 ev_push(&off);
             }
         }
+    }
+    }
     }
 }
 
@@ -1004,24 +1012,42 @@ static void record_note(int t, int note, int vel)
         return;
     }
     if (vel > 0) {
-        s->flags = ST_ON;
-        s->note = (uint8_t)note;
-        s->vel = (uint8_t)vel;
-        s->micro = (int8_t)micro;
-        s->len = 4;
+        int held_here = 0, c;
+        for (k = 0; k < 16; k++)                      /* a key recorded on this step still down: this one joins its chord */
+            if (sq[t].held_note[k] == si && (s->flags & ST_ON))
+                held_here = 1;
+        if (held_here && note != s->note && note - s->note >= -64 && note - s->note <= 63) {
+            for (c = 0; c < 3; c++)
+                if (s->chord[c] == note - s->note)
+                    break;                            /* (already in it) */
+            if (c == 3)
+                for (c = 0; c < 3; c++)
+                    if (!s->chord[c]) {
+                        s->chord[c] = (int8_t)(note - s->note);
+                        break;
+                    }
+        } else {
+            s->flags = ST_ON;
+            s->note = (uint8_t)note;
+            s->vel = (uint8_t)vel;
+            s->micro = (int8_t)micro;
+            s->len = 4;
+            s->chord[0] = s->chord[1] = s->chord[2] = 0;
+        }
         for (k = 0; k < 16; k++)
             if (sq[t].held_note[k] < 0 || k == 15) {
                 sq[t].held_note[k] = (int8_t)si;
+                sq[t].held_key[k] = (int8_t)note;
                 sq[t].held_on[k] = now_s;
                 break;
             }
         (void)note;
     } else {
         for (k = 0; k < 16; k++)
-            if (sq[t].held_note[k] >= 0 && rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[sq[t].held_note[k]].note == note) {
+            if (sq[t].held_note[k] >= 0 && sq[t].held_key[k] == note) {   /* (a chord's notes share the step's length) */
                 rv_step *st = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[sq[t].held_note[k]];
                 float steps = (float)(now_s - sq[t].held_on[k]) * RV_DT / (sq[t].step_dur > 0.0f ? sq[t].step_dur : 0.125f);
-                st->len = (uint8_t)clampi((int)(steps * 8.0f + 0.5f), 1, 127);
+                st->len = (uint8_t)clampi((int)(steps * 8.0f + 0.5f), 1, 127);   /* (the last key let go sets it) */
                 sq[t].held_note[k] = -1;
                 break;
             }

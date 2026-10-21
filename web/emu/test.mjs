@@ -185,6 +185,8 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   check(C.web_load(3) === 0 && C.web_tp(0, 38) === 77, 'an older project loads, its settings in place');
   check(C.web_mat_dst(0) === C.web_pid_t(2, 39) && C.web_mat_dst(1) === C.web_pid_mat(0) && C.web_mat_dst(2) === C.web_pid_g(47), 'its matrix still points where it did (a track, a row, a global)');
   check(C.web_tp(0, 97) === 0, 'and the FILTER ENV\'s new AMOUNT starts at 0');
+  { let on = 0, same = 1; for (let t = 0; t < 8; t++) for (let st = 0; st < 64; st++) if (C.web_step_info(t, st, 0)) { on++; if (C.web_step_info(t, st, 2) !== 1) same = 0; }
+    check(on > 10 && same, `and its steps come through, single notes (${on} steps)`); }
   C.web_bank_select(2);
   check(C.web_bank_used(4) === 1 && cstr2(C, C.web_bank_name(4)) === 'OLD SOUND', 'an older bank reads, its sound named');
   C.web_bank_load(1, 4);
@@ -214,5 +216,19 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   for (let k = 0; k < 200; k++) { rv.rv_run(10); for (let l = 0; l < 3; l++) { const s = rv.web_lane_step(3, l); if (s !== last[l]) { if (last[l] >= 0) adv[l] += (s - last[l] + 16) % 16; last[l] = s; } } }
   rv.web_transport(0); rv.rv_run(100);
   check(adv[2] > 8 && Math.abs(adv[0] / adv[2] - 2) < 0.3 && Math.abs(adv[1] / adv[2] - 0.5) < 0.2, `lane rates: x2, x1/2 and the track's walk ${adv[0]}, ${adv[1]} and ${adv[2]} steps in 2 s`);
+}
+{                                                           // recording a chord: three keys down together land on one step
+  rv.rv_boot(); rv.rv_run(250);
+  rv.web_gp_set(102, 0);                                     // (no count-in)
+  tap('PLAY'); tap('REC'); run(300);
+  rv.rv_set_keys((1 << 12) | (1 << 16) | (1 << 19)); run(200); rv.rv_set_keys(0); run(400);
+  rv.rv_set_keys(1 << 14); run(150); rv.rv_set_keys(0); run(300);
+  tap('REC'); tap('PLAY');
+  let chords = 0, singles = 0; for (let st = 0; st < 64; st++) if (rv.web_step_info(0, st, 0)) { const n = rv.web_step_info(0, st, 2); if (n === 3) chords++; else if (n === 1) singles++; }
+  check(chords === 1 && singles === 1, `a chord records onto one step (${chords} three-note step, ${singles} single)`);
+  peak = 0; tap('PLAY'); rv.rv_set_keys(0);
+  let most = 0; for (let k = 0; k < 100; k++) { run(16); most = Math.max(most, rv.web_cpu()); }
+  tap('PLAY');
+  check(peak > 0.01 && most >= 3, `and plays back, all its notes at once (${most} voices)`);
 }
 process.exit(fails ? 1 : 0);
