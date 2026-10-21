@@ -2633,7 +2633,7 @@ static void pic_source(void)
             for (w = 0; w < 1 + two; w++) {           /* with MIX up, table 2 below table 1, each half as deep */
                 int tb = clampi(rv.tp[t][w ? TP_S2 : TP_S0], 0, WT_TABLES - 1), pos = clampi((int)rv_param_eff(t, w ? TP_S3 : TP_S1), 0, 63), cur = pos * 15 / 63;
                 float base = two ? (float)PIC_Y + (w ? 118.0f : 58.0f) : (float)PIC_Y + 104.0f, dy = two ? 2.1f : 4.6f, amp = two ? 9.0f : 18.0f;
-                uint16_t lit = w ? C_K4 : C_K2;
+                uint16_t lit = w ? C_AMBER : C_TEAL;
                 for (f = 15; f >= 0; f--) {
                     float kp = (float)f * (7.0f / 15.0f), ox = 14.0f + (float)f * 6.2f, oy = base - (float)f * dy, px = 0.0f, py = 0.0f;
                     uint16_t c = f == cur ? lit : g_mix(C_BG, C_MID, 0.75f - 0.03f * (float)f);
@@ -2652,7 +2652,7 @@ static void pic_source(void)
                 sx_int(pb + sx_cat(pb, "POS "), pos);
                 if (!two)
                     sx_cat(pb, " / 63");
-                g_text(8, two ? (w ? PIC_Y + 66 : PIC_Y + 2) : PIC_Y + 2, &FONT_T, pb, w ? g_mix(C_BG, C_K4, 0.8f) : C_DIM);
+                g_text(8, two ? (w ? PIC_Y + 66 : PIC_Y + 2) : PIC_Y + 2, &FONT_T, pb, w ? g_mix(C_BG, C_AMBER, 0.8f) : C_DIM);
                 g_text_r(232, two ? (w ? PIC_Y + 66 : PIC_Y + 2) : PIC_Y + 2, &FONT_T, tn->names ? tn->names[tb] : "", C_DIM);
             }
             if (!two)
@@ -3210,13 +3210,9 @@ static void pic_delay(void)
     float fb = rv.gp[GP_DLYFB] / 127.0f, a = 1.0f;
     g_hline(8, PIC_Y + 107, 224, C_LINE);
     for (i = 0; i < 8; i++) {                         /* the repeats, each fainter, left and right in turn */
-        int x = 10 + i * 28, h = (int)(a * 96.0f);
+        int x = 10 + i * 28;
         uint16_t c = i & 1 ? C_AMBER : C_TEAL;
-        g_rbox(x, PIC_Y + 10, 20, 96, 10, C_PANEL, 1);
-        if (h >= 20)
-            g_rbox(x, PIC_Y + 106 - h, 20, h, 10, c, 1);
-        else if (h > 1)
-            g_rbox(x + (20 - h) / 2, PIC_Y + 106 - h, h, h, h / 2, c, 1);
+        meter_bar(x + 5, PIC_Y + 10, 10, 96, a, C_LINE, c);
         g_text_c(x + 10, PIC_Y + 112, &FONT_T, i & 1 ? "R" : "L", i & 1 ? C_AMBER_D : C_TEAL_D);
         a *= fb;
     }
@@ -3276,7 +3272,7 @@ static void pic_tape(void)
     rv_tape_overview(pk, 112, -1);
     for (i = 0; i < 112; i++) {
         int h = pk[i] * 10 / 255;
-        g_fill(8 + i * 2, PIC_Y + 12 - h / 2 - 1, 2, h + 1, frozen ? C_AMBER_D : C_LINE);
+        g_fill(8 + i * 2, PIC_Y + 12 - h / 2 - 1, 2, h + 1, frozen ? C_TAPE_D : C_LINE);
     }
     for (i = 0; i < 4; i++) {
         int s = rv.gp[GP_ROW1S + 2 * i] * 224 / 128, e = rv.gp[GP_ROW1E + 2 * i] * 224 / 128;
@@ -3286,7 +3282,7 @@ static void pic_tape(void)
     rv_tape_overview(pk, 224, row);
     for (i = 0; i < 224; i++) {
         int h = pk[i] * 70 / 255;
-        g_vline(8 + i, PIC_Y + 66 - h / 2, h + 1, frozen ? C_AMBER : C_AMBER_D);
+        g_vline(8 + i, PIC_Y + 66 - h / 2, h + 1, frozen ? C_TAPE : C_TAPE_D);
     }
     for (i = 0; i <= 16; i++)
         g_vline(8 + i * 14, PIC_Y + 104, i % 4 ? 3 : 6, C_DIM);

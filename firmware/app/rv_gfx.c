@@ -2,7 +2,7 @@
 /* Ravel: drawing. The screen is drawn in bands of GB_H rows: the UI paints the whole frame
  * once per band, every primitive clipped to it, and each band is sent to the panel as soon as
  * it is done. No full-screen buffer: 19 KB instead of 113 KB.
- * Fonts: Rubik, 4-bit anti-aliased (tools/gen_rv_font.py). Lines and discs are anti-aliased
+ * Fonts: a runic stroke alphabet of our own, 4-bit anti-aliased (tools/gen_rv_font.py). Lines and discs are anti-aliased
  * (each pixel covered by how much of the stroke falls on it), so the drawing reads as drawn. */
 #include "rv.h"
 
@@ -22,45 +22,45 @@ static int g_y0, g_y1;
 
 #define RGB(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
 /* a deep black ground, quiet greys, light ink; teal for live movement, amber for memory and the tape */
-#define C_BG RGB(6, 7, 8)
-#define C_PANEL RGB(20, 22, 25)
-#define C_LINE RGB(30, 33, 37)
-#define C_DIM RGB(78, 82, 86)
-#define C_MID RGB(141, 144, 147)
-#define C_INK RGB(236, 236, 234)
+#define C_BG RGB(3, 3, 3)
+#define C_PANEL RGB(17, 17, 17)
+#define C_LINE RGB(36, 36, 36)
+#define C_DIM RGB(92, 92, 92)
+#define C_MID RGB(152, 152, 152)
+#define C_INK RGB(232, 232, 230)
 #define C_WHITE RGB(255, 255, 255)
 /* the four knobs' colours: the part of a drawing a knob moves is drawn in its colour */
-#define C_KPANEL RGB(19, 20, 22)            /* the knob strip: a shade off black, with grain */
-#define C_KDIV RGB(48, 51, 56)              /* its dividers, one between each physical knob */
-#define C_KTRACK RGB(38, 41, 46)            /* a knob bar's empty track on the strip */
-#define C_KOFF RGB(64, 67, 72)              /* a greyed knob's name and value on the strip */
-#define C_K1 RGB(158, 136, 206)            /* a pale, deep purple */
-#define C_K2 RGB(93, 190, 142)
-#define C_K3 RGB(230, 230, 226)
-#define C_K4 RGB(196, 62, 76)              /* the perc red */
+#define C_KPANEL RGB(10, 10, 10)            /* the knob strip: a shade off black, with grain */
+#define C_KDIV RGB(58, 58, 58)              /* its dividers, one between each physical knob */
+#define C_KTRACK RGB(34, 34, 34)            /* a knob bar's empty track on the strip */
+#define C_KOFF RGB(66, 66, 66)              /* a greyed knob's name and value on the strip */
+#define C_K1 RGB(236, 236, 234)            /* the knobs: white down through the greys */
+#define C_K2 RGB(196, 196, 196)
+#define C_K3 RGB(156, 156, 156)
+#define C_K4 RGB(118, 118, 118)
 /* the perc tracks keep the earlier greens (their lanes and machines are drawn as they were) */
 #define C_O_PANEL RGB(28, 35, 31)
 #define C_O_LINE RGB(48, 58, 52)
 #define C_O_DIM RGB(86, 100, 91)
 #define C_O_MID RGB(140, 153, 143)
 /* the track kinds' badges: the colours they always had, deeper */
-#define C_SYNTH_D RGB(30, 46, 100)
-#define C_STRIKE_D RGB(134, 73, 46)
-#define C_TAPE_D RGB(126, 98, 48)
-#define C_PERC_D RGB(120, 37, 50)
-#define C_AMBER RGB(214, 154, 88)
-#define C_AMBER_D RGB(110, 80, 48)
-#define C_TEAL RGB(60, 93, 197)             /* the accent: a deep blue */
-#define C_TEAL_D RGB(30, 46, 98)
-#define C_RED RGB(222, 92, 80)
-#define C_TRIG RGB(236, 206, 108)
-#define C_EXC RGB(228, 112, 74)
-#define C_CLOCK RGB(160, 132, 222)
-#define C_RING RGB(222, 122, 182)
-#define C_SYNTH RGB(60, 93, 197)
-#define C_STRIKE RGB(226, 134, 94)
-#define C_TAPE RGB(214, 154, 88)
-#define C_PERC RGB(196, 62, 76)            /* a deep red, apart from the tape's amber and the strike's orange */
+#define C_SYNTH_D RGB(58, 58, 58)
+#define C_STRIKE_D RGB(40, 48, 58)
+#define C_TAPE_D RGB(38, 56, 48)
+#define C_PERC_D RGB(72, 16, 24)
+#define C_AMBER RGB(104, 146, 128)          /* the second accent: verdigris */
+#define C_AMBER_D RGB(40, 56, 49)
+#define C_TEAL RGB(222, 210, 184)           /* the first accent: bone */
+#define C_TEAL_D RGB(84, 80, 70)
+#define C_RED RGB(170, 44, 54)
+#define C_TRIG RGB(226, 214, 190)
+#define C_EXC RGB(112, 130, 152)
+#define C_CLOCK RGB(170, 170, 170)
+#define C_RING RGB(100, 100, 100)
+#define C_SYNTH RGB(232, 232, 230)
+#define C_STRIKE RGB(112, 130, 152)
+#define C_TAPE RGB(104, 146, 128)
+#define C_PERC RGB(131, 28, 41)            /* a deep, dark maroon */
 
 static void g_band(int y0)
 {

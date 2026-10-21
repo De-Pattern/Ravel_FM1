@@ -1359,7 +1359,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
 - XAOC Devices' Zadar, whose library of morphing shapes the WAVE engine's WAVE ENV follows (the shapes are Ravel's own).
-- The screen is set in Rubik (SIL Open Font License 1.1, `assets/fonts`), anti-aliased at 16 levels. Its drawn, colour-per-knob look takes a cue from teenage engineering's OP-1.
+- The screen is set in Ravel's own runic stroke alphabet (`tools/runic_glyphs.py`: straight strokes only, curves turned into points), drawn at eight times the size and brought down to the screen at 16 levels. The palette is black and greys with bone and verdigris accents; tracks are told apart by colour: synth white, strike slate, tape verdigris, perc maroon.
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns the BANDS bus follows.
 - E-mu Systems, whose Z-plane filters the Z filters follow in spirit (the frames are Ravel's own designs).
 - Maxime Denuc's Nachthorn and Dorian Concept's SH-101 playing, which the ORGAN and MONO engines are made to sound like (Ravel's own synthesis; no recordings used).

@@ -10,7 +10,6 @@
 | Web installer (Web MIDI) | `web/installer/` | GPL-3.0, Felucca and X0X (branded for Ravel) |
 | Update-path tests | `tests/fm1/` | GPL-3.0, Felucca and X0X |
 | The CZ engine's waveforms, windows, envelope stepping, pitch and level curves and modulation: a port of how MAME's NEC uPD933 device emulates the CZ's sound chip | `firmware/app/rv_synth.c` (the CZ section) | BSD-3-Clause, Copyright Devin Acker (MAME), below |
-| Barlow Semi Condensed (screen fonts) | `assets/fonts/` | SIL Open Font License 1.1 |
 | PNG writer of the desktop simulator | `host/ravel_host.c` | GPL-3.0 (from X0X) |
 
 Not in this repository, fetched at build time: JieLi's Linux toolchain (`tools/get_toolchain.sh`) and three files
