@@ -111,33 +111,59 @@ tap FX
 turn SELECT -20
 turn SELECT 5
 wait 150
+expect page BED
+turn K1 10
+wait 60
+turn K1 10
+wait 60
+turn K1 10
+wait 60
+turn K3 10
+wait 60
+turn K3 10
+wait 60
+turn K4 10
+wait 60
+turn K4 10
+wait 1200
+shot bus-bed.png
+turn K1 -10
+wait 60
+turn K1 -10
+wait 60
+turn K1 -10
+wait 150
+tap FX
+turn SELECT -20
+turn SELECT 7
+wait 150
 expect page FEEDBACK
 wait 600
 shot bus-feedback.png
 tap FX
 turn SELECT -20
-turn SELECT 8
+turn SELECT 10
 wait 150
 expect page FILTER PAIR
 wait 600
 shot bus-pair.png
 tap FX
 turn SELECT -20
-turn SELECT 11
+turn SELECT 13
 wait 150
 expect page BANDS
 wait 600
 shot bus-bands.png
 tap FX
 turn SELECT -20
-turn SELECT 15
+turn SELECT 17
 wait 150
 expect page VOCODER
 wait 600
 shot bus-vocoder.png
 tap FX
 turn SELECT -20
-turn SELECT 17
+turn SELECT 19
 wait 150
 expect page MASTER
 wait 600
@@ -199,11 +225,16 @@ wait 600
 shot seq-timing.png
 tap SEQ
 turn SELECT -20
-turn SELECT 3
+turn SELECT 4
 wait 150
 expect page TRACK
 wait 600
 shot seq-track.png
+turn SELECT 20
+wait 150
+expect page EUCLID
+wait 300
+shot seq-euclid.png
 tap GLO
 turn SELECT -20
 turn SELECT 0
@@ -298,14 +329,14 @@ turn ALGO -8
 turn ALGO 0
 tap SEQ
 turn SELECT -20
-turn SELECT 4
+turn SELECT 5
 wait 150
 expect page GRAPH
 wait 600
 shot seq-graph.png
 tap SEQ
 turn SELECT -20
-turn SELECT 6
+turn SELECT 7
 wait 150
 expect page HEAD 1 MOTION
 turn K1 1

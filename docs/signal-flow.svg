@@ -53,7 +53,8 @@
   <text x="456" y="254" font-size="12" fill="#8c998f">Delay: tape or grains</text>
   <text x="456" y="280" font-size="12" fill="#8c998f">Space: room, clouds,</text>
   <text x="456" y="297" font-size="12" fill="#8c998f">blackhole, 12-bit</text>
-  <text x="456" y="323" font-size="12" fill="#8c998f">Master drive, punch-ins</text>
+  <text x="456" y="323" font-size="12" fill="#8c998f">Bed: dust, wood to metal</text>
+  <text x="456" y="349" font-size="12" fill="#8c998f">Master drive, cuts, punch-ins</text>
 
   <!-- master -->
   <rect x="664" y="237" width="112" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>

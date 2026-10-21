@@ -245,4 +245,62 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   check(bt > 0.002 && bt < 0.3, `BLACKHOLE at full GRAVITY still blooms after 12 s (rms ${bt.toFixed(4)})`);
   check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s)`);
 }
+{                                                           // the BED: silent at LEVEL 0, sounds when up, held down by busy tracks (DUCK)
+  const GPB = 110;
+  const level = (lvl, duck, kit) => {
+    rv.rv_boot(); rv.rv_run(250);
+    rv.web_gp_set(GPB, lvl); rv.web_gp_set(GPB + 1, 60); rv.web_gp_set(GPB + 4, duck);
+    if (kit) { rv.web_set_kind(3, 3, 1); for (let st = 0; st < 16; st++) rv.web_kit_hit(3, st, 0); rv.web_transport(1); }
+    rv.rv_run(2000);
+    let e = 0, n = 0; for (let k = 0; k < 100; k++) { rv.rv_run(10); e += rv.web_live_bed(); n++; }
+    rv.web_transport(0);
+    return e / n;
+  };
+  const off = level(0, 0, 0), on = level(90, 0, 0), free = level(90, 0, 1), held = level(90, 127, 1);
+  check(off < 1e-5 && on > 0.002, `the BED: silent at LEVEL 0, there when up (${on.toFixed(4)})`);
+  check(held < free * 0.6, `DUCK holds it under a busy kit (${held.toFixed(4)} against ${free.toFixed(4)})`);
+}
+{                                                           // SPARK: T4's hits ring T5's strike body; without the route T5 stays silent
+  const run = (route) => {
+    rv.rv_boot(); rv.rv_run(250);
+    rv.web_set_kind(3, 3, 1); for (const st of [0, 4, 8, 12]) rv.web_kit_hit(3, st, 0);
+    rv.web_tp_set(4, 51, 110);
+    if (route) rv.web_route_set(3, 4, 7, 60);
+    rv.web_transport(1);
+    let m = 0; for (let k = 0; k < 200; k++) { rv.rv_run(10); m = Math.max(m, rv.web_meter(4)); }
+    rv.web_transport(0); rv.rv_run(200);
+    return m;
+  };
+  const quiet = run(0), rung = run(1);
+  check(quiet < 0.001 && rung > 0.01, `SPARK: T5 rings only when T4 taps it (${rung.toFixed(3)} against ${quiet.toFixed(4)})`);
+}
+{                                                           // scene GLIDE: the level is part way there mid-glide, there at the end
+  rv.rv_boot(); rv.rv_run(250);
+  rv.web_tp_set(0, 51, 20); rv.web_scene_store(0);
+  rv.web_tp_set(0, 51, 120); rv.web_scene_store(1);
+  rv.web_tp_set(0, 51, 20);
+  rv.web_gp_set(117, 2);                                      // GLIDE 2 BARS
+  rv.web_transport(1); rv.rv_run(100);
+  rv.web_scene_launch(1);
+  let mid = -1;
+  for (let k = 0; k < 900 && mid < 0; k++) { rv.rv_run(10); const g = rv.web_live_glide(); if (g > 0.4 && g < 0.6) mid = rv.web_tp(0, 51); }
+  for (let k = 0; k < 800; k++) rv.rv_run(10);
+  const end = rv.web_tp(0, 51);
+  rv.web_transport(0);
+  check(mid > 40 && mid < 100 && end === 120, `a scene glides: level ${mid} half way, ${end} at the end`);
+}
+{                                                           // cuts in every shape and size, and bouncing, moving ratchets: all finite
+  rv.rv_boot(); rv.rv_run(250);
+  for (let st = 0; st < 16; st++) rv.web_step_set(0, st, 1, 0);
+  rv.web_tp_set(0, 55, 0);
+  for (let st = 0; st < 16; st++) { rv.web_step_byte(0, st, 1, st % 4 ? (1 + st % 3) | ((st % 3) << 2) | ((st % 8) << 4) : 0); rv.web_step_byte(0, st, 0, (st & 7) | ((st % 4) << 3) | ((st % 4) << 6)); }
+  rv.web_set_kind(3, 3, 1); for (let st = 0; st < 16; st++) { rv.web_kit_hit(3, st, st % 6); rv.web_step_byte(3, st, 0, 7 | (3 << 3) | ((st % 4) << 6)); rv.web_step_byte(3, st, 4, 63); }
+  rv.web_tp_set(3, 98, 127);
+  rv.web_gp_set(109, 2); rv.web_punch(2, 1);
+  let bad = false, pk = 0;
+  rv.web_transport(1);
+  for (let k = 0; k < 600; k++) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) bad = true; pk = Math.max(pk, Math.abs(a[i])); } }
+  rv.web_punch(2, 0); rv.web_transport(0);
+  check(!bad && pk > 0.01 && pk < 1.5 && rv.web_fault_count() === 0, `cut shapes, BOUNCE and R MOVE ratchets, GRAIN: finite, no faults (peak ${pk.toFixed(2)})`);
+}
 process.exit(fails ? 1 : 0);

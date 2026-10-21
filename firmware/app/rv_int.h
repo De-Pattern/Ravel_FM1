@@ -108,6 +108,10 @@ typedef struct {
     uint8_t gon[4];
 } logic_t;
 
+/* a hit's own shading (a ratchet's R MOVE, a strike or perc track's GRAIN): how far it is
+ * transposed, darkened, quietened and shortened, against the voice's own sound. on = 0: as it is */
+typedef struct { uint8_t on; float semi, lpc, lps, gain, dk, env; } hitshade_t;
+
 /* a Z filter (rv_zplane.h): six sections' coefficients, their state, the level hold */
 typedef struct { float c[6][5], s[6][2], g; } zp_t;
 
@@ -128,6 +132,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
+    hitshade_t hs;
     union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; } e;
 } voice_t;
 
@@ -142,6 +147,7 @@ typedef struct {
     float ph[6], aenv, penv, menv, nenv, xenv, exc, next, fbv, last, hp_s, hp_s2, am_ph;
     float my1[8], my2[8], mb1[8], mb2[8], mg[8];   /* modal resonators */
     svf_t f1, f2, hpf, lpf, eq;
+    hitshade_t hs;
 } perc_t;
 
 /* strike: exciter into body, with a transient layer */
@@ -168,6 +174,8 @@ typedef struct {
     float bow_v;
     float last;
     float lim;                      /* the voice's level limiter: its envelope */
+    uint8_t spark;                  /* rung by a SPARK route: a bare tap on the body, no exciter, no transient */
+    hitshade_t hs;
 } strike_t;
 
 /* ---------------------------------------------------------------- tape --- */
@@ -236,13 +244,14 @@ typedef struct {
 } track_t;
 
 /* ---------------------------------------------------------- sequencer --- */
-enum { EV_ON, EV_OFF, EV_ADV, EV_JUMP, EV_CUT, EV_CATCH, EV_TRIG };
+enum { EV_ON, EV_OFF, EV_ADV, EV_JUMP, EV_CUT, EV_CATCH, EV_TRIG, EV_SPARK };
 typedef struct {
     uint32_t when;                  /* sample clock */
     uint8_t type, track, note, vel;
     uint8_t step, head;
     uint16_t chain;                 /* tracks already triggered in this chain */
     uint8_t env;
+    uint8_t rmv;                    /* a ratchet's repeat: bits 0-1 R MOVE, 2-4 which repeat, 5-7 of how many - 1 */
     float len_s;
 } event_t;
 #define RV_EVQ 128

@@ -28,12 +28,12 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK };   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC };   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
 enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END, CZF_SLOT0 };   /* CZF_SLOT0-3: an envelope page's knobs, by OCT row; RATE/LEVEL carry their stage in bits 9-11 */
-enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC };
+enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC, SF_RMOVE, SF_CSHAPE, SF_CSIZE };
 enum { RF_TYPE, RF_AMT, RF_ARG, RF_CHANCE };
 enum { MF_SRC, MF_TRACK, MF_PARAM, MF_AMT };
 enum { XF_DEST, XF_START, XF_END, XF_CURVE, XF_LO, XF_HI };
@@ -42,7 +42,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
@@ -97,7 +97,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_FILTER, PR_SOUND, "FILTER", {TP(TP_FTYPE), TP(TP_CUT), TP(TP_RES), TP(TP_EFILT)}},   /* ENV>CUT: also on TERMINATION, the same setting */
     {SEC_VOICE, V_SEM, PIC_FILTER, PR_SOUND, "SEM", {TP(TP_FMODE), TP(TP_FBP), TP(TP_CUT), TP(TP_RES)}},
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN", {TP(TP_DRIVE), TP(TP_FOLD), TP(TP_BITS), NO}},
-    {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_DEREZ), NO, NO}},
+    {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_DEREZ), TP(TP_GRAIN), NO}},
     {SEC_VOICE, V_ALL, PIC_INSERT, PR_SOUND, "INSERT", {TP(TP_INS), TP(TP_INA), TP(TP_INB), TP(TP_INMIX)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
@@ -126,6 +126,8 @@ static const page_t pages[] = {
     {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "GRAINS", {GP(GP_DLYMODE), GP(GP_GRDENS), GP(GP_GRSIZE), GP(GP_GRPITCH)}},
     {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE", {GP(GP_REVSIZE), GP(GP_REVDAMP), GP(GP_REVLEVEL), TP(TP_REVS)}},
     {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE 2", {GP(GP_REVMOD), GP(GP_REVDIFF), GP(GP_REVLOW), GP(GP_REVMODE)}},
+    {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED", {GP(GP_BEDLEVEL), GP(GP_BEDDENS), GP(GP_BEDTONE), GP(GP_BEDSHIM)}},   /* dust on a tuned body, under everything */
+    {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED 2", {GP(GP_BEDDUCK), GP(GP_BEDDECAY), GP(GP_BEDSPACE), NO}},
     {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK", {GP(GP_FBTIME), GP(GP_FBREGEN), GP(GP_FBPROC), GP(GP_FBAMT)}},
     {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 2", {GP(GP_FBTUNE), GP(GP_FBCUT), GP(GP_FBEDGE), GP(GP_FBRET)}},
     {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 3", {GP(GP_FBLEVEL), TP(TP_FBS), NO, NO}},
@@ -139,6 +141,7 @@ static const page_t pages[] = {
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER", {GP(GP_VOCBODY), GP(GP_VOCTILT), GP(GP_VOCLEVEL), TP(TP_VOC)}},
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER 2", {GP(GP_VOCATK), GP(GP_VOCREL), GP(GP_VOCSHIFT), GP(GP_VOCQ)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER", {GP(GP_MDRIVE), GP(GP_CUTSIZE), GP(GP_CUTREP), GP(GP_CUTMIX)}},
+    {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER 2", {GP(GP_CUTSHAPE), NO, NO, NO}},
 
     {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_INTERVAL)}},
 
@@ -158,8 +161,9 @@ static const page_t pages[] = {
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), NO}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), NO}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), SF(SF_RMOVE)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), NO}},
     {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), NO, NO, NO}},
@@ -168,12 +172,16 @@ static const page_t pages[] = {
     {SEC_SEQ, V_GRAPH, PIC_MOTION, PR_NONE, "HEAD 1 MOTION", {TP(TP_H1SHAPE), TP(TP_H1DEPTH), TP(TP_H1CYCLE), TP(TP_H1COMB)}},
     {SEC_SEQ, V_GRAPH2, PIC_GRAPH, PR_STEPCUR, "HEAD 2", {TP(TP_H2TARGET), TP(TP_H2RATE), TP(TP_H2START), TP(TP_H2TRANS)}},
     {SEC_SEQ, V_GRAPH2, PIC_MOTION, PR_NONE, "HEAD 2 MOTION", {TP(TP_H2SHAPE), TP(TP_H2DEPTH), TP(TP_H2CYCLE), TP(TP_H2COMB)}},
+    /* EUCLID: HITS spread as evenly as they go over the LENGTH, turned by ROTATE, written into the steps
+     * as you turn (a kit: into the chosen lane), so they are ordinary steps from then on */
+    {SEC_SEQ, V_NOTKIT, PIC_EUCLID, PR_PATTERN, "EUCLID", {{K_EUC, 0}, {K_EUC, 1}, TP(TP_LEN), NO}},
+    {SEC_SEQ, V_KIT, PIC_EUCLID, PR_PATTERN, "EUCLID", {LF(LF_SEL), {K_EUC, 0}, {K_EUC, 1}, LF(LF_LEN)}},
 
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 1-4", {{K_TLEVEL, 0}, {K_TLEVEL, 1}, {K_TLEVEL, 2}, {K_TLEVEL, 3}}},
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 5-8", {{K_TLEVEL, 4}, {K_TLEVEL, 5}, {K_TLEVEL, 6}, {K_TLEVEL, 7}}},
-    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), NO}},
+    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
-    {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, NO, NO, NO}},
+    {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
@@ -213,6 +221,7 @@ static struct {
     char slot_names[PLAT_SLOTS][13];
     uint8_t slot_used[PLAT_SLOTS];
     uint32_t mlr_held;                       /* white keys held on the tape page */
+    int8_t euc_rot[RV_TRACKS][RV_LANES];     /* EUCLID: the last ROTATE turned to (a track's in [0], a kit's per lane) */
     uint32_t frame;
     uint8_t dust_hist[60];
     uint8_t dust_w;
@@ -489,7 +498,10 @@ static int held_step(void)
 }
 
 /* --------------------------------------------------- knob bindings --- */
-static const char *const rcurve_names[] = {"EVEN", "FASTER", "SLOWER", "EVEN-F", "FAST-F", "SLOW-F"};
+static const char *const rcurve_names[] = {"EVEN", "FASTER", "SLOWER", "BOUNCE", "EVEN-F", "FAST-F", "SLOW-F"};
+static const char *const rmove_names[] = {"NONE", "UP", "DOWN", "DARK"};
+static const char *const cshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
+static const char *const csize_names[] = {"MASTER", "1/32", "1/16", "1/8", "1/6", "1/4", "1/3", "1/2"};
 static const char *const cut_names[] = {"NONE", "LOOP", "REVERSE", "STUTTER"};
 static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "DEMO 3", "INIT"};
 static const char *const bank_actions[] = {"LOAD", "SAVE", "CLEAR"};
@@ -504,6 +516,65 @@ static const char *const lib_next[RV_SENV + 1] = {"NONE", "1", "2", "3", "4", "5
 typedef struct { const char *name; int min, max; uint8_t fmt; const char *const *names; } kinfo_t;
 
 static int macro_dest_count(void) { return RV_TRACKS * TP_N + GP_N; }
+
+/* ------------------------------------------------------------ EUCLID --- */
+static int euc_lane(int t) { return is_kit_ui(t) ? ui.lane[t] % RV_LANES : 0; }
+static int euc_len(int t)                    /* the steps it spreads over: the track's LENGTH, or a kit lane's */
+{
+    int n = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
+    if (is_kit_ui(t) && rv.kit[t].len[euc_lane(t)])
+        n = clampi(rv.kit[t].len[euc_lane(t)], 1, RV_STEPS);
+    return n;
+}
+static int euc_on(int t, int i)
+{
+    const rv_step *s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[i];
+    return is_kit_ui(t) ? (s->flags & ST_ON) && ((s->note >> euc_lane(t)) & 1) : (s->flags & ST_ON) != 0;
+}
+static int euc_hits(int t)                   /* how many play now (so HITS starts from the pattern as it is) */
+{
+    int i, n = 0, len = euc_len(t);
+    for (i = 0; i < len; i++)
+        n += euc_on(t, i);
+    return n;
+}
+/* k hits over n steps, the first on step 1 (Bjorklund's pattern: step i plays when i*k mod n < k), turned */
+static void euc_write(int t, int hits, int rot)
+{
+    int i, len = euc_len(t), l = euc_lane(t), pat = rv.pat_cur[t] % RV_PATTERNS;
+    uint8_t bit = (uint8_t)(1u << l);
+    hits = clampi(hits, 0, len);
+    rot = ((rot % len) + len) % len;
+    for (i = 0; i < len; i++) {
+        rv_step *s = &rv.pat[t][pat].s[i];
+        int j = (i - rot + len) % len, on = hits > 0 && (j * hits) % len < hits;
+        if (is_kit_ui(t)) {
+            if (on && !(s->note & bit)) {
+                if (!(s->flags & ST_ON)) {           /* an empty step: start it clean */
+                    s->note = s->env = s->len = 0;
+                    s->vel = 100;
+                    s->chance = 100;
+                    s->ratchet = 0;
+                    s->micro = 0;
+                    s->cond = 0;
+                }
+                s->note |= bit;
+            } else if (!on && (s->note & bit)) {
+                s->note &= (uint8_t)~bit;
+                s->env &= (uint8_t)~bit;
+                s->len &= (uint8_t)~bit;
+                rv_kitlock_clear(t, pat, i, l);
+            }
+            s->flags = (uint8_t)(s->note & 63 ? s->flags | ST_ON : s->flags & ~ST_ON);
+        } else if (on) {
+            s->flags |= ST_ON;
+            if (s->vel == 0)
+                s->vel = 100;
+        } else {
+            s->flags &= (uint8_t)~ST_ON;
+        }
+    }
+}
 
 static kinfo_t kb_info(kb_t k)
 {
@@ -543,7 +614,7 @@ static kinfo_t kb_info(kb_t k)
         r.max = 127;
         break;
     case K_STEP: {
-        static const char *const nm[] = {"NOTE", "VELO", "LENGTH", "CHANCE", "MICRO", "RATCHET", "R CURVE", "CONDITN", "ENV", "CUT", "TIE", "CORD A", "CORD B", "ACCENT"};
+        static const char *const nm[] = {"NOTE", "VELO", "LENGTH", "CHANCE", "MICRO", "RATCHET", "R CURVE", "CONDITN", "ENV", "CUT", "TIE", "CORD A", "CORD B", "ACCENT", "R MOVE", "C SHAPE", "C SIZE"};
         r.name = nm[k.id];
         switch (k.id) {
         case SF_NOTE: r.max = 127; r.fmt = PF_NOTE; break;
@@ -553,7 +624,10 @@ static kinfo_t kb_info(kb_t k)
         case SF_MICRO: r.min = -6; r.max = 12; r.fmt = PF_BI; break;
         case SF_RATCHET: r.min = 1; r.max = 8; break;
         case SF_ACC: { static const char *const oo[] = {"OFF", "ON"}; r.max = 1; r.fmt = PF_ENUM; r.names = oo; break; }
-        case SF_RCURVE: r.max = 5; r.fmt = PF_ENUM; r.names = rcurve_names; break;
+        case SF_RCURVE: r.max = 6; r.fmt = PF_ENUM; r.names = rcurve_names; break;
+        case SF_RMOVE: r.max = 3; r.fmt = PF_ENUM; r.names = rmove_names; break;
+        case SF_CSHAPE: r.max = 2; r.fmt = PF_ENUM; r.names = cshape_names; break;
+        case SF_CSIZE: r.max = 7; r.fmt = PF_ENUM; r.names = csize_names; break;
         case SF_COND: r.max = RV_NCOND - 1; r.fmt = PF_ENUM; r.names = rv_cond_names; break;
         case SF_ENV: r.max = RV_SENV; break;
         case SF_CUT: r.max = 3; r.fmt = PF_ENUM; r.names = cut_names; break;
@@ -647,6 +721,10 @@ static kinfo_t kb_info(kb_t k)
     case K_ARC:
         r.name = "DENSITY";
         r.max = 100;
+        break;
+    case K_EUC:
+        r.name = k.id ? "ROTATE" : "HITS";
+        r.max = euc_len(ui.track) - (k.id ? 1 : 0);
         break;
     case K_LIB: {                              /* the LIBRARY: a segment's LEVEL, TIME, BEND (and SEGS), or the envelope's own */
         int set = ui.lib_row >= RV_SENV_SEG;
@@ -779,10 +857,13 @@ static int kb_get(kb_t k)
                 return 1;
             return (s->ratchet & 7) + 1;
         case SF_ACC: return (s->env >> (ui.lane[ui.track] % RV_LANES)) & 1;
-        case SF_RCURVE: return ((s->ratchet >> 3) & 3) + ((s->ratchet & 32) ? 3 : 0);
+        case SF_RCURVE: return ((s->ratchet >> 3) & 3) == 3 ? 3 : ((s->ratchet >> 3) & 3) + ((s->ratchet & 32) ? 4 : 0);
+        case SF_RMOVE: return (s->ratchet >> 6) & 3;
         case SF_COND: return s->cond;
         case SF_ENV: return s->env;
-        case SF_CUT: return s->cut;
+        case SF_CUT: return s->cut & 3;
+        case SF_CSHAPE: return clampi((s->cut >> 2) & 3, 0, 2);
+        case SF_CSIZE: return (s->cut >> 4) & 7;
         case SF_TIE: return (s->flags & ST_TIE) ? 1 : 0;
         case SF_CORDA: return s->to[0];
         default: return s->to[1];
@@ -824,6 +905,7 @@ static int kb_get(kb_t k)
             return rv.arr_len ? rv.arr_len : 1;
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
+    case K_EUC: return k.id ? clampi(ui.euc_rot[ui.track][euc_lane(ui.track)], 0, euc_len(ui.track) - 1) : euc_hits(ui.track);
     case K_LIB: {
         const rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
         int sg = ui.lib_row % RV_SENV_SEG;
@@ -977,10 +1059,15 @@ static void kb_set(kb_t k, int v)
                     s->len &= (uint8_t)~(1u << (ui.lane[ui.track] % RV_LANES));
             }
             break;
-        case SF_RCURVE: s->ratchet = (uint8_t)((s->ratchet & 7) | ((v % 3) << 3) | (v >= 3 ? 32 : 0)); break;
+        case SF_RCURVE:                               /* EVEN FASTER SLOWER BOUNCE, then the first three fading */
+            s->ratchet = (uint8_t)((s->ratchet & (7 | 192)) | ((v == 3 ? 3 : v % 4) << 3) | (v >= 4 ? 32 : 0));
+            break;
+        case SF_RMOVE: s->ratchet = (uint8_t)((s->ratchet & 63) | ((v & 3) << 6)); break;
         case SF_COND: s->cond = (uint8_t)v; break;
         case SF_ENV: s->env = (uint8_t)(v > 255 ? 255 : v); break;
-        case SF_CUT: s->cut = (uint8_t)v; break;
+        case SF_CUT: s->cut = (uint8_t)((s->cut & ~3) | (v & 3)); break;
+        case SF_CSHAPE: s->cut = (uint8_t)((s->cut & ~12) | ((v & 3) << 2)); break;
+        case SF_CSIZE: s->cut = (uint8_t)((s->cut & ~112) | ((v & 7) << 4)); break;
         case SF_TIE: s->flags = (uint8_t)(v ? s->flags | ST_TIE : s->flags & ~ST_TIE); break;
         case SF_CORDA: s->to[0] = (uint8_t)v; break;
         default: s->to[1] = (uint8_t)v; break;
@@ -1088,6 +1175,11 @@ static void kb_set(kb_t k, int v)
         break;
     case K_ARC:
         rv.arcs[ui.track][ui.cur_arc & 15] = (uint8_t)v;
+        break;
+    case K_EUC:
+        if (k.id)
+            ui.euc_rot[ui.track][euc_lane(ui.track)] = (int8_t)v;
+        euc_write(ui.track, k.id ? euc_hits(ui.track) : v, ui.euc_rot[ui.track][euc_lane(ui.track)]);
         break;
     case K_LIB: {
         rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
@@ -2474,7 +2566,7 @@ static void pic_tracks(void)
                 int y;
                 if (!r->type)
                     continue;
-                c = r->type == RT_MOD ? C_TEAL : r->type == RT_TRIG ? C_TRIG : r->type == RT_EXCITE ? C_EXC : r->type == RT_TAPE ? C_TAPE : r->type == RT_CLOCK ? C_CLOCK : C_RING;
+                c = r->type == RT_MOD ? C_TEAL : r->type == RT_TRIG ? C_TRIG : r->type == RT_EXCITE ? C_EXC : r->type == RT_TAPE ? C_TAPE : r->type == RT_CLOCK ? C_CLOCK : r->type == RT_SPARK ? C_SPARK : C_RING;
                 if (rv_live.route_fire[a][b2] > 40)
                     c = C_WHITE;
                 y = PIC_Y + 126 + (n % 3) * 4;
@@ -2494,6 +2586,7 @@ static uint16_t route_col(int type)
     case RT_TAPE: return C_TAPE;
     case RT_CLOCK: return C_CLOCK;
     case RT_RING: return C_RING;
+    case RT_SPARK: return C_SPARK;
     default: return C_LINE;
     }
 }
@@ -2532,12 +2625,12 @@ static void pic_infl(void)
     }
     /* legend */
     for (a = 1; a < RT_N; a++) {
-        int y = PIC_Y + 10 + (a - 1) * 16;
+        int y = PIC_Y + 8 + (a - 1) * 15;
         g_fill(150, y + 2, 8, 8, route_col(a));
         g_text(162, y, &FONT_T, rv_route_names[a], C_MID);
     }
     {
-        static const char *const what[] = {"", "MOVES A KNOB OF", "PLAYS", "RINGS THE BODY OF", "JUMPS THE TAPE OF", "CLOCKS", "RING MODULATES"};
+        static const char *const what[] = {"", "MOVES A KNOB OF", "PLAYS", "RINGS THE BODY OF", "JUMPS THE TAPE OF", "CLOCKS", "RING MODULATES", "TAPS THE BODY OF"};
         const rv_route *r = &rv.infl[ui.track][ui.cur_route];
         char ln[48] = "";
         if (r->type) {
@@ -3315,6 +3408,82 @@ static void pic_space(void)
     }
 }
 
+/* the BED: its body's modes as lines (wood: spread and short; metal: clustered and long), the
+ * shimmer above, the dust as it falls, and how far the tracks are holding it down */
+static void pic_bed(void)
+{
+    static const float wood[6] = {1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f};
+    static const float metal[6] = {1.0f, 1.483f, 1.801f, 2.546f, 2.630f, 3.897f};
+    static uint8_t last_hit, dust_x[12], dust_a[12];
+    float tone = rv.gp[GP_BEDTONE] / 127.0f, shim = rv.gp[GP_BEDSHIM] / 127.0f, lvl = rv.gp[GP_BEDLEVEL] / 127.0f;
+    float env = clampf(fm_sqrtf(rv_live.bed_env) * 2.5f, 0.0f, 1.0f);
+    int k, base = PIC_Y + 100;
+    uint16_t on = lvl > 0.0f ? C_TEAL : C_DIM;
+    g_hline(8, base, 224, C_LINE);
+    for (k = 0; k < 6; k++) {                         /* the modes: where they sit (log), how long they ring */
+        float rr = wood[k] + (metal[k] - wood[k]) * tone, ring = (0.3f + tone * 0.7f) / (1.0f + (float)k * (1.2f - tone * 0.9f));
+        int x = 16 + (int)(fm_log2f(rr) / 4.3f * 200.0f), h = (int)(20.0f + 60.0f * ring * (0.4f + 0.6f * env));
+        g_rbox(x - 2, base - h, 5, h, 2, g_mix(C_TEAL_D, on, fm_powf(0.75f, (float)k)), 1);
+    }
+    if (shim > 0.0f)                                  /* the shimmer: an octave and two up */
+        for (k = 0; k < 2; k++) {
+            int x = 16 + (int)((1.0f + (float)k) / 4.3f * 200.0f), h = (int)(10.0f + 40.0f * shim);
+            g_rbox(x - 1, base - h - 6, 3, h, 1, C_AMBER, 1);
+        }
+    if (rv_live.bed_hit != last_hit) {                /* the dust falling */
+        last_hit = rv_live.bed_hit;
+        for (k = 11; k > 0; k--) {
+            dust_x[k] = dust_x[k - 1];
+            dust_a[k] = dust_a[k - 1];
+        }
+        dust_x[0] = (uint8_t)(16 + (last_hit * 73) % 200);
+        dust_a[0] = 255;
+    }
+    for (k = 0; k < 12; k++) {
+        if (dust_a[k] > 20)
+            g_disc(dust_x[k], PIC_Y + 12 + k * 4, 1, g_mix(C_BG, on, dust_a[k] / 255.0f));
+        dust_a[k] = (uint8_t)(dust_a[k] * 7 / 8);
+    }
+    g_text(8, PIC_Y + 106, &FONT_T, tone < 0.35f ? "WOOD" : tone > 0.65f ? "METAL" : "WOOD / METAL", C_DIM);
+    if (rv.gp[GP_BEDDUCK] > 0) {                      /* the duck: full is free */
+        int w = (int)(60.0f * clampf(rv_live.bed_duck, 0.0f, 1.0f));
+        g_text_r(160, PIC_Y + 106, &FONT_T, "DUCK", C_DIM);
+        g_fill(166, PIC_Y + 108, 60, 4, C_LINE);
+        g_fill(166, PIC_Y + 108, w, 4, C_AMBER);
+    }
+    if (lvl <= 0.0f)
+        g_text_c(120, PIC_Y + 40, &FONT_T, "LEVEL UP TO HEAR IT", C_DIM);
+}
+
+/* EUCLID: the steps in a ring, the playing ones lit, the step on now marked */
+static void pic_euclid(void)
+{
+    int t = ui.track, len = euc_len(t), i, hits = euc_hits(t), cx = 120, cy = PIC_Y + 58, now;
+    float rad = 46.0f;
+    char b[24] = "E(";
+    now = is_kit_ui(t) ? rv_live.lane_step[t][euc_lane(t)] : rv_live.step[t][0];
+    for (i = 0; i < len; i++) {
+        float a = (float)i / (float)len;
+        float x = (float)cx + rad * sin_lut(a), y = (float)cy - rad * sin_lut(a + 0.25f);
+        int on = euc_on(t, i);
+        if (on)
+            g_discf(x, y, len > 32 ? 3.0f : 4.5f, i == now ? C_WHITE : kind_dcol(t));
+        else
+            g_discf(x, y, 1.5f, i == now ? C_WHITE : C_LINE);
+    }
+    {
+        char nb[8];
+        sx_int(nb, hits);
+        sx_cat(b, nb);
+        sx_cat(b, ",");
+        sx_int(nb, len);
+        sx_cat(b, nb);
+        sx_cat(b, ")");
+    }
+    g_text_c(cx, cy - 6, &FONT_B, b, C_INK);
+    g_text(8, PIC_Y + 116, &FONT_T, is_kit_ui(t) ? "WRITES THE CHOSEN LANE AS YOU TURN" : "WRITES THE STEPS AS YOU TURN", C_DIM);
+}
+
 static void pic_master(void)
 {
     float l = fm_sqrtf(rv_live.master_l), r = fm_sqrtf(rv_live.master_r);
@@ -3579,7 +3748,7 @@ static void pic_steps(void)
                 g_text(x + 9, y + 18, &FONT_T, "%", C_MID);
             if (s->env)
                 g_fill(x + 20, y + 22, 3, 3, C_TEAL);
-            if (s->cut)
+            if (s->cut & 3)
                 g_fill(x + 20, y + 28, 3, 3, C_RED);
         }
         sx_int(b, si + 1);
@@ -3787,7 +3956,7 @@ static void pic_arcs(void)
     }
     g_vline(12 + ui.cur_arc * 14, PIC_Y + 6, 108, C_WHITE);
     {
-        int b = rv_live.bar & 15;
+        int b = (rv_live.bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15;   /* (a point lasts SPAN bars) */
         g_fill(10 + b * 14, PIC_Y + 116, 5, 5, C_AMBER);
     }
 }
@@ -3905,6 +4074,8 @@ static void draw_picture(void)
     case PIC_DELAY: pic_delay(); break;
     case PIC_SPACE: pic_space(); break;
     case PIC_MASTER: pic_master(); break;
+    case PIC_BED: pic_bed(); break;
+    case PIC_EUCLID: pic_euclid(); break;
     case PIC_BANDS: pic_bands(); break;
     case PIC_SCALE: pic_scale(); break;
     case PIC_TAPE: pic_tape(); break;

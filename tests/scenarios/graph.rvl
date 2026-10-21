@@ -3,7 +3,7 @@ wait 300
 tap PLAY
 wait 500
 tap SEQ
-turn SELECT 3
+turn SELECT 4
 wait 200
 expect page TRACK
 turn K1 1

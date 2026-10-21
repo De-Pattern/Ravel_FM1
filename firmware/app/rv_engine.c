@@ -214,14 +214,76 @@ void rv_motion(int pid, int v) { cmd(C_MOTION, 0, pid, v); }
 void rv_all_off(void) { cmd(C_ALLOFF, 0, 0, 0); }
 
 /* ------------------------------------------------------------- notes --- */
+/* a hit's shading: the sequencer sets the next note's (a ratchet's R MOVE) just before it plays;
+ * GRAIN adds its own on strike and perc hits. A voice keeps its shading for its whole sound */
+static hitshade_t hs_pend;
+static void hs_clear(hitshade_t *h)
+{
+    h->on = 0;
+    h->semi = 0.0f;
+    h->lpc = 1.0f;
+    h->gain = 1.0f;
+    h->dk = 0.0f;
+    h->env = 1.0f;
+}
+static void hs_take(hitshade_t *h, float grain, uint32_t *rng)   /* the pending shading, then GRAIN (0..1) */
+{
+    float lps = h->lps;
+    *h = hs_pend;
+    h->lps = lps;                                   /* (a retriggered voice keeps its filter's state) */
+    if (!hs_pend.on)
+        hs_clear(h);
+    if (grain > 0.0f) {                             /* each hit a little different: tuning, weight, brightness, length */
+        float d = xs_uni(rng), dark = d * d * grain, sh = xs_uni(rng);   /* (most hits a little, a few a lot) */
+        h->on = 1;
+        h->semi += xs_bi(rng) * grain * 0.5f;
+        h->gain *= 1.0f + xs_bi(rng) * grain * 0.3f;
+        h->lpc = fm_minf(h->lpc, 1.0f - fm_expf(-6.2831853f * 18000.0f * fm_exp2f(-dark * 3.0f) * RV_DT));
+        h->dk += sh * sh * grain * 10.0f;
+    }
+}
+/* a ratchet repeat's R MOVE: UP and DOWN move a kit lane's pitch (a pitched track's notes move in the
+ * scale instead); DARK closes each repeat down, quieter and shorter, so a burst turns from metal to wood */
+static void hs_move(int rmv, int kit)
+{
+    int mv = rmv & 3, k = (rmv >> 2) & 7, cnt = ((rmv >> 5) & 7) + 1;
+    float u = (float)k / (float)cnt;
+    if (!mv || !k)
+        return;
+    hs_clear(&hs_pend);
+    hs_pend.on = 1;
+    if (mv == 3) {
+        hs_pend.lpc = 1.0f - fm_expf(-6.2831853f * 14000.0f * fm_exp2f(-u * 5.5f) * RV_DT);
+        hs_pend.dk = u * 30.0f;
+        hs_pend.gain = 1.0f - 0.3f * u;
+    } else if (kit) {
+        hs_pend.semi = (mv == 1 ? 2.0f : -2.0f) * (float)k;
+    } else {
+        hs_pend.on = 0;
+    }
+}
+
+/* a shaded voice's sound, rendered on its own, into the track */
+static void hs_mix(hitshade_t *h, const float *src, float *dst, int n)
+{
+    int i;
+    float e0 = h->env, e1 = h->env * (h->dk > 0.0f ? fm_expf(-(float)n * RV_DT * h->dk) : 1.0f), de = (e1 - e0) / (float)n;
+    for (i = 0; i < n; i++) {
+        h->lps += (src[i] - h->lps) * h->lpc;
+        dst[i] += h->lps * (e0 + de * (float)i) * h->gain;
+    }
+    h->env = e1;
+}
+
 static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
 {
     track_t *tr = &trk[t];
-    int kind = rv.tp[t][TP_KIND], i;
-    float v = (float)vel * (1.0f / 127.0f);
-    if (vel > 0)
+    int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;
+    float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
+    spark_pend = 0;
+    if (vel > 0 && !spark)
         lfo_note_trig = 1;
-    if (vel > 0 && !(kind == KIND_PERC && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
+    if (vel > 0 && !spark && !(kind == KIND_PERC && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
         int e = env > 0 ? env : rv.tp[t][TP_SEDEF];
         if (e > 0)
             senv_trigger(t, e - 1);
@@ -286,6 +348,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         vo->track = (uint8_t)t;
         vo->age = ++age_ctr;
         synth_voice_note_on(vo, note, v, legato, clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1));
+        hs_take(&vo->hs, 0.0f, &eng_rng);
         artic_cfg_track(&vo->cfg, tr->eff);
         if (!legato) {
             artic_start(&vo->a, &vo->cfg);
@@ -349,6 +412,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         if (!sv->on)
             sv->a.p = sv->a.s = sv->a.v = 0.0f;
         strike_note_on(sv, note, v, tr->eff);
+        sv->spark = (uint8_t)spark;
+        hs_take(&sv->hs, grain, &eng_rng);
         artic_start(&sv->a, &sv->cfg);
     } else if (kind == KIND_PERC) {
         int kit = rv.tp[t][TP_ENGINE] == 1, lane = kit ? perc_lane_of(note) : -1;
@@ -381,11 +446,15 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         ps[pick].track = (uint8_t)t;
         ps[pick].age = ++age_ctr;
         perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u, kit ? rv.kit[t].mach[lane] : -1, lane);
+        hs_take(&ps[pick].hs, grain, &eng_rng);
     } else {
         tapetrk_t *tt = &tr->tape;
         artic_cfg_track(&tt->cfg, tr->eff);
         tape_track_note(tr, note, v);
     }
+    hs_clear(&hs_pend);
+    if (spark)                                       /* a tap on the body: not a note the track played */
+        return;
     tr->lead_vel = v;
     tr->lead_key = (float)(note - 60);
     rv_live.hit[t]++;
@@ -486,16 +555,16 @@ static void cmd_drain(void)
         case C_PUNCH:
             punch[c.a & 7] = (uint8_t)c.b;
             if (c.a == 0 && c.b)
-                cut_now(1);
+                cut_now(1 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
             if (c.a == 1 && c.b)
-                cut_now(2);
+                cut_now(2 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
             if (c.a == 2 && c.b)
-                cut_now(3);
+                cut_now(3 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
             dly_freeze = punch[3];
             fill_on = punch[7];
             break;
         case C_CUT:
-            cut_now(c.b);
+            cut_now(c.b, 0.0f);
             break;
         case C_SCENE:
             scene_launch_now(c.b);
@@ -661,6 +730,7 @@ static void render_sub(float *outl, float *outr, int n)
         seq_pulse(offs[i]);
     seq_other_clocks();
     seq_events(n);
+    glide_tick(n);
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
@@ -722,7 +792,13 @@ static void render_sub(float *outl, float *outr, int n)
             continue;
         }
         artic_cfg_track(&v->cfg, tr->eff);
-        lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
+        if (v->hs.on) {                              /* a shaded hit: on its own, then into the track */
+            float tmp[RV_SUB];
+            zero_buf(tmp, n);
+            lv = synth_voice_render(v, tr, tmp, n, 0.0f);
+            hs_mix(&v->hs, tmp, tr->buf, n);
+        } else
+            lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
         if (buf_bad(tr->buf, n) || !(lv == lv)) {
             fault(100 + rv.tp[v->track][TP_ENGINE]);
             __builtin_memset(v, 0, sizeof(*v));
@@ -752,7 +828,13 @@ static void render_sub(float *outl, float *outr, int n)
             continue;
         }
         artic_cfg_track(&v->cfg, tr->eff);
-        lv = strike_render(v, tr, tr->buf, n);
+        if (v->hs.on) {
+            float tmp[RV_SUB];
+            zero_buf(tmp, n);
+            lv = strike_render(v, tr, tmp, n);
+            hs_mix(&v->hs, tmp, tr->buf, n);
+        } else
+            lv = strike_render(v, tr, tr->buf, n);
         if (buf_bad(tr->buf, n) || !(lv == lv)) {
             fault(200 + rv.tp[v->track][TP_S0]);
             __builtin_memset(v, 0, sizeof(*v));
@@ -775,7 +857,13 @@ static void render_sub(float *outl, float *outr, int n)
             v->on = 0;
             continue;
         }
-        lv = perc_render(v, tr, tr->buf, n);
+        if (v->hs.on) {
+            float tmp[RV_SUB];
+            zero_buf(tmp, n);
+            lv = perc_render(v, tr, tmp, n);
+            hs_mix(&v->hs, tmp, tr->buf, n);
+        } else
+            lv = perc_render(v, tr, tr->buf, n);
         if (buf_bad(tr->buf, n) || !(lv == lv)) {
             fault(300 + rv.tp[v->track][TP_S0]);
             __builtin_memset(v, 0, sizeof(*v));
@@ -904,6 +992,11 @@ static void render_sub(float *outl, float *outr, int n)
         tr->lead_env *= 0.995f;
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
+    bed_run(rev_in, outl, outr, n);                  /* the BED, under the tracks (it listens to them) */
+    if (buf_fix(outl, n) | buf_fix(outr, n)) {
+        fault(950);
+        buses_reset();
+    }
 
     /* buses */
     for (i = 0; i < n; i++)

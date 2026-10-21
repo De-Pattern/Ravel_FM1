@@ -22,16 +22,16 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 ## What it is
 
 - **Synth tracks** (T1 to T4), fourteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
-- **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
+- **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
-- **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, or clock any other.
+- **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
-- **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets with curves, conditions, chance. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
+- **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
-- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
-- **Song:** patterns A and B per track, 16 scenes, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
+- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it.
+- **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
 
@@ -250,6 +250,7 @@ An 8 × 8 grid: rows are **sources**, columns are **targets**. Each filled cell 
 | **TAPE** | Each source note jumps the target tape track's playhead | AMOUNT | JUMP TO: a position 0–15, or 16 = catch the tape | – |
 | **CLOCK** | Each source note moves the target's sequencer one step (René-style: rhythm drives rhythm) | AMOUNT | – | – |
 | **RING** | Ring modulates the target with the source's audio | AMOUNT | – | – |
+| **SPARK** | Each source hit taps the target's body: a strike track rings at its last note, with no exciter and no attack of its own, and plays no note (so it starts no chain of its own). Only strike tracks can be sparked | AMOUNT: how hard the tap | – | – |
 
 To remove a route, turn KNOB 1 back to `-`.
 
@@ -269,7 +270,7 @@ OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV ROUTE, so turning either moves both |
 | **SKIN** | DRIVE (saturation of everything the track plays at once: 0 by default, so chords stay clean; turn it up to make them break up together) | FOLD (wavefolding) | BITS (bit reduction) | – |
-| **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
+| **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | GRAIN (strike and perc tracks): each hit a little different, see below | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
 | **SENDS** | FEEDBK send | PAIR send (filter pair) | VOCODER send | BANDS send |
@@ -300,6 +301,8 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 **LPG** is a low-pass gate: the filter closes as the note fades, so sounds get darker as they die away (good for plucks and Buchla-style bongos).
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
+
+**GRAIN** (EDIT › SKIN 2, on strike and perc tracks) makes each hit slightly different from the last: a little sharper or flatter (up to half a semitone), a little louder or softer, now and then darker or shorter. Most hits move a little and a few a lot, the way a hand never strikes twice the same. It changes nothing about which steps play or when: it is texture, so sixteen hats sound like sixteen hits instead of one copied. On a kit it acts on every lane.
 
 ### The fourteen synth engines (SOURCE pages)
 
@@ -611,6 +614,7 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 - **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). With REC armed, what you play is recorded into the lanes.
 - A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
 - **SWING** is on GLO › CLOCK (it was DRUM's fourth knob before lanes had their own RATE).
+- **EUCLID** (the last SEQ page) writes evenly spread hits into the chosen lane; **R CURVE** and **R MOVE** (STEP TIMING) shape its rolls.
 - **Presets:** TRX KIT (kick, snare, hats, clap, rim; the kit a new PERC track starts with), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
 
 - **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
@@ -767,6 +771,8 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | **GRAINS** | MODE: TAPE (the delay) or GRAINS | DENSITY: how often grains start | SIZE: each grain, 20 ms to 0.4 s | PITCH: ±24 semitones |
 | **SPACE** | SIZE | DAMP: darker tail | LEVEL | T SEND |
 | **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | MODE: ROOM, CLOUDS, BLACKHOLE or 12-BIT |
+| **BED** | LEVEL (0: off) | DENSITY: how often its dust falls | TONE: wood (left) to metal (right) | SHIMMER: the body an octave and two up, slowly beating |
+| **BED 2** | DUCK: how far busy tracks hold it down | DECAY: how long the body rings | SPACE: how much of it goes into the space reverb | – |
 | **FEEDBACK** | TIME of the loop | REGEN: how much goes round again | PROCESS inside the loop: FILTER, COMB, SMEAR, SHIFT, FOLD, CRUSH | AMOUNT of the process |
 | **FEEDBACK 2** | TUNE of the process | CUTOFF of the loop's filter | EDGE: a guard that keeps the loop from running away | RETURN: to the MASTER, or into a track (T1–T8) |
 | **FEEDBACK 3** | LEVEL | T SEND | – | – |
@@ -780,6 +786,7 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | **VOCODER** | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL | T SEND |
 | **VOCODER 2** | ATTACK | RELEASE | SHIFT: moves the bands (±24 semitones) | NARROW: sharper, more resonant bands |
 | **MASTER** | DRIVE: master saturation | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
+| **MASTER 2** | C SHAPE: the punch-ins' cuts EVEN, BOUNCE or DRAG (as on SEQ › STEP CUT) | – | – | – |
 
 **GRAINS** (DELAY, MODE GRAINS) turns the delay into a small granular cloud after Mutable Instruments' Beads, kept lofi on purpose: the delay's memory holds about half a second at half the sample rate and 12 bits. Up to eight grains read from it at once. TIME becomes **POSITN** (how far back the grains reach), WOBBLE becomes **RANDOM** (how much each grain strays in position, pitch and length) and SPREAD becomes **STEREO**. FEEDBK sends the cloud back into its own buffer, TONE darkens it, and FREEZE stops recording, so the cloud keeps playing what it holds: freeze a chord, then play with POSITN, SIZE and PITCH. Switching MODE clears the buffer.
 
@@ -808,7 +815,11 @@ All four modes share one block of memory, so the two new ones cost no extra RAM;
 - Send it into a track (**RETURN** T1–T8) and the loop feeds back through that track's own filter and skin.
 - If it gets too loud, turn down REGEN or turn EDGE on.
 
-**Microcuts** (MASTER page) are slivers of the master output, looped, reversed or stuttered. Trigger them from steps (SEQ › STEP SHAPE › CUT) or with the FX punch-ins.
+<p align="center"><img src="docs/manual/bus-bed.png" alt="The BED page: the body's modes, its shimmer and its dust" width="240"></p>
+
+**The BED** is a quiet layer under everything: grains of dust, and a breath of soft noise, falling on a small body tuned to the scale's root (SCL › ROOT). At TONE's left the body is wood, its modes spread like a marimba bar's and short; at the right it is metal, its modes clustered and inharmonic, and it rings long. SHIMMER adds its two lowest modes an octave and two octaves up, beating slowly. **DUCK** lets the tracks hold it down, quickly when they play and slowly letting go, so the bed comes up in the gaps between hits. **SPACE** sends it into the space reverb: into BLACKHOLE it becomes a deep floor under the clicks. The picture shows the body's modes, the shimmer, the dust as it falls and, with DUCK up, how far it is held down. The dust is random, as dust is; the bed plays no notes and changes nothing in the patterns.
+
+**Microcuts** (MASTER page) are slivers of the master output, looped, reversed or stuttered. Trigger them from steps (SEQ › STEP SHAPE › CUT, with their own shape and size on STEP CUT) or with the FX punch-ins (their shape: MASTER 2 › C SHAPE).
 
 **Punch-in effects:** hold **FX** and press white keys **1–8**:
 
@@ -927,10 +938,30 @@ Editing a held empty step switches it on.
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **STEPS** | NOTE | VELO | LENGTH: in eighths of a step (8 = one step, "7 1/2") | CHANCE: 0–100 % that it plays |
-| **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER; "-F" versions fade out | CONDITN, see below |
-| **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | – |
+| **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER, BOUNCE (see below); "-F" versions fade out | CONDITN, see below |
+| **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
+| **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
 | **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST |
 | **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | – | – | – |
+| **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
+
+<p align="center"><img src="docs/manual/seq-euclid.png" alt="The EUCLID page: a pattern drawn as a ring of its steps, E(hits, length) in the middle" width="240"></p>
+
+**EUCLID** spreads HITS as evenly as they go over the track's LENGTH (5 over 16 is x..x..x..x..x...., the first on step 1) and ROTATE turns the pattern round. It writes ordinary steps as you turn: the steps it lights are steps like any others, with their notes, locks and ratchets, and you can edit them by hand from there. HITS starts from how many steps play now. Each turn rewrites which steps play (up to LENGTH), so turn it to find a rhythm, then leave it. On a kit the page is LANE, HITS, ROTATE and the lane's LENGTH, and it writes the chosen lane only: give each lane its own length and hits for rhythms that interlock and drift. The picture is the pattern as a ring, E(hits, length) in the middle.
+
+**Ratchets that move.** A ratchet repeats the step's note within the step. Two settings change how the repeats fall and sound:
+
+- **R CURVE BOUNCE** spaces the repeats like a ball dropped on a table: the gaps shrink and each repeat is softer than the last. (EVEN, FASTER and SLOWER place them evenly, closing up or opening out; their "-F" versions fade.)
+- **R MOVE** changes each repeat: **UP** and **DOWN** climb or fall a step of the scale per repeat (on a kit lane, two semitones); **DARK** closes each repeat down, darker, quieter and shorter than the one before, so a metal hit turns to wood as it rolls.
+
+Together they give the bouncing, tumbling bursts of IDM: a hat on RATCHET 6, BOUNCE, DARK falls like a coin; a snare on 4, FASTER, UP rises into the next bar. On a kit, R CURVE and R MOVE are on STEP TIMING (KNOB 2 and KNOB 4) and act on the lanes that roll on that step.
+
+**Cuts with a shape.** A step's CUT is a microcut of the whole mix (see FX › MASTER). On STEP CUT:
+
+- **C SHAPE EVEN** repeats the sliver as it is; **BOUNCE** makes each repeat shorter and a little higher, like a ball settling (it adds a few repeats to settle in); **DRAG** plays each slower and lower, a tape winding down.
+- **C SIZE** sets the sliver against the step, from 1/32 to 1/2 of a step (at most 93 ms), so it follows the tempo; MASTER uses CUT SIZE.
+
+While a cut plays its sliver is held, so every repeat is of the same moment.
 
 **Conditions** (CONDITN) decide on which passes through the pattern a step plays:
 
@@ -1018,9 +1049,9 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | --- | --- | --- | --- | --- | --- |
 | **MIXER 1-4** | T1 LEVEL | T2 LEVEL | T3 LEVEL | T4 LEVEL | – |
 | **MIXER 5-8** | T5 LEVEL | T6 LEVEL | T7 LEVEL | T8 LEVEL | – |
-| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | – | scene |
+| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | GLIDE: JUMP, or 1–8 bars (see below) | scene |
 | **ARRANGE** | SCENE for this row, or END (past 16): the song stops when it gets there | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
-| **ARCS** | DENSITY of this bar (0–100 %) for the current track | – | – | – | bar 1–16 |
+| **ARCS** | DENSITY of this point (0–100 %) for the current track | SPAN: each point lasts 1, 2 or 4 bars (16, 32 or 64 bars in all) | – | – | point 1–16 |
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
@@ -1031,6 +1062,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 
 - **Store:** hold **SAVE** and press a white key (1–16). Over a stored scene, the first press asks: press again to overwrite.
 - **Launch:** on the SCENES page, press a white key. It changes on the next bar. Black keys 1–2 there switch the current track's pattern.
+- **Glide:** with **GLIDE** set to 1–8 bars, a launched scene (or an arrangement row) changes its patterns and mutes on the bar as before, but the track levels, the macros and the influence routes' amounts travel to the scene's over that many bars, easing in and out. A route the new scene adds grows from nothing; a route it drops fades, then goes. GLIDE JUMP switches everything at once, as before. Stopping mid-glide lands on the scene.
 
 **Arrangement:** a list of up to 32 rows, each "play scene S for B bars".
 
@@ -1040,7 +1072,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 
 Without an END row the song loops back to row 1. Give the last row the scene END to have the transport stop there. A scene with its own tempo (S TEMPO) changes the tempo when its row starts.
 
-**Density arcs.** For each track, draw 16 bars of density.
+**Density arcs.** For each track, draw 16 points of density, each lasting SPAN bars (1, 2 or 4: an arc of 16, 32 or 64 bars, so a part can stay quiet for a long stretch and open up once).
 
 - At 100 % every step plays. Lower values thin the part out, off-beats first and downbeats last.
 - One pattern can then breathe across a phrase without writing new patterns.
@@ -1275,6 +1307,13 @@ Turning ALGORITHM while armed moves recording to the new track.
 | One row of the matrix moving another | LFO › MATRIX: TRACK = MATRIX, PARAM = ROW n |
 | A kit lane faster or slower | SEQ › DRUM, KNOB 3 RATE (or the lane's LANE page) |
 | Choose a kit lane's machine | EDIT › LANE n (black keys 3–8), PRESETS |
+| Spread hits evenly (a track or a kit lane) | SEQ › EUCLID: HITS, ROTATE |
+| A bouncing, darkening roll | SEQ › STEP TIMING: RATCHET, R CURVE BOUNCE; STEP SHAPE: R MOVE DARK |
+| A stutter that settles or drags | SEQ › STEP CUT: C SHAPE, C SIZE (punch-ins: FX › MASTER 2) |
+| Every hit a little different | EDIT › SKIN 2: GRAIN (strike, perc) |
+| A dusty bed under everything | FX › BED: LEVEL, TONE; BED 2: DUCK, SPACE |
+| One track's hits ringing a strike track | HOME › INFLUENCE: route SPARK |
+| Scenes that glide | GLO › SCENES: GLIDE 1–8 bars |
 | Record a chord onto a step | Tap REC, PLAY, press the keys together |
 | Graph steps past 16 | GRAPH page, OCT+ / OCT− |
 | A huge, endless reverb | FX › SPACE 2: MODE BLACKHOLE; then SPACE: GRAVITY near the top |

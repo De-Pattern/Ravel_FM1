@@ -823,27 +823,136 @@ static void bands_run(const float *in, int n, float *l, float *r)
     }
 }
 
+/* ---------------------------------------------------------------- BED --- */
+/* a quiet layer under everything: grains of dust (and a breath of noise) striking a small body tuned
+ * to the scale's root. TONE turns it from wood (bar ratios, short) to metal (inharmonic, long); SHIMMER
+ * adds the body an octave and two up, slowly beating; DUCK lets the tracks hold it down, so it comes
+ * up in the gaps; SPACE sends it into the reverb. Its dust is random: it is texture, not notes */
+#define BED_M 10
+static float bed_y1[BED_M], bed_y2[BED_M], bed_b1[BED_M], bed_b2[BED_M], bed_g[BED_M], bed_pan[BED_M];
+static float bed_wait, bed_follow, bed_gain = 1.0f, bed_nlp, bed_ph, bed_lvl;
+static uint32_t bed_rng = 0x51ED27u;
+static int16_t bed_key[4] = {-1, -1, -1, -1};
+
+static void bed_setup(void)
+{
+    static const float wood[6] = {1.0f, 2.756f, 5.404f, 8.933f, 13.34f, 18.64f};
+    static const float metal[6] = {1.0f, 1.483f, 1.801f, 2.546f, 2.630f, 3.897f};
+    float tone = rv.gp[GP_BEDTONE] * (1.0f / 127.0f), f0 = note_hz(48.0f + (float)(rv.gp[GP_ROOT] % 12));
+    float t60 = (0.25f + tone * tone * 2.6f) * (1.0f + rv.gp[GP_BEDDECAY] * (4.0f / 127.0f));
+    float shim = rv.gp[GP_BEDSHIM] * (1.0f / 127.0f);
+    int k;
+    for (k = 0; k < BED_M; k++) {
+        float rr, td, g, r;
+        if (k < 6) {
+            rr = wood[k] + (metal[k] - wood[k]) * tone;
+            td = t60 / (1.0f + (float)k * (1.2f - tone * 0.9f));
+            g = fm_powf(0.5f, (float)k * (1.0f - tone * 0.6f));
+        } else {                                      /* the shimmer: the lowest two an octave and two up */
+            rr = (k & 1 ? metal[1] + (wood[1] - metal[1]) * (1.0f - tone) : 1.0f) * (k < 8 ? 2.0f : 4.0f) * (1.0f + 0.003f * (float)(k - 6));
+            td = t60 * 1.6f;
+            g = shim * (k < 8 ? 0.5f : 0.3f);
+        }
+        if (f0 * rr > 17000.0f)
+            g = 0.0f;
+        r = fm_exp2f(-1.0f / (td * 44100.0f) * 9.97f);
+        bed_b1[k] = r * fm_cosf(6.2831853f * f0 * rr * RV_DT);
+        bed_b2[k] = r * fm_sinf(6.2831853f * f0 * rr * RV_DT);
+        bed_g[k] = g * 0.05f;
+        bed_pan[k] = (k & 1) ? 0.3f : 0.7f;
+    }
+}
+
+/* l, r: the tracks so far (it listens to them to duck); adds itself to them and to the space's input */
+static void bed_run(float *rev_in, float *l, float *r, int n)
+{
+    float lvl = rv.gp[GP_BEDLEVEL] * (1.0f / 127.0f), dens = rv.gp[GP_BEDDENS] * (1.0f / 127.0f);
+    float duck = rv.gp[GP_BEDDUCK] * (1.0f / 127.0f), send = rv.gp[GP_BEDSPACE] * (1.0f / 127.0f), act = 0.0f, want;
+    float hz = 0.4f + dens * dens * 40.0f, breath = 0.004f + dens * 0.012f;
+    int i, k;
+    if (lvl <= 0.0f && bed_lvl < 0.0001f) {
+        bed_lvl = 0.0f;
+        rv_live.bed_env *= 0.9f;
+        return;
+    }
+    if (bed_key[0] != rv.gp[GP_BEDTONE] || bed_key[1] != rv.gp[GP_ROOT] || bed_key[2] != rv.gp[GP_BEDDECAY] || bed_key[3] != rv.gp[GP_BEDSHIM]) {
+        bed_key[0] = rv.gp[GP_BEDTONE];
+        bed_key[1] = rv.gp[GP_ROOT];
+        bed_key[2] = rv.gp[GP_BEDDECAY];
+        bed_key[3] = rv.gp[GP_BEDSHIM];
+        bed_setup();
+    }
+    for (i = 0; i < n; i++)
+        act += fm_fabsf(l[i]) + fm_fabsf(r[i]);
+    act /= (float)n;
+    bed_follow += (act - bed_follow) * (act > bed_follow ? 0.25f : 0.012f);   /* quick to duck, slow to come back */
+    want = 1.0f - duck * 0.92f * clampf(bed_follow * 5.0f, 0.0f, 1.0f);   /* (at most down about 22 dB) */
+    bed_ph += (float)n * RV_DT * 0.11f;
+    bed_ph -= fm_floorf(bed_ph);
+    for (i = 0; i < n; i++) {
+        float x = 0.0f, yl = 0.0f, yr = 0.0f, trem = 0.75f + 0.25f * sin_lut(bed_ph);
+        bed_wait -= RV_DT;
+        if (bed_wait <= 0.0f) {                       /* a grain of dust */
+            float u = xs_uni(&bed_rng);
+            x = 0.25f + 0.75f * xs_uni(&bed_rng);
+            bed_wait = -0.6931472f * fm_log2f(u > 0.001f ? u : 0.001f) / hz;
+            rv_live.bed_hit++;
+        }
+        bed_nlp += (xs_bi(&bed_rng) - bed_nlp) * 0.05f;   /* and a breath of soft noise */
+        x += bed_nlp * breath * 8.0f;
+        bed_lvl += (lvl - bed_lvl) * 0.002f;
+        bed_gain += (want - bed_gain) * 0.0008f;
+        for (k = 0; k < BED_M; k++) {
+            float re = bed_b1[k] * bed_y1[k] - bed_b2[k] * bed_y2[k] + bed_g[k] * x;
+            float im = bed_b2[k] * bed_y1[k] + bed_b1[k] * bed_y2[k], o = im * (k >= 6 ? trem : 1.0f);
+            bed_y1[k] = re;
+            bed_y2[k] = im;
+            yl += o * bed_pan[k];
+            yr += o * (1.0f - bed_pan[k]);
+        }
+        yl = sat(yl * 2.0f) * bed_lvl * bed_lvl * bed_gain;
+        yr = sat(yr * 2.0f) * bed_lvl * bed_lvl * bed_gain;
+        l[i] += yl;
+        r[i] += yr;
+        rev_in[i] += (yl + yr) * send;
+        rv_live.bed_env = fm_maxf(fm_fabsf(yl + yr) * 0.5f, rv_live.bed_env * 0.9995f);
+    }
+    rv_live.bed_duck = bed_gain;
+}
+
 /* ---------------------------------------------------------- microcuts --- */
+/* a sliver of the master, repeated. Its shape: EVEN (as cut), BOUNCE (each repeat shorter and a
+ * little higher, a ball settling) or DRAG (each slower and lower, a tape winding down). While a cut
+ * plays the ring stops recording, so every repeat is of the same sliver */
 static int16_t cut_buf[RV_CUT_SAMPLES] RV_RAMBSS;   /* (in plain RAM: the pool keeps its room) */
-static int32_t cut_w, cut_start, cut_len, cut_pos, cut_left, cut_fade;
-static uint8_t cut_rev;
+static int32_t cut_w, cut_start, cut_seg, cut_reps, cut_fade;
+static float cut_pos, cut_rate;
+static uint8_t cut_rev, cut_shape;
 static uint32_t cut_rng = 0xA5A5A5u;
 
-static void cut_now(int action)
+/* action: bits 0-1 LOOP, REVERSE, STUTTER; 2-3 the shape (EVEN, BOUNCE, DRAG); 4-6 the size
+ * (0: the MASTER page's CUT SIZE, 1-7: 1/32, 1/16, 1/8, 1/6, 1/4, 1/3, 1/2 of step_s) */
+static void cut_now(int action, float step_s)
 {
-    float sz = 0.008f + (float)rv.gp[GP_CUTSIZE] * (0.08f / 127.0f);
+    static const float frac[8] = {0.0f, 1.0f / 32.0f, 1.0f / 16.0f, 1.0f / 8.0f, 1.0f / 6.0f, 0.25f, 1.0f / 3.0f, 0.5f};
+    int type = action & 3, size = (action >> 4) & 7;
+    float sz = size && step_s > 0.0f ? step_s * frac[size] : 0.008f + (float)rv.gp[GP_CUTSIZE] * (0.08f / 127.0f);
     int32_t back;
-    if (action <= 0)
+    if (type == 0)
         return;
-    cut_len = clampi((int)(sz * (float)RV_FS), 64, (int)RV_CUT_SAMPLES / 2);
-    back = action == 3 ? cut_len * (1 + (int32_t)(xs32(&cut_rng) % 3u)) : cut_len;
+    cut_shape = (uint8_t)clampi((action >> 2) & 3, 0, 2);
+    cut_seg = clampi((int)(sz * (float)RV_FS), 64, (int)RV_CUT_SAMPLES / 2);
+    back = type == 3 ? cut_seg * (1 + (int32_t)(xs32(&cut_rng) % 3u)) : cut_seg;
+    if (back > (int32_t)RV_CUT_SAMPLES - 2)
+        back = cut_seg;
     cut_start = cut_w - back;
     while (cut_start < 0)
         cut_start += (int32_t)RV_CUT_SAMPLES;
-    cut_rev = action == 2;
-    cut_pos = 0;
-    cut_left = cut_len * clampi(rv.gp[GP_CUTREP], 1, 16);
-    cut_fade = clampi(cut_len / 8, 16, 400);
+    cut_rev = type == 2;
+    cut_pos = 0.0f;
+    cut_rate = 1.0f;
+    cut_reps = clampi(rv.gp[GP_CUTREP], 1, 16) + (cut_shape == 1 ? 3 : 0);   /* a bounce settles: a few more */
+    cut_fade = clampi(cut_seg / 8, 16, 400);
 }
 
 /* in place on the master: writes the ring, plays the cut over it */
@@ -852,17 +961,39 @@ static void cuts_run(float *l, float *r, int n)
     int i;
     float mix = rv.gp[GP_CUTMIX] * (1.0f / 127.0f);
     for (i = 0; i < n; i++) {
-        cut_buf[cut_w] = (int16_t)clampf((l[i] + r[i]) * 8192.0f, -32000.0f, 32000.0f);
-        cut_w = (cut_w + 1) % (int32_t)RV_CUT_SAMPLES;
-        if (cut_left > 0) {
-            int32_t p = cut_rev ? cut_len - 1 - cut_pos : cut_pos, idx = (cut_start + p) % (int32_t)RV_CUT_SAMPLES;
-            float e = fm_minf(1.0f, fm_minf((float)(cut_pos + 1) / (float)cut_fade, (float)(cut_len - cut_pos) / (float)cut_fade));
-            float cl = cut_buf[idx] * (1.0f / 16384.0f) * e, cr = cl;
-            l[i] = lerpf(l[i], cl, mix * (e > 0.0f ? 1.0f : 0.0f));
-            r[i] = lerpf(r[i], cr, mix * (e > 0.0f ? 1.0f : 0.0f));
-            if (++cut_pos >= cut_len)
-                cut_pos = 0;
-            cut_left--;
+        if (cut_reps <= 0) {
+            cut_buf[cut_w] = (int16_t)clampf((l[i] + r[i]) * 8192.0f, -32000.0f, 32000.0f);
+            cut_w = (cut_w + 1) % (int32_t)RV_CUT_SAMPLES;
+            continue;
+        }
+        {
+            float p = cut_rev ? (float)cut_seg - 1.0f - cut_pos : cut_pos, fr, a, b, c, e;
+            int32_t ip = (int32_t)p, i0, i1;
+            if (ip < 0)
+                ip = 0;
+            fr = p - (float)ip;
+            i0 = (cut_start + ip) % (int32_t)RV_CUT_SAMPLES;
+            i1 = (i0 + 1) % (int32_t)RV_CUT_SAMPLES;
+            a = cut_buf[i0];
+            b = cut_buf[i1];
+            c = (a + (b - a) * fr) * (1.0f / 16384.0f);
+            e = fm_minf(1.0f, fm_minf((cut_pos + 1.0f) / (float)cut_fade, ((float)cut_seg - cut_pos) / (float)cut_fade));
+            if (e < 0.0f)
+                e = 0.0f;
+            l[i] = lerpf(l[i], c * e, mix);
+            r[i] = lerpf(r[i], c * e, mix);
+            cut_pos += cut_rate;
+            if (cut_pos >= (float)cut_seg) {          /* the next repeat */
+                cut_pos = 0.0f;
+                cut_reps--;
+                if (cut_shape == 1) {
+                    cut_seg = cut_seg * 3 / 4 > 64 ? cut_seg * 3 / 4 : 64;
+                    cut_rate *= 1.06f;
+                    cut_fade = clampi(cut_seg / 8, 16, 400);
+                } else if (cut_shape == 2) {
+                    cut_rate = fm_maxf(0.25f, cut_rate * 0.84f);
+                }
+            }
         }
     }
 }
@@ -898,7 +1029,10 @@ static void buses_reset(void)
     __builtin_memset(rev_lp, 0, sizeof(rev_lp));
     __builtin_memset(rev_ap, 0, sizeof(rev_ap));
     __builtin_memset(cut_buf, 0, sizeof(cut_buf));
-    cut_left = 0;
+    cut_reps = 0;
+    __builtin_memset(bed_y1, 0, sizeof(bed_y1));
+    __builtin_memset(bed_y2, 0, sizeof(bed_y2));
+    bed_key[0] = -1;
     vocoder_setup();
 }
 

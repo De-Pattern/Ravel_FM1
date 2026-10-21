@@ -553,11 +553,11 @@ static float perc_render(perc_t *v, track_t *tr, float *out, int n)
         const rv_kit *kt = &rv.kit[v->track & 7];
         for (k = 0; k < 8; k++)
             p[k] = ((v->lk_mask >> k) & 1 ? v->lk_val[k] : kt->p[v->lane][k]) * (1.0f / 127.0f);
-        perc_machine(v, p, 0.0f, buf, n);
+        perc_machine(v, p, v->hs.semi, buf, n);   /* (a lane plays at its own pitch; R MOVE and GRAIN move it) */
     } else {
         for (k = 0; k < 8; k++)
             p[k] = clampf(eff[TP_S1 + k] * (1.0f / 127.0f), 0.0f, 1.0f);
-        perc_machine(v, p, (float)v->note - 60.0f + eff[TP_PITCH] + eff[TP_FINE] * 0.01f, buf, n);
+        perc_machine(v, p, (float)v->note - 60.0f + eff[TP_PITCH] + eff[TP_FINE] * 0.01f + v->hs.semi, buf, n);
     }
     /* the track effects */
     amd = eff[TP_S9] * (1.0f / 127.0f);

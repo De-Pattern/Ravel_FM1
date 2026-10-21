@@ -40,7 +40,7 @@
 #endif
 #define RV_DELAY_SAMPLES 12288u     /* int16, in the FM-1's cache RAM: 0.28 s */
 #define RV_FB_SAMPLES 6144u         /* int16: 0.14 s */
-#define RV_CUT_SAMPLES 4096u        /* microcut ring, int16 mono: 93 ms */
+#define RV_CUT_SAMPLES 8192u        /* microcut ring, int16 mono: 186 ms (a cut is at most half) */
 #define RV_KS_LEN 640               /* waveguide line, int16: 69 Hz lowest */
 
 /* ------------------------------------------------------------- parameters --- */
@@ -79,6 +79,7 @@ enum {
     TP_FREL, TP_FACRV, TP_FDCRV, TP_FLOOP, TP_FRATE,   /* the FILTER ENV, continued */
     TP_SEDST, TP_SEAMT, TP_SEDEF,   /* (format 13) STEP ENV: where the step envelopes go, how far, the one a note starts */
     TP_FDST, TP_FAMT,               /* (format 15) the FILTER ENV into a second destination, any of the track's */
+    TP_GRAIN,                       /* a strike or perc hit's own small differences, each time (0: none; old projects load 0) */
     TP_N
 };
 #define RV_TP 112                   /* room for more track parameters without moving pids (format 15: was 96; format 6: was 80) */
@@ -109,9 +110,15 @@ enum {
     /* (format 9) the metronome and the count-in before recording */
     GP_METRO, GP_COUNTIN,
     GP_LFO1SYM, GP_LFO2SYM, GP_LFO1PHASE, GP_LFO2PHASE, GP_LFO1MODE, GP_LFO2MODE,   /* the LFOs' symmetry, start phase, LOOP/RETRIG/1 SHOT (0: as before) */
+    /* (all 0 = as before, so older projects load unchanged) the punch-in cuts' shape; the BED under
+     * the space; scenes that glide; density arcs over more bars */
+    GP_CUTSHAPE,
+    GP_BEDLEVEL, GP_BEDDENS, GP_BEDTONE, GP_BEDSHIM, GP_BEDDUCK, GP_BEDDECAY, GP_BEDSPACE,
+    GP_SCNGLIDE, GP_ARCSPAN,
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
+_Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define RV_GPID (RV_TRACKS * RV_TP)
 #define RV_NPID (RV_GPID + RV_GP)
 #define PID_T(t, p) ((t) * RV_TP + (p))
@@ -195,7 +202,7 @@ static inline void senv_set_crv(rv_senv *e, int i, int v)
 }
 
 /* --------------------------------------------------------------- influence --- */
-enum { RT_OFF, RT_MOD, RT_TRIG, RT_EXCITE, RT_TAPE, RT_CLOCK, RT_RING, RT_N };
+enum { RT_OFF, RT_MOD, RT_TRIG, RT_EXCITE, RT_TAPE, RT_CLOCK, RT_RING, RT_SPARK, RT_N };
 typedef struct {
     uint8_t type;
     int8_t amt;                     /* -64..63 */
@@ -325,6 +332,9 @@ typedef struct {
     uint8_t voices_synth, voices_strike;
     uint8_t playing, recording, rec_track, bar, beat;
     uint8_t countin;                       /* beats of the count-in still to come (0: none) */
+    float bed_env, bed_duck;               /* the BED: its level, and how far the tracks hold it down (1: not at all) */
+    uint8_t bed_hit;                       /* counts up on each grain of its dust */
+    float glide;                           /* a scene gliding in: 0..1 (1: arrived) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;
@@ -367,6 +377,7 @@ void rv_tape_rate(int t, int how);              /* 0 reverse, 1 halve, 2 double,
 void rv_punch(int fx, int on);                  /* punch-in effects */
 void rv_cut(int action);                        /* microcut now */
 void rv_scene_launch(int s);
+void rv_scene_store(int s);
 void rv_pattern_launch(int t, int p);
 void rv_tap_tempo(void);
 int rv_tape_frozen(void);

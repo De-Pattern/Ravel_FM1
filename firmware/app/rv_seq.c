@@ -106,6 +106,8 @@ static void infl_fire(int a, int note, int vel, uint16_t chain, uint32_t when);
 static void note_on_internal(int t, int note, int vel, int env, uint16_t chain);
 static void note_off_internal(int t, int note);
 static void all_off_now(void);
+static void hs_move(int rmv, int kit);              /* (rv_engine.c) a ratchet repeat's R MOVE, for the next note */
+static uint8_t spark_pend;
 
 static void ev_push(const event_t *e)
 {
@@ -288,6 +290,39 @@ static int next_step(int t, int h, int cur)
     }
 }
 
+/* where in its step a ratchet's repeat k of cnt falls (0..1): EVEN, FASTER, SLOWER, or BOUNCE, the
+ * gaps shrinking like a dropped ball's */
+static float rat_pos(int curve, int k, int cnt)
+{
+    float u = (float)k / (float)cnt;
+    if (curve == 1)
+        return fm_powf(u, 0.6f);
+    if (curve == 2)
+        return fm_powf(u, 1.6f);
+    if (curve == 3)
+        return (1.0f - fm_powf(0.72f, (float)k)) / (1.0f - fm_powf(0.72f, (float)cnt));
+    return u;
+}
+/* a repeat's loudness: the fade (bit 5) or a bounce dies away */
+static float rat_vel(const rv_step *s, int k, int cnt)
+{
+    if (((s->ratchet >> 3) & 3) == 3)
+        return fm_powf(0.8f, (float)k);
+    return (s->ratchet & 32) && cnt > 1 ? 1.0f - 0.6f * (float)k / (float)cnt : 1.0f;
+}
+/* a note k steps of the scale up (or down), for R MOVE */
+static int scale_walk(int note, int k)
+{
+    int j, d = k > 0 ? 1 : -1;
+    for (j = 0; j != k; j += d) {
+        int m = note + d, guard = 0;
+        while (rv_quantize_note(m) == note && guard++ < 12)
+            m += d;
+        note = clampi(rv_quantize_note(m), 0, 127);
+    }
+    return note;
+}
+
 /* a step plays: locks, then notes (with ratchets), jumps and cuts, all scheduled */
 /* a KIT's step: each lane reads its own step (a lane with its own LENGTH runs against the others),
  * a step holds which lanes play (note: a bit per lane), which are accented (env) and which ratchet
@@ -298,7 +333,7 @@ static void kit_fire(int t, int si, uint32_t when)
     rv_pattern *pt = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
     int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), l, r;
     float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant = rv.gp[GP_QUANT] * 0.01f;
-    float density = rv.arcs[t][song_bar & 15];
+    float density = rv.arcs[t][(song_bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15];
     for (l = 0; l < RV_LANES; l++) {
         /* the lane's rate against the track's (num / den): in this track step it plays the lane steps
          * that fall in it, each at its own time; at the track's rate, just this step */
@@ -336,21 +371,19 @@ static void kit_fire(int t, int si, uint32_t when)
         e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);   /* the pattern and step its locks are found under */
         e.step = (uint8_t)li;
         e.head = 0x40;                                /* a kit hit: look up its locks */
+        e.rmv = 0;
         e.type = EV_ON;
         e.note = (uint8_t)(60 + l);
         e.len_s = 0.0f;
         cnt = ((s->len >> l) & 1) ? (s->ratchet & 7) + 1 : 1;
         curve = (s->ratchet >> 3) & 3;
         for (r = 0; r < cnt; r++) {
-            float u = (float)r / (float)cnt;
+            float u = rat_pos(curve, r, cnt);
             event_t on = e;
-            if (curve == 1)
-                u = fm_powf(u, 0.6f);
-            else if (curve == 2)
-                u = fm_powf(u, 1.6f);
             on.vel = (uint8_t)(((s->env >> l) & 1) ? 127 : clampi(s->vel ? s->vel : 100, 1, 110));   /* accent */
-            if ((s->ratchet & 32) && cnt > 1)
-                on.vel = (uint8_t)clampi((int)((float)on.vel * (1.0f - 0.6f * u)), 1, 127);
+            if (cnt > 1)
+                on.vel = (uint8_t)clampi((int)((float)on.vel * rat_vel(s, r, cnt) + 0.5f), 1, 127);
+            on.rmv = (uint8_t)(((s->ratchet >> 6) & 3) | (r << 2) | ((cnt - 1) << 5));
             on.when = e.when + (uint32_t)(u * sd * RV_FS * (ri == 4 ? 1.0f : (float)den[ri] / (float)num[ri]));
             ev_push(&on);
         }
@@ -394,7 +427,7 @@ static void step_fire(int t, int h, int si, uint32_t when)
         return;
     if (s->chance < 100 && xs_uni(&seq_rng) * 100.0f >= (float)s->chance)
         return;
-    density = rv.arcs[t][song_bar & 15];
+    density = rv.arcs[t][(song_bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15];
     if (density < 100 && (float)step_rank(si) >= density * 0.16f)
         return;
     micro = (float)s->micro * (1.0f - quant);
@@ -406,7 +439,8 @@ static void step_fire(int t, int h, int si, uint32_t when)
     e.env = s->env;
     e.step = (uint8_t)si;
     e.head = (uint8_t)h;
-    if (s->cut && role != ROLE_PITCH) {
+    e.rmv = 0;
+    if ((s->cut & 3) && role != ROLE_PITCH) {
         e.type = EV_CUT;
         e.note = s->cut;
         ev_push(&e);
@@ -445,16 +479,18 @@ static void step_fire(int t, int h, int si, uint32_t when)
     cnt = (s->ratchet & 7) + 1;
     curve = (s->ratchet >> 3) & 3;
     for (k = 0; k < cnt; k++) {
-        float u = (float)k / (float)cnt, len_s;
-        if (curve == 1)
-            u = fm_powf(u, 0.6f);
-        else if (curve == 2)
-            u = fm_powf(u, 1.6f);
+        float u = rat_pos(curve, k, cnt), len_s;
+        int mv = cnt > 1 ? (s->ratchet >> 6) & 3 : 0;
         e.type = EV_ON;
-        e.note = (uint8_t)clampi(note, 0, 127);
-        e.vel = (uint8_t)clampi((int)((float)s->vel * ((s->ratchet & 32) ? 1.0f - 0.6f * (float)k / (float)cnt : 1.0f)), 1, 127);
+        e.note = (uint8_t)clampi(mv == 1 || mv == 2 ? scale_walk(note, mv == 1 ? k : -k) : note, 0, 127);   /* R MOVE: up or down the scale */
+        e.vel = (uint8_t)clampi((int)((float)s->vel * rat_vel(s, k, cnt) + 0.5f), 1, 127);
         len_s = cnt > 1 ? sd / (float)cnt * 0.7f : sd * (float)(s->len ? s->len : 1) * 0.125f;
+        if (cnt > 1 && curve == 3)                   /* a bounce: each note as long as its gap allows */
+            len_s = fm_maxf(0.004f, ((k + 1 < cnt ? rat_pos(3, k + 1, cnt) : 1.0f) - u) * sd * 0.8f);
+        if (mv == 3)                                 /* DARK: and shorter as they go */
+            len_s *= 1.0f - 0.6f * (float)k / (float)cnt;
         e.len_s = len_s;
+        e.rmv = (uint8_t)(mv | (k << 2) | ((cnt - 1) << 5));
         {
             event_t on = e, off = e;
             on.when = e.when + (uint32_t)(u * sd * (float)(cnt > 1 ? 1 : 0) * RV_FS);
@@ -521,24 +557,107 @@ static void track_advance(int t, uint32_t when)
 }
 
 /* a scene waiting to be applied, and the graph tracks' launched patterns (step tracks switch at their own end) */
+/* a scene GLIDE: patterns, mutes and the routes' kinds change at once; the levels, the macros and
+ * the routes' amounts move there over GLIDE bars (a route on its way out fades, then goes) */
+static struct {
+    uint8_t on;
+    float u, du;
+    uint8_t lv0[RV_TRACKS], lv1[RV_TRACKS];
+    int8_t m0[RV_MACROS], m1[RV_MACROS];
+    int8_t a0[RV_TRACKS][RV_TRACKS], a1[RV_TRACKS][RV_TRACKS];
+    rv_route fin[RV_TRACKS][RV_TRACKS];
+} gl;
+
+static void glide_set(float u)
+{
+    int t, a, b;
+    float w = u * u * (3.0f - 2.0f * u);
+    for (t = 0; t < RV_TRACKS; t++)
+        rv.tp[t][TP_LEVEL] = (int16_t)((float)gl.lv0[t] + (float)(gl.lv1[t] - gl.lv0[t]) * w + 0.5f);
+    for (t = 0; t < RV_MACROS; t++)
+        rv.gp[GP_MACRO1 + t] = (int16_t)((float)gl.m0[t] + (float)(gl.m1[t] - gl.m0[t]) * w + (gl.m1[t] >= gl.m0[t] ? 0.5f : -0.5f));
+    for (a = 0; a < RV_TRACKS; a++)
+        for (b = 0; b < RV_TRACKS; b++)
+            rv.infl[a][b].amt = (int8_t)((float)gl.a0[a][b] + (float)(gl.a1[a][b] - gl.a0[a][b]) * w);
+}
+
+static void glide_tick(int n)
+{
+    if (!gl.on)
+        return;
+    gl.u += gl.du * (float)n;
+    if (gl.u >= 1.0f) {                               /* there: the scene as it was stored */
+        int a, b;
+        glide_set(1.0f);
+        for (a = 0; a < RV_TRACKS; a++)
+            for (b = 0; b < RV_TRACKS; b++)
+                rv.infl[a][b] = gl.fin[a][b];
+        gl.on = 0;
+        rv_live.glide = 1.0f;
+        return;
+    }
+    glide_set(gl.u);
+    rv_live.glide = gl.u;
+}
+
 static void apply_pending(void)
 {
     int t;
     if (pend_scene >= 0) {
         const rv_scene *sc = &rv.scene[pend_scene & 15];
         if (sc->used) {
+            int bars = clampi(rv.gp[GP_SCNGLIDE], 0, 8);
             if (rv.scene_tempo[pend_scene & 15])          /* a scene with its own tempo */
                 rv.gp[GP_TEMPO] = rv.scene_tempo[pend_scene & 15];
+            if (bars > 0 && playing) {
+                int a, b;
+                for (t = 0; t < RV_TRACKS; t++) {
+                    gl.lv0[t] = (uint8_t)clampi(rv.tp[t][TP_LEVEL], 0, 127);
+                    gl.lv1[t] = sc->level[t];
+                }
+                for (t = 0; t < RV_MACROS; t++) {
+                    gl.m0[t] = (int8_t)clampi(rv.gp[GP_MACRO1 + t], -128, 127);
+                    gl.m1[t] = sc->macro[t];
+                }
+                for (a = 0; a < RV_TRACKS; a++)
+                    for (b = 0; b < RV_TRACKS; b++) {
+                        rv_route *cur = &rv.infl[a][b];
+                        const rv_route *to = &sc->infl[a][b];
+                        gl.fin[a][b] = *to;
+                        if (to->type == RT_OFF && cur->type != RT_OFF) {   /* going: it fades */
+                            gl.a0[a][b] = cur->amt;
+                            gl.a1[a][b] = 0;
+                        } else if (to->type == cur->type) {
+                            gl.a0[a][b] = cur->amt;
+                            gl.a1[a][b] = to->amt;
+                            *cur = *to;
+                            cur->amt = gl.a0[a][b];
+                        } else {                                           /* coming: it grows */
+                            *cur = *to;
+                            gl.a0[a][b] = 0;
+                            gl.a1[a][b] = to->amt;
+                            cur->amt = 0;
+                        }
+                    }
+                gl.u = 0.0f;
+                gl.du = 1.0f / ((float)bars * 4.0f * 60.0f / (float)clampi(rv.gp[GP_TEMPO], 20, 300) * RV_FS);
+                gl.on = 1;
+                rv_live.glide = 0.0f;
+            } else {
+                gl.on = 0;
+                rv_live.glide = 1.0f;
+            }
             for (t = 0; t < RV_TRACKS; t++) {
                 rv.pat_cur[t] = sc->pattern[t] % RV_PATTERNS;
-                rv.tp[t][TP_LEVEL] = sc->level[t];
+                if (!gl.on)
+                    rv.tp[t][TP_LEVEL] = sc->level[t];
                 sq[t].passes = 0;
             }
             rv.mute = sc->mute;
-            for (t = 0; t < RV_MACROS; t++)
-                rv.gp[GP_MACRO1 + t] = sc->macro[t];
-            {
+            if (!gl.on) {
                 int a, b;
+                for (t = 0; t < RV_MACROS; t++)
+                    rv.gp[GP_MACRO1 + t] = sc->macro[t];
                 for (a = 0; a < RV_TRACKS; a++)
                     for (b = 0; b < RV_TRACKS; b++)
                         rv.infl[a][b] = sc->infl[a][b];
@@ -681,6 +800,8 @@ static void seq_start(void)
 
 static void seq_stop(void)
 {
+    if (gl.on)                                        /* stopped mid-glide: straight there */
+        gl.u = 1.0f, glide_tick(0);
     countin_left = 0;
     rv_live.countin = 0;
     int t, k;
@@ -718,8 +839,10 @@ static void seq_events(int n)
                 /* a tie into the same note carries on: no new attack */
             } else if (e.head & 0x40) {               /* a kit lane's hit: with its step's locks */
                 perc_lock_prepare(e.track, e.note - 60, e.env, e.step);
+                hs_move(e.rmv, 1);
                 note_on_internal(e.track, e.note, e.vel, 0, e.chain);
             } else {
+                hs_move(e.rmv, 0);
                 note_on_internal(e.track, e.note, e.vel, e.env, e.chain);
                 if (q->tied)
                     note_off_internal(e.track, q->tied - 1);   /* the tied note ends as the next begins */
@@ -734,7 +857,17 @@ static void seq_events(int n)
             tape_track_jump(&trk[e.track], e.note & 15, -1, 0);
             break;
         case EV_CUT:
-            cut_now(e.note);
+            cut_now(e.note, step_seconds(e.track));
+            break;
+        case EV_SPARK:                                /* a tap on a strike track's body, at its last note */
+            if (rv.tp[e.track][TP_KIND] == KIND_STRIKE) {
+                event_t off = e;
+                spark_pend = 1;
+                note_on_internal(e.track, e.note, e.vel, 0, e.chain);
+                off.type = EV_OFF;
+                off.when = e.when + (uint32_t)(step_seconds(e.track) * 0.5f * RV_FS);
+                ev_push(&off);
+            }
             break;
         case EV_TRIG:
             note_on_internal(e.track, e.note, e.vel, 0, e.chain);
@@ -789,6 +922,23 @@ static void infl_fire(int a, int note, int vel, uint16_t chain, uint32_t when)
             if (playing && !(chain & (1u << b) && a != b))
                 track_advance(b, when);
             rv_live.route_fire[a][b] = 255;
+            break;
+        case RT_SPARK:                                /* the hit taps b's body: it rings, no note of its own */
+            if (a != b && rv.tp[b][TP_KIND] == KIND_STRIKE && r->amt > 0) {
+                e.type = EV_SPARK;
+                e.track = (uint8_t)b;
+                e.note = (uint8_t)clampi(60 + (int)trk[b].lead_key, 0, 127);
+                e.vel = (uint8_t)clampi(vel * r->amt / 63, 1, 127);
+                e.chain = (uint16_t)(chain | (1u << b));
+                e.head = 0;
+                e.rmv = 0;
+                e.env = 0;
+                e.step = 0;
+                e.len_s = 0.0f;
+                e.when = when;
+                ev_push(&e);
+                rv_live.route_fire[a][b] = 255;
+            }
             break;
         default:
             break;

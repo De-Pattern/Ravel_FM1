@@ -1,0 +1,28 @@
+# EUCLID: HITS spread over the LENGTH, written into the steps as the knob turns; ROTATE turns them
+wait 300
+tap SEQ
+turn SELECT 20
+wait 150
+expect page EUCLID
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 150
+expect steps 1 5
+turn K2 1
+wait 60
+turn K2 1
+wait 150
+expect steps 1 5
+shot euclid.png
+turn K1 -1
+wait 60
+turn K1 -1
+wait 150
+expect steps 1 3

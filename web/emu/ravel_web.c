@@ -258,6 +258,21 @@ EXPORT(web_mat_dst) int web_mat_dst(int i) { return rv.mat[i & 7].dst; }   /* (t
 EXPORT(web_eff) float web_eff(int t, int p) { return rv_param_eff(t & 7, p); }   /* a track parameter as modulation has it now (tests) */
 EXPORT(web_kit_rate) void web_kit_rate(int t, int l, int v) { rv.kit_rate[t & 7][l % RV_LANES] = (uint8_t)RV_LRATE_STORE(v); }   /* (tests) v: 0..8, 4 = the track's */
 EXPORT(web_kit_hit) void web_kit_hit(int t, int s, int l) { rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[s & 63]; p->flags |= ST_ON; p->note |= (uint8_t)(1u << l); p->vel = 100; p->chance = 100; }
+EXPORT(web_step_byte) void web_step_byte(int t, int s, int field, int v)   /* (tests) 0: ratchet, 1: cut, 2: note, 3: vel, 4: len (a kit: which lanes roll) */
+{
+    rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[s & 63];
+    if (field == 0) p->ratchet = (uint8_t)v;
+    else if (field == 1) p->cut = (uint8_t)v;
+    else if (field == 2) p->note = (uint8_t)v;
+    else if (field == 4) p->len = (uint8_t)v;
+    else p->vel = (uint8_t)v;
+}
+EXPORT(web_punch) void web_punch(int fx, int on) { rv_punch(fx, on); }
+EXPORT(web_route_set) void web_route_set(int a, int b, int type, int amt) { rv.infl[a & 7][b & 7].type = (uint8_t)type; rv.infl[a & 7][b & 7].amt = (int8_t)amt; }
+EXPORT(web_scene_store) void web_scene_store(int s) { rv_scene_store(s); }
+EXPORT(web_scene_launch) void web_scene_launch(int s) { rv_scene_launch(s); }
+EXPORT(web_live_glide) float web_live_glide(void) { return rv_live.glide; }
+EXPORT(web_live_bed) float web_live_bed(void) { return rv_live.bed_env; }
 EXPORT(web_lane_step) int web_lane_step(int t, int l) { return rv_live.lane_step[t & 7][l % RV_LANES]; }
 EXPORT(web_step_info) int web_step_info(int t, int st, int what)   /* (tests) 0: on, 1: note, 2: notes in its chord (1-4) */
 {

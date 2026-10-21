@@ -57,6 +57,7 @@ static int g_y0, g_y1;
 #define C_EXC RGB(112, 130, 152)
 #define C_CLOCK RGB(170, 170, 170)
 #define C_RING RGB(100, 100, 100)
+#define C_SPARK RGB(190, 150, 104)          /* SPARK: a brass tap */
 #define C_SYNTH RGB(232, 232, 230)
 #define C_STRIKE RGB(112, 130, 152)
 #define C_TAPE RGB(104, 146, 128)

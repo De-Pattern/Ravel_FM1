@@ -54,6 +54,8 @@ static inline float strike_exciter(strike_t *v, int exc, const float *eff, float
     float x = 0.0f, tone = eff[TP_S3] * (1.0f / 127.0f), rate = eff[TP_S9] * (1.0f / 127.0f);
     float order = eff[TP_S8] * (1.0f / 127.0f);
     int k;
+    if (v->spark)                                    /* SPARK: one bare tap, so only the body speaks */
+        return (v->t < RV_DT * 1.5f ? 1.0f : 0.0f) * v->vel + ext;
     switch (exc) {
     case EXC_CLICK:
         x = v->t < RV_DT * 1.5f ? 1.0f : xs_bi(&v->rng) * v->exc_env * 0.3f;
@@ -134,7 +136,7 @@ static float strike_render(strike_t *v, track_t *tr, float *out, int n)
     float trans = eff[TP_S10] * (1.0f / 127.0f), tdec = eff[TP_S11] * (1.0f / 127.0f);
     float ringf = 0.25f * fm_exp2f(eff[TP_S12] * (5.0f / 127.0f)), ring = eff[TP_S13] * (1.0f / 127.0f);
     float pdrop = eff[TP_S14] * (1.0f / 127.0f);
-    float f0 = note_hz((float)v->note + eff[TP_PITCH] + eff[TP_FINE] * 0.01f);
+    float f0 = note_hz((float)v->note + eff[TP_PITCH] + eff[TP_FINE] * 0.01f + v->hs.semi);
     float f = f0 * (1.0f + pdrop * 1.5f * v->pitch_env * v->pitch_env);
     float t60 = 0.02f + decay * decay * 6.0f, lvl = 0.0f;
     float tcoef = 1.0f - 1.0f / ((0.0005f + tdec * tdec * 0.08f) * 44100.0f);
@@ -227,7 +229,7 @@ static float strike_render(strike_t *v, track_t *tr, float *out, int n)
             v->ring_ph -= fm_floorf(v->ring_ph);
             y = lerpf(y, y * sin_lut(v->ring_ph) * 1.6f, ring);
         }
-        if (trans > 0.001f && v->trans_env > 0.0005f) {   /* the attack layer: click and noise */
+        if (trans > 0.001f && v->trans_env > 0.0005f && !v->spark) {   /* the attack layer: click and noise */
             tr_layer = (v->t < RV_DT * 1.5f ? 0.8f : 0.0f) + xs_bi(&v->rng) * v->trans_env * 0.5f;
             v->trans_env *= tcoef;
             y += tr_layer * trans * v->vel;

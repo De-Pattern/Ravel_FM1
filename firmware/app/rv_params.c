@@ -9,7 +9,7 @@
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
-const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
+const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
@@ -41,6 +41,9 @@ static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
 static const char *const revmode_names[] = {"ROOM", "CLOUDS", "BLACKHOLE", "12-BIT"};
+static const char *const cutshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
+static const char *const glide_names[] = {"JUMP", "1 BAR", "2 BARS", "3 BARS", "4 BARS", "5 BARS", "6 BARS", "7 BARS", "8 BARS"};
+static const char *const arcspan_names[] = {"1 BAR", "2 BARS", "4 BARS"};
 static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
 static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
 static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
@@ -371,6 +374,7 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_SEDST] = {"SE DEST", 0, TP_N - 1, TP_CUT, PF_DEST, 0},
     [TP_FDST] = {"F DEST", 0, TP_N - 1, TP_PAN, PF_DEST, 0},   /* the FILTER ENV, looping or not, into anything of the track's */
     [TP_FAMT] = {"F AMT", -64, 63, 0, PF_BI, 0},
+    [TP_GRAIN] = {"GRAIN", 0, 127, 0, PF_NUM, 0},     /* each hit a little different: pitch, length, how hard and bright */
     [TP_SEAMT] = {"SE DEPTH", -64, 63, 0, PF_BI, 0},
     [TP_SEDEF] = {"SE NOTE", 0, RV_SENV, 0, PF_ENUM, senv_names},  /* what every note starts when its step names none */
 };
@@ -481,6 +485,16 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_LFO2PHASE] = {"L2 PHASE", 0, 359, 0, PF_NUM, 0},
     [GP_LFO1MODE] = {"L1 MODE", 0, 2, 0, E(lfo_modes)},
     [GP_LFO2MODE] = {"L2 MODE", 0, 2, 0, E(lfo_modes)},
+    [GP_CUTSHAPE] = {"C SHAPE", 0, N(cutshape_names), 0, E(cutshape_names)},   /* the punch-ins' cuts: EVEN, BOUNCE, DRAG */
+    [GP_BEDLEVEL] = {"LEVEL", 0, 127, 0, PF_NUM, 0},
+    [GP_BEDDENS] = {"DENSITY", 0, 127, 50, PF_NUM, 0},
+    [GP_BEDTONE] = {"TONE", 0, 127, 64, PF_NUM, 0},      /* wood (0) to metal (127) */
+    [GP_BEDSHIM] = {"SHIMMER", 0, 127, 0, PF_NUM, 0},
+    [GP_BEDDUCK] = {"DUCK", 0, 127, 0, PF_NUM, 0},
+    [GP_BEDDECAY] = {"DECAY", 0, 127, 0, PF_NUM, 0},
+    [GP_BEDSPACE] = {"SPACE", 0, 127, 0, PF_NUM, 0},    /* how much of it goes into the SPACE */
+    [GP_SCNGLIDE] = {"GLIDE", 0, 8, 0, E(glide_names)},  /* scenes: JUMP, or glide over 1-8 bars */
+    [GP_ARCSPAN] = {"SPAN", 0, 2, 0, E(arcspan_names)},  /* the ARCS: each point 1, 2 or 4 bars */
 };
 
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
@@ -706,6 +720,8 @@ int rv_tp_applies(int t, int p)
     const int16_t *tp = rv.tp[t];
     if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
+    if (p == TP_GRAIN)                                                 /* hits: strike and perc tracks */
+        return tp[TP_KIND] == KIND_STRIKE || tp[TP_KIND] == KIND_PERC;
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_SEDST || p == TP_SEAMT || p == TP_SEDEF))
         return 0;                                                      /* a KIT's steps keep their lanes' accents where a step envelope would go */
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_POLY || p == TP_SEQMODE || p == TP_DIR || p == TP_PITCH || p == TP_FINE))
