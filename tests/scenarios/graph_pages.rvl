@@ -1,0 +1,24 @@
+# The graph with more than 16 steps: OCT pages the keys (and the step on the knobs) by 16
+wait 300
+demo 3
+tap SEQ
+turn SELECT -20
+wait 100
+turn SELECT 3
+wait 150
+expect page TRACK
+turn K2 16
+wait 200
+turn SELECT -20
+wait 100
+turn SELECT 4
+wait 150
+expect page GRAPH
+tap OCT+
+wait 150
+turn K1 3
+wait 200
+shot graph_p2.png
+tap OCT-
+wait 150
+expect page GRAPH

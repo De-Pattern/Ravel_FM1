@@ -2020,16 +2020,22 @@ static void buttons(uint32_t now_btn)
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
     if (down & (1u << B_OCTDN)) {
-        if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track))
+        if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track)) {
             ui.step_page = (uint8_t)(ui.step_page ? ui.step_page - 1 : 0);
+            if (cur_page()->pr == PR_STEPCUR)         /* the graph: the knobs go to the page's first step */
+                ui.step_cur = (int16_t)(ui.step_page * 16);
+        }
         else if (ui.octave > -3)
             ui.octave--;
     }
     if (down & (1u << B_OCTUP)) {
         if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track)) {
             int pages_n = (clampi(rv.tp[ui.track][TP_LEN], 1, 64) + 15) / 16;
-            if (ui.step_page + 1 < pages_n)
+            if (ui.step_page + 1 < pages_n) {
                 ui.step_page++;
+                if (cur_page()->pr == PR_STEPCUR)
+                    ui.step_cur = (int16_t)(ui.step_page * 16);
+            }
         } else if (ui.octave < 3)
             ui.octave++;
     }
@@ -2309,7 +2315,22 @@ static void draw_footer(void)
         break;
     }
     case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
-    case PR_STEPCUR: hint = "PRESETS: STEP"; break;
+    case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
+        static char gh[40];
+        int len = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS), a = ui.step_page * 16 + 1, z = a + 15 > len ? len : a + 15;
+        gh[0] = 0;
+        if (len <= 16)
+            sx_cat(gh, "PRESETS, KEYS: STEP");
+        else {
+            sx_cat(gh, "KEYS: ");
+            sx_int(gh + sx_cat(gh, ""), a);
+            sx_cat(gh, "-");
+            sx_int(gh + sx_cat(gh, ""), z);
+            sx_cat(gh, "  OCT: MORE");
+        }
+        hint = gh;
+        break;
+    }
     case PR_BANK:
         hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM"
                : rv_bank_used(ui.cur_sound) ? "PRESETS: SLOT  2,3: NAME  4: BANK"
@@ -3596,11 +3617,18 @@ static void pic_graph(void)
     for (i = 0; i < len; i++) {
         const rv_step *s = &p->s[i];
         uint16_t c = (s->flags & ST_ON) ? C_INK : C_DIM;
+        if (len > 16 && i / 16 == ui.step_page)      /* the steps on the keys now */
+            g_ring((float)xs[i], (float)ys[i], len > 32 ? 3.6f : 4.5f, 1.0f, C_MID);
         if (i == rv_live.step[t][0])
             c = C_WHITE;
         g_disc(xs[i], ys[i], i == ui.step_cur ? 4 : 2, i == ui.step_cur ? C_TEAL : c);
         if (i == rv_live.step[t][1])
             g_disc(xs[i], ys[i], 3, C_AMBER);
+    }
+    if (len > 16 || ui.step_cur > 0) {                /* the step on the knobs */
+        char sb[12] = "STEP ";
+        sx_int(sb + 5, ui.step_cur + 1);
+        g_text(6, PIC_Y + 112, &FONT_T, sb, C_TEAL);
     }
     if (rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH)
         g_text_c(120, PIC_Y + 124, &FONT_T, "SET MODE TO GRAPH ON THE TRACK PAGE", C_DIM);
