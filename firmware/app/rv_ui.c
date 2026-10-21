@@ -102,9 +102,9 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
 
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ATK), TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE)}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "CONTINUANT", {TP(TP_DEC), TP(TP_SUS), TP(TP_LOOP), NO}},
-    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "TERMINATION", {TP(TP_REL), TP(TP_TAIL), NO, NO}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ENVELOPE", {TP(TP_ATK), TP(TP_DEC), TP(TP_SUS), TP(TP_REL)}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE), NO}},
+    {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "LOOP / TAIL", {TP(TP_LOOP), TP(TP_TAIL), NO, NO}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "DESTINATIONS", {TP(TP_EDST1), TP(TP_EAMT1), TP(TP_EDST2), TP(TP_EAMT2)}},
     /* the FILTER ENV: its own delay, attack, hold, decay, sustain, release, bends, loop and rate */
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FILTER ENV", {TP(TP_FATK), TP(TP_FDEC), TP(TP_FSUS), TP(TP_FREL)}},
@@ -2866,7 +2866,7 @@ static void pic_env(void)
     float wa = 18.0f + fm_sqrtf(atk) * 40.0f, wd = 18.0f + fm_sqrtf(dec) * 40.0f, wr = 18.0f + fm_sqrtf(rel) * 40.0f, wh = 40.0f;
     float tot = wa + wd + wh + wr, sc = 224.0f / tot;
     const page_t *pg = cur_page();
-    int focus = pg->title[0] == 'O' ? 0 : pg->title[0] == 'C' ? 1 : pg->title[0] == 'T' ? 2 : -1;
+    int focus = pg->title[0] == 'O' ? 0 : pg->title[0] == 'L' ? 4 : pg->title[0] == 'E' ? 3 : -1;   /* 3: all of it; 4: the loop and the tail */
     if (rv.tp[t][TP_KIND] == KIND_PERC) {
         g_text_c(120, PIC_Y + 40, &FONT_B, "THE MACHINE MAKES", C_PERC);
         g_text_c(120, PIC_Y + 62, &FONT_B, "ITS OWN ENVELOPE", C_PERC);
@@ -2879,8 +2879,8 @@ static void pic_env(void)
     seg_x[1] = seg_x[0] + (int)(wd * sc);
     seg_x[2] = seg_x[1] + (int)(wh * sc);
     seg_x[3] = 232;
-    if (focus >= 0)
-        g_fill(focus == 0 ? 8 : focus == 1 ? seg_x[0] : seg_x[2], top - 8, focus == 0 ? seg_x[0] - 8 : focus == 1 ? seg_x[2] - seg_x[0] : 232 - seg_x[2], base - top + 10, C_PANEL);
+    if (focus == 0 || focus == 4)                     /* the stage the page is about, behind the curve */
+        g_fill(focus == 0 ? 8 : seg_x[0], top - 8, focus == 0 ? seg_x[0] - 8 : 232 - seg_x[0], base - top + 10, C_PANEL);
     g_hline(8, base, 224, C_LINE);
     for (i = 8; i <= 232; i++) {
         float y, u;
@@ -2910,9 +2910,9 @@ static void pic_env(void)
             g_line(i - 1, prev, i, py, i < seg_x[0] ? C_TEAL : i < seg_x[2] ? C_INK : C_AMBER);
         prev = py;
     }
-    g_text(10, base + 4, &FONT_T, "ONSET", focus == 0 ? C_TEAL : C_DIM);
-    g_text(seg_x[0] + 2, base + 4, &FONT_T, "CONTINUANT", focus == 1 ? C_INK : C_DIM);
-    g_text_r(232, base + 4, &FONT_T, "TERMINATION", focus == 2 ? C_AMBER : C_DIM);
+    g_text(10, base + 4, &FONT_T, "ONSET", focus == 0 || focus == 3 ? C_TEAL : C_DIM);
+    g_text(seg_x[0] + 2, base + 4, &FONT_T, "CONTINUANT", focus >= 3 ? C_INK : C_DIM);
+    g_text_r(232, base + 4, &FONT_T, "TERMINATION", focus >= 3 ? C_AMBER : C_DIM);
     /* the playing voice */
     {
         int st = rv_live.stage[t];

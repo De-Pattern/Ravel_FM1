@@ -58,7 +58,7 @@ tap ENV
 turn SELECT -20
 turn SELECT 0
 wait 150
-expect page ONSET
+expect page ENVELOPE
 wait 600
 shot artic-onset.png
 turn SELECT 4

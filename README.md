@@ -615,17 +615,17 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 
 ## 7. ENV: articulation
 
-<p align="center"><img src="docs/manual/artic-onset.png" alt="ONSET page" width="320"></p>
+<p align="center"><img src="docs/manual/artic-onset.png" alt="ENVELOPE page" width="320"></p>
 
-Each track has two envelopes. The **volume envelope** (ONSET, CONTINUANT, TERMINATION, DESTINATIONS) shapes the level and can move two more parameters. The **FILTER ENV** (three pages after it) opens and closes the filter.
+Each track has two envelopes. The **volume envelope** (ENVELOPE, ONSET, LOOP / TAIL, DESTINATIONS) shapes the level and can move two more parameters. The **FILTER ENV** (three pages after it) opens and closes the filter.
 
-The volume envelope is in three stages, named after how speech is described: the **onset** (how a sound starts), the **continuant** (how it holds) and the **termination** (how it ends). The picture draws the shape as you turn the knobs.
+The volume envelope is in three stages, named after how speech is described: the **onset** (how a sound starts), the **continuant** (how it holds) and the **termination** (how it ends). The first page holds the four times and the level you reach for most, attack, decay, sustain and release; the pages after it shape them. The picture draws the shape as you turn the knobs.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **ONSET** | ATTACK time (0.5 ms to 8 s) | CURVE: − is a fast swell, + a slow one | OVERSHT: the attack overshoots and settles (a "bite") | GIVE: a spring in the level. It lags and bounces instead of moving straight. |
-| **CONTINUANT** | DECAY time | SUSTAIN level | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | – |
-| **TERMINATION** | RELEASE time | TAIL: a quiet tail after the release (room for reverbs to bloom) | – | – |
+| **ENVELOPE** | ATTACK time (0.5 ms to 8 s) | DECAY time | SUSTAIN level | RELEASE time |
+| **ONSET** | CURVE: − is a fast swell, + a slow one | OVERSHT: the attack overshoots and settles (a "bite") | GIVE: a spring in the level. It lags and bounces instead of moving straight. | – |
+| **LOOP / TAIL** | LOOP: repeats the attack and decay while held (a rhythmic flutter; higher is faster) | TAIL: a quiet tail after the release (room for reverbs to bloom) | – | – |
 
 (VELO, velocity sensitivity, is on EDIT › SOUND.)
 | **DESTINATIONS** | DEST 1: any parameter of this track | AMOUNT 1 (±) | DEST 2 | AMOUNT 2 (±) |
