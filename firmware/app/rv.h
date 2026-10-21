@@ -115,6 +115,7 @@ enum {
 #define RV_NPID (RV_GPID + RV_GP)
 #define PID_T(t, p) ((t) * RV_TP + (p))
 #define PID_G(g) (RV_GPID + (g))
+#define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum */
 enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_SQ, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
@@ -307,6 +308,7 @@ typedef struct {
     uint8_t scope_w;
     float lfo1, lfo2, dust, clock_env;
     float msrc[MS_N];
+    int8_t mat_amt[RV_MATRIX];          /* each matrix row's AMOUNT as other rows move it */
     float voc_band[8];
     float band_g[8];                       /* BANDS: each band's gain now, sweep included */
     float fb_env;

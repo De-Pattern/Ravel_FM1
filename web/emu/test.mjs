@@ -123,4 +123,16 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   const db = 10 * Math.log10(r / bb + 1e-12);
   check(rv.web_tp(0, 41) === 0 && db < -35, `a four-note VA chord at the defaults stays clean (${db.toFixed(1)} dB of distortion)`);
 }
+{                                                           // a matrix row can move another row's AMOUNT
+  rv.rv_boot(); rv.rv_run(250);
+  rv.web_mat_set(0, 1, rv.web_pid_t(0, 38), 0);               // row 1: LFO 1 into T1 CUTOFF, at 0
+  rv.web_mat_set(1, 7, rv.web_pid_mat(0), 63);                // row 2: MACRO 1 into ROW 1's AMOUNT
+  rv.web_gp_set(64, 0); rv.rv_run(50);
+  const a0 = rv.web_mat_amt(0);
+  rv.web_gp_set(64, 127); rv.rv_run(50);
+  const a1 = rv.web_mat_amt(0);
+  rv.web_mat_set(2, 7, rv.web_pid_mat(1), -63); rv.rv_run(50);   // row 3: MACRO 1 takes row 2 back down: a chain
+  const a2 = rv.web_mat_amt(0), b2 = rv.web_mat_amt(1);
+  check(a0 === 0 && a1 >= 60 && b2 <= 1 && a2 <= 2, `MACRO 1 opens row 1's AMOUNT (${a0} to ${a1}); a third row closing row 2 closes it again (${b2}, ${a2})`);
+}
 process.exit(fails ? 1 : 0);

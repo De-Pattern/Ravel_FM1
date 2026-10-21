@@ -590,7 +590,7 @@ static kinfo_t kb_info(kb_t k)
             r.fmt = PF_ENUM;
             r.names = rv_msrc_names;
         } else if (k.id == MF_TRACK) {
-            r.max = RV_TRACKS;
+            r.max = RV_TRACKS + 1;                      /* T1-T8, GLOBAL, MATRIX (another row's AMOUNT) */
         } else if (k.id == MF_PARAM) {
             r.max = 1000;
         } else {
@@ -788,9 +788,9 @@ static int kb_get(kb_t k)
         if (k.id == MF_SRC)
             return m->src;
         if (k.id == MF_TRACK)
-            return m->dst >= RV_GPID ? RV_TRACKS : m->dst / RV_TP;
+            return m->dst >= RV_NPID ? RV_TRACKS + 1 : m->dst >= RV_GPID ? RV_TRACKS : m->dst / RV_TP;
         if (k.id == MF_PARAM)
-            return m->dst >= RV_GPID ? m->dst - RV_GPID : m->dst % RV_TP;
+            return m->dst >= RV_NPID ? m->dst - RV_NPID : m->dst >= RV_GPID ? m->dst - RV_GPID : m->dst % RV_TP;
         return m->amt;
     }
     case K_MACRO: {
@@ -1001,9 +1001,19 @@ static void kb_set(kb_t k, int v)
             m->src = (uint8_t)v;
         else if (k.id == MF_TRACK) {
             int p = m->dst >= RV_GPID ? TP_CUT : m->dst % RV_TP;
-            m->dst = (uint16_t)(v >= RV_TRACKS ? PID_G(GP_FBREGEN) : PID_T(v, rv_is_moddest(p) ? p : TP_CUT));
+            if (v > RV_TRACKS)                          /* MATRIX: the next row's AMOUNT */
+                m->dst = (uint16_t)PID_MAT((ui.cur_mat + 1) % RV_MATRIX);
+            else
+                m->dst = (uint16_t)(v == RV_TRACKS ? PID_G(GP_FBREGEN) : PID_T(v, rv_is_moddest(p) ? p : TP_CUT));
         } else if (k.id == MF_PARAM) {
-            if (m->dst >= RV_GPID) {
+            if (m->dst >= RV_NPID) {                    /* which row: any but this one */
+                int cur = m->dst - RV_NPID, nk = clampi(v, 0, RV_MATRIX - 1);
+                if (nk == ui.cur_mat)
+                    nk = clampi(nk + (v > cur ? 1 : -1), 0, RV_MATRIX - 1);
+                if (nk == ui.cur_mat)
+                    nk = cur;
+                m->dst = (uint16_t)PID_MAT(nk);
+            } else if (m->dst >= RV_GPID) {
                 int g = clampi(v, 0, GP_N - 1);
                 m->dst = (uint16_t)PID_G(g);
             } else {
@@ -1268,7 +1278,9 @@ static void kb_format(kb_t k, int v, char *o)
         return;
     }
     if (k.kind == K_MAT && k.id == MF_TRACK) {
-        if (v >= RV_TRACKS)
+        if (v > RV_TRACKS)
+            sx_cat(o, "MATRIX");
+        else if (v == RV_TRACKS)
             sx_cat(o, "GLOBAL");
         else {
             sx_cat(o, "T");
@@ -3054,11 +3066,12 @@ static void pic_matrix(void)
             if (m->amt > 0)
                 sx_cat(b, "+");
             sx_int(b + (m->amt > 0), m->amt);
-            g_text_r(200, y, &FONT_XS, b, C_INK);
+            g_text_r(200, y, &FONT_XS, b, rv_live.mat_amt[i] != m->amt ? C_TEAL : C_INK);   /* bone: another row is moving it */
             {
+                float a = (float)rv_live.mat_amt[i];
                 float v = m->src == MS_KEY   /* the destination track's note: full bar at 5 octaves */
-                    ? rv_live.key[m->dst < RV_GPID ? m->dst / RV_TP : 0] * (1.0f / 60.0f) * (float)m->amt / 63.0f
-                    : rv_live.msrc[m->src] * (float)m->amt / 64.0f;
+                    ? rv_live.key[m->dst < RV_GPID ? m->dst / RV_TP : 0] * (1.0f / 60.0f) * a / 63.0f
+                    : rv_live.msrc[m->src] * a / 64.0f;
                 int w = (int)(clampf(v, -1.0f, 1.0f) * 16.0f);
                 g_hline(204, y + 7, 33, C_LINE);
                 if (w > 0)

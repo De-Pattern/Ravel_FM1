@@ -671,8 +671,15 @@ void rv_param_format(int pid, int v, char *o, int max)
 const char *rv_pid_label(int pid, char *buf, int max)
 {
     int i = 0;
-    const rv_pinfo *pi = rv_pinfo_pid(pid);
+    const rv_pinfo *pi;
     buf[0] = 0;
+    if (pid >= RV_NPID && pid < RV_NPID + RV_MATRIX) {   /* a matrix row's AMOUNT */
+        i = put_str(buf, 0, max, "ROW ");
+        i = put_int(buf, i, max, pid - RV_NPID + 1, 0);
+        put_str(buf, i, max, " AMT");
+        return buf;
+    }
+    pi = rv_pinfo_pid(pid);
     if (pid < RV_GPID) {
         i = put_str(buf, 0, max, "T");
         i = put_int(buf, i, max, pid / RV_TP + 1, 0);

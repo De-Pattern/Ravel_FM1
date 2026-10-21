@@ -696,7 +696,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
 | --- | --- | --- | --- | --- | --- |
-| **MATRIX** | SOURCE | TRACK (1–8, or the global one) | PARAM | AMOUNT (±) | slot 1–8 |
+| **MATRIX** | SOURCE | TRACK (1–8, GLOBAL, or MATRIX: another row) | PARAM (with MATRIX: ROW 1–8, that row's AMOUNT) | AMOUNT (±) | slot 1–8 |
 | **LFOS** | L1 RATE | L1 SHAPE: SINE, TRI, RAMP, SAW, SQUARE, S&H, DRIFT | L2 RATE | L2 SHAPE | – |
 | **LFO SHAPE** (OCT- / OCT+: LFO 1 or LFO 2) | SYM: skews the wave either way (± 64) | PHASE: where the wave starts, 0–359° | MODE: LOOP, RETRIG, 1 SHOT | – | – |
 | **DUST** | RATE: how often random spikes happen | DECAY: how long each spike lasts | – | – | – |
@@ -704,6 +704,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 | **MACRO WINDOW** | FROM %: where on the macro's travel this slot starts moving | TO %: where it stops | MACRO 1 | MACRO 2 | which macro and slot |
 
 - **SYM** moves the middle of the cycle from 5% to 95%, so each half of the wave speeds up or slows down: a sine leans, a triangle turns into a rising or falling ramp, a square becomes a narrow or wide pulse. The matrix can move it (target GLOBAL › L1 SYM or L2 SYM), so another LFO, dust or an envelope can reshape an LFO as it runs.
+- **A row can move another row:** set TRACK to **MATRIX** and PARAM picks a row (ROW 1 AMT to ROW 8 AMT, any but its own). This row's source then moves that row's AMOUNT, by up to this row's AMOUNT either way, on top of what it is set to. For example, row 1 is LFO 1 into a cutoff at 0, and row 2 is MACRO 1 into ROW 1 AMT at +63: the macro fades the LFO's sweep in. Rows can chain (row 3 moving row 2 moving row 1). On the MATRIX picture a moved row's amount turns bone and its bar shows the amount as it is now.
 - **PHASE** is where the cycle starts. In LOOP it offsets the wave; in RETRIG and 1 SHOT it is where a note restarts it.
 - **MODE:** LOOP (the default) runs freely. RETRIG starts the cycle over on every note, on any track. 1 SHOT plays one cycle from each note, then rests at the cycle's end: an extra envelope.
 - The LFOS and LFO SHAPE pages draw both waves as SYM and PHASE make them; on LFO SHAPE the one on the knobs is lit.

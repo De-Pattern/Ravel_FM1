@@ -132,7 +132,7 @@ def tc_all(*cmds):
 def generate():
     """generated headers: Ravel's screen font"""
     GEN.mkdir(parents=True, exist_ok=True)
-    if not (GEN / "rv_font.h").exists() or (GEN / "rv_font.h").stat().st_mtime < (SRC / "tools" / "gen_rv_font.py").stat().st_mtime:
+    if not (GEN / "rv_font.h").exists() or (GEN / "rv_font.h").stat().st_mtime < max((SRC / "tools" / n).stat().st_mtime for n in ("gen_rv_font.py", "runic_glyphs.py")):
         r = subprocess.run([sys.executable, str(SRC / "tools" / "gen_rv_font.py"), str(GEN / "rv_font.h")],
                            capture_output=True, text=True)
         sys.stdout.write(r.stdout)

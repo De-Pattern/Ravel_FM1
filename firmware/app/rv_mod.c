@@ -348,24 +348,50 @@ static void eff_compute(void)
     src[MS_M4] = rv.gp[GP_MACRO4] * (1.0f / 127.0f);
     src[MS_CLOCK] = clk_env;
     src[MS_KEY] = trk[0].lead_key * (1.0f / 60.0f);
-    /* matrix: ENV and VELO are the destination track's */
-    for (i = 0; i < RV_MATRIX; i++) {
-        const rv_mslot *m = &rv.mat[i];
-        float s, amt = m->amt * (1.0f / 64.0f);
-        if (m->src == MS_OFF || m->src >= MS_N || !m->amt || m->dst >= RV_NPID)
-            continue;
-        if (m->src == MS_KEY) {                         /* the destination track's note */
-            int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
-            eff_add(m->dst, trk[dt].lead_key * key_units(m->dst) * clampf(m->amt * (1.0f / 63.0f), -1.0f, 1.0f));
-            continue;
+    /* matrix: ENV, VELO and KEY are the destination track's. A row may move another row's AMOUNT
+     * (destination MATRIX, ROW n): those go first, twice, so one row can move a second that
+     * moves a third */
+    {
+        float aeff[RV_MATRIX], add[RV_MATRIX];
+        int pass;
+        for (i = 0; i < RV_MATRIX; i++)
+            aeff[i] = (float)rv.mat[i].amt;
+        for (pass = 0; pass < 2; pass++) {
+            for (i = 0; i < RV_MATRIX; i++)
+                add[i] = 0.0f;
+            for (i = 0; i < RV_MATRIX; i++) {
+                const rv_mslot *m = &rv.mat[i];
+                int kk = (int)m->dst - RV_NPID, dt;
+                float s;
+                if (m->src == MS_OFF || m->src >= MS_N || kk < 0 || kk >= RV_MATRIX || kk == i)
+                    continue;
+                dt = rv.mat[kk].dst < RV_GPID ? rv.mat[kk].dst / RV_TP : 0;   /* the moved row's track */
+                s = m->src == MS_ENV ? trk[dt].lead_env : m->src == MS_VEL ? trk[dt].lead_vel
+                    : m->src == MS_KEY ? trk[dt].lead_key * (1.0f / 60.0f) : src[m->src];
+                add[kk] += s * aeff[i];
+            }
+            for (i = 0; i < RV_MATRIX; i++)
+                aeff[i] = clampf((float)rv.mat[i].amt + add[i], -64.0f, 63.0f);
         }
-        if (m->src == MS_ENV || m->src == MS_VEL) {
-            int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
-            s = m->src == MS_ENV ? trk[dt].lead_env : trk[dt].lead_vel;
-        } else {
-            s = src[m->src];
+        for (i = 0; i < RV_MATRIX; i++) {
+            const rv_mslot *m = &rv.mat[i];
+            float s, amt = aeff[i] * (1.0f / 64.0f);
+            rv_live.mat_amt[i] = (int8_t)aeff[i];
+            if (m->src == MS_OFF || m->src >= MS_N || fm_fabsf(aeff[i]) < 0.01f || m->dst >= RV_NPID)
+                continue;
+            if (m->src == MS_KEY) {                     /* the destination track's note */
+                int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
+                eff_add(m->dst, trk[dt].lead_key * key_units(m->dst) * clampf(aeff[i] * (1.0f / 63.0f), -1.0f, 1.0f));
+                continue;
+            }
+            if (m->src == MS_ENV || m->src == MS_VEL) {
+                int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
+                s = m->src == MS_ENV ? trk[dt].lead_env : trk[dt].lead_vel;
+            } else {
+                s = src[m->src];
+            }
+            eff_add(m->dst, s * amt * pid_range(m->dst));
         }
-        eff_add(m->dst, s * amt * pid_range(m->dst));
     }
     /* macros */
     for (k = 0; k < RV_MACROS; k++) {

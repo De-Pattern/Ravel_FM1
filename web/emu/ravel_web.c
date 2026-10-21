@@ -234,3 +234,9 @@ EXPORT(web_gp_set) void web_gp_set(int g, int v) { rv_pid_set(PID_G(g), v); }
 EXPORT(web_gp_tapesrc) int web_gp_tapesrc(void) { return GP_TAPESRC; }
 EXPORT(web_gp_tapemon) int web_gp_tapemon(void) { return GP_TAPEMON; }
 EXPORT(web_gp_tempo) int web_gp_tempo(void) { return GP_TEMPO; }
+
+EXPORT(web_mat_set) void web_mat_set(int i, int src, int dst, int amt) { rv_mslot *m = &rv.mat[i & 7]; m->src = (uint8_t)src; m->dst = (uint16_t)dst; m->amt = (int8_t)amt; }   /* (tests) */
+EXPORT(web_mat_amt) int web_mat_amt(int i) { return rv_live.mat_amt[i & 7]; }   /* a row's AMOUNT as other rows move it */
+EXPORT(web_pid_mat) int web_pid_mat(int k) { return PID_MAT(k); }
+EXPORT(web_pid_t) int web_pid_t(int t, int p) { return PID_T(t, p); }
+EXPORT(web_pid_g) int web_pid_g(int g) { return PID_G(g); }

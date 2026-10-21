@@ -1,0 +1,21 @@
+# MATRIX: a row's destination can be another row's AMOUNT (TRACK: MATRIX, PARAM: ROW n)
+wait 300
+tap LFO
+turn SELECT -20
+wait 150
+expect page MATRIX
+turn K1 1
+wait 150
+turn K4 20
+wait 150
+turn K2 20
+wait 300
+shot matrix_row.png
+turn K3 3
+wait 300
+shot matrix_row2.png
+turn K2 -1
+wait 200
+turn K2 -20
+wait 300
+expect page MATRIX
