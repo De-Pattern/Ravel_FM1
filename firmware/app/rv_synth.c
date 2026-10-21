@@ -2237,7 +2237,7 @@ static void tine_render(voice_t *v, const float *eff, float f, float *out, int n
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 static float sem_m;

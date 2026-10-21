@@ -55,7 +55,7 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 4;
+    bank.version = 5;
 }
 
 /* sounds kept before the FILTER ENV (version 2): theirs as their one envelope was; and before STEP
@@ -67,11 +67,15 @@ static void bank_upgrade(void)
         if (bank.s[i].used) {
             if (bank.version < 3)
                 rv_fenv_from_env(bank.s[i].tp);
-            bank.s[i].tp[TP_SEDST] = TP_CUT;
-            bank.s[i].tp[TP_SEAMT] = 0;
-            bank.s[i].tp[TP_SEDEF] = 0;
+            if (bank.version < 4) {
+                bank.s[i].tp[TP_SEDST] = TP_CUT;
+                bank.s[i].tp[TP_SEAMT] = 0;
+                bank.s[i].tp[TP_SEDEF] = 0;
+            }
+            if (bank.version < 5 && bank.s[i].tp[TP_DRIVE] == 10)   /* the old default DRIVE: clean */
+                bank.s[i].tp[TP_DRIVE] = 0;
         }
-    bank.version = 4;
+    bank.version = 5;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -99,9 +103,9 @@ static void bank_from_v1(void)
 
 static int bank_read(int b)
 {
-    if (plat_load(PLAT_BANK0 + b, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 4)
+    if (plat_load(PLAT_BANK0 + b, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 5)
         return 0;
-    if (bank.version < 4)                              /* (kept as version 4 the next time it is written) */
+    if (bank.version < 5)                              /* (kept as version 5 the next time it is written) */
         bank_upgrade();
     return 1;
 }

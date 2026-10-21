@@ -268,7 +268,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV LOOP, so turning either moves both |
-| **SKIN** | DRIVE (saturation) | FOLD (wavefolding) | BITS (bit reduction) | – |
+| **SKIN** | DRIVE (saturation of everything the track plays at once: 0 by default, so chords stay clean; turn it up to make them break up together) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |

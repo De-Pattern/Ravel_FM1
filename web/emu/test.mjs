@@ -109,4 +109,18 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   rv.web_transport(0); run(50);
   check(rv.web_senv(0) === 0, 'stopping puts it back');
 }
+{                                                           // chords stay clean at the defaults: the track's DRIVE is 0
+  const chord = (drive) => {
+    rv.rv_boot(); rv.rv_run(250); rv.web_set_kind(0, 0, 0);
+    if (drive >= 0) { rv.web_tp_set(0, 41, drive); rv.web_gp_set(47, 0); }
+    rv.rv_run(20); rv.rv_set_keys((1 << 12) | (1 << 16) | (1 << 19) | (1 << 23));
+    const L = []; for (let t = 0; t < 800; t += 20) { const fr = rv.rv_run(20), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), fr * 2); for (let i = 0; i < fr; i++) L.push(a[2 * i]); }
+    rv.rv_set_keys(0); rv.rv_run(300); return L.slice(4410);
+  };
+  const clean = chord(0), def = chord(-1);
+  let ab = 0, aa = 0, bb = 0; for (let i = 0; i < clean.length; i++) { ab += clean[i] * def[i]; aa += clean[i] * clean[i]; bb += def[i] * def[i]; }
+  let r = 0; const g = ab / aa; for (let i = 0; i < clean.length; i++) { const d = def[i] - g * clean[i]; r += d * d; }
+  const db = 10 * Math.log10(r / bb + 1e-12);
+  check(rv.web_tp(0, 41) === 0 && db < -35, `a four-note VA chord at the defaults stays clean (${db.toFixed(1)} dB of distortion)`);
+}
 process.exit(fails ? 1 : 0);

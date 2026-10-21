@@ -147,6 +147,8 @@ int rv_load(int slot)
                 rv.tp[t][TP_OSC1] = 127;
             if (f <= 11)                               /* (format 12) SHAPE's slots: the FILTER ENV, as the one envelope was */
                 rv_fenv_from_env(rv.tp[t]);
+            if (f <= 13 && rv.tp[t][TP_DRIVE] == 10)  /* (format 14) the old default DRIVE, which broke chords up: clean */
+                rv.tp[t][TP_DRIVE] = 0;
             if (f <= 12) {                             /* (format 13) STEP ENV: off; the steps' old triplet numbers go */
                 int p, s;
                 rv.tp[t][TP_SEDST] = TP_CUT;
