@@ -304,7 +304,7 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_REL] = {"RELEASE", 0, 127, 60, PF_TIME, 0},
     [TP_TAIL] = {"TAIL", 0, 127, 0, PF_NUM, 0},
     [TP_GIVE] = {"GIVE", 0, 127, 0, PF_NUM, 0},
-    [TP_EFILT] = {"ENV>CUT", -64, 63, 20, PF_BI, 0},
+    [TP_EFILT] = {"ENV>CUT", -64, 63, 40, PF_BI, 0},
     [TP_EDST1] = {"DEST 1", 0, TP_N - 1, TP_S0, PF_DEST, 0},
     [TP_EAMT1] = {"AMOUNT 1", -64, 63, 0, PF_BI, 0},
     [TP_EDST2] = {"DEST 2", 0, TP_N - 1, TP_DRIVE, PF_DEST, 0},
@@ -368,6 +368,8 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_FRATE] = {"F RATE", -64, 63, 0, PF_BI, 0},         /* every stage faster (+) or slower (-), x16 to /16 */
     /* STEP ENV: the LIBRARY envelope a step (or a note, DEFAULT) starts, into one parameter */
     [TP_SEDST] = {"SE DEST", 0, TP_N - 1, TP_CUT, PF_DEST, 0},
+    [TP_FDST] = {"F DEST", 0, TP_N - 1, TP_PAN, PF_DEST, 0},   /* the FILTER ENV, looping or not, into anything of the track's */
+    [TP_FAMT] = {"F AMT", -64, 63, 0, PF_BI, 0},
     [TP_SEAMT] = {"SE DEPTH", -64, 63, 0, PF_BI, 0},
     [TP_SEDEF] = {"SE NOTE", 0, RV_SENV, 0, PF_ENUM, senv_names},  /* what every note starts when its step names none */
 };
@@ -719,8 +721,12 @@ int rv_tp_applies(int t, int p)
         return tp[TP_FTYPE] == FT_SEM && !tp[TP_FBP];
     if (p == TP_FBP)
         return tp[TP_FTYPE] == FT_SEM;
-    if ((p >= TP_FDLY && p <= TP_FSUS) || (p >= TP_FREL && p <= TP_FRATE))   /* the FILTER ENV: a synth's filter, not the LPG */
-        return tp[TP_KIND] == KIND_SYNTH && tp[TP_FTYPE] != FT_LPG && tp[TP_ENGINE] != ENG_SQ;   /* (the SQ's ENV 2 is its own) */
+    if (p == TP_FAMT)                                                  /* the FILTER ENV's own destination: any synth */
+        return tp[TP_KIND] == KIND_SYNTH;
+    if (p == TP_FDST)
+        return tp[TP_KIND] == KIND_SYNTH && tp[TP_FAMT] != 0;
+    if ((p >= TP_FDLY && p <= TP_FSUS) || (p >= TP_FREL && p <= TP_FRATE))   /* the FILTER ENV: a synth's filter, not the LPG, or its DEST */
+        return tp[TP_KIND] == KIND_SYNTH && ((tp[TP_FTYPE] != FT_LPG && tp[TP_ENGINE] != ENG_SQ) || tp[TP_FAMT] != 0);   /* (the SQ's ENV 2 is its own) */
     if (tp[TP_KIND] == KIND_STRIKE) {
         int exc = tp[TP_S0], body = tp[TP_S1];
         int grains = exc == EXC_DUST || exc == EXC_RAIN;
@@ -822,7 +828,7 @@ int rv_is_moddest(int p)
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
     case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_SEAMT: case TP_ATK: case TP_DEC:
+    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_SEAMT: case TP_FAMT: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
@@ -1046,6 +1052,8 @@ void rv_fenv_from_env(int16_t *tp)
     tp[TP_FDCRV] = 0;
     tp[TP_FLOOP] = 0;
     tp[TP_FRATE] = 0;
+    tp[TP_FDST] = TP_PAN;
+    tp[TP_FAMT] = 0;
 }
 
 /* the LIBRARY's factory envelopes: twelve, synced to the steps (times in eighths of a step), the

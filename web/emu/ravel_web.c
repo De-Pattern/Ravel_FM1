@@ -254,3 +254,5 @@ EXPORT(web_sysex_out) uint8_t *web_sysex_out(void) { return sx_out; }
 EXPORT(web_sysex_out_len) uint32_t web_sysex_out_len(void) { return sx_out_n; }
 EXPORT(web_sysex_out_clear) void web_sysex_out_clear(void) { sx_out_n = 0; }
 EXPORT(web_storage_changed) void web_storage_changed(int slot) { ui_storage_changed(slot); }   /* (an imported file, written straight in) */
+EXPORT(web_mat_dst) int web_mat_dst(int i) { return rv.mat[i & 7].dst; }   /* (tests) */
+EXPORT(web_eff) float web_eff(int t, int p) { return rv_param_eff(t & 7, p); }   /* a track parameter as modulation has it now (tests) */

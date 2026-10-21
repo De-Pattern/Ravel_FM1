@@ -267,7 +267,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 
 OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV LOOP, so turning either moves both |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV ROUTE, so turning either moves both |
 | **SKIN** | DRIVE (saturation of everything the track plays at once: 0 by default, so chords stay clean; turn it up to make them break up together) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | – | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -636,17 +636,19 @@ DESTINATIONS lets the envelope move up to two more parameters, such as FM's LEVE
 
 <p align="center"><img src="docs/manual/artic-fenv.png" alt="The FILTER ENV" width="320"></p>
 
-The filter has its own envelope: delay, attack, hold, decay, sustain and release, with a bend on the attack and one on the falls, a loop and a speed. **ENV>CUT** sets how far it moves the cutoff, up or down. It is the same setting as on EDIT › FILTER, so turning either moves both.
+The filter has its own envelope: delay, attack, hold, decay, sustain and release, with a bend on the attack and one on the falls, a loop and a speed. **ENV>CUT** sets how far it moves the cutoff, up or down (+40 on a new track). It is the same setting as on EDIT › FILTER, so turning either moves both. The envelope can also move one more thing of the track's, **F DEST**, by **F AMT**: with F LOOP on it is an LFO of the track's own, started by each note, where the two LFOS are shared by all tracks.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **FILTER ENV** | F ATK: attack time (0.5 ms to 8 s) | F DEC: decay time | F SUS: sustain level | F REL: release time |
 | **FENV SHAPE** | F DELAY: a wait before the attack | F HOLD: how long it stays at the top before the decay | A BEND: the attack's curve, + exponential (slow, then a rush), − logarithmic (a rush, then slow) | D BEND: the decay's and release's curve, + exponential (a fast fall, a long tail), − logarithmic |
-| **FENV LOOP** | F LOOP: ON runs delay, attack, hold and decay round again while the key is held (with SUSTAIN at 0 it is a filter LFO that starts with the note) | F RATE: every stage faster (+) or slower (−), up to 16 times | ENV>CUT: its depth (±) | VCF KEY (also on PITCH) |
+| **FENV LOOP** | F LOOP: ON runs delay, attack, hold and decay round again while the key is held (with SUSTAIN at 0 it is a filter LFO that starts with the note) | F RATE: every stage faster (+) or slower (−), up to 16 times | – | – |
+| **FENV ROUTE** | ENV>CUT: how far it moves the cutoff (±) | F DEST: a second destination, any of the track's modulation destinations (pitch, pan, drive, an engine's knobs, the volume envelope's times…) | F AMT: how far it moves F DEST (±; 0 off) | VCF KEY (also on PITCH) |
 
 - **The picture** draws the whole envelope with its bends, marks the loop when it is on, and shows the playing note as a dot.
-- **Which tracks:** synth tracks. With the LPG the filter follows the volume envelope instead, and the SQ engine's ENV 2 (on its source pages) is its own filter envelope, so these pages grey out there. The CZ engine uses it like any other.
-- **Moving it:** F ATK, F DEC, F SUS, F REL, F RATE and ENV>CUT are modulation destinations.
+- **Which tracks:** synth tracks. With the LPG the filter follows the volume envelope instead, and the SQ engine's ENV 2 (on its source pages) is its own filter envelope, so these pages grey out there, unless F AMT sends the envelope somewhere: then it runs for F DEST. The CZ engine uses it like any other.
+- **F DEST and F AMT:** the newest note's envelope, 0 to its peak, moves F DEST up by F AMT (or down, with F AMT below 0), as the volume envelope's DEST 1 and 2 do. The picture shows where it goes (INTO PAN +20, say). F DEST steps only through what can be moved.
+- **Moving it:** F ATK, F DEC, F SUS, F REL, F RATE, ENV>CUT and F AMT are modulation destinations, so an LFO or the matrix can deepen the track's own one.
 - **Older projects and sounds** load with a FILTER ENV copied from their volume envelope, so they sound as they did (the one envelope used to drive both). The factory presets do the same. The SHAPE envelopes of earlier versions are gone; a project that used one plays the classic volume envelope.
 
 ### STEP ENV and the LIBRARY

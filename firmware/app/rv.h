@@ -78,9 +78,10 @@ enum {
     TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
     TP_FREL, TP_FACRV, TP_FDCRV, TP_FLOOP, TP_FRATE,   /* the FILTER ENV, continued */
     TP_SEDST, TP_SEAMT, TP_SEDEF,   /* (format 13) STEP ENV: where the step envelopes go, how far, the one a note starts */
+    TP_FDST, TP_FAMT,               /* (format 15) the FILTER ENV into a second destination, any of the track's */
     TP_N
 };
-#define RV_TP 96                    /* room for more track parameters without moving pids (format 6: was 80) */
+#define RV_TP 112                   /* room for more track parameters without moving pids (format 15: was 96; format 6: was 80) */
 
 enum {
     GP_TEMPO, GP_SWING, GP_QUANT,
@@ -216,7 +217,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 14                /* 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 15                /* 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */

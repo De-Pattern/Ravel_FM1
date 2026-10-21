@@ -13,25 +13,22 @@ int rv_save(int slot)
     return plat_save(slot, &rv, sizeof(rv));
 }
 
-/* older formats, by what they lack: 80 track parameters (formats 2-5), 96 globals (2-4), no CZ
- * patches (2 and 3). Everything else is laid out the same, in the same order. */
-#define RV_TP_OLD 80
+/* older formats, by what they lack: 96 track parameters (formats 6-14) or 80 (2-5), 96 globals
+ * (2-4), no CZ patches (2 and 3). Everything else is laid out the same, in the same order. */
+static int old_tp(int f) { return f >= 15 ? RV_TP : f >= 6 ? 96 : 80; }
 static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
-    int n;
+    int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
     if (f >= 10)
-        return (int)sizeof(rv);
-    n = (int)sizeof(rv) - (int)sizeof(rv.scene_tempo);   /* no scene tempos before format 10 */
+        return n;
+    n -= (int)sizeof(rv.scene_tempo);                 /* no scene tempos before format 10 */
     if (f >= 8)                                       /* formats 8 and 9: the same layout */
         return n;
     n -= (int)sizeof(rv.kitlk);                       /* no kit locks before format 8 */
     if (f >= 7)
         return n;
     n -= (int)sizeof(rv.kit);                         /* no kits before format 7 */
-    if (f >= 6)
-        return n;
-    n -= (RV_TP - RV_TP_OLD) * RV_TRACKS * 2 + (RV_GP - old_gp(f)) * 2;
     return f >= 4 ? n : n - (int)sizeof(rv.cz);
 }
 
@@ -45,15 +42,18 @@ static int head_ok(int slot, rv_head *h)
     return h->format >= 2 && h->format < RV_FORMAT && n == old_size((int)h->format);
 }
 
-static uint16_t remap_pid(uint16_t pid, int gpo)
+static uint16_t remap_pid(uint16_t pid, int tpo, int gpo)
 {
-    int gpid_old = RV_TRACKS * RV_TP_OLD;
-    (void)gpo;
+    int gpid_old = RV_TRACKS * tpo;
     if (pid == 0xFFFF)
         return pid;
     if (pid < gpid_old)
-        return (uint16_t)PID_T(pid / RV_TP_OLD, pid % RV_TP_OLD);
-    return (uint16_t)PID_G(pid - gpid_old);
+        return (uint16_t)PID_T(pid / tpo, pid % tpo);
+    if (pid < gpid_old + gpo)
+        return (uint16_t)PID_G(pid - gpid_old);
+    if (pid >= gpid_old + RV_GP && pid < gpid_old + RV_GP + RV_MATRIX)   /* a matrix row's AMOUNT */
+        return (uint16_t)PID_MAT(pid - gpid_old - RV_GP);
+    return 0xFFFF;
 }
 
 /* an older project, loaded as it was stored, is spread out into today's layout: what follows
@@ -63,16 +63,16 @@ static uint16_t remap_pid(uint16_t pid, int gpo)
 static void upgrade_layout(int f, int loaded)
 {
     uint8_t *base = (uint8_t *)&rv;
-    int tp_off = (int)((uint8_t *)&rv.tp[0][0] - base), gpo = old_gp(f);
-    int gp_old = tp_off + RV_TRACKS * RV_TP_OLD * 2, rest_old = gp_old + gpo * 2;
+    int tp_off = (int)((uint8_t *)&rv.tp[0][0] - base), gpo = old_gp(f), tpo = old_tp(f);
+    int gp_old = tp_off + RV_TRACKS * tpo * 2, rest_old = gp_old + gpo * 2;
     int gp_new = (int)((uint8_t *)&rv.gp[0] - base), rest_new = gp_new + RV_GP * 2;
     int t, p, g, i, k;
     __builtin_memmove(base + rest_new, base + rest_old, (unsigned)(loaded - rest_old));
     __builtin_memmove(base + gp_new, base + gp_old, (unsigned)(gpo * 2));
     for (t = RV_TRACKS - 1; t > 0; t--)
-        __builtin_memmove(base + tp_off + t * RV_TP * 2, base + tp_off + t * RV_TP_OLD * 2, RV_TP_OLD * 2);
+        __builtin_memmove(base + tp_off + t * RV_TP * 2, base + tp_off + t * tpo * 2, (unsigned)(tpo * 2));
     for (t = 0; t < RV_TRACKS; t++) {
-        for (p = RV_TP_OLD; p < RV_TP; p++)
+        for (p = tpo; p < RV_TP; p++)
             rv.tp[t][p] = (int16_t)(p < TP_N ? rv_pinfo_track(t, p)->def : 0);
         if (f < 5)
             rv.tp[t][TP_BANDS] = 0;
@@ -80,10 +80,10 @@ static void upgrade_layout(int f, int loaded)
     for (g = gpo; g < RV_GP; g++)
         rv.gp[g] = (int16_t)(g < GP_N ? rv_pinfo_global(g)->def : 0);
     for (i = 0; i < RV_MATRIX; i++)
-        rv.mat[i].dst = remap_pid(rv.mat[i].dst, gpo);
+        rv.mat[i].dst = remap_pid(rv.mat[i].dst, tpo, gpo);
     for (i = 0; i < RV_MACROS; i++)
         for (k = 0; k < RV_MACRO_DESTS; k++)
-            rv.macro[i].d[k].dst = remap_pid(rv.macro[i].d[k].dst, gpo);
+            rv.macro[i].d[k].dst = remap_pid(rv.macro[i].d[k].dst, tpo, gpo);
 }
 
 /* formats 2 and 3 had the PD engine where CZ is now: its tracks start from the CZ defaults */
@@ -131,7 +131,7 @@ int rv_load(int slot)
     n = old_size(f);
     if (plat_load(slot, &rv, (uint32_t)n) != n)
         return -1;
-    if (f <= 5)
+    if (f <= 14)                                       /* (fewer track parameters, or globals): spread out */
         upgrade_layout(f, n);
     if (f <= 8) {
         rv.gp[GP_SWING] = (int16_t)clampi(50 + (rv.gp[GP_SWING] + 2) / 4, 50, 100);   /* was a delay 0-75 (0.5% of a step each): now % */

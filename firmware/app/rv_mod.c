@@ -418,6 +418,11 @@ static void eff_compute(void)
             trk[t].eff[d1] += e * rv.tp[t][TP_EAMT1] * (1.0f / 64.0f) * pid_range(PID_T(t, d1));
         if (rv.tp[t][TP_EAMT2] && rv_is_moddest(d2))
             trk[t].eff[d2] += e * rv.tp[t][TP_EAMT2] * (1.0f / 64.0f) * pid_range(PID_T(t, d2));
+        {   /* the FILTER ENV's own destination: the newest voice's, as a per-track LFO when it loops */
+            int df = rv.tp[t][TP_FDST];
+            if (rv.tp[t][TP_FAMT] && rv_is_moddest(df) && rv.tp[t][TP_KIND] == KIND_SYNTH)
+                trk[t].eff[df] += rv_live.fenv[t] * trk[t].eff[TP_FAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, df));
+        }
         {   /* STEP ENV: the LIBRARY envelope the steps started */
             int ds = rv.tp[t][TP_SEDST];
             if (rv.tp[t][TP_SEAMT] && rv_is_moddest(ds) && rv_tp_applies(t, TP_SEAMT))

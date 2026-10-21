@@ -2,6 +2,10 @@
 // Smoke test for the browser emulator: boot, play the demo, play a note, edit a step, catch the
 // tape, save a project. node web/emu/test.mjs
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+const XF = createRequire(import.meta.url)('./xfer.js');
+// a project (slot 4) and a bank (C) kept by v0.6, laid out with 96 track parameters
+const FIX = XF.fileDecode(readFileSync(new URL('../../tests/fixtures/ravel-v0.6-format14.ravel', import.meta.url)));
 const cstr = p => { const m = new Uint8Array(rv.memory.buffer, p); let n = 0; while (m[n]) n++; return new TextDecoder().decode(m.subarray(0, n)); };
 const wasm = readFileSync(new URL('./ravel.wasm', import.meta.url));
 const mod = new WebAssembly.Module(wasm);
@@ -76,21 +80,24 @@ check(new Set(fb).size > 8, 'the screen is drawn');
 }
 {                                                           // the FILTER ENV: a project from before it (format 11) gets one copied from the volume envelope
   const ATK = 23, DEC = 26, SUS = 27, REL = 29, FATK = 81, FDEC = 83, FSUS = 84, FREL = 88, FLOOP = 91;
-  rv.web_tp_set(0, ATK, 30); rv.web_tp_set(0, DEC, 50); rv.web_tp_set(0, SUS, 40); rv.web_tp_set(0, REL, 70);
-  rv.web_tp_set(0, FATK, 99); rv.web_tp_set(0, FLOOP, 1);
-  rv.web_save(3);
-  new DataView(rv.memory.buffer, rv.rv_store(3), 8).setUint32(4, 11, true);   // as if saved before format 12
+  const pj = FIX.find(e => e.slot === 3).data;                 // a 96-parameter project, marked as from before format 12
+  new Uint8Array(rv.memory.buffer, rv.rv_store(3), pj.length).set(pj); rv.rv_store_set_len(3, pj.length);
+  const dv = new DataView(rv.memory.buffer, rv.rv_store(3), pj.length), tp0 = (p, v) => dv.setInt16(20 + p * 2, v, true);
+  dv.setUint32(4, 11, true);
+  tp0(ATK, 30); tp0(DEC, 50); tp0(SUS, 40); tp0(REL, 70); tp0(FATK, 99); tp0(FLOOP, 1);
   rv.web_load(3);
   check(rv.web_tp(0, FATK) === 30 && rv.web_tp(0, FDEC) === 50 && rv.web_tp(0, FSUS) === 40 && rv.web_tp(0, FREL) === 70 && rv.web_tp(0, FLOOP) === 0,
         'an older project gets a FILTER ENV from its envelope');
 }
 {                                                           // a sound kept before the FILTER ENV (bank version 2) gets one from its envelope
-  rv.web_tp_set(0, 23, 44); rv.web_bank_select(2); rv.web_bank_store(0, 0); rv.web_bank_select(0);
-  const st = new DataView(rv.memory.buffer, rv.rv_store(11), 400);
-  st.setUint32(4, 2, true); st.setInt16(24 + 81 * 2, 99, true);   // version 2, a stray F ATK
+  const bk = FIX.find(e => e.slot === 11).data;                // bank C as v0.6 kept it (96 parameters a sound), marked version 2
+  rv.web_bank_select(0);
+  new Uint8Array(rv.memory.buffer, rv.rv_store(11), bk.length).set(bk); rv.rv_store_set_len(11, bk.length);
+  const st = new DataView(rv.memory.buffer, rv.rv_store(11), bk.length), snd = 8 + 4 * 324 + 16;
+  st.setUint32(4, 2, true); st.setInt16(snd + 23 * 2, 44, true); st.setInt16(snd + 81 * 2, 99, true);   // ATK 44, a stray F ATK
   rv.web_bank_select(2);
-  check(rv.web_bank_used(0) === 1, 'a version 2 bank still loads');
-  rv.web_bank_load(1, 0); rv.web_bank_select(0);
+  check(rv.web_bank_used(4) === 1, 'a version 2 bank still loads');
+  rv.web_bank_load(1, 4); rv.web_bank_select(0);
   check(rv.web_tp(1, 81) === 44, 'its sounds get a FILTER ENV from their envelope');
 }
 {                                                           // the LIBRARY: step envelopes, chained, and a step that starts one
@@ -167,4 +174,34 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   check(refused, 'a project too big for its slot is refused');
 }
 function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; while (m[n]) n++; return new TextDecoder().decode(m.subarray(0, n)); }
+{                                                           // a project and a bank kept by v0.6 (96 track parameters) load as they were
+  const { createRequire } = await import('node:module');
+  const X = createRequire(import.meta.url)('./xfer.js');
+  const C = new WebAssembly.Instance(mod, {}).exports;
+  C.rv_boot(); C.rv_run(250);
+  for (const e of X.fileDecode(readFileSync(new URL('../../tests/fixtures/ravel-v0.6-format14.ravel', import.meta.url)))) {
+    new Uint8Array(C.memory.buffer, C.rv_store(e.slot), e.data.length).set(e.data); C.rv_store_set_len(e.slot, e.data.length);
+  }
+  check(C.web_load(3) === 0 && C.web_tp(0, 38) === 77, 'an older project loads, its settings in place');
+  check(C.web_mat_dst(0) === C.web_pid_t(2, 39) && C.web_mat_dst(1) === C.web_pid_mat(0) && C.web_mat_dst(2) === C.web_pid_g(47), 'its matrix still points where it did (a track, a row, a global)');
+  check(C.web_tp(0, 97) === 0, 'and the FILTER ENV\'s new AMOUNT starts at 0');
+  C.web_bank_select(2);
+  check(C.web_bank_used(4) === 1 && cstr2(C, C.web_bank_name(4)) === 'OLD SOUND', 'an older bank reads, its sound named');
+  C.web_bank_load(1, 4);
+  check(C.web_tp(1, 38) === 77, 'and the sound loads as it was kept');
+}
+{                                                           // the FILTER ENV into its own destination: looping, a per-track LFO on PAN
+  rv.rv_boot(); rv.rv_run(250);
+  const PAN = 52, FATK = 81, FDEC = 83, FSUS = 84, FLOOP = 91, FDST = 96, FAMT = 97;
+  rv.web_tp_set(0, FATK, 20); rv.web_tp_set(0, FDEC, 30); rv.web_tp_set(0, FSUS, 0); rv.web_tp_set(0, FLOOP, 1);
+  rv.web_tp_set(0, FDST, PAN); rv.web_tp_set(0, FAMT, 63);
+  rv.rv_set_keys(1 << 12);
+  let lo = 1e9, hi = -1e9;
+  for (let k = 0; k < 120; k++) { rv.rv_run(10); const v = rv.web_eff(0, PAN); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  rv.rv_set_keys(0); rv.rv_run(300);
+  check(hi - lo > 30, `F AMT into PAN: the pan swings with the looping FILTER ENV (${lo.toFixed(0)} to ${hi.toFixed(0)})`);
+  rv.web_tp_set(0, FAMT, 0); rv.rv_set_keys(1 << 12); rv.rv_run(300);
+  check(Math.abs(rv.web_eff(0, PAN) - rv.web_tp(0, PAN)) < 0.5, 'and at F AMT 0 it leaves PAN alone');
+  rv.rv_set_keys(0); rv.rv_run(300);
+}
 process.exit(fails ? 1 : 0);

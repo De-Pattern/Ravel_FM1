@@ -33,6 +33,9 @@ key 12 up
 wait 300
 turn SELECT 1
 wait 100
+expect page FENV ROUTE
+turn SELECT 1
+wait 100
 expect page STEP ENV
 turn SELECT 1
 wait 100

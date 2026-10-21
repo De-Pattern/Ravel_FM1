@@ -15,7 +15,7 @@
 #include "rv.h"
 
 #define XF_MAX 256u
-static uint8_t xf_msg[8 + 8 + XF_MAX], xf_wire[2 + ((8 + 8 + XF_MAX) * 8 + 6) / 7];
+static uint8_t xf_msg[8 + 8 + XF_MAX] RV_RAMBSS, xf_wire[2 + ((8 + 8 + XF_MAX) * 8 + 6) / 7] RV_RAMBSS;   /* (in RAM, outside the pool) */
 
 static int xf_slot_ok(int s) { return (s >= 0 && s < PLAT_SLOTS) || (s >= PLAT_BANK0 && s < PLAT_STORES); }
 static uint32_t xf_rd32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }

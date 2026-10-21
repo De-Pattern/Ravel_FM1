@@ -109,7 +109,8 @@ static const page_t pages[] = {
     /* the FILTER ENV: its own delay, attack, hold, decay, sustain, release, bends, loop and rate */
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FILTER ENV", {TP(TP_FATK), TP(TP_FDEC), TP(TP_FSUS), TP(TP_FREL)}},
     {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV SHAPE", {TP(TP_FDLY), TP(TP_FHOLD), TP(TP_FACRV), TP(TP_FDCRV)}},
-    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV LOOP", {TP(TP_FLOOP), TP(TP_FRATE), TP(TP_EFILT), TP(TP_KTRK)}},   /* ENV>CUT: its depth (also on FILTER) */
+    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV LOOP", {TP(TP_FLOOP), TP(TP_FRATE), NO, NO}},
+    {SEC_ARTIC, V_ALL, PIC_FENV, PR_SOUND, "FENV ROUTE", {TP(TP_EFILT), TP(TP_FDST), TP(TP_FAMT), TP(TP_KTRK)}},   /* ENV>CUT (also on FILTER); a second destination of its own */
     {SEC_ARTIC, V_NOTKIT, PIC_SENV, PR_SOUND, "STEP ENV", {TP(TP_SEDST), TP(TP_SEAMT), TP(TP_SEDEF), NO}},   /* where the LIBRARY goes */
     {SEC_ARTIC, V_ALL, PIC_LIB, PR_LIB, "LIBRARY", {{K_LIB, 0}, {K_LIB, 1}, {K_LIB, 2}, {K_LIB, 3}}},   /* OCT: segment 1-8, then LOOP and NEXT */
 
@@ -936,6 +937,10 @@ static void kb_set(kb_t k, int v)
             rv.pat_cur[ui.track] = (uint8_t)pt;
             msg(v ? "KIT: STEPS CLEARED" : "SINGLE: STEPS CLEARED");
             return;
+        }
+        if (rv_pinfo_track(ui.track, k.id)->fmt == PF_DEST && v != rv.tp[ui.track][k.id]) {   /* a destination: only what can be moved */
+            int cur = rv.tp[ui.track][k.id];
+            v = rv_moddest_next_t(ui.track, cur, v > cur ? 1 : -1);
         }
         rv_pid_set(PID_T(ui.track, k.id), v);
         rv_motion(PID_T(ui.track, k.id), v);
@@ -2842,7 +2847,7 @@ static void pic_fenv(void)
     float w[6], tot = 0.0f;
     int loop = rv.tp[t][TP_FLOOP] != 0, amt = rv.tp[t][TP_EFILT];
     char b[28];
-    if (rv.tp[t][TP_KIND] != KIND_SYNTH || rv.tp[t][TP_FTYPE] == FT_LPG || rv.tp[t][TP_ENGINE] == ENG_SQ) {
+    if (rv.tp[t][TP_KIND] != KIND_SYNTH || ((rv.tp[t][TP_FTYPE] == FT_LPG || rv.tp[t][TP_ENGINE] == ENG_SQ) && !rv.tp[t][TP_FAMT])) {
         g_text_c(120, PIC_Y + 40, &FONT_B, rv.tp[t][TP_KIND] != KIND_SYNTH ? "NO FILTER HERE" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "THE SQ HAS ITS OWN" : "THE LPG FOLLOWS", C_DIM);
         g_text_c(120, PIC_Y + 62, &FONT_T, rv.tp[t][TP_KIND] != KIND_SYNTH ? "THE FILTER ENV IS FOR SYNTH TRACKS" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "ENV 2 (SOURCE PAGES) MOVES ITS FILTER" : "THE VOLUME ENVELOPE", C_DIM);
         return;
@@ -2897,7 +2902,16 @@ static void pic_fenv(void)
     b[0] = 0;
     sx_int(b + sx_cat(b, amt > 0 ? "ENV>CUT +" : "ENV>CUT "), amt);
     g_text(10, base + 4, &FONT_T, b, amt ? C_MID : C_DIM);
-    g_text_r(232, base + 4, &FONT_T, "D A H D S R", C_DIM);
+    if (rv.tp[t][TP_FAMT]) {                          /* and its own destination */
+        int fa = rv.tp[t][TP_FAMT], k = 0;
+        b[0] = 0;
+        k = sx_cat(b, "INTO ");
+        rv_param_format(PID_T(t, TP_FDST), rv.tp[t][TP_FDST], b + k, 12);
+        k = sx_cat(b, fa > 0 ? " +" : " ");
+        sx_int(b + k, fa);
+        g_text_r(232, base + 4, &FONT_T, b, C_TEAL);
+    } else
+        g_text_r(232, base + 4, &FONT_T, "D A H D S R", C_DIM);
 }
 
 static void pic_env(void)

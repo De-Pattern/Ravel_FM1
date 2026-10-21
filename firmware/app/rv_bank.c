@@ -18,20 +18,29 @@ typedef struct {
     union { rv_cz cz; rv_kit kit; } x;
 } rv_sound;
 typedef struct {
-    uint32_t magic, version;                       /* 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
+    uint32_t magic, version;                       /* 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
     rv_sound s[RV_BANK_N];
 } rv_bank_t;
-/* the first bank's old shape (version 1), read once to move it to bank A */
+/* the first bank's old shape (version 1), read once to move it to bank A; and versions 2-5, with 96
+ * track parameters a sound */
+#define BANK_TP96 96
 typedef struct {
     char name[RV_BANK_NAME];
     uint8_t used, kind, engine, rsv;
-    int16_t tp[RV_TP];
+    int16_t tp[BANK_TP96];
     rv_cz cz;
     rv_kit kit;
 } rv_sound_v1;
 typedef struct { uint32_t magic, version; rv_sound_v1 s[RV_BANK_N]; } rv_bank_v1;
-/* one bank in RAM at a time (outside the pool), with room to read the old one */
-static union { rv_bank_t b; rv_bank_v1 old; } bankmem RV_RAMBSS;
+typedef struct {
+    char name[RV_BANK_NAME];
+    uint8_t used, kind, engine, rsv;
+    int16_t tp[BANK_TP96];
+    union { rv_cz cz; rv_kit kit; } x;
+} rv_sound_96;
+typedef struct { uint32_t magic, version; rv_sound_96 s[RV_BANK_N]; } rv_bank_96;
+/* one bank in RAM at a time (outside the pool), with room to read the old ones */
+static union { rv_bank_t b; rv_bank_v1 old; rv_bank_96 b96; } bankmem RV_RAMBSS;
 #define bank bankmem.b
 static uint8_t bank_cur, bank_dirty;               /* the bank in RAM; a name edited and not yet kept */
 
@@ -55,7 +64,29 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 5;
+    bank.version = 6;
+}
+
+/* a sound's track parameters past the 96 it was kept with: their defaults */
+static void bank_tp_fill(int16_t *tp)
+{
+    int p;
+    for (p = BANK_TP96; p < RV_TP; p++)
+        tp[p] = (int16_t)(p < TP_N && TRACK[p].name ? TRACK[p].def : 0);
+}
+
+/* versions 2-5 (96 track parameters), in RAM as read: each sound spread out to today's size, from the
+ * last so none is overwritten before it moves (a sound only grows) */
+static void bank_from_96(void)
+{
+    int i;
+    for (i = RV_BANK_N - 1; i >= 0; i--) {
+        uint8_t *src = (uint8_t *)&bankmem.b96.s[i], *dst = (uint8_t *)&bank.s[i];
+        int head = (int)((uint8_t *)&bankmem.b96.s[0].tp[0] - (uint8_t *)&bankmem.b96.s[0]);
+        __builtin_memmove(dst + ((uint8_t *)&bank.s[0].x - (uint8_t *)&bank.s[0]), src + ((uint8_t *)&bankmem.b96.s[0].x - (uint8_t *)&bankmem.b96.s[0]), sizeof bankmem.b96.s[0].x);
+        __builtin_memmove(dst, src, (unsigned)(head + BANK_TP96 * 2));
+        bank_tp_fill(bank.s[i].tp);
+    }
 }
 
 /* sounds kept before the FILTER ENV (version 2): theirs as their one envelope was; and before STEP
@@ -75,7 +106,7 @@ static void bank_upgrade(void)
             if (bank.version < 5 && bank.s[i].tp[TP_DRIVE] == 10)   /* the old default DRIVE: clean */
                 bank.s[i].tp[TP_DRIVE] = 0;
         }
-    bank.version = 5;
+    bank.version = 6;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -89,7 +120,8 @@ static void bank_from_v1(void)
         __builtin_memset(n, 0, sizeof *n);
         __builtin_memcpy(n->name, o.name, RV_BANK_NAME);
         n->used = o.used, n->kind = o.kind, n->engine = o.engine;
-        __builtin_memcpy(n->tp, o.tp, sizeof n->tp);
+        __builtin_memcpy(n->tp, o.tp, sizeof o.tp);
+        bank_tp_fill(n->tp);
         if (bank_is_kit(o.kind, o.engine))
             n->x.kit = o.kit;
         else
@@ -103,9 +135,17 @@ static void bank_from_v1(void)
 
 static int bank_read(int b)
 {
-    if (plat_load(PLAT_BANK0 + b, &bank, sizeof bank) != (int)sizeof bank || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 5)
+    int n = plat_load(PLAT_BANK0 + b, &bankmem, sizeof bankmem);
+    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 6)
         return 0;
-    if (bank.version < 5)                              /* (kept as version 5 the next time it is written) */
+    if (bank.version < 6) {                            /* 96 track parameters a sound: spread out */
+        if (n != (int)sizeof(rv_bank_96))
+            return 0;
+        bank_from_96();
+    } else if (n != (int)sizeof bank)
+        return 0;
+    __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
+    if (bank.version < 6)                              /* (kept as version 6 the next time it is written) */
         bank_upgrade();
     return 1;
 }
