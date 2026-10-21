@@ -33,6 +33,14 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px);
 #define PLAT_STORES (PLAT_BANK0 + PLAT_BANKS)
 int plat_load(int slot, void *dst, uint32_t max);          /* copies up to max; returns the stored length, < 0 = empty */
 int plat_save(int slot, const void *src, uint32_t len);    /* 0 = saved */
+/* a slot written in pieces (a transfer from a computer): begin empties it, writes land at off (256-byte
+ * pieces), end checks the CRC-32 (zlib's) of all len bytes and only then makes it valid; 0 = ok */
+int plat_slot_begin(int slot, uint32_t len);
+int plat_slot_write(int slot, uint32_t off, const void *p, uint32_t n);
+int plat_slot_end(int slot, uint32_t len, uint32_t crc);
+int plat_slot_info(int slot, uint32_t *len, uint32_t *crc);   /* 0 = used */
+int plat_slot_read(int slot, uint32_t off, void *p, uint32_t n);
+void plat_sysex_out(const uint8_t *p, uint32_t n);         /* one whole F0 .. F7 message to the computer */
 
 /* audio coming in (a file in the emulator; none on the FM-1, whose USB sends Ravel's output): fills up to
  * frames stereo frames, interleaved, -1..1; returns how many (0 = nothing playing in) */

@@ -245,6 +245,19 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can try the tape's INPUT source and ring a strike body with the EXT exciter.</p>
       </div>
       <div>
+        <h3>Projects &amp; sounds</h3>
+        <div class="row2">
+          <button class="hbtn" id="xexport" title="Every saved project and sound bank, as one .ravel file">Export file</button>
+          <button class="hbtn" id="ximport" title="Load a .ravel file into the project slots and sound banks">Import file</button>
+        </div>
+        <div class="row2" style="margin-top:6px">
+          <button class="hbtn" id="xsend" title="Write this page's saved projects and banks to an FM-1 running Ravel, over USB">Send to FM-1</button>
+          <button class="hbtn" id="xget" title="Read an FM-1's saved projects and banks into a .ravel file">Get from FM-1</button>
+        </div>
+        <input type="file" id="xfile" accept=".ravel" hidden>
+        <p class="note" id="xstate">Saved projects (SAVE › PROJECT) and sound banks (SAVE › SOUNDS) move as a file, or straight to an FM-1 running Ravel over its USB cable (Chrome or Edge: allow MIDI when asked).</p>
+      </div>
+      <div>
         <h3>Output</h3>
         <div class="meter"><i id="outm"></i></div>
         <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px">Volume <input type="range" id="vol" min="0" max="100" value="70" style="flex:1"></label>
@@ -305,6 +318,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
   </div>
 </div>
 
+<script src="xfer.js"></script>
 <script>
 "use strict";
 const WASM_B64 = "__RAVEL_WASM__";
@@ -736,6 +750,76 @@ function storeLoad() {
     }
   } catch (e) { /* no storage: start fresh */ }
 }
+/* ----------------------------------- projects and sounds: a file, or an FM-1 over USB-MIDI (xfer.js) */
+function xstate(t) { $("xstate").textContent = t; }
+function xentries() {
+  const out = [];
+  for (const s of RavelXfer.SLOTS) { const n = rv.rv_store_len(s); if (n >= 0) out.push({ slot: s, data: new Uint8Array(rv.memory.buffer, rv.rv_store(s), n).slice() }); }
+  return out;
+}
+function xsaveFile(entries, name) {
+  const url = URL.createObjectURL(new Blob([RavelXfer.fileEncode(entries)], { type: "application/octet-stream" }));
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+const xstamp = () => new Date().toISOString().slice(0, 10);
+const xlist = es => es.map(e => RavelXfer.slotName(e.slot)).join(", ");
+$("xexport").addEventListener("click", () => {
+  const es = xentries();
+  if (!es.length) { xstate("Nothing saved yet: SAVE › PROJECT or SAVE › SOUNDS first."); return; }
+  xsaveFile(es, `ravel-${xstamp()}.ravel`);
+  xstate(`Exported ${xlist(es)}.`);
+});
+$("ximport").addEventListener("click", () => $("xfile").click());
+$("xfile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  try {
+    const es = RavelXfer.fileDecode(new Uint8Array(await f.arrayBuffer()));
+    const over = es.filter(x => rv.rv_store_len(x.slot) >= 0);
+    if (over.length && !confirm(`This replaces ${xlist(over)} here. Import?`)) return;
+    for (const x of es) {
+      new Uint8Array(rv.memory.buffer, rv.rv_store(x.slot), x.data.length).set(x.data);
+      rv.rv_store_set_len(x.slot, x.data.length);
+      rv.web_storage_changed(x.slot);
+    }
+    storeSave(); lastWrites = rv.rv_store_writes();
+    xstate(`Imported ${xlist(es)}. Load a project with SAVE › PROJECT › LOAD.`);
+  } catch (err) { xstate("Import: " + err.message); }
+});
+async function xdevice() {
+  if (!navigator.requestMIDIAccess) throw new Error("this browser has no Web MIDI (try Chrome or Edge)");
+  const m = await navigator.requestMIDIAccess({ sysex: true });
+  const pick = ports => [...ports.values()].find(p => /fm-1|felucca|ravel|usb-midi|composite|sinco/i.test(p.name || ""));
+  const out = pick(m.outputs), inp = pick(m.inputs);
+  if (!out || !inp) throw new Error("no FM-1 found: connect it by USB with Ravel running, then try again");
+  const sess = new RavelXfer.Session(w => out.send(Array.from(w)), { timeout: 2500 });
+  inp.onmidimessage = ev => { if (ev.data[0] === 0xF0) sess.receive(ev.data); };
+  return { sess, close: () => { inp.onmidimessage = null; } };
+}
+const xprog = (verb) => (slot, a, b) => xstate(`${verb} ${RavelXfer.slotName(slot)}: ${Math.round(100 * a / b)}%`);
+$("xsend").addEventListener("click", async () => {
+  const es = xentries();
+  if (!es.length) { xstate("Nothing saved here to send: SAVE › PROJECT or SAVE › SOUNDS first."); return; }
+  let d;
+  try {
+    d = await xdevice();
+    const there = await d.sess.info(), over = es.filter(x => there.some(t => t.slot === x.slot));
+    if (over.length && !confirm(`This replaces ${xlist(over)} on the FM-1. Send?`)) return;
+    await d.sess.restore(es, xprog("Sending"));
+    xstate(`Sent ${xlist(es)} to the FM-1.`);
+  } catch (err) { xstate("Send: " + err.message); } finally { if (d) d.close(); }
+});
+$("xget").addEventListener("click", async () => {
+  let d;
+  try {
+    d = await xdevice();
+    const es = await d.sess.backup(xprog("Reading"));
+    if (!es.length) { xstate("The FM-1 has nothing saved."); return; }
+    xsaveFile(es, `ravel-fm1-${xstamp()}.ravel`);
+    xstate(`Read ${xlist(es)} from the FM-1 into a file (Import file brings it in here).`);
+  } catch (err) { xstate("Get: " + err.message); } finally { if (d) d.close(); }
+});
 function storeSave() {
   try {
     for (let o = 0; o < rv.rv_store_slots(); o++) {

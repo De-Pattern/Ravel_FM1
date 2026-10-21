@@ -273,7 +273,11 @@ static void fm1_main(void)
             else if (fm1_ms - t0 > 5000u)
                 enter_uboot("UBOOT");
         }
-        ota_service();                              /* M-UPGRADE handshake */
+        {   /* M-UPGRADE handshake; Ravel's own messages: projects and sounds to and from a computer */
+            uint32_t d = ota_service();
+            if (d >= 7u && ota_dec[2] >= 0x60u && ota_dec[2] <= 0x64u)
+                rv_xfer_msg(ota_dec, d);
+        }
         if (usb.ota_req) {
             usb.ota_req = 0;
             rv_transport(0);

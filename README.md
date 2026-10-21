@@ -1109,6 +1109,28 @@ Loading a sound that changes a track between a kit and notes (lanes and notes do
 
 **In the emulator**, your sounds are at the top of the sound menu under **My sounds**, one group per bank, each with its slot (A1 … D32) before the name and its kind in brackets after it. Choosing one loads it into the current track, switching its kind if needed. **Save sound…** keeps the current track's sound (it asks for a slot such as B5, offering the first empty one, and a name), and **Delete sound…** removes one. The panel's SAVE › SOUNDS page works too.
 
+### Moving projects and sounds to an FM-1 (and back)
+
+Everything you have saved, the projects in slots 1–7 and the sound banks A–D, can leave the emulator as a file and go onto an FM-1 running Ravel, and the other way. The FM-1's own update leaves its saved projects and banks alone, so install the firmware first, then bring your work over.
+
+**In the emulator** (the *Projects & sounds* panel on the left):
+
+| Button | What it does |
+| --- | --- |
+| **Export file** | Every saved project and sound bank, as one `.ravel` file to keep |
+| **Import file** | A `.ravel` file into the emulator's slots (it asks before replacing used ones) |
+| **Send to FM-1** | This page's saved projects and banks straight onto an FM-1 connected by USB with Ravel running (Chrome or Edge: allow MIDI when asked; it asks before replacing slots on the FM-1) |
+| **Get from FM-1** | The FM-1's saved projects and banks, read into a `.ravel` file (Import file then brings them into the emulator) |
+
+**From the command line** (`pip3 install mido python-rtmidi`), with the FM-1 connected and Ravel running:
+
+    python3 tools/fm1_data.py info                      # what the FM-1 holds
+    python3 tools/fm1_data.py restore my-work.ravel     # the file's projects and banks onto the FM-1
+    python3 tools/fm1_data.py backup fm1-work.ravel     # the FM-1's, into a file
+    python3 tools/fm1_data.py restore my-work.ravel --only project3,bankB
+
+Each project and bank goes to the same slot it came from (project 3 to project 3, bank B to bank B) and replaces what was there; slots not in the file are left as they are. Every piece is checked as it arrives (a CRC over the whole slot), and a slot only becomes valid on the FM-1 once all of it has arrived intact; the screen says RECEIVED PROJECT 3 or RECEIVED BANK B as each one lands. Load a project afterwards with SAVE › PROJECT › LOAD. The tape's audio is not part of a project, so it doesn't travel.
+
 ## 15. Hold layers
 
 Hold a button (in the emulator: right-click or shift-click to latch it) and the keys or knobs do something else. The footer always shows the layer's hint.

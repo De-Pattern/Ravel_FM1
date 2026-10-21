@@ -135,4 +135,36 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   const a2 = rv.web_mat_amt(0), b2 = rv.web_mat_amt(1);
   check(a0 === 0 && a1 >= 60 && b2 <= 1 && a2 <= 2, `MACRO 1 opens row 1's AMOUNT (${a0} to ${a1}); a third row closing row 2 closes it again (${b2}, ${a2})`);
 }
+{                                                           // projects and sounds: a file, and over SysEx to a second Ravel (as to an FM-1)
+  const { createRequire } = await import('node:module');
+  const X = createRequire(import.meta.url)('./xfer.js');
+  const A = rv, B = new WebAssembly.Instance(mod, {}).exports;
+  A.rv_boot(); A.rv_run(250); A.web_demo(0); A.rv_run(100);
+  check(A.web_save(2) === 0, 'a project saved in slot 3');
+  const nb = new Uint8Array(A.memory.buffer, A.web_bank_name_buf(), 16); nb.set(new TextEncoder().encode('MOVED PAD\0'));
+  A.web_bank_select(1); check(A.web_bank_store(0, 5) === 0, 'a sound kept in bank B, slot 6');
+  const entries = [];                                           // the emulator's Export: the stores as they are
+  for (let s = 0; s < A.rv_store_slots(); s++) { const n = A.rv_store_len(s); if (n >= 0 && X.SLOTS.includes(s)) entries.push({ slot: s, data: new Uint8Array(A.memory.buffer, A.rv_store(s), n).slice() }); }
+  const file = X.fileEncode(entries), back = X.fileDecode(file);
+  check(back.length === entries.length && back.every((e, i) => e.slot === entries[i].slot && X.crc32(e.data) === X.crc32(entries[i].data)), `a .ravel file holds them (${entries.length} slots, ${file.length} bytes)`);
+  let bad = 0; try { const f2 = file.slice(); f2[f2.length - 1] ^= 1; X.fileDecode(f2); } catch (e) { bad = 1; }
+  check(bad, 'a damaged file is refused');
+  B.rv_boot(); B.rv_run(250);
+  const pending = [];                                           // B is the "FM-1": messages in, answers out
+  const sess = new X.Session(w => { const buf = new Uint8Array(B.memory.buffer, B.web_sysex_in_buf(), w.length); buf.set(w); B.web_sysex_in(w.length);
+    const n = B.web_sysex_out_len(), o = new Uint8Array(B.memory.buffer, B.web_sysex_out(), n).slice(); B.web_sysex_out_clear();
+    let st = 0; for (let i = 0; i < n; i++) if (o[i] === 0xF7) { pending.push(o.slice(st, i + 1)); st = i + 1; }
+    setTimeout(() => { while (pending.length) sess.receive(pending.shift()); }, 0); }, { timeout: 500 });
+  await sess.restore(back);
+  const info = await sess.info();
+  check(info.length === entries.length, `sent over SysEx: the second Ravel lists ${info.length} slots`);
+  check(B.web_load(2) === 0, 'and loads the project');
+  B.web_bank_select(1);
+  check(B.web_bank_used(5) === 1 && cstr2(B, B.web_bank_name(5)) === 'MOVED PAD', 'and has the sound in bank B');
+  const again = await sess.backup();
+  check(again.length === entries.length && again.every(e => X.crc32(e.data) === X.crc32(entries.find(f => f.slot === e.slot).data)), 'and gives it all back, unchanged');
+  let refused = 0; try { await sess.writeSlot(0, new Uint8Array(40000)); } catch (e) { refused = 1; }
+  check(refused, 'a project too big for its slot is refused');
+}
+function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; while (m[n]) n++; return new TextDecoder().decode(m.subarray(0, n)); }
 process.exit(fails ? 1 : 0);

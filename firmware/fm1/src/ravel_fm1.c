@@ -34,6 +34,7 @@ void ui_frame(void);
 void ui_input_only(void);
 void ui_notice(const char *title, const char *l1, const char *l2, const char *l3, int red);
 void rv_transport(int run);
+void rv_xfer_msg(const uint8_t *m, uint32_t d);   /* projects and sounds over SysEx (app/rv_xfer.c) */
 
 #define FELUCCA_OTA 1             /* M-UPGRADE update entry: keeps the web installer working */
 #ifndef RAVEL_CDC

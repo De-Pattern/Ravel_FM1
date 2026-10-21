@@ -15,6 +15,9 @@ if len(sys.argv) > 1:
     out = pathlib.Path(sys.argv[1])
 out.parent.mkdir(parents=True, exist_ok=True)
 page = page.replace('"__RAVEL_WASM__"', '"' + wasm + '"', 1)
+xfer = (here / "xfer.js").read_text()                        # projects and sounds: the file and the USB transfer
+assert '<script src="xfer.js"></script>' in page
+page = page.replace('<script src="xfer.js"></script>', "<script>\n" + xfer + "</script>", 1)
 flow = (root / "docs" / "signal-flow.svg").read_text()      # the README's diagram, inline on the page
 assert "<!--RAVEL_FLOW-->" in page
 page = page.replace("<!--RAVEL_FLOW-->", flow.strip(), 1)

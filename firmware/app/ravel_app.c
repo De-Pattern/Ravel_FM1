@@ -13,6 +13,7 @@
 #include "rv_presets.c"
 #include "rv_project.c"
 #include "rv_bank.c"
+#include "rv_xfer.c"
 #include "rv_ui.c"
 
 /* start: always a blank project */

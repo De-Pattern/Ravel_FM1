@@ -157,6 +157,89 @@ int plat_save(int slot, const void *src, uint32_t len)
     return 0;
 }
 
+/* a slot written in pieces, from a computer (rv_xfer.c): BEGIN erases it (header too, so it reads as empty
+ * until END), each piece is programmed in place, END reads it all back for the CRC and only then writes the
+ * header. Nothing is held in RAM. */
+static uint32_t xf_crc_upd(uint32_t c, const uint8_t *b, uint32_t n)   /* zlib CRC-32, running (c: ~previous) */
+{
+    static const uint32_t T[16] = {
+        0x00000000u, 0x1DB71064u, 0x3B6E20C8u, 0x26D930ACu, 0x76DC4190u, 0x6B6B51F4u, 0x4DB26158u, 0x5005713Cu,
+        0xEDB88320u, 0xF00F9344u, 0xD6D6A3E8u, 0xCB61B38Cu, 0x9B64C2B0u, 0x86D3D2D4u, 0xA00AE278u, 0xBDBDF21Cu};
+    while (n--) {
+        c ^= *b++;
+        c = (c >> 4) ^ T[c & 15u];
+        c = (c >> 4) ^ T[c & 15u];
+    }
+    return c;
+}
+static int8_t xf_open = -1;                     /* the slot being written, or -1 */
+int plat_slot_begin(int slot, uint32_t len)
+{
+    uint32_t base = slot_base(slot), off;
+    xf_open = -1;
+    if (!flash_ok || !slot_ok(slot) || slot == PLAT_BANK_OLD || len > slot_room(slot) - 256u)
+        return -1;
+    for (off = 0; off < len + 256u; off += 0x1000u)
+        if (st_erase(base + off))
+            return -1;
+    xf_open = (int8_t)slot;
+    return 0;
+}
+int plat_slot_write(int slot, uint32_t off, const void *p, uint32_t n)
+{
+    if (slot != xf_open || (off & 255u) || n > 256u || off + n > slot_room(slot) - 256u)
+        return -1;
+    return st_prog(slot_base(slot) + 256u + off, p, n) ? -1 : 0;
+}
+int plat_slot_end(int slot, uint32_t len, uint32_t crc)
+{
+    uint8_t buf[256];
+    uint32_t base = slot_base(slot), off, c = 0xFFFFFFFFu;
+    slot_head h, back;
+    if (slot != xf_open || len > slot_room(slot) - 256u)
+        return -1;
+    xf_open = -1;
+    for (off = 0; off < len; off += 256u) {
+        uint32_t k = len - off > 256u ? 256u : len - off;
+        if (st_read(base + 256u + off, buf, k))
+            return -1;
+        c = xf_crc_upd(c, buf, k);
+    }
+    if (~c != crc)
+        return -1;
+    h.magic = SLOT_MAGIC;
+    h.len = len;
+    h.crc = crc;
+    h.rsv = 0xFFFFFFFFu;
+    if (st_prog(base, &h, sizeof h) || st_read(base, &back, sizeof back) || back.magic != SLOT_MAGIC || back.len != len || back.crc != crc)
+        return -1;
+    return 0;
+}
+int plat_slot_info(int slot, uint32_t *len, uint32_t *crc)
+{
+    slot_head h;
+    if (!flash_ok || !slot_ok(slot) || st_read(slot_base(slot), &h, sizeof h) || h.magic != SLOT_MAGIC || h.len > slot_room(slot) - 256u)
+        return -1;
+    *len = h.len;
+    *crc = h.crc;
+    return 0;
+}
+int plat_slot_read(int slot, uint32_t off, void *p, uint32_t n)
+{
+    uint32_t len, crc;
+    if (plat_slot_info(slot, &len, &crc) || off + n > len)
+        return -1;
+    return st_read(slot_base(slot) + 256u + off, p, n) ? -1 : 0;
+}
+void plat_sysex_out(const uint8_t *p, uint32_t n)
+{
+#if FELUCCA_OTA
+    ota_wire_send(p, n);
+#else
+    (void)p, (void)n;
+#endif
+}
+
 /* no audio input on the bare-metal FM-1 (USB carries Ravel's output to the computer) */
 int plat_audio_in(float *lr, int frames)
 {

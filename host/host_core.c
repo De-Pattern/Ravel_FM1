@@ -80,6 +80,70 @@ int plat_save(int slot, const void *src, uint32_t len)
     return 0;
 }
 
+/* a slot written in pieces, as from a computer (the FM-1's room: 32 KB a project, 12 KB a bank, less
+ * the header) */
+static uint32_t host_crc32(const uint8_t *p, uint32_t n)
+{
+    uint32_t c = 0xFFFFFFFFu, k;
+    while (n--) {
+        c ^= *p++;
+        for (k = 0; k < 8u; k++)
+            c = c & 1u ? (c >> 1) ^ 0xEDB88320u : c >> 1;
+    }
+    return ~c;
+}
+static uint32_t host_room(int slot) { return slot >= PLAT_BANK0 ? 0x3000u - 256u : 0x8000u - 256u; }
+int plat_slot_begin(int slot, uint32_t len)
+{
+    if (slot < 0 || slot >= PLAT_STORES || len > host_room(slot))
+        return -1;
+    store_len[slot] = -1;
+    return 0;
+}
+int plat_slot_write(int slot, uint32_t off, const void *p, uint32_t n)
+{
+    uint32_t i;
+    if (slot < 0 || slot >= PLAT_STORES || off + n > host_room(slot) || store_len[slot] >= 0)
+        return -1;
+    for (i = 0; i < n; i++)
+        store[slot][off + i] = ((const uint8_t *)p)[i];
+    return 0;
+}
+int plat_slot_end(int slot, uint32_t len, uint32_t crc)
+{
+    if (slot < 0 || slot >= PLAT_STORES || len > host_room(slot) || store_len[slot] >= 0 || host_crc32(store[slot], len) != crc)
+        return -1;
+    store_len[slot] = (int32_t)len;
+    store_writes++;
+    return 0;
+}
+int plat_slot_info(int slot, uint32_t *len, uint32_t *crc)
+{
+    if (slot < 0 || slot >= PLAT_STORES || store_len[slot] < 0)
+        return -1;
+    *len = (uint32_t)store_len[slot];
+    *crc = host_crc32(store[slot], *len);
+    return 0;
+}
+int plat_slot_read(int slot, uint32_t off, void *p, uint32_t n)
+{
+    uint32_t i;
+    if (slot < 0 || slot >= PLAT_STORES || store_len[slot] < 0 || off + n > (uint32_t)store_len[slot])
+        return -1;
+    for (i = 0; i < n; i++)
+        ((uint8_t *)p)[i] = store[slot][off + i];
+    return 0;
+}
+/* SysEx to the computer: kept for whoever drives the simulator (the emulator page, the tests) */
+static uint8_t sx_out[8192];
+static uint32_t sx_out_n;
+void plat_sysex_out(const uint8_t *p, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n && sx_out_n < sizeof sx_out; i++)
+        sx_out[sx_out_n++] = p[i];
+}
+
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
 

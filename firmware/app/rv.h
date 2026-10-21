@@ -383,6 +383,12 @@ uint32_t rv_rng(void);
 int rv_save(int slot);
 int rv_load(int slot);
 int rv_slot_used(int slot, char name[13]);
+/* projects and sounds to and from a computer (rv_xfer.c) */
+void rv_xfer_msg(const uint8_t *m, uint32_t d);
+int rv_xfer_wire(const uint8_t *p, uint32_t n);
+void ui_storage_changed(int slot);
+void rv_bank_settle(void);
+void rv_bank_reload(int slot);
 void rv_demo(int which);
 
 /* rv_ui.c: the control side */

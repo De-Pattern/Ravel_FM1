@@ -240,3 +240,17 @@ EXPORT(web_mat_amt) int web_mat_amt(int i) { return rv_live.mat_amt[i & 7]; }   
 EXPORT(web_pid_mat) int web_pid_mat(int k) { return PID_MAT(k); }
 EXPORT(web_pid_t) int web_pid_t(int t, int p) { return PID_T(t, p); }
 EXPORT(web_pid_g) int web_pid_g(int g) { return PID_G(g); }
+
+/* projects and sounds to and from a computer: SysEx in (whole messages, F0..F7), replies out */
+static uint8_t sx_in[1024];
+EXPORT(web_sysex_in_buf) uint8_t *web_sysex_in_buf(void) { return sx_in; }
+EXPORT(web_sysex_in) int web_sysex_in(uint32_t n)       /* sx_in holds F0 .. F7 */
+{
+    if (n < 2 || n > sizeof sx_in || sx_in[0] != 0xF0 || sx_in[n - 1] != 0xF7)
+        return 0;
+    return rv_xfer_wire(sx_in + 1, n - 2);
+}
+EXPORT(web_sysex_out) uint8_t *web_sysex_out(void) { return sx_out; }
+EXPORT(web_sysex_out_len) uint32_t web_sysex_out_len(void) { return sx_out_n; }
+EXPORT(web_sysex_out_clear) void web_sysex_out_clear(void) { sx_out_n = 0; }
+EXPORT(web_storage_changed) void web_storage_changed(int slot) { ui_storage_changed(slot); }   /* (an imported file, written straight in) */

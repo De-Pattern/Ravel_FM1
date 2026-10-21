@@ -129,6 +129,19 @@ void rv_bank_select(int b)
         bank_blank();
 }
 int rv_bank_current(void) { return bank_cur; }
+void rv_bank_settle(void)                              /* a name being edited: kept now */
+{
+    if (bank_dirty)
+        rv_bank_flush();
+}
+void rv_bank_reload(int slot)                          /* a bank written from outside: read again if it is the one in RAM */
+{
+    if (slot != PLAT_BANK0 + bank_cur)
+        return;
+    bank_dirty = 0;
+    if (!bank_read(bank_cur))
+        bank_blank();
+}
 
 void rv_bank_init(void)
 {

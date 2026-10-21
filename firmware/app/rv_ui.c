@@ -3985,3 +3985,19 @@ void ui_goto(int sec, int page)
 void ui_set_track(int t) { ui.track = (uint8_t)clampi(t, 0, RV_TRACKS - 1); }
 int ui_octave(void) { return ui.octave; }
 int ui_armed(void) { return ui.armed; }
+
+/* a slot written from a computer: the lists follow, and the screen says what came */
+void ui_storage_changed(int slot)
+{
+    char b[24] = "RECEIVED ";
+    rv_bank_reload(slot);
+    slots_refresh();
+    if (slot >= PLAT_BANK0) {
+        sx_cat(b, "BANK ");
+        sx_cat(b, bank_letters[(slot - PLAT_BANK0) & 3]);
+    } else {
+        sx_cat(b, "PROJECT ");
+        sx_int(b + 17, slot + 1);
+    }
+    msg(b);
+}
