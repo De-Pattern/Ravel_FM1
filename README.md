@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (twelve engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -21,7 +21,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), twelve engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato).
+- **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake).
 - **Strike tracks** (T5, T6): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
@@ -193,7 +193,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with twelve engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
@@ -227,7 +227,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -301,7 +301,7 @@ The filter belongs to synth voices. On strike and tape tracks the FILTER page's 
 
 Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRESETS to start from a finished sound instead.
 
-### The twelve synth engines (SOURCE pages)
+### The thirteen synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -476,6 +476,22 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 
 - **Playing it:** overlap notes for slurred phrases (the envelope doesn't restart and GLIDE carries the pitch), lift between notes to articulate them (each starts again, with its scoop). A little vibrato that waits before it starts, and VELO with VEL>CUT, make held notes feel blown or bowed. For layered parts, record one mono line, then another on a second MONO track, as Dorian Concept builds his from many single passes.
 - **Presets:** ORGANIC SAW (the settings above with a hint of vibrato), WOODWIND, CELLO LINE, RUBBER BASS and SCOOP LEAD.
+
+**RESIN:** a bowed string or a reed, built to be played hard. Where PHYS models a well-behaved instrument, RESIN is about the edges: the bow pressed until it scrapes, a harmonic touched lightly, a reed overblown into a growl or a split multiphonic. Each note is one player, with vibrato built in, and the **QUAKE** knob shakes the player's hand: the pressure and pitch waver more and more, and at the top the note squeals and breaks. MODEL chooses **BOW** (a bowed string: the bow sticks and slips on the string, and a wooden body rings with it) or **HORN** (a reed on a bore: the breath pushes the reed, which opens and closes the tube). Changing MODEL sets the other knobs to that model's defaults; their names change with it.
+
+| | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
+| --- | --- | --- | --- | --- |
+| **BOW** | MODEL | SCRAPE: noise and grit as the bow slips, more with pressure | VIB RT: vibrato rate, 3 to 9 Hz | QUAKE: the hand shakes; pressure and pitch waver, then squeal |
+| | PRESS: bow pressure; past about three quarters, the tone breaks into a raw crunch | HARMON: touch the string lightly at its middle, for the flageolet an octave up | VIB DP: vibrato depth, up to 60 cents | BOW ATK: how quickly the bow gets moving |
+| | SPEED: bow speed, the loudness and brightness | BODY: how much the wooden body rings | ONSET: how long the vibrato takes to arrive, up to 2.5 s | ROSIN: grip; more rosin bites harder |
+| | POSITN: where the bow meets the string, from the bridge (glassy) to over the fingerboard (soft) | SIZE: violin to cello to bass, the body's resonances | DRIFT: the pitch wanders a few cents | HISS: the bow hair's noise |
+| **HORN** | MODEL | GROWL: singing into the horn; the breath beats at half the pitch | (as BOW) | QUAKE |
+| | PRESS: breath pressure; more overblows | MULTI: a second reflection in the bore, which splits the note into a multiphonic | | ATTACK: how quickly the breath arrives |
+| | REED: the reed's stiffness, soft and buzzy to hard and pure | THROAT: the player's throat, a resonance from 250 Hz to 2 kHz | | KEYS: the click of the keys at each note |
+| | BORE: where along the bore the reed sits, which colours the tone | SIZE: the bore, small and bright to large and dark | | AIR: breath noise |
+
+- **Playing it:** the filter is open by default; shape the note with the volume envelope (a slow attack and long release for a bowed line) and VELO. Use one voice and GLIDE for a single player sliding between notes. QUAKE is the performance knob: put it on an LFO, the matrix or a step envelope (STEP ENV) for a hand that gives out on certain steps.
+- **Presets:** WRAITH (a low cello, pressed hard, with wide slow vibrato and drift), UPSTAIRS (a frantic, scraping violin line, one voice gliding), RESIN VIOLIN (a cleaner violin), FOGHORN (a low, overblown reed) and THROAT SAX (a growling, sung-into reed).
 
 ### Strike tracks (SOURCE pages)
 

@@ -12,6 +12,7 @@
  *   turn ENC N                    (ENC: SELECT ALGO K1 K2 K3 K4 PRESET; N detents, one a frame)
  *   input FILE.wav                play a 16-bit stereo WAV into the audio input (USB in on the FM-1)
  *   master N                      MASTER pot 0..4096
+ *   cpu N                         the audio load the platform reports, % (only the FM-1 measures it)
  *   wav FILE | wavstop            record the output
  *   shot FILE.png                 save the screen
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
@@ -298,6 +299,8 @@ int main(int argc, char **argv)
                 d -= s;
                 run_ms(17);
             }
+        } else if (!strcmp(a, "cpu")) {
+            cpu_pct = (uint32_t)atoi(b);
         } else if (!strcmp(a, "master")) {
             master = (uint32_t)atoi(b);
         } else if (!strcmp(a, "wav")) {

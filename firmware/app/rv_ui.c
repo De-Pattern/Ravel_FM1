@@ -875,6 +875,15 @@ static void kb_set(kb_t k, int v)
             ui.preset_idx[ui.track] = -1;
             return;
         }
+        if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH && rv.tp[ui.track][TP_ENGINE] == ENG_RESIN) {
+            int p;                                   /* RESIN: the other model starts from its own settings */
+            rv.tp[ui.track][TP_S0] = (int16_t)v;
+            for (p = TP_S1; p <= TP_S15; p++) {
+                const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
+                rv.tp[ui.track][p] = pi->name ? pi->def : 0;
+            }
+            return;
+        }
         if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_PERC) {
             int p;                                   /* a new machine starts from its own defaults */
             rv.tp[ui.track][TP_S0] = (int16_t)v;
@@ -2091,7 +2100,30 @@ static void draw_top(void)
     }
     x = g_text(31, 7, &FONT_T, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, KIND_N - 1)], C_MID);
     x = g_text(x + 4, 7, &FONT_T, sound_name(t), C_MID);
-    (void)x;
+    {
+        /* the audio load, where the platform measures it (the FM-1): a thin bar and the percent,
+         * held for a moment at its peak so a spike can be read */
+        static uint32_t hold, hold_ms;
+        uint32_t cpu = plat_cpu_pct(), tw = (uint32_t)g_text_w(&FONT_B, pg->title);
+        if (cpu > 0) {
+            int cx = 236 - (int)tw - 48;
+            uint16_t cc = cpu >= 90 ? C_RED : cpu >= 75 ? C_AMBER : C_MID;
+            if (cpu >= hold || plat_ms() - hold_ms > 1500u) {
+                hold = cpu;
+                hold_ms = plat_ms();
+            }
+            if (cx > x + 6) {
+                int n = 4;
+                b[0] = 'C', b[1] = 'P', b[2] = 'U', b[3] = ' ';
+                n += sx_int(b + 4, (int)(hold > 999 ? 999 : hold));
+                b[n] = '%';
+                b[n + 1] = 0;
+                g_text(cx, 7, &FONT_T, b, cc);
+                g_rbox(cx, 18, 38, 2, 1, C_LINE, 1);
+                g_rbox(cx, 18, (int)(38u * (cpu > 100 ? 100 : cpu) / 100u) > 1 ? (int)(38u * (cpu > 100 ? 100 : cpu) / 100u) : 1, 2, 1, cc, 1);
+            }
+        }
+    }
     g_text_r(236, 4, &FONT_B, pg->title, C_INK);
 }
 
@@ -2572,7 +2604,8 @@ static void pic_source(void)
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
-                                                "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN"};
+                                                "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN",
+                                                "BOWED STRING OR REED, AND QUAKE"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
             const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);

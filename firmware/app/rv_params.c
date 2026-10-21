@@ -8,7 +8,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO"};
+const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "SQ", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -114,6 +114,21 @@ static const rv_pinfo SRC_PHYS[16] = {
     {"MODEL", 0, N(phys_models), 0, E(phys_models)}, {"BRIGHT", 0, 127, 80, PF_NUM, 0}, {"DAMP", 0, 127, 40, PF_NUM, 0},
     {"POSITN", 0, 127, 30, PF_NUM, 0}, {"EXCITE", 0, 127, 90, PF_NUM, 0}, {"INHARM", 0, 127, 0, PF_NUM, 0},
     {"BODY", 0, 127, 40, PF_NUM, 0}, {"DECAY", 0, 127, 90, PF_NUM, 0}};
+/* RESIN: the bowed string, or (MODEL HORN, its own names below) the reed and bore; the vibrato,
+ * DRIFT and QUAKE are the same on both */
+static const char *const resin_models[] = {"BOW", "HORN"};
+#define RS_MOVE {"VIB RT", 0, 127, 55, PF_NUM, 0}, {"VIB DP", 0, 127, 40, PF_NUM, 0}, {"ONSET", 0, 127, 50, PF_NUM, 0}, \
+                {"DRIFT", 0, 127, 30, PF_NUM, 0}, {"QUAKE", 0, 127, 0, PF_NUM, 0}
+static const rv_pinfo SRC_RESIN[16] = {
+    {"MODEL", 0, N(resin_models), 0, E(resin_models)}, {"PRESS", 0, 127, 70, PF_NUM, 0}, {"SPEED", 0, 127, 50, PF_NUM, 0},
+    {"POSITN", 0, 127, 25, PF_NUM, 0}, {"SCRAPE", 0, 127, 20, PF_NUM, 0}, {"HARMON", 0, 127, 0, PF_NUM, 0},
+    {"BODY", 0, 127, 70, PF_NUM, 0}, {"SIZE", 0, 127, 30, PF_NUM, 0}, RS_MOVE,
+    {"BOW ATK", 0, 127, 40, PF_NUM, 0}, {"ROSIN", 0, 127, 50, PF_NUM, 0}, {"HISS", 0, 127, 15, PF_NUM, 0}};
+static const rv_pinfo SRC_RESIN_HORN[16] = {
+    {"MODEL", 0, N(resin_models), 1, E(resin_models)}, {"PRESS", 0, 127, 70, PF_NUM, 0}, {"REED", 0, 127, 60, PF_NUM, 0},
+    {"BORE", 0, 127, 30, PF_NUM, 0}, {"GROWL", 0, 127, 0, PF_NUM, 0}, {"MULTI", 0, 127, 0, PF_NUM, 0},
+    {"THROAT", 0, 127, 50, PF_NUM, 0}, {"SIZE", 0, 127, 60, PF_NUM, 0}, RS_MOVE,
+    {"ATTACK", 0, 127, 35, PF_NUM, 0}, {"KEYS", 0, 127, 40, PF_NUM, 0}, {"AIR", 0, 127, 25, PF_NUM, 0}};
 static const rv_pinfo SRC_FORM[16] = {
     {"VOWEL", 0, 127, 0, PF_NUM, 0}, {"SHIFT", -64, 63, 0, PF_BI, 0}, {"WIDTH", 0, 127, 50, PF_NUM, 0},
     {"MODE", 0, N(form_modes), 0, E(form_modes)}, {"BREATH", 0, 127, 10, PF_NUM, 0}, {"GLOTTAL", 0, 127, 60, PF_NUM, 0},
@@ -194,7 +209,7 @@ static const rv_pinfo SRC_MONO[16] = {
     {"VIBRATO", 0, 127, 10, PF_NUM, 0}, {"VIB RATE", 0, 127, 70, PF_NUM, 0}, {"VIB DLY", 0, 127, 50, PF_NUM, 0},
     {"VEL>CUT", 0, 127, 40, PF_NUM, 0}, {"DRIFT", 0, 127, 20, PF_NUM, 0}, {"RETRIG", 0, 1, 0, E(mono_trig)},
     {"DRIVE", 0, 127, 30, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_SQ, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO, SRC_RESIN};
 
 /* PERC (rv_perc.c): the machine list and each machine's eight parameters (0 = unused), with their defaults */
 static const rv_pinfo perc_pi[PM_N][8] = {
@@ -460,6 +475,8 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
         }
         tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
                                                                                    : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
+        if (tab == SRC_RESIN && rv.tp[t & 7][TP_S0] == 1)
+            tab = SRC_RESIN_HORN;                     /* the reed: its own names */
         return tab[s].name ? &tab[s] : &NONE;
     }
     if (p < 0 || p >= TP_N || !TRACK[p].name)

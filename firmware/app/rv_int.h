@@ -78,6 +78,19 @@ typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
 typedef struct { float ph[8], dly[8], cents[8], t, chiff, air_lp, wind, wind_v, trem_ph; svf_t ch; uint32_t ns; } organ_t;
 /* MONO: one oscillator (saw, pulse, sub, noise), the scoop, delayed vibrato and drift */
 typedef struct { float ph, sub, scoop, vib_t, vib_ph, drift, drift_v; uint32_t ns; } mono_t;
+/* RESIN: a bowed string (BOW) or a reed and bore (HORN) in two waveguide segments that meet at the bow
+ * or the reed; its own vibrato, drift and QUAKE; a small body (three modes) or a throat filter */
+#define RS_BR 640                           /* the bridge (or bell) side: the short one */
+#define RS_NK 1024                          /* the nut (or bore) side: down to about 43 Hz */
+typedef struct {
+    int16_t br[RS_BR], nk[RS_NK];
+    int32_t wb, wk;
+    float lp, bow, dly, held;               /* the bridge's loss filter, the bow (or breath) now, the reed's memory, time held */
+    float vib_ph, vib_env, drift, drift_v, quiv, quiv_v, jit, jit_v, gph, sq, sq_t;   /* vibrato, drift, quiver, pressure jitter, growl, squeal */
+    float body[3][2], hp, click;            /* the body's modes; air's high pass; a key click */
+    svf_t thr;                              /* HORN's throat */
+    uint32_t ns;
+} resin_t;
 /* LOGIC: three sources, the smoothing, and the grains' memory (the voice's own last 23 ms) */
 #define RV_LOGIC_BUF 1024
 typedef struct {
@@ -108,7 +121,7 @@ typedef struct {
     float lpg;
     float last;
     uint32_t rng;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; } e;
 } voice_t;
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */

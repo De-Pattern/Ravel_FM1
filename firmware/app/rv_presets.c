@@ -60,6 +60,22 @@ static const int8_t p_fmgrowl[] = {TP_S0, 1, TP_S1, 96, TP_S3, 1, TP_S4, 5, TP_S
                                     TP_CUT, 70, TP_RES, 40, TP_EFILT, 30, TP_POLY, 0, TP_PITCH, -12, TP_DRIVE, 40, TP_LEVEL, 108, END};
 static const int8_t p_string[] = {TP_S0, 0, TP_S1, 92, TP_S2, 20, TP_S3, 22, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
                                    TP_ATK, 0, TP_DEC, 110, TP_SUS, 127, TP_REL, 96, TP_REVS, 40, TP_LEVEL, 83, END};
+/* RESIN: the bowed string and the reed, pushed toward breaking down */
+#define RS_OPEN TP_FTYPE, FT_LP, TP_CUT, 122, TP_RES, 10, TP_EFILT, 0
+static const int8_t p_wraith[] = {TP_S0, 0, TP_PITCH, -12, TP_S1, 95, TP_S2, 38, TP_S3, 30, TP_S4, 70, TP_S6, 108, TP_S7, 110, TP_S8, 66,
+                                  TP_S9, 77, TP_S10, 70, TP_S11, 61, TP_S12, 30, TP_S13, 54, TP_S14, 60, TP_S15, 25, RS_OPEN,
+                                  TP_ATK, 83, TP_SUS, 127, TP_REL, 107, TP_REVS, 50, TP_LEVEL, 100, END};
+static const int8_t p_upstairs[] = {TP_S0, 0, TP_S1, 91, TP_S2, 48, TP_S3, 20, TP_S4, 55, TP_S5, 74, TP_S6, 80, TP_S7, 15, TP_S8, 57,
+                                    TP_S9, 60, TP_S10, 20, TP_S11, 36, TP_S12, 55, TP_S13, 30, TP_S14, 70, TP_S15, 30, RS_OPEN,
+                                    TP_POLY, 0, TP_GLIDE, 34, TP_ATK, 60, TP_SUS, 127, TP_REL, 80, TP_REVS, 30, TP_LEVEL, 100, END};
+static const int8_t p_violin[] = {TP_S0, 0, TP_S1, 70, TP_S2, 50, TP_S3, 22, TP_S4, 15, TP_S6, 80, TP_S7, 10, TP_S8, 55, TP_S9, 35,
+                                  TP_S10, 60, TP_S11, 20, RS_OPEN, TP_ATK, 55, TP_SUS, 127, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 100, END};
+static const int8_t p_foghorn[] = {TP_S0, 1, TP_PITCH, -12, TP_S1, 104, TP_S2, 86, TP_S3, 40, TP_S4, 44, TP_S5, 57, TP_S6, 40, TP_S7, 100,
+                                   TP_S8, 40, TP_S9, 10, TP_S10, 90, TP_S11, 30, TP_S12, 25, TP_S13, 30, TP_S14, 60, TP_S15, 23, RS_OPEN,
+                                   TP_ATK, 40, TP_SUS, 127, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 78, END};
+static const int8_t p_throatsax[] = {TP_S0, 1, TP_PITCH, -12, TP_S1, 90, TP_S2, 70, TP_S3, 30, TP_S4, 90, TP_S5, 30, TP_S6, 90, TP_S7, 70,
+                                     TP_S8, 60, TP_S9, 25, TP_S10, 40, TP_S11, 25, TP_S12, 45, TP_S13, 20, TP_S14, 50, TP_S15, 40, RS_OPEN,
+                                     TP_ATK, 30, TP_SUS, 127, TP_REL, 60, TP_REVS, 30, TP_LEVEL, 100, END};
 static const int8_t p_bowed[] = {TP_S0, 1, TP_S1, 70, TP_S4, 110, TP_S7, 110, TP_S6, 60, TP_FTYPE, FT_LP, TP_CUT, 110, TP_EFILT, 0,
                                   TP_ATK, 56, TP_SUS, 116, TP_REL, 76, TP_GIVE, 30, TP_REVS, 60, TP_LEVEL, 66, END};
 static const int8_t p_breath[] = {TP_S0, 2, TP_S1, 60, TP_S4, 96, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 100, TP_EFILT, 10, TP_ATK, 40,
@@ -266,6 +282,9 @@ static const rv_preset presets[] = {
     {"RESO SWEEP", KIND_SYNTH, ENG_CZ, p_czreso, &cz_reso}, {"CZ BASS", KIND_SYNTH, ENG_CZ, p_czbass, &cz_bass},
     {"NOISE HIT", KIND_SYNTH, ENG_CZ, p_cznoise, &cz_noise}, {"FM PIANO", KIND_SYNTH, ENG_FM, p_fmep, 0}, {"FM BELLS", KIND_SYNTH, ENG_FM, p_fmbell, 0},
     {"FM GROWL", KIND_SYNTH, ENG_FM, p_fmgrowl, 0}, {"STRING", KIND_SYNTH, ENG_PHYS, p_string, 0}, {"BOWED", KIND_SYNTH, ENG_PHYS, p_bowed, 0},
+    {"WRAITH", KIND_SYNTH, ENG_RESIN, p_wraith, 0}, {"UPSTAIRS", KIND_SYNTH, ENG_RESIN, p_upstairs, 0},
+    {"RESIN VIOLIN", KIND_SYNTH, ENG_RESIN, p_violin, 0}, {"FOGHORN", KIND_SYNTH, ENG_RESIN, p_foghorn, 0},
+    {"THROAT SAX", KIND_SYNTH, ENG_RESIN, p_throatsax, 0},
     {"BREATH", KIND_SYNTH, ENG_PHYS, p_breath, 0}, {"MEMBRANE", KIND_SYNTH, ENG_PHYS, p_membrane, 0}, {"VOWEL", KIND_SYNTH, ENG_FORMANT, p_vowel, 0},
     {"CHOIR FOF", KIND_SYNTH, ENG_FORMANT, p_fof, 0}, {"PULSAR", KIND_SYNTH, ENG_PARTICLE, p_pulsar, 0}, {"SWARM", KIND_SYNTH, ENG_PARTICLE, p_swarm, 0},
     {"DUST VOICE", KIND_SYNTH, ENG_PARTICLE, p_dustvoice, 0},

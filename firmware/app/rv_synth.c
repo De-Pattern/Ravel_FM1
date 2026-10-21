@@ -918,7 +918,7 @@ static void form_render(voice_t *v, const float *eff, float f, float *out, int n
                 svf_tick(&s->f[k], src, &bp, 0);
                 y += bp * vowel_gain[k];
             }
-            out[i] = y * 0.9f;
+            out[i] = y * 0.6f;
         }
     }
 }
@@ -1771,6 +1771,7 @@ static void voice_engine_reset(voice_t *v, int eng)
     case ENG_PHYS: v->e.ph.ns = v->rng | 1u; break;
     case ENG_FORMANT: v->e.fo.ns = v->rng | 1u; break;
     case ENG_PARTICLE: v->e.pa.ns = v->rng | 1u; break;
+    case ENG_RESIN: v->e.rs.ns = v->rng | 1u; break;
     default: break;
     }
     v->e_eng = (uint8_t)(eng + 1);
@@ -1799,11 +1800,199 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
     v->on = 1;
 }
 
+/* -------------------------------------------------------------- RESIN --- */
+/* Two acoustic instruments pushed toward breaking down. BOW is a bowed string: two segments of
+ * waveguide meet at the bow, which grips and slips by a friction curve; PRESS and ROSIN shape the
+ * curve, SPEED is the bow's, SCRAPE puts noise into the slips (so it follows the bow, not the
+ * output), HARMON leans toward the octave's flageolet, BODY rings three modes scaled by SIZE
+ * (violin to cello). HORN is a reed and a bore (after STK's saxophone): breath against a reed
+ * table, the bore in two segments (BORE sets where), GROWL a sung tone fed into the breath so it
+ * meets the reed, MULTI a second, inharmonic reflection that pushes it into multiphonics, THROAT a
+ * resonance, KEYS a click at each note, AIR the breath's noise. Both carry their own vibrato (RATE,
+ * DEPTH, an ONSET it grows in over), a slow DRIFT, and QUAKE: the instability inside the sound,
+ * pressure that wavers, pitch that quivers, grit, squeals, breakup. */
+#define RS_BOW_GAIN 0.5f
+
+static void resin_note(voice_t *v, const float *eff, int legato)
+{
+    resin_t *s = &v->e.rs;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    if (!legato) {
+        s->vib_env = 0.0f;
+        s->held = 0.0f;
+    }
+    if ((int)(eff[TP_S0] + 0.5f) == 1)                /* HORN: the keys clack */
+        s->click = eff[TP_S14] * (1.0f / 127.0f) * (0.4f + 0.6f * v->vel);
+}
+
+/* a wandering value: noise leaking toward 0 at rate k (per second), about +-1 */
+static inline void rs_wander(float *x, float *xv, uint32_t *ns, float k, float dt)
+{
+    *xv += (xs_bi(ns) * 1.7f - *xv) * fm_minf(1.0f, k * dt * 2.0f);
+    *x += (*xv - *x) * fm_minf(1.0f, k * dt);
+}
+
+static inline float rs_read(const int16_t *b, int len, int w, float d)
+{
+    int di = (int)d, r0 = w - di, r1;
+    float fr = d - (float)di;
+    if (r0 < 0)
+        r0 += len;
+    r1 = r0 - 1;
+    if (r1 < 0)
+        r1 += len;
+    return (b[r0] + (b[r1] - b[r0]) * fr) * (1.0f / 16000.0f);
+}
+
+static void resin_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    resin_t *s = &v->e.rs;
+    int horn = (int)(eff[TP_S0] + 0.5f) == 1, i, k;
+    float dt = (float)n * RV_DT, q = eff[TP_S12] * (1.0f / 127.0f), cents, per, tot, lpc, lpd, db, dn, atk, att, rel;
+    float vrate = 3.0f + eff[TP_S8] * (6.0f / 127.0f), vdep = eff[TP_S9] * (60.0f / 127.0f);
+    float onset = 0.02f + eff[TP_S10] * eff[TP_S10] * (2.5f / 16129.0f), size = eff[TP_S7] * (1.0f / 127.0f);
+    if ((uint32_t)s->wb >= RS_BR || (uint32_t)s->wk >= RS_NK)   /* (after another engine had the voice) */
+        s->wb = s->wk = 0;
+    if (!(s->bow == s->bow) || fm_fabsf(s->bow) > 4.0f || !(s->lp == s->lp))
+        s->bow = s->lp = s->dly = 0.0f;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    /* the movers, once a block */
+    if (v->a.gate) {
+        s->held += dt;
+        s->vib_env = fm_minf(1.0f, s->vib_env + dt / onset);
+    }
+    s->vib_ph += vrate * dt * (1.0f + 0.06f * s->drift);
+    s->vib_ph -= fm_floorf(s->vib_ph);
+    rs_wander(&s->drift, &s->drift_v, &s->ns, 0.6f, dt);
+    rs_wander(&s->quiv, &s->quiv_v, &s->ns, 11.0f, dt);
+    rs_wander(&s->jit, &s->jit_v, &s->ns, 7.0f, dt);
+    cents = vdep * s->vib_env * sin_lut(s->vib_ph) + eff[TP_S11] * (25.0f / 127.0f) * s->drift + q * q * 22.0f * s->quiv;
+    f *= fm_exp2f(cents * (1.0f / 1200.0f));
+    s->sq *= fm_expf(-dt / 0.08f);                    /* QUAKE's squeals: now and then the string jumps up */
+    if (!horn && q > 0.3f && v->a.gate && (xs32(&s->ns) & 0xFFFF) < (uint32_t)(q * q * q * dt * 4.0f * 65536.0f))
+        s->sq = 0.6f + 0.4f * q;
+    per = 44100.0f / (f > 20.0f ? f : 20.0f);
+    atk = 0.004f + eff[TP_S13] * eff[TP_S13] * (1.5f / 16129.0f);   /* BOW ATK / ATTACK: how fast the bow (breath) builds */
+    att = 1.0f - fm_expf(-1.0f / (atk * 44100.0f));
+    rel = 1.0f - fm_expf(-1.0f / (0.03f * 44100.0f));
+    if (!horn) {
+        float press = clampf(eff[TP_S1] * (1.0f / 127.0f) + q * 0.25f + q * 0.35f * s->jit, 0.0f, 1.0f);   /* QUAKE leans on the bow too */
+        float speed = (0.04f + eff[TP_S2] * (0.28f / 127.0f)) * (0.6f + 0.4f * v->vel) * (1.0f + q * 0.3f * s->quiv);
+        float slope = 5.5f - press * 4.2f, offset = 0.9f - eff[TP_S14] * (0.35f / 127.0f);
+        float scrape = clampf(eff[TP_S4] * (1.0f / 127.0f) + q * 0.5f, 0.0f, 1.0f), hiss = eff[TP_S15] * (1.0f / 127.0f);
+        float harm = clampf(eff[TP_S5] * (1.0f / 127.0f) + s->sq, 0.0f, 1.0f), body = eff[TP_S6] * (1.0f / 127.0f);
+        float beta = 0.04f + eff[TP_S3] * (0.4f / 127.0f), breakup = press > 0.7f ? (press - 0.7f) * 3.3f : 0.0f;
+        float fs = fm_exp2f(-size * 1.7f), b1[3], b2[3], half;
+        static const float bf[3] = {290.0f, 470.0f, 1150.0f}, bg[3] = {1.0f, 0.7f, 0.45f};
+        for (k = 0; k < 3; k++) {                     /* the body's three modes, scaled by SIZE */
+            float r = fm_exp2f(-1.0f / (0.035f * 44100.0f) * 1.44f), fr = bf[k] * fs;
+            b1[k] = r * fm_cosf(6.2831853f * fr * RV_DT);
+            b2[k] = r * fm_sinf(6.2831853f * fr * RV_DT);
+        }
+        lpc = 0.62f + 0.3f * (1.0f - size);
+        lpd = (1.0f - lpc) / lpc;
+        tot = per - lpd;
+        if (tot > (float)(RS_NK - 3))
+            tot = (float)(RS_NK - 3);
+        db = clampf(tot * beta, 1.5f, (float)(RS_BR - 3));
+        dn = clampf(tot - db, 1.5f, (float)(RS_NK - 3));
+        half = clampf(db + per * 0.5f, 2.0f, (float)(RS_BR - 3));
+        for (i = 0; i < n; i++) {
+            float a0, a1, brr, nr, sv, dv, bt, nv, slip, y, nz = xs_bi(&s->ns), bo = 0.0f;
+            a0 = rs_read(s->br, RS_BR, s->wb, db);
+            a1 = rs_read(s->nk, RS_NK, s->wk, dn);
+            s->lp += (a0 - s->lp) * lpc;
+            brr = -s->lp * 0.995f;                    /* the bridge reflects, with loss */
+            nr = -a1;                                 /* the nut */
+            sv = brr + nr;
+            s->bow += ((v->a.gate ? speed : 0.0f) - s->bow) * (v->a.gate ? att : rel);
+            dv = s->bow - sv;
+            bt = fm_fabsf(dv * slope) + offset;
+            bt = 1.0f / (bt * bt * bt * bt);
+            if (bt > 1.0f)
+                bt = 1.0f;
+            if (breakup > 0.0f)                       /* past a point the grip turns erratic */
+                bt *= 1.0f + breakup * 0.6f * nz;
+            slip = 1.0f - bt;
+            nv = dv * bt + nz * scrape * slip * 0.12f * (0.4f + press);   /* SCRAPE: noise in the slips */
+            s->nk[s->wk] = (int16_t)clampf((brr + nv) * 16000.0f, -32760.0f, 32760.0f);
+            s->br[s->wb] = (int16_t)clampf((nr + nv) * 16000.0f, -32760.0f, 32760.0f);
+            s->wb = s->wb + 1 >= RS_BR ? 0 : s->wb + 1;
+            s->wk = s->wk + 1 >= RS_NK ? 0 : s->wk + 1;
+            y = a0;
+            if (harm > 0.01f)                         /* HARMON: the octave's flageolet, the odd partials thinned */
+                y = (a0 * (1.0f - harm) + harm * 0.5f * (a0 + rs_read(s->br, RS_BR, s->wb, half))) * (1.0f + 1.6f * harm);
+            for (k = 0; k < 3; k++) {                 /* the body */
+                float re = b1[k] * s->body[k][0] - b2[k] * s->body[k][1] + y * bg[k] * 0.012f;
+                float im = b2[k] * s->body[k][0] + b1[k] * s->body[k][1];
+                s->body[k][0] = re;
+                s->body[k][1] = im;
+                bo += im;
+            }
+            {
+                float hn = nz - s->hp;                /* HISS: the hair on the string */
+                s->hp += (nz - s->hp) * 0.25f;
+                y += hn * hiss * s->bow * 0.9f;
+            }
+            out[i] = (y + body * bo) * RS_BOW_GAIN;
+        }
+        return;
+    }
+    {   /* HORN */
+        float breath = (0.3f + eff[TP_S1] * (0.8f / 127.0f)) * (0.7f + 0.3f * v->vel) * (1.0f + q * 0.3f * s->jit);
+        float rs = eff[TP_S2] * (1.0f / 127.0f), slope = 0.18f + rs * 0.3f + q * 0.08f * s->quiv, offset = 0.62f + rs * 0.2f;
+        float pos = 0.12f + eff[TP_S3] * (0.35f / 127.0f), growl = clampf(eff[TP_S4] * (1.0f / 127.0f) + q * 0.25f, 0.0f, 1.0f);
+        float multi = clampf(eff[TP_S5] * (1.0f / 127.0f) + q * 0.4f, 0.0f, 1.0f), air = eff[TP_S15] * (1.0f / 127.0f);
+        float gf = f * (0.5f + 0.012f * s->drift + 0.02f * q * s->quiv), drive = 1.0f + q * 2.5f + breath;
+        float dm;
+        svf_set(&s->thr, 250.0f * fm_exp2f(eff[TP_S6] * (3.0f / 127.0f)), 2.5f);   /* THROAT: 250 Hz to 2 kHz */
+        lpc = 0.85f - size * 0.5f;
+        lpd = (1.0f - lpc) / lpc;
+        tot = per - lpd;
+        if (tot > (float)(RS_NK - 3))
+            tot = (float)(RS_NK - 3);
+        db = clampf(tot * pos, 1.5f, (float)(RS_BR - 3));
+        dn = clampf(tot - db, 1.5f, (float)(RS_NK - 3));
+        dm = clampf(dn * 0.62f, 1.5f, (float)(RS_NK - 3));
+        for (i = 0; i < n; i++) {
+            float a0, a1, tmp, last, pd, rt, br, nz = xs_bi(&s->ns), bp, y;
+            s->bow += ((v->a.gate ? breath : 0.0f) - s->bow) * (v->a.gate ? att : rel);
+            s->gph += gf * RV_DT;
+            s->gph -= fm_floorf(s->gph);
+            br = s->bow * (1.0f + growl * 0.7f * sin_lut(s->gph)) * (1.0f + air * 0.2f * nz);   /* GROWL meets the reed */
+            a1 = rs_read(s->nk, RS_NK, s->wk, dn);
+            a0 = rs_read(s->br, RS_BR, s->wb, db);
+            s->lp += (a1 - s->lp) * lpc;
+            tmp = -0.95f * s->lp;
+            if (multi > 0.01f)                        /* MULTI: a second, inharmonic reflection */
+                tmp += multi * 0.32f * rs_read(s->nk, RS_NK, s->wk, dm);
+            last = tmp - a0;
+            pd = br - last;
+            rt = clampf(offset + slope * pd, -1.0f, 1.0f);   /* the reed opens and closes */
+            s->br[s->wb] = (int16_t)clampf(tmp * 16000.0f, -32760.0f, 32760.0f);
+            s->nk[s->wk] = (int16_t)clampf((br - pd * rt - tmp) * 16000.0f, -32760.0f, 32760.0f);
+            s->wb = s->wb + 1 >= RS_BR ? 0 : s->wb + 1;
+            s->wk = s->wk + 1 >= RS_NK ? 0 : s->wk + 1;
+            svf_tick(&s->thr, last, &bp, 0);
+            y = last + bp * 0.6f + air * 0.05f * nz * s->bow;
+            y *= drive;                               /* pressure and QUAKE push it into saturation */
+            y = y / (1.0f + fm_fabsf(y));
+            if (s->click > 0.0005f) {                 /* KEYS */
+                y += s->click * (nz * 0.6f + 0.4f);
+                s->click *= 0.994f;
+            }
+            out[i] = y * 0.6f;
+        }
+    }
+}
+
 #include "rv_zplane.h"
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 1.000f, 2.213f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 static float sem_m;
@@ -1833,6 +2022,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_LOGIC: logic_render(v, eff, f, buf, n); break;
     case ENG_ORGAN: organ_render(v, eff, f, buf, n); break;
     case ENG_MONO: mono_render(v, eff, f, buf, n); break;
+    case ENG_RESIN: resin_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the FILTER ENV (SQ: its own ENV 2), the key */

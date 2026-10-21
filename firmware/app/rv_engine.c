@@ -306,6 +306,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             logic_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_ORGAN)
             organ_note(vo, tr->eff);
+        else if (rv.tp[t][TP_ENGINE] == ENG_RESIN)
+            resin_note(vo, tr->eff, legato);
         else if (rv.tp[t][TP_ENGINE] == ENG_MONO)
             mono_note(vo, tr->eff, legato);
     } else if (kind == KIND_STRIKE) {
