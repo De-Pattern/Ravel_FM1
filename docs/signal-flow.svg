@@ -5,7 +5,7 @@
       <path d="M0 0L10 5L0 10z" fill="#8a8f98"/>
     </marker>
     <marker id="sf-arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10z" fill="#2b8a99"/>
+      <path d="M0 0L10 5L0 10z" fill="#4f7466"/>
     </marker>
   </defs>
 
@@ -16,9 +16,9 @@
   <text x="24" y="60" font-size="12" fill="#8c998f">Synthesize, catch, reshape. Every track can act on every other, and any track can be any kind.</text>
 
   <!-- influence band -->
-  <rect x="24" y="92" width="40" height="344" rx="8" fill="#62b8cb" fill-opacity="0.16" stroke="#62b8cb" stroke-width="2"/>
+  <rect x="24" y="92" width="40" height="344" rx="8" fill="#689280" fill-opacity="0.18" stroke="#689280" stroke-width="2"/>
   <text x="44" y="264" transform="rotate(-90 44 264)" text-anchor="middle" font-weight="600" fill="#dde5de">Influence</text>
-  <g fill="none" stroke="#2b8a99" stroke-width="1.5">
+  <g fill="none" stroke="#4f7466" stroke-width="1.5">
     <path d="M64 136H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
     <path d="M64 230H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
     <path d="M64 314H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
@@ -27,18 +27,19 @@
 
   <!-- tracks -->
   <g fill="#171d1a" stroke="#4a564f" stroke-width="1.25">
-    <rect x="96" y="92" width="300" height="88" rx="8"/>
+    <rect x="96" y="92" width="300" height="98" rx="8"/>
     <rect x="96" y="198" width="300" height="64" rx="8"/>
     <rect x="96" y="366" width="300" height="64" rx="8"/>
   </g>
-  <rect x="96" y="282" width="300" height="64" rx="8" fill="#c43e4c" fill-opacity="0.12" stroke="#c43e4c" stroke-width="1.5"/>
+  <rect x="96" y="282" width="300" height="64" rx="8" fill="#831c29" fill-opacity="0.28" stroke="#9a2a37" stroke-width="1.5"/>
   <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4 · fourteen engines</text>
   <text x="112" y="140" font-size="12" fill="#8c998f">VA, CZ, FM, PHYS, FORMANT, PARTICLE,</text>
-  <text x="112" y="158" font-size="12" fill="#8c998f">CHIP, SQ, WAVE, LOGIC, ORGAN, MONO</text>
+  <text x="112" y="158" font-size="12" fill="#8c998f">CHIP, SQ, WAVE, LOGIC, ORGAN, MONO,</text>
+  <text x="112" y="176" font-size="12" fill="#8c998f">RESIN, TINE</text>
   <text x="112" y="223" font-weight="600" fill="#dde5de">Strike  T5, T6</text>
   <text x="112" y="245" font-size="12" fill="#8c998f">exciter into modes, strings, pings</text>
   <text x="112" y="307" font-weight="600" fill="#dde5de">Perc  any track</text>
-  <text x="112" y="329" font-size="12" fill="#c7a0a5">33 drum machines; a kit of six lanes on one track</text>
+  <text x="112" y="329" font-size="12" fill="#c9a2a7">33 drum machines; a kit of six lanes on one track</text>
   <text x="112" y="391" font-weight="600" fill="#dde5de">Tape  T7, T8</text>
   <text x="112" y="413" font-size="12" fill="#8c998f">MLR playheads, Beads grains, slices</text>
 
@@ -50,17 +51,18 @@
   <text x="456" y="202" font-size="12" fill="#8c998f">Feedback bus</text>
   <text x="456" y="228" font-size="12" fill="#8c998f">Filter pair</text>
   <text x="456" y="254" font-size="12" fill="#8c998f">Delay: tape or grains</text>
-  <text x="456" y="280" font-size="12" fill="#8c998f">Space: room or clouds</text>
-  <text x="456" y="306" font-size="12" fill="#8c998f">Master drive, punch-ins</text>
+  <text x="456" y="280" font-size="12" fill="#8c998f">Space: room, clouds,</text>
+  <text x="456" y="297" font-size="12" fill="#8c998f">blackhole, 12-bit</text>
+  <text x="456" y="323" font-size="12" fill="#8c998f">Master drive, punch-ins</text>
 
   <!-- master -->
   <rect x="664" y="237" width="112" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
   <text x="720" y="265" text-anchor="middle" font-weight="600" fill="#dde5de">Master out</text>
 
   <!-- tape -->
-  <rect x="440" y="476" width="200" height="64" rx="8" fill="#d69a58" fill-opacity="0.16" stroke="#d69a58" stroke-width="2"/>
+  <rect x="440" y="476" width="200" height="64" rx="8" fill="#ded2b8" fill-opacity="0.12" stroke="#ded2b8" stroke-width="2"/>
   <text x="456" y="501" font-weight="600" fill="#dde5de">Capture tape</text>
-  <text x="456" y="523" font-size="12" fill="#c9b08e">120 KB, 4 rows, 1.4 to 5.5 s</text>
+  <text x="456" y="523" font-size="12" fill="#cfc4a8">120 KB, 4 rows, 1.4 to 5.5 s</text>
 
   <!-- connections -->
   <g fill="none" stroke="#8a8f98" stroke-width="1.25">

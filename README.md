@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape tracks feed the mixer and buses; the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape tracks feed the mixer and buses (the space reverb: room, clouds, blackhole or 12-bit); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
