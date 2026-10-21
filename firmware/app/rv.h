@@ -217,7 +217,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 15                /* 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 16                /* 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -266,7 +266,12 @@ typedef struct {
     rv_kit kit[RV_TRACKS];                 /* (format 7) after that */
     rv_kitlock kitlk[RV_TRACKS][RV_KITLOCKS];   /* (format 8) then the kits' locks */
     uint8_t scene_tempo[RV_SCENES];        /* (format 10) the tempo a scene sets, 0 = it keeps the tempo */
+    uint8_t kit_rate[RV_TRACKS][RV_LANES]; /* (format 16) each kit lane's rate against the track's (rv_lane_rate; 0 = the same) */
 } rv_project;
+/* a kit lane's rate: knob value 0..8 = 1/4, 1/3, 1/2, 2/3, 1, 3/2, 2, 3, 4 times the track's; stored so that 0 is 1 */
+#define RV_LRATE_KNOB(s) (((s) + 4) % 9)
+#define RV_LRATE_STORE(v) (((v) + 5) % 9)
+extern const char *const rv_lrate_names[];
 #define RV_ARR_END 16                      /* an arrangement row's scene: the song stops there */
 
 extern rv_project rv;                      /* the project being played */

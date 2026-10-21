@@ -23,6 +23,7 @@ static const char *const fg_names[] = {"OFF", "RISE", "FALL", "ARCH", "DECAY", "
 static const char *const comb_names[] = {"x CLOCK", "+ CLOCK"};
 static const char *const target_names[] = {"THIS", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const rate_names[] = {"1/4", "1/3", "1/2", "2/3", "1", "3/2", "2", "3", "4"};
+const char *const rv_lrate_names[] = {"X1/4", "X1/3", "X1/2", "X2/3", "TRK", "X3/2", "X2", "X3", "X4"};   /* a kit lane's, against the track's */
 static const char *const clksrc_names[] = {"MASTER", "LFO1", "LFO2", "DUST"};
 static const char *const branch_names[] = {"CHANCE", "TURNS", "LFO1", "LFO2", "MOTION"};
 static const char *const onoff_names[] = {"OFF", "ON"};
@@ -935,6 +936,7 @@ void rv_kit_init(int t)
         for (i = 0; i < 8; i++)
             k->p[l][i] = (uint8_t)(perc_pi[m[l]][i].name ? perc_pi[m[l]][i].def : 0);
         k->level[l] = 100;
+        rv.kit_rate[t & 7][l] = 0;
         k->len[l] = 0;
         k->chance[l] = 100;
     }

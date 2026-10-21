@@ -30,7 +30,7 @@ static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_S
 /* knob bindings: what a knob in the row stands for */
 enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK };   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
-enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
+enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
 enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END, CZF_SLOT0 };   /* CZF_SLOT0-3: an envelope page's knobs, by OCT row; RATE/LEVEL carry their stage in bits 9-11 */
 enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC };
@@ -154,7 +154,7 @@ static const page_t pages[] = {
     {SEC_TAPE, V_BEADS, PIC_TAPE, PR_SOUND, "BEADS 2", {TP(TP_S10), TP(TP_S11), TP(TP_S12), TP(TP_S13)}},
     {SEC_TAPE, V_SLICE, PIC_TAPE, PR_SOUND, "SLICES", {TP(TP_S14), TP(TP_S15), TP(TP_PITCH), TP(TP_LEVEL)}},
 
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_CHANCE), GP(GP_SWING)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
@@ -328,7 +328,7 @@ static void sx_note(char *o, int n)
 static int lane_field(int id)
 {
     static const uint8_t rows[3][4] = {{LF_P0, LF_P0 + 1, LF_P0 + 2, LF_P0 + 3}, {LF_P0 + 4, LF_P0 + 5, LF_P0 + 6, LF_P0 + 7},
-                                       {LF_LEVEL, LF_CHANCE, LF_LEN, LF_NONE}};
+                                       {LF_LEVEL, LF_CHANCE, LF_LEN, LF_RATE}};
     return id >= LF_SLOT0 ? rows[ui.lane_row % 3][(id - LF_SLOT0) & 3] : id;
 }
 
@@ -703,6 +703,7 @@ static kinfo_t kb_info(kb_t k)
             r.name = "LENGTH"; r.max = RV_STEPS; r.fmt = PF_ENUM; r.names = ln; break;
         }
         case LF_CHANCE: r.name = "CHANCE"; r.max = 100; break;
+        case LF_RATE: r.name = "RATE"; r.max = 8; r.fmt = PF_ENUM; r.names = rv_lrate_names; break;
         default:
             r.name = perc_pi[m][(lane_field(k.id) - LF_P0) & 7].name;
             r.max = 127;
@@ -859,6 +860,7 @@ static int kb_get(kb_t k)
         case LF_LEVEL: return kt->level[l];
         case LF_LEN: return kt->len[l];
         case LF_CHANCE: return kt->chance[l];
+        case LF_RATE: return RV_LRATE_KNOB(rv.kit_rate[ui.track][l] % 9);
         default: return kt->p[l][(f - LF_P0) & 7];
         }
     }
@@ -1147,6 +1149,7 @@ static void kb_set(kb_t k, int v)
         case LF_LEVEL: kt->level[l] = (uint8_t)v; break;
         case LF_LEN: kt->len[l] = (uint8_t)v; break;
         case LF_CHANCE: kt->chance[l] = (uint8_t)v; break;
+        case LF_RATE: rv.kit_rate[ui.track][l] = (uint8_t)RV_LRATE_STORE(v); break;
         default: kt->p[l][(f - LF_P0) & 7] = (uint8_t)v; break;
         }
         break;
@@ -3418,7 +3421,11 @@ static void pic_drum(void)
         nb[4] = 0;
         if (l == sel)
             g_fill(0, y - 2, 240, 19, C_O_PANEL);
-        g_text(4, y + 2, &FONT_XS, nb, lc);
+        if (rv.kit_rate[t][l] % 9) {                  /* a lane at its own rate: its name and the rate, stacked */
+            g_text(4, y - 1, &FONT_T, nb, lc);
+            g_text(4, y + 8, &FONT_T, rv_lrate_names[RV_LRATE_KNOB(rv.kit_rate[t][l] % 9)], l == sel ? C_INK : C_O_MID);
+        } else
+            g_text(4, y + 2, &FONT_XS, nb, lc);
         for (i = 0; i < 16; i++) {
             int si = ui.step_page * 16 + i, x = 40 + i * 12;
             const rv_step *s = &p->s[si];
@@ -3458,7 +3465,7 @@ static void pic_lane(void)
     }
     g_text(8, PIC_Y + 22, &FONT_B, perc_mnames[m], C_PERC);
     g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
-    for (i = 0; i < 11; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH */
+    for (i = 0; i < 12; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH, RATE */
         int row = i < 4 ? 0 : i < 8 ? 1 : 2, col = i % 2, x = 6 + col * 118, y = PIC_Y + 46 + (i / 2) * 13;
         int lit = row == ui.lane_row % 3, v, mx = 127;
         const char *nm;
@@ -3467,10 +3474,10 @@ static void pic_lane(void)
             nm = perc_pi[m][i].name;
             v = kt->p[l][i];
         } else {
-            static const char *const extra[3] = {"LEVEL", "CHANCE", "LENGTH"};
+            static const char *const extra[4] = {"LEVEL", "CHANCE", "LENGTH", "RATE"};
             nm = extra[i - 8];
-            v = i == 8 ? kt->level[l] : i == 9 ? kt->chance[l] : kt->len[l];
-            mx = i == 9 ? 100 : i == 10 ? RV_STEPS : 127;
+            v = i == 8 ? kt->level[l] : i == 9 ? kt->chance[l] : i == 10 ? kt->len[l] : RV_LRATE_KNOB(rv.kit_rate[t][l] % 9);
+            mx = i == 9 ? 100 : i == 10 ? RV_STEPS : i == 11 ? 8 : 127;
         }
         if (!nm)
             continue;
@@ -3484,6 +3491,8 @@ static void pic_lane(void)
         vb[0] = 0;
         if (i == 10 && v == 0)
             sx_cat(vb, "TRK");
+        else if (i == 11)
+            sx_cat(vb, rv_lrate_names[v % 9]);
         else
             sx_int(vb, v);
         g_text_r(x + 114, y, &FONT_XS, vb, lit ? C_INK : C_O_DIM);

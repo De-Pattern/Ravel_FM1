@@ -15,10 +15,10 @@ typedef struct {
     char name[RV_BANK_NAME];
     uint8_t used, kind, engine, rsv;
     int16_t tp[RV_TP];
-    union { rv_cz cz; rv_kit kit; } x;
+    union { rv_cz cz; rv_kit kit; struct { rv_kit kit; uint8_t rate[RV_LANES]; } kr; } x;   /* kr: a kit with its lanes' rates (version 7) */
 } rv_sound;
 typedef struct {
-    uint32_t magic, version;                       /* 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
+    uint32_t magic, version;                       /* 7: kit lanes' rates; 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
     rv_sound s[RV_BANK_N];
 } rv_bank_t;
 /* the first bank's old shape (version 1), read once to move it to bank A; and versions 2-5, with 96
@@ -64,7 +64,7 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 6;
+    bank.version = 7;
 }
 
 /* a sound's track parameters past the 96 it was kept with: their defaults */
@@ -105,8 +105,10 @@ static void bank_upgrade(void)
             }
             if (bank.version < 5 && bank.s[i].tp[TP_DRIVE] == 10)   /* the old default DRIVE: clean */
                 bank.s[i].tp[TP_DRIVE] = 0;
+            if (bank.version < 7 && bank_is_kit(bank.s[i].kind, bank.s[i].engine))   /* lanes at the track's rate */
+                __builtin_memset(bank.s[i].x.kr.rate, 0, RV_LANES);
         }
-    bank.version = 6;
+    bank.version = 7;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -136,7 +138,7 @@ static void bank_from_v1(void)
 static int bank_read(int b)
 {
     int n = plat_load(PLAT_BANK0 + b, &bankmem, sizeof bankmem);
-    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 6)
+    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 7)
         return 0;
     if (bank.version < 6) {                            /* 96 track parameters a sound: spread out */
         if (n != (int)sizeof(rv_bank_96))
@@ -145,7 +147,7 @@ static int bank_read(int b)
     } else if (n != (int)sizeof bank)
         return 0;
     __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
-    if (bank.version < 6)                              /* (kept as version 6 the next time it is written) */
+    if (bank.version < 7)                              /* (kept as version 7 the next time it is written) */
         bank_upgrade();
     return 1;
 }
@@ -223,9 +225,10 @@ int rv_bank_store(int t, int i, const char *name)
         return -1;
     s = &bank.s[i];
     __builtin_memcpy(s->tp, rv.tp[t & 7], sizeof s->tp);
-    if (bank_is_kit(rv.tp[t & 7][TP_KIND], rv.tp[t & 7][TP_ENGINE]))
-        s->x.kit = rv.kit[t & 7];
-    else
+    if (bank_is_kit(rv.tp[t & 7][TP_KIND], rv.tp[t & 7][TP_ENGINE])) {
+        s->x.kr.kit = rv.kit[t & 7];
+        __builtin_memcpy(s->x.kr.rate, rv.kit_rate[t & 7], RV_LANES);
+    } else
         s->x.cz = rv.cz[t & 7];
     s->kind = (uint8_t)rv.tp[t & 7][TP_KIND];
     s->engine = (uint8_t)rv.tp[t & 7][TP_ENGINE];
@@ -252,9 +255,10 @@ int rv_bank_apply(int t, int i)
     for (p = 0; p < TP_N; p++)
         if (bank_sound_param(p))
             rv.tp[t & 7][p] = s->tp[p];
-    if (bank_is_kit(s->kind, s->engine))
-        rv.kit[t & 7] = s->x.kit;
-    else if (bank_is_cz(s->kind, s->engine))
+    if (bank_is_kit(s->kind, s->engine)) {
+        rv.kit[t & 7] = s->x.kr.kit;
+        __builtin_memcpy(rv.kit_rate[t & 7], s->x.kr.rate, RV_LANES);
+    } else if (bank_is_cz(s->kind, s->engine))
         rv.cz[t & 7] = s->x.cz;
     if (was_kit != bank_is_kit(s->kind, s->engine)) {  /* lanes and notes don't read each other's steps */
         int pt = rv.pat_cur[t & 7];

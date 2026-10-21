@@ -204,4 +204,15 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   check(Math.abs(rv.web_eff(0, PAN) - rv.web_tp(0, PAN)) < 0.5, 'and at F AMT 0 it leaves PAN alone');
   rv.rv_set_keys(0); rv.rv_run(300);
 }
+{                                                           // a kit lane at its own rate: twice as fast, half as fast, as fast as the track
+  rv.rv_boot(); rv.rv_run(250);
+  rv.web_set_kind(3, 3, 1);                                   // T4: a PERC kit
+  for (let st = 0; st < 16; st++) for (let l = 0; l < 3; l++) rv.web_kit_hit(3, st, l);
+  rv.web_kit_rate(3, 0, 6); rv.web_kit_rate(3, 1, 2);        // lane 1 x2, lane 2 x1/2, lane 3 the track's
+  rv.web_transport(1);
+  const adv = [0, 0, 0], last = [-1, -1, -1];                // lane steps walked (a lane at x2 plays two in each of the track's)
+  for (let k = 0; k < 200; k++) { rv.rv_run(10); for (let l = 0; l < 3; l++) { const s = rv.web_lane_step(3, l); if (s !== last[l]) { if (last[l] >= 0) adv[l] += (s - last[l] + 16) % 16; last[l] = s; } } }
+  rv.web_transport(0); rv.rv_run(100);
+  check(adv[2] > 8 && Math.abs(adv[0] / adv[2] - 2) < 0.3 && Math.abs(adv[1] / adv[2] - 0.5) < 0.2, `lane rates: x2, x1/2 and the track's walk ${adv[0]}, ${adv[1]} and ${adv[2]} steps in 2 s`);
+}
 process.exit(fails ? 1 : 0);

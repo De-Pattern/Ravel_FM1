@@ -20,6 +20,8 @@ static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
     int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
+    if (f < 16)
+        n -= (int)sizeof(rv.kit_rate);                /* no lane rates before format 16 */
     if (f >= 10)
         return n;
     n -= (int)sizeof(rv.scene_tempo);                 /* no scene tempos before format 10 */
@@ -131,6 +133,8 @@ int rv_load(int slot)
     n = old_size(f);
     if (plat_load(slot, &rv, (uint32_t)n) != n)
         return -1;
+    if (f <= 15)                                       /* (format 16) every kit lane at the track's rate */
+        __builtin_memset(rv.kit_rate, 0, sizeof(rv.kit_rate));
     if (f <= 14)                                       /* (fewer track parameters, or globals): spread out */
         upgrade_layout(f, n);
     if (f <= 8) {

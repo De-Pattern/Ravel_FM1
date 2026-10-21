@@ -256,3 +256,6 @@ EXPORT(web_sysex_out_clear) void web_sysex_out_clear(void) { sx_out_n = 0; }
 EXPORT(web_storage_changed) void web_storage_changed(int slot) { ui_storage_changed(slot); }   /* (an imported file, written straight in) */
 EXPORT(web_mat_dst) int web_mat_dst(int i) { return rv.mat[i & 7].dst; }   /* (tests) */
 EXPORT(web_eff) float web_eff(int t, int p) { return rv_param_eff(t & 7, p); }   /* a track parameter as modulation has it now (tests) */
+EXPORT(web_kit_rate) void web_kit_rate(int t, int l, int v) { rv.kit_rate[t & 7][l % RV_LANES] = (uint8_t)RV_LRATE_STORE(v); }   /* (tests) v: 0..8, 4 = the track's */
+EXPORT(web_kit_hit) void web_kit_hit(int t, int s, int l) { rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[s & 63]; p->flags |= ST_ON; p->note |= (uint8_t)(1u << l); p->vel = 100; p->chance = 100; }
+EXPORT(web_lane_step) int web_lane_step(int t, int l) { return rv_live.lane_step[t & 7][l % RV_LANES]; }

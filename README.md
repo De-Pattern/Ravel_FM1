@@ -152,10 +152,10 @@ The ten sections:
 <p align="center"><img src="docs/manual/voice-source.png" alt="The SOURCE 1 page of a VA synth track" width="320"></p>
 
 - **Top bar:**
-  - **left:** the track (T1–T8, coloured by kind: blue synth, orange strike, amber tape), its kind and engine;
-  - **right:** the page title.
-- **Value row:** four names and values, which are always KNOB 1, 2, 3 and 4 in that order. A bar under each shows where it sits in its range; bipolar values have a centre mark. A value written as `-` means that knob does nothing on this page.
-- **Picture:** what the page does, drawn live (a waveform, a filter curve, the step grid, the graph, the tape).
+  - **left:** the track (T1–T8, its badge coloured by kind: white synth, slate strike, verdigris tape, maroon perc), its kind and engine;
+  - **right:** the page title, and on the FM-1 the audio load (**CPU 43%** with a thin bar, held a moment at its peak; amber from 75%, red from 90%). The emulator doesn't measure it, so it doesn't show there.
+- **Value row:** a strip divided into four cells, one for each physical knob, always KNOB 1, 2, 3 and 4 in that order. Each cell has a small dial, the name and the value, and a bar showing where it sits in its range; bipolar values have a centre mark. An empty cell keeps its dividers, so you can see which knobs do something on the page. A greyed name and value means that knob does nothing with the track set as it is.
+- **Picture:** what the page does, drawn live (a waveform, a filter curve, the step grid, the graph, the tape). Tracks keep their kind's colour in the pictures (their meters, waves and steps); what belongs to no one track (the buses, the graph's two heads, the two WAVE tables) is drawn in white and greys with bone and verdigris.
 - **Footer:**
   - **left:** what the controls do *right now*. It changes when you hold a button, so read it whenever you are unsure.
   - **right:** small dots, one per page in the section, with the current one lit.
@@ -589,11 +589,12 @@ A PERC track has two MODEs (EDIT › SOUND, KNOB 2). It starts as a **KIT**: six
 
 A PERC track starts as a **KIT**: six **lanes**, each its own machine with its own sound, all sequenced together on that one track, so a full rhythm takes one track and leaves the others free. The kit's six sounds live inside the track: they are its lanes, not other tracks. (MODE SINGLE turns the track back into one machine played by notes. Changing MODE, or turning a track into or out of a kit by KIND or a preset, starts its steps clean, since notes and lane hits can't read each other; if the track has steps, the first turn only warns, and turning again after a moment does it.)
 
-**Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. On EDIT, **black keys 3–8** jump straight to lanes 1–6 (in other sections they do nothing on a kit) (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE and LENGTH, each with its bar and value.
+**Editing a kit: one page per lane.** Each of the six sounds is edited like a track of its own, on EDIT › **LANE 1** to **LANE 6**. On EDIT, **black keys 3–8** jump straight to lanes 1–6 (in other sections they do nothing on a kit) (black keys 1 and 2 stay patterns A and B). A LANE page shows tabs for the six lanes, the lane's machine and family, and every setting it has, in one list like a file browser's details view: the machine's eight parameters, then LEVEL, CHANCE, LENGTH and RATE, each with its bar and value.
 
 - **PRESETS chooses the lane's machine** (any of the 33; each loads its own defaults).
-- **The knobs work through the list a row at a time**: OCT- and OCT+ move the knobs to the next group (parameters 1–4, parameters 5–8, then LEVEL, CHANCE and LENGTH). The rows the knobs are on are lit and numbered 1–4 in the list.
+- **The knobs work through the list a row at a time**: OCT- and OCT+ move the knobs to the next group (parameters 1–4, parameters 5–8, then LEVEL, CHANCE, LENGTH and RATE). The rows the knobs are on are lit and numbered 1–4 in the list.
 - LEVEL is the lane's level in the kit. CHANCE is how likely the lane plays its hits. LENGTH is the lane's own loop (TRK follows the track's LENGTH; any other length runs against it: a 12-step hat over a 16-step kick shifts every bar).
+- **RATE** is the lane's own speed against the track's: X1/4, X1/3, X1/2, X2/3, TRK (the track's), X3/2, X2, X3 or X4. A hat at X2 runs through its steps twice as fast as the kick (sixteenths over eighths, or 32nds as rolls); a lane at X2/3 or X3/2 plays triplets against straight steps; X1/2 stretches a lane's pattern over twice the time. Each lane keeps its own place, wrapping at its own LENGTH, and its hits fall between the track's steps where the rate puts them. Lanes at a rate of their own play forward. The DRUM page marks a lane's rate under its name when it isn't TRK.
 - **Shared by the whole kit:** EDIT › **KIT FX** (AMD, AMF, EQF, EQG) and **KIT FILTER** (FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, MIX and SENDS. A kit has no PITCH or synth FILTER page: each machine has its own pitch and tone.
 
 **SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps LENGTH, RATE and CLOCK. A kit's ratchets are set per lane on DRUM STEP only.
@@ -603,12 +604,13 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | CHANCE | SWING (the same as GLO › CLOCK's) |
+| **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | RATE of the lane, against the track's (as on its LANE page) | CHANCE |
 | **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step (1 = no roll; lanes rolling on one step share the count) |
 
 - **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
 - **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). With REC armed, what you play is recorded into the lanes.
 - A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
+- **SWING** is on GLO › CLOCK (it was DRUM's fourth knob before lanes had their own RATE).
 - **Presets:** TRX KIT (kick, snare, hats, clap, rim; the kit a new PERC track starts with), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
 
 - **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
@@ -1256,9 +1258,15 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
 | Punch-in effects | Hold FX + white 1–8 |
-| Record | Tap REC, then PLAY |
+| Record | Tap REC, then PLAY (on SEQ pages the keys then play notes; hold SEQ for steps) |
+| Name a project | SAVE › PROJECT, KNOB 2 cursor, KNOB 3 letter |
 | Save | SAVE, choose slot and action, SAVE twice |
 | Keep or load a sound | SAVE › SOUNDS (SELECT), KNOB 4 bank, PRESETS slot, KNOB 1 = SAVE or LOAD, SAVE |
+| Move projects and sounds to an FM-1 | Emulator: Export file / Send to FM-1; or `tools/fm1_data.py restore FILE` |
+| A per-track LFO | ENV › FENV LOOP: F LOOP on; FENV ROUTE: F DEST and F AMT |
+| One row of the matrix moving another | LFO › MATRIX: TRACK = MATRIX, PARAM = ROW n |
+| A kit lane faster or slower | SEQ › DRUM, KNOB 3 RATE (or the lane's LANE page) |
+| Choose a kit lane's machine | EDIT › LANE n (black keys 3–8), PRESETS |
 
 ## 19. Questions people ask
 
@@ -1372,7 +1380,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **RAM:** the platform uses about 45 KB of the 96 KB main RAM; the instrument's state (the 120 KB tape, voices, buses) about 280 KB of the 336 KB pool.
 - **Storage:** eight project slots of 32 KB in the flash's data area; the panel calibration beside them.
 - **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too. Ravel does not act on incoming MIDI yet.
-- **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block).
+- **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
 - **Not in this version:** Bluetooth, audio input, tape punch-in.
 - **Beads on the FM-1:** grain mode only (no delay mode, which the delay bus covers), reading the shared tape. The emulator and simulator use the same options.
 

@@ -300,11 +300,24 @@ static void kit_fire(int t, int si, uint32_t when)
     float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant = rv.gp[GP_QUANT] * 0.01f;
     float density = rv.arcs[t][song_bar & 15];
     for (l = 0; l < RV_LANES; l++) {
-        int len = k->len[l] ? clampi(k->len[l], 1, RV_STEPS) : tlen, li, cnt, curve, sw;
+        /* the lane's rate against the track's (num / den): in this track step it plays the lane steps
+         * that fall in it, each at its own time; at the track's rate, just this step */
+        static const uint8_t num[9] = {1, 1, 1, 2, 1, 3, 2, 3, 4}, den[9] = {4, 3, 2, 3, 1, 2, 1, 1, 1};
+        int ri = RV_LRATE_KNOB(rv.kit_rate[t][l] % 9), len = k->len[l] ? clampi(k->len[l], 1, RV_STEPS) : tlen;
+        uint32_t n = sq[t].travelled[0] - 1u, k0, k1, kk;
+        if (ri == 4) {
+            k0 = n;
+            k1 = n + 1u;
+        } else {
+            k0 = (n * num[ri] + den[ri] - 1u) / den[ri];
+            k1 = ((n + 1u) * num[ri] + den[ri] - 1u) / den[ri];
+        }
+        for (kk = k0; kk < k1; kk++) {
+        int li, cnt, curve, sw;
         const rv_step *s;
-        float chance;
+        float chance, lofs = ri == 4 ? 0.0f : ((float)(kk * den[ri]) / (float)num[ri] - (float)n) * sd;
         event_t e;
-        li = len == tlen ? si : (int)((sq[t].travelled[0] - 1u) % (uint32_t)len);
+        li = ri == 4 && len == tlen ? si : (int)(kk % (uint32_t)len);
         rv_live.lane_step[t][l] = (int8_t)li;
         s = &pt->s[li];
         if (!(s->flags & ST_ON) || !((s->note >> l) & 1))
@@ -316,8 +329,8 @@ static void kit_fire(int t, int si, uint32_t when)
             continue;
         if (density < 100 && (float)step_rank(li) >= density * 0.16f)
             continue;
-        sw = ((sq[t].travelled[0] - 1u) & 1u) ? rv.gp[GP_SWING] - 50 : 0;   /* the offbeat in time, not the step's number */
-        e.when = when + (uint32_t)(((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
+        sw = (kk & 1u) ? rv.gp[GP_SWING] - 50 : 0;    /* the offbeat in time, not the step's number */
+        e.when = when + (uint32_t)((lofs + ((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick) * RV_FS + (float)sw * 0.02f * sd * RV_FS);
         e.track = (uint8_t)t;
         e.chain = (uint16_t)(1u << t);
         e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);   /* the pattern and step its locks are found under */
@@ -338,8 +351,9 @@ static void kit_fire(int t, int si, uint32_t when)
             on.vel = (uint8_t)(((s->env >> l) & 1) ? 127 : clampi(s->vel ? s->vel : 100, 1, 110));   /* accent */
             if ((s->ratchet & 32) && cnt > 1)
                 on.vel = (uint8_t)clampi((int)((float)on.vel * (1.0f - 0.6f * u)), 1, 127);
-            on.when = e.when + (uint32_t)(u * sd * RV_FS);
+            on.when = e.when + (uint32_t)(u * sd * RV_FS * (ri == 4 ? 1.0f : (float)den[ri] / (float)num[ri]));
             ev_push(&on);
+        }
         }
     }
 }
