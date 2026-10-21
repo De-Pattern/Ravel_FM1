@@ -34,7 +34,7 @@ static int g_y0, g_y1;
 #define C_KDIV RGB(48, 51, 56)              /* its dividers, one between each physical knob */
 #define C_KTRACK RGB(38, 41, 46)            /* a knob bar's empty track on the strip */
 #define C_KOFF RGB(64, 67, 72)              /* a greyed knob's name and value on the strip */
-#define C_K1 RGB(91, 143, 214)
+#define C_K1 RGB(158, 136, 206)            /* a pale, deep purple */
 #define C_K2 RGB(93, 190, 142)
 #define C_K3 RGB(230, 230, 226)
 #define C_K4 RGB(196, 62, 76)              /* the perc red */
@@ -44,20 +44,20 @@ static int g_y0, g_y1;
 #define C_O_DIM RGB(86, 100, 91)
 #define C_O_MID RGB(140, 153, 143)
 /* the track kinds' badges: the colours they always had, deeper */
-#define C_SYNTH_D RGB(44, 104, 115)
+#define C_SYNTH_D RGB(30, 46, 100)
 #define C_STRIKE_D RGB(134, 73, 46)
 #define C_TAPE_D RGB(126, 98, 48)
 #define C_PERC_D RGB(120, 37, 50)
 #define C_AMBER RGB(214, 154, 88)
 #define C_AMBER_D RGB(110, 80, 48)
-#define C_TEAL RGB(98, 184, 203)
-#define C_TEAL_D RGB(42, 84, 94)
+#define C_TEAL RGB(60, 93, 197)             /* the accent: a deep blue */
+#define C_TEAL_D RGB(30, 46, 98)
 #define C_RED RGB(222, 92, 80)
 #define C_TRIG RGB(236, 206, 108)
 #define C_EXC RGB(228, 112, 74)
 #define C_CLOCK RGB(160, 132, 222)
 #define C_RING RGB(222, 122, 182)
-#define C_SYNTH RGB(112, 192, 206)
+#define C_SYNTH RGB(60, 93, 197)
 #define C_STRIKE RGB(226, 134, 94)
 #define C_TAPE RGB(214, 154, 88)
 #define C_PERC RGB(196, 62, 76)            /* a deep red, apart from the tape's amber and the strike's orange */
