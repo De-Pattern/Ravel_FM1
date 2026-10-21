@@ -2,7 +2,7 @@
 /* Ravel: drawing. The screen is drawn in bands of GB_H rows: the UI paints the whole frame
  * once per band, every primitive clipped to it, and each band is sent to the panel as soon as
  * it is done. No full-screen buffer: 19 KB instead of 113 KB.
- * Fonts: Space Grotesk, 2-bit anti-aliased (tools/gen_rv_font.py). Lines and discs are anti-aliased
+ * Fonts: Rubik, 4-bit anti-aliased (tools/gen_rv_font.py). Lines and discs are anti-aliased
  * (each pixel covered by how much of the stroke falls on it), so the drawing reads as drawn. */
 #include "rv.h"
 
@@ -10,7 +10,7 @@ typedef struct {
     uint8_t h, first, last;
     const uint8_t *adv;
     const int8_t *bx;          /* where the bitmap starts, from the pen */
-    const uint8_t *bw;         /* bitmap width; rows of (bw + 3) / 4 bytes, 2 bits a pixel */
+    const uint8_t *bw;         /* bitmap width; rows of (bw + 1) / 2 bytes, 4 bits a pixel */
     const uint16_t *off;
     const uint8_t *data;
 } rv_font_t;
@@ -30,6 +30,10 @@ static int g_y0, g_y1;
 #define C_INK RGB(236, 236, 234)
 #define C_WHITE RGB(255, 255, 255)
 /* the four knobs' colours: the part of a drawing a knob moves is drawn in its colour */
+#define C_KPANEL RGB(19, 20, 22)            /* the knob strip: a shade off black, with grain */
+#define C_KDIV RGB(48, 51, 56)              /* its dividers, one between each physical knob */
+#define C_KTRACK RGB(38, 41, 46)            /* a knob bar's empty track on the strip */
+#define C_KOFF RGB(64, 67, 72)              /* a greyed knob's name and value on the strip */
 #define C_K1 RGB(91, 143, 214)
 #define C_K2 RGB(93, 190, 142)
 #define C_K3 RGB(230, 230, 226)
@@ -70,6 +74,32 @@ static inline void g_pset(int x, int y, uint16_t c)
 {
     if ((unsigned)x < PLAT_W && y >= g_y0 && y < g_y1)
         gb[(y - g_y0) * PLAT_W + x] = c;
+}
+
+/* a fill with a fixed grain: each pixel nudged a step lighter or darker by a hash of where it is,
+ * so the surface reads as a material rather than a flat colour (the same grain every frame) */
+static void g_grain(int x, int y, int w, int h, uint16_t c)
+{
+    int x1 = x + w, y1 = y + h, i, j;
+    uint16_t lo = (uint16_t)(c - 0x0821u), hi = (uint16_t)(c + 0x0821u);   /* one step down, one up, in each channel */
+    if (x < 0)
+        x = 0;
+    if (x1 > PLAT_W)
+        x1 = PLAT_W;
+    if (y < g_y0)
+        y = g_y0;
+    if (y1 > g_y1)
+        y1 = g_y1;
+    for (j = y; j < y1; j++) {
+        uint16_t *p = gb + (j - g_y0) * PLAT_W;
+        for (i = x; i < x1; i++) {
+            uint32_t hsh = (uint32_t)i * 374761393u + (uint32_t)j * 668265263u;
+            hsh = (hsh ^ (hsh >> 13)) * 1274126177u;
+            hsh ^= hsh >> 16;
+            hsh &= 7u;
+            p[i] = hsh == 0u ? lo : hsh >= 6u ? hi : c;
+        }
+    }
 }
 
 static void g_fill(int x, int y, int w, int h, uint16_t c)
@@ -268,8 +298,6 @@ static uint32_t g_glyph(const rv_font_t *f, uint32_t ch)
     return ch - f->first;
 }
 
-static const uint8_t alpha2[4] = {0, 5, 10, 15};
-
 static int g_text(int x, int y, const rv_font_t *f, const char *s, uint16_t c)
 {
     if (y + f->h < g_y0 || y >= g_y1) {
@@ -278,7 +306,7 @@ static int g_text(int x, int y, const rv_font_t *f, const char *s, uint16_t c)
         return x;
     }
     for (; *s; s++) {
-        uint32_t gi = g_glyph(f, (uint8_t)*s), gx, gy, w = f->bw[gi], bpr = (w + 3u) / 4u;
+        uint32_t gi = g_glyph(f, (uint8_t)*s), gx, gy, w = f->bw[gi], bpr = (w + 1u) / 2u;
         const uint8_t *gd = f->data + f->off[gi];
         for (gy = 0; gy < f->h && w; gy++) {
             int py = y + (int)gy;
@@ -287,11 +315,11 @@ static int g_text(int x, int y, const rv_font_t *f, const char *s, uint16_t c)
                 continue;
             row = gb + (py - g_y0) * PLAT_W;
             for (gx = 0; gx < w; gx++) {
-                uint32_t a = (gd[gy * bpr + gx / 4u] >> (6u - 2u * (gx & 3u))) & 3u;
+                uint32_t a = (gd[gy * bpr + gx / 2u] >> ((gx & 1u) ? 0u : 4u)) & 15u;
                 int px = x + f->bx[gi] + (int)gx;
                 if (!a || (unsigned)px >= PLAT_W)
                     continue;
-                row[px] = a == 3u ? c : g_blend(row[px], c, alpha2[a]);
+                row[px] = a == 15u ? c : g_blend(row[px], c, a);
             }
         }
         x += f->adv[gi];

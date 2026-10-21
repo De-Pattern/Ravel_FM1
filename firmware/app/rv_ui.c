@@ -2132,7 +2132,7 @@ static void draw_top(void)
 static void knob_draw(int i, const char *name, const char *val, int v, int mn, int mx, uint16_t lc, uint16_t vc, int grey)
 {
     int x = i * 60;
-    uint16_t kc = grey ? C_LINE : knob_col[i], ring = grey ? C_LINE : g_mix(C_BG, kc, 0.45f);
+    uint16_t kc = grey ? C_KOFF : knob_col[i], ring = grey ? C_KDIV : g_mix(C_KPANEL, kc, 0.45f);
     float frac = mx > mn ? (float)(v - mn) / (float)(mx - mn) : 0.0f, an = (135.0f + 270.0f * clampf(frac, 0.0f, 1.0f)) * (3.14159265f / 180.0f);
     const rv_font_t *fv = &FONT_B;
     g_ring(x + 10.0f, 29.5f, 4.6f, 1.2f, ring);
@@ -2143,7 +2143,7 @@ static void knob_draw(int i, const char *name, const char *val, int v, int mn, i
     if (g_text_w(fv, val) > 56)
         fv = &FONT_T;
     g_text_c(x + 30, fv == &FONT_B ? 38 : fv == &FONT_XS ? 40 : 42, fv, val, vc);
-    g_rbox(x + 6, 60, 48, 2, 1, C_LINE, 1);
+    g_rbox(x + 6, 60, 48, 2, 1, C_KTRACK, 1);
     if (grey || mx <= mn)
         return;
     if (mn < 0 && mx > 0) {
@@ -2165,6 +2165,11 @@ static void draw_knobs(void)
     uint32_t btn = plat_buttons();
     int held = held_step();
     g_fill(0, 22, 240, 52, C_BG);
+    g_grain(0, 22, 240, 47, C_KPANEL);                /* the knob strip, one cell per physical knob */
+    g_hline(0, 22, 240, C_KDIV);
+    g_hline(0, 68, 240, C_KDIV);
+    for (i = 1; i < 4; i++)
+        g_vline(i * 60, 25, 41, C_KDIV);              /* the dividers stay where a cell is empty */
     for (i = 0; i < 4; i++) {
         int v;
         kb_t k = page_knob(pg, i);
@@ -2191,7 +2196,7 @@ static void draw_knobs(void)
                 val[0] = '-';
                 val[1] = 0;
             }
-            knob_draw(i, in.name, val, v, in.min, in.max, C_LINE, g_mix(C_BG, C_DIM, 0.6f), 1);
+            knob_draw(i, in.name, val, v, in.min, in.max, C_KOFF, C_KOFF, 1);
             continue;
         }
         v = kb_get(k);
@@ -2212,7 +2217,6 @@ static void draw_knobs(void)
         kb_format(k, v, val);
         knob_draw(i, in.name, val, v, in.min, in.max, lc, vc, 0);
     }
-    g_hline(6, 72, 228, C_LINE);
 }
 
 static void draw_footer(void)
@@ -2324,6 +2328,20 @@ static void draw_footer(void)
 }
 
 /* --- pictures --- */
+/* a meter: a rounded track of height th whose bottom is at y + th, filled from the bottom to
+ * frac in colour c; the fill keeps its rounded cap, shrinking to a dot near zero */
+static void meter_bar(int x, int y, int w, int th, float frac, uint16_t track, uint16_t c)
+{
+    int h = (int)(clampf(frac, 0.0f, 1.0f) * (float)th + 0.5f);
+    g_rbox(x, y, w, th, w / 2, track, 1);
+    if (h <= 0)
+        return;
+    if (h < w)                                        /* too short for both caps: a dot that grows */
+        g_rbox(x + (w - h) / 2, y + th - h, h, h, h / 2, c, 1);
+    else
+        g_rbox(x, y + th - h, w, h, w / 2, c, 1);
+}
+
 static void pic_scope(int t, int y0, int h, uint16_t c)
 {
     int i, prev = y0 + h / 2;
@@ -2349,19 +2367,15 @@ static void pic_tracks(void)
         uint16_t kc = kind_col(t);
         uint8_t muted = (rv.mute >> t) & 1u;
         if (t == ui.track)
-            g_fill(x + 1, PIC_Y, 28, 124, C_PANEL);
+            g_rbox(x + 2, PIC_Y, 26, 122, 6, C_PANEL, 1);
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
         g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : "TAP", muted ? C_DIM : kc);
-        /* level meter */
-        g_fill(x + 9, PIC_Y + 36, 5, 60, C_LINE);
-        h = (int)(clampf(fm_sqrtf(rv_live.meter[t]), 0.0f, 1.0f) * 60.0f);
-        g_fill(x + 9, PIC_Y + 96 - h, 5, h, muted ? C_DIM : C_TEAL);
-        /* articulation */
-        g_fill(x + 16, PIC_Y + 36, 3, 60, C_LINE);
-        h = (int)(clampf(rv_live.env[t], 0.0f, 1.0f) * 60.0f);
-        g_fill(x + 16, PIC_Y + 96 - h, 3, h, C_AMBER);
+        /* the level, in the track's colour, and beside it the articulation (its envelope) */
+        meter_bar(x + 6, PIC_Y + 32, 11, 66, fm_sqrtf(rv_live.meter[t]), C_LINE, muted ? C_DIM : kc);
+        meter_bar(x + 19, PIC_Y + 32, 6, 66, rv_live.env[t], C_LINE, muted ? C_DIM : g_mix(kc, C_INK, 0.55f));
+        (void)h;
         /* step */
         if (rv_live.step[t][0] >= 0) {
             char s[4];
@@ -2745,18 +2759,17 @@ static void pic_mix(void)
     g_disc(x, PIC_Y + 30, 6, C_TEAL);
     g_text(20, PIC_Y + 40, &FONT_T, "L", C_DIM);
     g_text_r(220, PIC_Y + 40, &FONT_T, "R", C_DIM);
-    h = (int)(clampf(fm_sqrtf(rv_live.meter[t]), 0.0f, 1.0f) * 70.0f);
-    g_fill(110, PIC_Y + 60, 20, 70, C_LINE);
-    g_fill(110, PIC_Y + 130 - h, 20, h, C_TEAL);
+    h = 0;
+    (void)h;
+    meter_bar(108, PIC_Y + 58, 24, 72, fm_sqrtf(rv_live.meter[t]), C_PANEL, C_TEAL);
     {
         static const int sends[6] = {TP_FBS, TP_PAIRS, TP_BANDS, TP_DLYS, TP_REVS, TP_VOC};
         static const char *const sn[6] = {"FB", "PAIR", "BND", "DLY", "SPC", "VOC"};
         int i;
         for (i = 0; i < 6; i++) {
-            int sx = i < 3 ? 14 + i * 30 : 148 + (i - 3) * 28, sh = rv.tp[t][sends[i]] * 50 / 127;
-            g_fill(sx, PIC_Y + 80, 10, 50, C_LINE);
-            g_fill(sx, PIC_Y + 130 - sh, 10, sh, C_AMBER);
-            g_text(sx - 2, PIC_Y + 66, &FONT_T, sn[i], C_DIM);
+            int sx = i < 3 ? 12 + i * 30 : 146 + (i - 3) * 30;
+            meter_bar(sx, PIC_Y + 80, 12, 50, rv.tp[t][sends[i]] / 127.0f, C_PANEL, C_AMBER);
+            g_text_c(sx + 6, PIC_Y + 66, &FONT_T, sn[i], C_DIM);
         }
     }
 }
@@ -3170,9 +3183,10 @@ static void pic_bands(void)
     int k;
     for (k = 0; k < 8; k++) {
         int x = 12 + k * 28, full = rv.gp[GP_BAND1 + k] * 96 / 127, now = (int)(clampf(rv_live.band_g[k], 0.0f, 1.0f) * 96.0f);
-        g_fill(x, PIC_Y + 104 - 96, 20, 96, C_LINE);
-        g_frame(x, PIC_Y + 104 - full, 20, full > 0 ? full : 1, C_TEAL_D);
-        g_fill(x + 3, PIC_Y + 104 - now, 14, now, C_TEAL);
+        g_rbox(x + 1, PIC_Y + 8, 18, 96, 9, C_PANEL, 1);
+        if (full > 0)                                 /* the band's setting: a ring as tall as it is */
+            g_rbox(x + 1, PIC_Y + 104 - (full > 18 ? full : 18), 18, full > 18 ? full : 18, 9, C_TEAL_D, 1);
+        meter_bar(x + 4, PIC_Y + 11, 12, 90, (float)now / 96.0f, full > 0 ? C_TEAL_D : C_PANEL, C_TEAL);
         g_text_c(x + 10, PIC_Y + 110, &FONT_XS, hz[k], C_DIM);
     }
 }
@@ -3181,34 +3195,42 @@ static void pic_delay(void)
 {
     int i;
     float fb = rv.gp[GP_DLYFB] / 127.0f, a = 1.0f;
-    for (i = 0; i < 8; i++) {
-        int h = (int)(a * 90.0f);
-        g_fill(20 + i * 26, PIC_Y + 110 - h, 8, h, i & 1 ? C_AMBER : C_TEAL);
+    g_hline(8, PIC_Y + 107, 224, C_LINE);
+    for (i = 0; i < 8; i++) {                         /* the repeats, each fainter, left and right in turn */
+        int x = 10 + i * 28, h = (int)(a * 96.0f);
+        uint16_t c = i & 1 ? C_AMBER : C_TEAL;
+        g_rbox(x, PIC_Y + 10, 20, 96, 10, C_PANEL, 1);
+        if (h >= 20)
+            g_rbox(x, PIC_Y + 106 - h, 20, h, 10, c, 1);
+        else if (h > 1)
+            g_rbox(x + (20 - h) / 2, PIC_Y + 106 - h, h, h, h / 2, c, 1);
+        g_text_c(x + 10, PIC_Y + 112, &FONT_T, i & 1 ? "R" : "L", i & 1 ? C_AMBER_D : C_TEAL_D);
         a *= fb;
     }
-    g_text(20, PIC_Y + 116, &FONT_T, "L      R      L      R", C_DIM);
 }
 
 static void pic_space(void)
 {
     int i;
     float sz = rv.gp[GP_REVSIZE] / 127.0f, d = rv.gp[GP_REVDAMP] / 127.0f;
-    for (i = 0; i < 56; i++) {
-        float a = fm_expf(-(float)i / (4.0f + sz * 40.0f)) * (0.6f + 0.4f * sin_lut((float)i * 0.37f));
-        int h = (int)(a * 100.0f);
-        g_fill(8 + i * 4, PIC_Y + 110 - h, 3, h, g_mix(C_TEAL, C_TEAL_D, d * (float)i / 56.0f));
+    for (i = 0; i < 28; i++) {                        /* the reflections thinning into the tail */
+        float a = fm_expf(-(float)i / (2.0f + sz * 20.0f)) * (0.6f + 0.4f * sin_lut((float)i * 0.74f));
+        int h = (int)(a * 100.0f), x = 8 + i * 8;
+        uint16_t c = g_mix(C_TEAL, C_TEAL_D, d * (float)i / 28.0f);
+        if (h >= 6)
+            g_rbox(x, PIC_Y + 112 - h, 6, h, 3, c, 1);
+        else if (h > 1)
+            g_disc(x + 3, PIC_Y + 112 - h / 2, h / 2 + 1, c);
     }
 }
 
 static void pic_master(void)
 {
-    int hl = (int)(clampf(fm_sqrtf(rv_live.master_l), 0.0f, 1.0f) * 110.0f), hr = (int)(clampf(fm_sqrtf(rv_live.master_r), 0.0f, 1.0f) * 110.0f);
-    g_fill(90, PIC_Y + 10, 24, 110, C_LINE);
-    g_fill(126, PIC_Y + 10, 24, 110, C_LINE);
-    g_fill(90, PIC_Y + 120 - hl, 24, hl, hl > 100 ? C_RED : C_TEAL);
-    g_fill(126, PIC_Y + 120 - hr, 24, hr, hr > 100 ? C_RED : C_TEAL);
-    g_text_c(102, PIC_Y + 124, &FONT_T, "L", C_DIM);
-    g_text_c(138, PIC_Y + 124, &FONT_T, "R", C_DIM);
+    float l = fm_sqrtf(rv_live.master_l), r = fm_sqrtf(rv_live.master_r);
+    meter_bar(84, PIC_Y + 6, 28, 112, l, C_PANEL, l > 0.91f ? C_RED : C_TEAL);
+    meter_bar(128, PIC_Y + 6, 28, 112, r, C_PANEL, r > 0.91f ? C_RED : C_TEAL);
+    g_text_c(98, PIC_Y + 122, &FONT_T, "L", C_DIM);
+    g_text_c(142, PIC_Y + 122, &FONT_T, "R", C_DIM);
 }
 
 static void pic_scale(void)
@@ -3582,9 +3604,11 @@ static void pic_mixer(void)
         int x = 8 + t * 29, lv = rv.tp[t][TP_LEVEL] * 100 / 127, h = (int)(clampf(fm_sqrtf(rv_live.meter[t]), 0.0f, 1.0f) * 100.0f);
         char b[4];
         uint8_t muted = (rv.mute >> t) & 1u;
-        g_fill(x, PIC_Y + 6, 8, 100, C_LINE);
-        g_fill(x, PIC_Y + 106 - h, 8, h, muted ? C_DIM : C_TEAL);
-        g_fill(x + 11, PIC_Y + 106 - lv, 12, 3, kind_col(t));
+        if (t == ui.track)
+            g_rbox(x - 4, PIC_Y + 2, 28, 122, 6, C_PANEL, 1);
+        meter_bar(x, PIC_Y + 6, 10, 100, (float)h / 100.0f, C_LINE, muted ? C_DIM : kind_col(t));
+        g_rbox(x + 15, PIC_Y + 6, 2, 100, 1, C_LINE, 1);   /* the fader: a rail and a handle at its level */
+        g_rbox(x + 11, PIC_Y + 103 - lv, 10, 6, 3, t == ui.track ? C_WHITE : g_mix(kind_col(t), C_INK, 0.4f), 1);
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(x + 12, PIC_Y + 110, &FONT_XS, b, muted ? C_RED : t == ui.track ? C_WHITE : C_MID);
@@ -3599,12 +3623,12 @@ static void pic_scenes(void)
         const rv_scene *sc = &rv.scene[s];
         char b[4];
         uint16_t c = sc->used ? C_PANEL : C_BG;
-        g_fill(x, y, 24, 34, c);
-        g_frame(x, y, 24, 34, s == rv.scene_cur ? C_TEAL : s == ui.cur_scene ? C_MID : C_LINE);
+        g_rbox(x, y, 24, 34, 5, c, 1);
+        g_rbox(x, y, 24, 34, 5, s == rv.scene_cur ? C_TEAL : s == ui.cur_scene ? C_MID : C_LINE, 0);
         sx_int(b, s + 1);
         g_text_c(x + 12, y + 10, &FONT_XS, b, sc->used ? C_INK : C_DIM);
         if (sc->resample)
-            g_fill(x + 9, y + 26, 6, 3, C_AMBER);
+            g_rbox(x + 8, y + 26, 8, 3, 1, C_AMBER, 1);
     }
     g_text(10, PIC_Y + 92, &FONT_T, "WHITE KEYS LAUNCH ON THE BAR", C_DIM);
     g_text(10, PIC_Y + 104, &FONT_T, "HOLD SAVE + WHITE KEY TO STORE", C_DIM);
