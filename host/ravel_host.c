@@ -21,6 +21,7 @@
  *   expect gp NAME VALUE          a global parameter
  *   expect frozen 0|1             the tape is caught (1) or listening (0)
  *   expect page TITLE             the page on screen
+ *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
@@ -359,6 +360,18 @@ int main(int argc, char **argv)
                 float db = 20.0f * log10f(peak_out + 1e-9f);
                 if (db > atof(c)) {
                     printf("FAIL line %d: peak %.1f dB, expected at most %s dB\n", lineno, db, c);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "name")) {                 /* the project's name, or slot N's (1..7) */
+                char nm[13];
+                const char *have = rv.name;
+                if (w2[0]) {
+                    rv_slot_used(atoi(w2) - 1, nm);
+                    have = nm;
+                }
+                if (strcmp(have, w1)) {
+                    printf("FAIL line %d: name is \"%s\", expected \"%s\"\n", lineno, have, w1);
                     fails++;
                 }
                 continue;

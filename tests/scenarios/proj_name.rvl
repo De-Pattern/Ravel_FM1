@@ -1,0 +1,27 @@
+# SAVE > PROJECT: CURSOR and LETTER name the project; saving keeps the name with the slot
+wait 300
+tap SAVE
+wait 150
+expect page PROJECT
+turn K3 -40
+wait 100
+turn K3 1
+wait 100
+turn K3 1
+wait 100
+turn K3 1
+wait 100
+expect name CLANK
+turn K2 1
+wait 100
+turn K3 -40
+wait 100
+turn K3 1
+wait 100
+expect name CAANK
+shot proj_name.png
+tap SAVE
+wait 100
+tap SAVE
+wait 300
+expect name CAANK 1

@@ -177,7 +177,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
 
-    {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, NO, NO, NO}},
+    {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
 };
 #define NPAGES ((int)(sizeof(pages) / sizeof(pages[0])))
@@ -199,7 +199,7 @@ static struct {
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
     uint8_t key_trk[NKEYS];                  /* the track a key's note went to, + 1 (0: the key plays no note) */
-    uint8_t cur_route, cur_mat, cur_macro, cur_row, cur_arr, cur_arc, cur_scene, cur_slot, save_action;
+    uint8_t cur_route, cur_mat, cur_macro, cur_row, cur_arr, cur_arc, cur_scene, cur_slot, save_action, proj_cursor;
     uint16_t cur_lib;
     int16_t preset_idx[RV_TRACKS];
     char msg[24];
@@ -661,10 +661,16 @@ static kinfo_t kb_info(kb_t k)
         break;
     }
     case K_SAVE:
-        r.name = "ACTION";
-        r.max = 5;
-        r.fmt = PF_ENUM;
-        r.names = save_actions;
+        if (k.id == 0) {
+            r.name = "ACTION";
+            r.max = 5;
+            r.fmt = PF_ENUM;
+            r.names = save_actions;
+        } else {                                      /* the project's name: where, then which letter */
+            r.name = k.id == 1 ? "CURSOR" : "LETTER";
+            r.min = k.id == 1 ? 1 : 0;
+            r.max = k.id == 1 ? (int)sizeof rv.name - 1 : rv_bank_nchars() - 1;
+        }
         break;
     case K_BANK:                              /* SOUNDS: the action, then the name (a used slot's) */
         if (k.id == 0) {
@@ -855,7 +861,9 @@ static int kb_get(kb_t k)
         default: return kt->p[l][(f - LF_P0) & 7];
         }
     }
-    case K_SAVE: return ui.save_action;
+    case K_SAVE:
+        return k.id == 0 ? ui.save_action : k.id == 1 ? ui.proj_cursor + 1
+             : rv_bank_char_index(rv.name[ui.proj_cursor % (sizeof rv.name - 1)]);
     case K_BANK:
         return k.id == 0 ? ui.bank_action : k.id == 3 ? rv_bank_current() : k.id == 1 ? ui.bank_cursor + 1
              : rv_bank_char_index(rv_bank_name(ui.cur_sound)[ui.bank_cursor % (RV_BANK_NAME - 1)]);
@@ -1139,7 +1147,21 @@ static void kb_set(kb_t k, int v)
         break;
     }
     case K_SAVE:
-        ui.save_action = (uint8_t)v;
+        if (k.id == 0)
+            ui.save_action = (uint8_t)v;
+        else if (k.id == 1)
+            ui.proj_cursor = (uint8_t)(v - 1);
+        else {                                        /* a letter at the cursor (no holes before it; trailing spaces go) */
+            static const char bc[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+#&'.";
+            int pos = ui.proj_cursor % (int)(sizeof rv.name - 1), j;
+            rv.name[sizeof rv.name - 1] = 0;
+            for (j = 0; j < pos; j++)
+                if (!rv.name[j])
+                    rv.name[j] = ' ';
+            rv.name[pos] = bc[clampi(v, 0, (int)sizeof bc - 2)];
+            for (j = (int)sizeof rv.name - 2; j >= 0 && (rv.name[j] == ' ' || !rv.name[j]); j--)
+                rv.name[j] = 0;
+        }
         ui.save_confirm = 0;
         break;
     case K_BANK:
@@ -1178,7 +1200,7 @@ static void kb_format(kb_t k, int v, char *o)
         sx_note(o, 60 + v - 64);                    /* the comb's pitch: 64 = C4 */
         return;
     }
-    if (k.kind == K_BANK && k.id == 2) {      /* the letter at the cursor */
+    if ((k.kind == K_BANK || k.kind == K_SAVE) && k.id == 2) {      /* the letter at the cursor */
         static const char bc[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+#&'.";
         if (v <= 0)
             sx_cat(o, "SPACE");
@@ -3750,10 +3772,17 @@ static void pic_save(void)
         g_text(8, y, &FONT_XS, b, C_DIM);
         g_text(26, y, &FONT_XS, ui.slot_used[i] ? ui.slot_names[i] : "EMPTY", ui.slot_used[i] ? C_INK : C_DIM);
     }
-    {
-        char b[24] = "PLAYING: ";
-        sx_cat(b, rv.name);
-        g_text(130, PIC_Y + 2, &FONT_T, b, C_MID);
+    {   /* the project's name (CURSOR and LETTER edit it; SAVE keeps it with the slot) */
+        char b[16];
+        int k, x;
+        g_text(132, PIC_Y + 2, &FONT_T, "NAME", C_DIM);
+        g_text(132, PIC_Y + 14, &FONT_XS, rv.name[0] ? rv.name : "-", C_INK);
+        for (k = 0; k < ui.proj_cursor && k < (int)sizeof rv.name - 1; k++)
+            b[k] = rv.name[k] ? rv.name[k] : ' ';
+        b[k] = 0;
+        x = 132 + g_text_w(&FONT_XS, b);
+        g_fill(x, PIC_Y + 25, 7, 2, C_AMBER);
+        g_text(132, PIC_Y + 34, &FONT_T, "2: CURSOR  3: LETTER", C_DIM);
     }
 }
 
