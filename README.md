@@ -263,7 +263,7 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | --- | --- | --- | --- | --- |
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
-| **OSC MIX** | each oscillator's level, side by side: VA OSC LVL, SUB, NOISE · FM LEVEL1–4 · SQ LEVEL 1–3 · WAVE LEVEL 1, MIX · CHIP OSC LVL, SUB · MONO SAW, PULSE, SUB, NOISE | | | |
+| **OSC MIX** | each oscillator's level, side by side: VA OSC LVL, SUB, NOISE · FM LEVEL1–4 · SQ LEVEL 1–3 · WAVE LEVEL 1, ASIC · CHIP OSC LVL, SUB · MONO SAW, PULSE, SUB, NOISE | | | |
 
 OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
@@ -430,12 +430,14 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 | TABLE 1: osc 1's wavetable | SEMI 2: osc 2's interval, ±24 semitones | XMOD: OFF, SYNC (osc 2 restarts with osc 1), RING, FM (osc 1 bends osc 2's phase), SYNC+FM | WAVE ENV: OFF, or one of 32 shapes (PLUCK, SWELL, STAIRS and the rest) that sweeps both positions |
 | POS 1: where in the table (0–63) | DETUNE: osc 2 a little sharp | XM AMT: how much | WE AMT: how far it sweeps (±63 positions) |
 | TABLE 2: osc 2's wavetable | MIX: osc 1 to osc 2 (0 = osc 1 alone) | WARP: OFF, SYNC, BEND, PWM, MIRROR, REMAP 2, REMAP 4, SQUEEZE, FLIP, QUANT | WE TIME: one pass of the wave envelope |
-| POS 2 | SAT: the mixer's saturation | WARP AMT | ASIC: 0 smooth; 1–63 the positions step through 64 whole waves (the PPG's zipper); 64–127 raw, unsmoothed reading, a truncated phase and a coarser output (sizzle) |
+| POS 2 | SAT: the mixer's saturation | WARP AMT | VELO: velocity sensitivity (on WAVE it lives here; its place on SOUND holds MIX) |
 
 - **The tables:** PPG SWEEP (sine to saw, harmonic by harmonic), RESONANT (a resonant peak climbing), PULSE (wide to thin), SYNC (a synced sweep), VOICES (vowels), ORGAN (drawbar settings), BELLS, FORMANT, DIGITAL (bit patterns), SQR TO SAW, PARTIALS (one harmonic walking up), OCTAVES, FM (an index sweep), BRASS, STRINGS, PPG HARD, RANDOM, CHOIR, E-PIANO and WAVEFOLD.
 - **The warps:** SYNC squeezes several cycles into one; BEND leans the wave left or right; PWM squeezes its first half; MIRROR plays it forward then back; REMAP 2 and 4 blend in the wave read two or four times a cycle; SQUEEZE pinches it toward the middle; FLIP turns the end of the cycle upside down; QUANT steps the phase (bit-crushed reading).
 - **The wave envelope** loops while the key is held, then finishes its pass. Pair it with a slow WE TIME for evolving pads, or a fast one with STUTTER or STAIRS UP for rhythmic wave sequences. POS 1 and POS 2 are modulation destinations too: an LFO on POS is the classic PPG sweep.
 - **Greyed knobs:** osc 2 is only heard through MIX (or RING, which multiplies it into osc 1), so osc 2's knobs grey out while MIX is 0 and XMOD isn't RING, and so does XM AMT for SYNC and FM, which change osc 2: turn MIX up to hear them. XM AMT also greys while XMOD is off; WARP AMT while WARP is off; WE AMT and WE TIME while WAVE ENV is off.
+- **Where MIX, VELO and ASIC sit:** on a WAVE track, SOUND's fourth knob is **MIX** (so bringing in table 2 is one turn from the first page), VELO moves to SOURCE 4's fourth knob, and **ASIC** sits on OSC MIX beside LEVEL 1: 0 smooth; 1–63 the positions step through 64 whole waves (the PPG's zipper); 64–127 raw, unsmoothed reading, a truncated phase and a coarser output (sizzle). MIX also stays on SOURCE 2.
+- **The picture:** table 1's waves stacked back to front, the one playing lit in POS 1's knob colour. With MIX up, table 2 is drawn below it the same way, lit in POS 2's colour, each stack half as deep.
 - **Presets:** PPG PAD, WAVE BELLS, MW SYNC, DIGI BASS, VOX SWEEP and REMAP STEP.
 
 **LOGIC:** oscillators built out of function blocks, after Kurzweil's VAST, whose FUNs compute a function of two signals, and E-mu's patch-cord functions. Three simple sources play: **A** on the note, **B** and **C** at musical ratios of it. **OP 1** combines A and B, then **OP 2** combines that with C. The functions range from arithmetic to bit logic, so the result can be anything from a soft sum to a broken digital pattern that repeats at the sources' common period. A pitch-synchronous grain stage can then turn it into a granular wave: every cycle it plays a grain of the voice's own last few milliseconds.

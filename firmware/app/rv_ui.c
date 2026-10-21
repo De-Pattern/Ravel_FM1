@@ -363,7 +363,7 @@ static int page_all_dead(int i, int t)
 static const uint8_t *osc_mix_map(int eng)
 {
     static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0}, fm[4] = {TP_OSC1, TP_S6, TP_S7, TP_S8}, sq[4] = {TP_OSC1, TP_S6, TP_S7, 0};
-    static const uint8_t wv[4] = {TP_OSC1, TP_S6, 0, 0}, ch[4] = {TP_OSC1, TP_S8, 0, 0}, mo[4] = {TP_S0, TP_S1, TP_S2, TP_S4};
+    static const uint8_t wv[4] = {TP_OSC1, TP_S15, 0, 0}, ch[4] = {TP_OSC1, TP_S8, 0, 0}, mo[4] = {TP_S0, TP_S1, TP_S2, TP_S4};
     switch (eng) {
     case ENG_VA: return va;
     case ENG_FM: return fm;
@@ -396,6 +396,11 @@ static kb_t page_knob(const page_t *pg, int i)
         int p = m ? m[k.id & 3] : 0;
         k.kind = p ? K_TP : K_NONE;
         k.id = (uint16_t)p;
+    } else if (k.kind == K_TP && pg->pic == PIC_SOURCE && rv.tp[ui.track][TP_KIND] == KIND_SYNTH && rv.tp[ui.track][TP_ENGINE] == ENG_WAVE) {
+        if (k.id == TP_VELO)                          /* WAVE: MIX (table 2 in) where VELO sits on SOUND */
+            k.id = TP_S6;
+        else if (k.id == TP_S15 && pg->vis == V_SRC3)   /* VELO on SOURCE 4, ASIC on OSC MIX */
+            k.id = TP_VELO;
     }
     return k;
 }
@@ -2623,27 +2628,35 @@ static void pic_source(void)
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
             const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);
-            int t1 = clampi(rv.tp[t][TP_S0], 0, WT_TABLES - 1), pos = clampi((int)rv_param_eff(t, TP_S1), 0, 63), f, j, cur = pos * 15 / 63;
-            char pb[16];
-            for (f = 15; f >= 0; f--) {
-                float kp = (float)f * (7.0f / 15.0f), ox = 14.0f + (float)f * 6.2f, oy = (float)PIC_Y + 104.0f - (float)f * 4.6f, px = 0.0f, py = 0.0f;
-                uint16_t c = f == cur ? C_K2 : g_mix(C_BG, C_MID, 0.75f - 0.03f * (float)f);
-                if (oy - 24.0f > (float)g_y1 || oy + 24.0f < (float)g_y0)
-                    continue;                         /* (not in this band) */
-                for (j = 0; j <= 48; j++) {
-                    float u = (float)j / 48.0f, x = ox + u * 118.0f, y = oy - wtab_read(t1, kp, u * 0.999f, 0.0f, 0) * 18.0f;
-                    if (j)
-                        g_seg(px, py, x, y, f == cur ? 1.8f : 0.8f, c);
-                    px = x;
-                    py = y;
+            int two = rv_param_eff(t, TP_S6) > 0.5f, w, f, j;
+            char pb[24];
+            for (w = 0; w < 1 + two; w++) {           /* with MIX up, table 2 below table 1, each half as deep */
+                int tb = clampi(rv.tp[t][w ? TP_S2 : TP_S0], 0, WT_TABLES - 1), pos = clampi((int)rv_param_eff(t, w ? TP_S3 : TP_S1), 0, 63), cur = pos * 15 / 63;
+                float base = two ? (float)PIC_Y + (w ? 118.0f : 58.0f) : (float)PIC_Y + 104.0f, dy = two ? 2.1f : 4.6f, amp = two ? 9.0f : 18.0f;
+                uint16_t lit = w ? C_K4 : C_K2;
+                for (f = 15; f >= 0; f--) {
+                    float kp = (float)f * (7.0f / 15.0f), ox = 14.0f + (float)f * 6.2f, oy = base - (float)f * dy, px = 0.0f, py = 0.0f;
+                    uint16_t c = f == cur ? lit : g_mix(C_BG, C_MID, 0.75f - 0.03f * (float)f);
+                    if (oy - amp - 6.0f > (float)g_y1 || oy + amp + 6.0f < (float)g_y0)
+                        continue;                     /* (not in this band) */
+                    for (j = 0; j <= 48; j++) {
+                        float u = (float)j / 48.0f, x = ox + u * 118.0f, y = oy - wtab_read(tb, kp, u * 0.999f, 0.0f, 0) * amp;
+                        if (j)
+                            g_seg(px, py, x, y, f == cur ? 1.8f : 0.8f, c);
+                        px = x;
+                        py = y;
+                    }
                 }
+                pb[0] = 0;
+                sx_cat(pb, w ? "2 " : two ? "1 " : "");
+                sx_int(pb + sx_cat(pb, "POS "), pos);
+                if (!two)
+                    sx_cat(pb, " / 63");
+                g_text(8, two ? (w ? PIC_Y + 66 : PIC_Y + 2) : PIC_Y + 2, &FONT_T, pb, w ? g_mix(C_BG, C_K4, 0.8f) : C_DIM);
+                g_text_r(232, two ? (w ? PIC_Y + 66 : PIC_Y + 2) : PIC_Y + 2, &FONT_T, tn->names ? tn->names[tb] : "", C_DIM);
             }
-            g_seg(14.0f, (float)PIC_Y + 126.0f, 14.0f + 15.0f * 6.2f, (float)PIC_Y + 126.0f - 15.0f * 4.6f, 0.8f, C_LINE);
-            pb[0] = 0;
-            sx_int(pb + sx_cat(pb, "POS "), pos);
-            sx_cat(pb, " / 63");
-            g_text(8, PIC_Y + 2, &FONT_T, pb, C_DIM);
-            g_text_r(232, PIC_Y + 2, &FONT_T, tn->names ? tn->names[t1] : "", C_DIM);
+            if (!two)
+                g_seg(14.0f, (float)PIC_Y + 126.0f, 14.0f + 15.0f * 6.2f, (float)PIC_Y + 126.0f - 15.0f * 4.6f, 0.8f, C_LINE);
             return;
         }
         g_text(8, PIC_Y + 6, &FONT_B, rv_engine_names[e], C_SYNTH);
