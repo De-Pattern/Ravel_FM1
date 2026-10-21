@@ -231,4 +231,18 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   tap('PLAY');
   check(peak > 0.01 && most >= 3, `and plays back, all its notes at once (${most} voices)`);
 }
+{                                                           // the SPACE modes: BLACKHOLE at full GRAVITY holds its tail; 12-BIT rings and dies; none go NaN
+  const tail = (mode, size, secs) => {
+    rv.rv_boot(); rv.rv_run(250);
+    rv.web_gp_set(100, mode); rv.web_gp_set(44, size); rv.web_tp_set(0, 56, 110); rv.rv_run(20);
+    rv.rv_set_keys(1 << 12); rv.rv_run(400); rv.rv_set_keys(0);
+    let nan = false, e = 0, n = 0;
+    for (let t = 0; t < secs * 1000; t += 10) { const k = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), k * 2); for (let i = 0; i < k * 2; i++) { if (!(a[i] === a[i])) nan = true; if (t >= (secs - 1) * 1000) { e += a[i] * a[i]; n++; } } }
+    return [nan, Math.sqrt(e / Math.max(1, n))];
+  };
+  const [bn, bt] = tail(2, 127, 12), [qn, qt] = tail(3, 90, 8), [rn] = tail(0, 70, 2);
+  check(!bn && !qn && !rn, 'the SPACE modes stay finite');
+  check(bt > 0.002 && bt < 0.3, `BLACKHOLE at full GRAVITY still blooms after 12 s (rms ${bt.toFixed(4)})`);
+  check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s)`);
+}
 process.exit(fails ? 1 : 0);

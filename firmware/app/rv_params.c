@@ -40,7 +40,7 @@ typedef char senv_size_check[sizeof(rv_senv) == 24 ? 1 : -1];   /* the LIBRARY f
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const dlymode_names[] = {"TAPE", "GRAINS"};
-static const char *const revmode_names[] = {"ROOM", "CLOUDS"};
+static const char *const revmode_names[] = {"ROOM", "CLOUDS", "BLACKHOLE", "12-BIT"};
 static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
 static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
 static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
@@ -536,6 +536,14 @@ const rv_pinfo *rv_pinfo_global(int g)
     if (rv.gp[GP_REVMODE] == 1 && g == GP_REVSIZE) {                   /* CLOUDS: SIZE is how long it rings */
         static const rv_pinfo dec = {"DECAY", 0, 127, 70, PF_NUM, 0};
         return &dec;
+    }
+    if (rv.gp[GP_REVMODE] == 2 && g == GP_REVSIZE) {                   /* BLACKHOLE: how far it falls in */
+        static const rv_pinfo grav = {"GRAVITY", 0, 127, 70, PF_NUM, 0};
+        return &grav;
+    }
+    if (rv.gp[GP_REVMODE] == 3 && (g == GP_REVSIZE || g == GP_REVDIFF)) {   /* 12-BIT: DECAY, and CRUNCH for DIFFUSE */
+        static const rv_pinfo q[2] = {{"DECAY", 0, 127, 70, PF_NUM, 0}, {"CRUNCH", 0, 127, 0, PF_NUM, 0}};
+        return &q[g == GP_REVDIFF];
     }
     return g >= 0 && g < GP_N && GLOBAL[g].name ? &GLOBAL[g] : &NONE;
 }
