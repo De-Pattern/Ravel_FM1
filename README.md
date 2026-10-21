@@ -16,7 +16,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
 
-<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the kit sequencer, a perc machine lane, the graph sequencer and its function generator, CZ envelopes, the WAVE wavetables, Z-plane and SEM filters, a physical model, a strike voice, the influence grid and the filter envelope" width="900"></p>
+<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the tracks page, the WAVE wavetables, a perc machine lane, the kit sequencer, the step and graph sequencers, the tape MLR and capture pages, the filter envelope, the delay, the mixer and the influence grid" width="900"></p>
 <p align="center"><sub>More screens in <a href="docs/showcase/">docs/showcase</a>.</sub></p>
 
 ## What it is
@@ -28,10 +28,10 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, or clock any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
-- **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets with curves, conditions, chance. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock.
+- **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets with curves, conditions, chance. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
-- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM or a long Clouds-style plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
-- **Song:** patterns A and B per track, 16 scenes, a 32-row arrangement, mute and solo, tap tempo, 8 project slots.
+- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), and master drive with microcuts and punch-in effects on the keys. Each bus page shows the current track's send into it.
+- **Song:** patterns A and B per track, 16 scenes, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
 
@@ -1275,6 +1275,10 @@ Turning ALGORITHM while armed moves recording to the new track.
 | One row of the matrix moving another | LFO › MATRIX: TRACK = MATRIX, PARAM = ROW n |
 | A kit lane faster or slower | SEQ › DRUM, KNOB 3 RATE (or the lane's LANE page) |
 | Choose a kit lane's machine | EDIT › LANE n (black keys 3–8), PRESETS |
+| Record a chord onto a step | Tap REC, PLAY, press the keys together |
+| Graph steps past 16 | GRAPH page, OCT+ / OCT− |
+| A huge, endless reverb | FX › SPACE 2: MODE BLACKHOLE; then SPACE: GRAVITY near the top |
+| A lo-fi 12-bit reverb | FX › SPACE 2: MODE 12-BIT, DIFFUSE becomes CRUNCH (fewer bits) |
 
 ## 19. Questions people ask
 
