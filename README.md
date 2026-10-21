@@ -969,7 +969,7 @@ Set **SEQ › TRACK › MODE** to **GRAPH**. Now the steps sit in a circle, and 
 **Making a graph:**
 
 1. Go to the GRAPH page.
-2. Pick a step with **PRESETS**, or hold its white key. With more than 16 steps (TRACK › LENGTH), the white keys hold 16 at a time: **OCT+** and **OCT−** move them to steps 17–32, 33–48 and 49–64 (and put that page's first step on the knobs). The steps on the keys are ringed on the circle, the footer says which they are (KEYS: 17-32), and the step on the knobs is named (STEP 17).
+2. Pick a step with **PRESETS**, or hold its white key. With more than 16 steps (TRACK › LENGTH), the white keys hold 16 at a time: **OCT+** and **OCT−** move them to steps 17–32, 33–48 and 49–64 (and put that page's first step on the knobs). The steps on the keys turn slate on the circle, the step on the knobs keeps its colour with a slate edge, the footer says which steps the keys hold (KEYS: 17-32), and the step on the knobs is named (STEP 17).
 3. Set **CORD A** (where it goes) and, if you want a branch, **CORD B**. The cords are drawn on the circle. A cord can only point at a step that exists (1 to the track's LENGTH). If you shorten LENGTH later, cords to steps past the end are ignored: they read NEXT or NONE until LENGTH grows again.
 4. Choose **BRANCH**, which decides between A and B at a fork:
    - **CHANCE:** a coin toss;

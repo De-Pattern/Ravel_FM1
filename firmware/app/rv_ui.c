@@ -3617,10 +3617,12 @@ static void pic_graph(void)
     for (i = 0; i < len; i++) {
         const rv_step *s = &p->s[i];
         uint16_t c = (s->flags & ST_ON) ? C_INK : C_DIM;
-        if (len > 16 && i / 16 == ui.step_page)      /* the steps on the keys now */
-            g_ring((float)xs[i], (float)ys[i], len > 32 ? 3.6f : 4.5f, 1.0f, C_MID);
+        if (len > 16 && i / 16 == ui.step_page)      /* the steps on the keys now: slate */
+            c = (s->flags & ST_ON) ? C_STRIKE : C_STRIKE_D;
         if (i == rv_live.step[t][0])
             c = C_WHITE;
+        if (i == ui.step_cur)                         /* the step on the knobs: its colour, a slate edge right against it */
+            g_ring((float)xs[i] + 0.5f, (float)ys[i] + 0.5f, 4.9f, 1.2f, C_STRIKE);
         g_disc(xs[i], ys[i], i == ui.step_cur ? 4 : 2, i == ui.step_cur ? C_TEAL : c);
         if (i == rv_live.step[t][1])
             g_disc(xs[i], ys[i], 3, C_AMBER);
