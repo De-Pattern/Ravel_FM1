@@ -267,6 +267,8 @@ EXPORT(web_step_byte) void web_step_byte(int t, int s, int field, int v)   /* (t
     else if (field == 4) p->len = (uint8_t)v;
     else p->vel = (uint8_t)v;
 }
+EXPORT(web_tape_kit) void web_tape_kit(int t) { rv.tp[t & 7][TP_ENGINE] = 1; rv_tape_kit_init(t); }
+EXPORT(web_tape_voices) int web_tape_voices(int t) { return rv_tape_voices(t); }
 EXPORT(web_punch) void web_punch(int fx, int on) { rv_punch(fx, on); }
 EXPORT(web_route_set) void web_route_set(int a, int b, int type, int amt) { rv.infl[a & 7][b & 7].type = (uint8_t)type; rv.infl[a & 7][b & 7].amt = (int8_t)amt; }
 EXPORT(web_scene_store) void web_scene_store(int s) { rv_scene_store(s); }

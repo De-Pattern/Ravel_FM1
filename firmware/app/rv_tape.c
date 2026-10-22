@@ -3,15 +3,18 @@
  *
  * One tape, in Beads' own formats (clean 16-bit, tape 12-bit, dirty 8-bit mu-law), always
  * listening to its source until it is caught. Positions are in "tape time": u = 0 is the
- * oldest sample, u = 1 the newest; rows are spans of u. Tape tracks play it three ways:
- * MLR playheads (keys jump, two keys loop), the Beads grain engine (reading the same tape),
- * or slices cut at its onsets and played like notes.
+ * oldest sample, u = 1 the newest; rows are spans of u. Tape tracks play it five ways: MLR
+ * playheads (keys jump, two keys loop), slices cut at its onsets, and the sample voices: KEYS (a
+ * span played across the keys, up to four at once), STRETCH (its speed apart from its pitch) and
+ * SHARDS (the span broken into pieces, played one at a time in an order). A tape KIT plays six
+ * lanes, each its own span of the tape. START and END trim the row for every mode.
  * Part of the engine unit (ravel_app.c). */
 #include "rv_int.h"
 
 static uint8_t tape_buf[RV_TAPE_BYTES] RV_BIG;
 static bd_tape tape;
-static bd_engine beads[RV_BEADS];
+static samp_t sv[RV_SAMP_VOICES];
+static uint32_t samp_age;
 static int tape_res = -1;
 static uint8_t tape_frozen;
 static uint8_t tape_punch;                          /* writing into the row under head 1 */
@@ -25,15 +28,9 @@ static int32_t tape_len(void) { return tape.max_delay > 8 ? tape.max_delay : 8; 
 
 static void tape_setup(int res)
 {
-    int b;
     bd_tape_setup(&tape, tape_buf, sizeof(tape_buf), (bd_res)res, 1, 0);
     tape_res = res;
     tape_frozen = 0;
-    for (b = 0; b < RV_BEADS; b++) {
-        bd_init(&beads[b], 0, 0, RV_FS);
-        bd_share_tape(&beads[b], &tape);
-        bd_seed_rng(&beads[b], 0x21u + (uint32_t)b * 7919u);
-    }
 }
 
 float rv_tape_seconds(void) { return (float)tape_len() / (tape_res == BD_RES_8 ? 22050.0f : (float)RV_FS); }
@@ -50,6 +47,18 @@ static void row_span(int row, float *s, float *e)
         b = 1.0f;
     *s = a;
     *e = b;
+}
+
+/* the part of a row a track plays: its row trimmed by START and END (both live, so they can move) */
+static void track_span(const track_t *tr, float *s, float *e)
+{
+    float a, b, w, st = clampf(tr->eff[TP_S6] * (1.0f / 128.0f), 0.0f, 0.99f), en = clampf((tr->eff[TP_S7] + 1.0f) * (1.0f / 128.0f), 0.0f, 1.0f);
+    row_span((int)(tr->eff[TP_S1] + 0.5f), &a, &b);
+    if (en < st + 0.01f)
+        en = st + 0.01f;
+    w = b - a;
+    *s = a + w * st;
+    *e = a + w * fm_minf(en, 1.0f);
 }
 
 /* tape time u (0 oldest .. 1 newest) to a Beads delay, Q10 */
@@ -175,8 +184,8 @@ static void slices_find(track_t *tr)
             tt->slice[found++] = x;
         prev = prev * 0.7f + env * 0.3f;
     }
-    /* not enough onsets: fill evenly */
-    if (found < want / 2) {
+    /* SENS 0, or not enough onsets: an even grid */
+    if (sens <= 0.0f || found < want / 2) {
         found = want;
         for (i = 0; i < want; i++)
             tt->slice[i] = (float)i / (float)want;
@@ -196,6 +205,274 @@ int rv_tape_slices(int t, float *pos, int max)
     for (i = 0; i < n && i < max; i++)
         pos[i] = tt->slice[i];
     return n < max ? n : max;
+}
+
+/* ------------------------------------------------------- sample voices --- */
+static inline float fm_fmodf(float x, float y) { return y > 0.0f ? x - fm_floorf(x / y) * y : 0.0f; }
+/* the next note's shading (a ratchet's R MOVE; rv_engine.c sets it, the sample voices read it too) */
+static hitshade_t hs_pend;
+
+/* SHARDS: which shard plays k-th of n, in ORDER: FWD, REV, SKIP (evens then odds), SWAP (pairs
+ * changed round), INWARD (the ends toward the middle), SHUF 1-3 (three fixed shuffles) */
+static int shard_at(int order, int n, int k)
+{
+    static const uint8_t mul[5] = {5, 7, 11, 13, 3};
+    int h = (n + 1) / 2, i;
+    if (n < 2)
+        return 0;
+    k %= n;
+    switch (order) {
+    case 1: return n - 1 - k;
+    case 2: return k < h ? 2 * k : 2 * (k - h) + 1;
+    case 3: return (k ^ 1) < n ? (k ^ 1) : k;
+    case 4: return k & 1 ? n - 1 - k / 2 : k / 2;
+    case 5: case 6: case 7:
+        for (i = order - 5; i < 5; i++) {             /* k * a + b (mod n), a sharing no factor with n: every shard once */
+            int a = mul[i], x = a, y = n;
+            while (y) {
+                int r = x % y;
+                x = y;
+                y = r;
+            }
+            if (x == 1)
+                return (k * a + order * 3) % n;
+        }
+        return k;
+    default: return k;
+    }
+}
+
+/* a kit lane's setting, with this hit's locks (the sequencer found them just before) */
+static int lane_p(int t, int l, int f)
+{
+    return (perc_pend_mask >> f) & 1 ? perc_pend_val[f] : rv.kit[t & 7].p[l % RV_LANES][f & 7];
+}
+
+static void samp_note_on(track_t *tr, int t, int note, float vel, int lane)
+{
+    int i, pick = -1, count = 0, poly = clampi(rv.tp[t][TP_POLY], 0, 3) + 1;
+    uint32_t oldest = 0xFFFFFFFFu;
+    float tl = (float)tape_len(), rate_base = tape_res == BD_RES_8 ? 0.5f : 1.0f, semis;
+    samp_t *v;
+    for (i = 0; i < RV_SAMP_VOICES; i++)              /* a lane chokes its own last hit; a track past VOICES its oldest */
+        if (sv[i].on && sv[i].track == t && (lane < 0 || sv[i].lane == lane)) {
+            count++;
+            if (sv[i].age < oldest) {
+                oldest = sv[i].age;
+                pick = i;
+            }
+        }
+    if (count < (lane >= 0 ? 1 : poly)) {
+        pick = -1;
+        for (i = 0; i < RV_SAMP_VOICES && pick < 0; i++)
+            if (!sv[i].on)
+                pick = i;
+        if (pick < 0) {
+            oldest = 0xFFFFFFFFu;
+            for (i = 0; i < RV_SAMP_VOICES; i++)
+                if (sv[i].age < oldest) {
+                    oldest = sv[i].age;
+                    pick = i;
+                }
+        }
+    }
+    if (pick < 0)
+        pick = 0;
+    v = &sv[pick];
+    v->on = 1;
+    v->gate = 1;
+    v->track = (uint8_t)t;
+    v->lane = (int8_t)lane;
+    v->note = (int8_t)note;
+    v->age = ++samp_age;
+    v->vel = vel;
+    v->gain = 1.0f;
+    v->sh_u = 0.0f;
+    v->sh_k = 0;
+    v->gph = 0.0f;
+    v->hs = hs_pend;
+    if (!v->hs.on) {
+        v->hs.semi = 0.0f;
+        v->hs.lpc = 1.0f;
+        v->hs.gain = 1.0f;
+        v->hs.dk = 0.0f;
+    }
+    v->hs.env = 1.0f;
+    v->hs.lps = 0.0f;
+    if (lane >= 0) {                                  /* a kit lane: its own row, span, pitch, playing, decay, shards */
+        float a, b, st = lane_p(t, lane, 1) * (1.0f / 128.0f), en = (lane_p(t, lane, 2) + 1.0f) * (1.0f / 128.0f);
+        int dec = lane_p(t, lane, 4), nsh = lane_p(t, lane, 5);
+        row_span(rv.kit[t & 7].mach[lane % RV_LANES] & 3, &a, &b);
+        if (en < st + 0.01f)
+            en = st + 0.01f;
+        v->s = a + (b - a) * st;
+        v->e = a + (b - a) * fm_minf(en, 1.0f);
+        semis = (float)(lane_p(t, lane, 0) - 64) * (24.0f / 64.0f);
+        v->play = (uint8_t)clampi(lane_p(t, lane, 3), 0, TPLAY_N - 1);
+        v->mode = nsh >= 2 ? TAPE_SHARDS : TAPE_KEYS;
+        v->n_sh = (uint8_t)clampi(nsh, 2, 16);
+        v->order = (uint8_t)clampi(lane_p(t, lane, 6), 0, 7);
+        v->gap = clampf(lane_p(t, lane, 7) * (0.9f / 127.0f), 0.0f, 0.9f);
+        v->gain = ((perc_pend_mask >> KL_LEVEL) & 1 ? perc_pend_val[KL_LEVEL] : rv.kit[t & 7].level[lane % RV_LANES]) * (1.0f / 100.0f);
+        v->env = 1.0f;
+        v->dk = dec >= 127 ? 0.0f : 1.0f / (0.02f * fm_exp2f((float)dec * (7.0f / 127.0f)));
+        perc_pend_mask = 0;
+    } else {
+        track_span(tr, &v->s, &v->e);
+        semis = (float)(note - 60) + tr->eff[TP_PITCH] + tr->eff[TP_FINE] * 0.01f;
+        v->mode = (uint8_t)clampi((int)(tr->eff[TP_S0] + 0.5f), 0, TAPE_MODES - 1);
+        v->play = (uint8_t)clampi((int)(tr->eff[TP_S8] + 0.5f), 0, TPLAY_N - 1);
+        v->n_sh = (uint8_t)clampi((int)(tr->eff[TP_S10] + 0.5f), 2, 16);
+        v->order = (uint8_t)clampi((int)(tr->eff[TP_S11] + 0.5f), 0, 7);
+        v->env = 1.0f;
+        v->dk = 0.0f;
+        artic_cfg_track(&v->cfg, tr->eff);
+        artic_start(&v->a, &v->cfg);
+    }
+    v->inc = fm_exp2f((semis + v->hs.semi) * (1.0f / 12.0f)) * rate_base / tl;
+    v->dir = (int8_t)(v->play == TPLAY_REV || v->play == TPLAY_REVLOOP ? -1 : 1);
+    v->pos = v->base = v->dir > 0 ? v->s : v->e;
+}
+
+static void samp_note_off(int t, int note)
+{
+    int i;
+    for (i = 0; i < RV_SAMP_VOICES; i++)
+        if (sv[i].on && sv[i].track == t && sv[i].lane < 0 && sv[i].note == note && sv[i].gate) {
+            sv[i].gate = 0;
+            artic_release(&sv[i].a, &sv[i].cfg);
+        }
+}
+
+/* the end of a span: loop round, bounce back, or stop (returns 0 when the voice ends) */
+static int samp_wrap(samp_t *v, float *p, float s, float e)
+{
+    int loops = v->play == TPLAY_LOOP || v->play == TPLAY_REVLOOP;
+    if (*p >= e) {
+        if (v->play == TPLAY_PING) {
+            *p = e - (*p - e);
+            v->dir = -1;
+        } else if (loops) {
+            *p = s + fm_fmodf(*p - e, e - s);
+        } else {
+            return 0;
+        }
+    } else if (*p < s) {
+        if (v->play == TPLAY_PING) {
+            *p = s + (s - *p);
+            v->dir = 1;
+        } else if (loops) {
+            *p = e - fm_fmodf(s - *p, e - s);
+        } else {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* the sample voices of track t, into out; returns the loudest's envelope */
+static float samp_render(track_t *tr, int t, float *out, int n)
+{
+    int k, i;
+    float lvl = 0.0f, tl = (float)tape_len(), rate_base = tape_res == BD_RES_8 ? 0.5f : 1.0f;
+    float edge = 96.0f * rate_base / tl;             /* about 2 ms of tape: the fades at a span's ends */
+    float gap = clampf(tr->eff[TP_S12] * (0.9f / 127.0f), 0.0f, 0.9f);
+    float speed = tr->eff[TP_S9] * 0.01f;
+    float win = 1.0f / (0.05f * RV_FS);               /* STRETCH: a 50 ms window */
+    for (k = 0; k < RV_SAMP_VOICES; k++) {
+        samp_t *v = &sv[k];
+        float s, e, a = 1.0f, ek;
+        if (!v->on || v->track != t)
+            continue;
+        if (v->lane >= 0) {
+            s = v->s;
+            e = v->e;
+        } else {
+            track_span(tr, &s, &e);                   /* live: START and END can move under it */
+            v->n_sh = (uint8_t)clampi((int)(tr->eff[TP_S10] + 0.5f), 2, 16);
+            v->order = (uint8_t)clampi((int)(tr->eff[TP_S11] + 0.5f), 0, 7);
+        }
+        ek = v->dk > 0.0f ? fm_expf(-v->dk * RV_DT) : 1.0f;
+        for (i = 0; i < n && v->on; i++) {
+            float y = 0.0f;
+            if (v->lane < 0) {
+                a = artic_tick(&v->a, &v->cfg);
+                if (v->a.stage == AS_OFF) {
+                    v->on = 0;
+                    break;
+                }
+            } else {
+                v->env *= ek;
+                a = v->env;
+                if (a < 0.0005f) {
+                    v->on = 0;
+                    break;
+                }
+            }
+            if (v->mode == TAPE_STRETCH) {            /* two windows read at the pitch while the place moves at SPEED */
+                int j;
+                v->base += speed * rate_base / tl * (float)v->dir;   /* SPEED: 100 % keeps the sample's own time */
+                if (!samp_wrap(v, &v->base, s, e)) {
+                    v->on = 0;
+                    break;
+                }
+                v->gph += win;
+                if (v->gph >= 1.0f)
+                    v->gph -= 1.0f;
+                for (j = 0; j < 2; j++) {
+                    float ph = v->gph + 0.5f * (float)j, w, p;
+                    if (ph >= 1.0f)
+                        ph -= 1.0f;
+                    w = 1.0f - fm_fabsf(2.0f * ph - 1.0f);
+                    p = v->base + ph * (1.0f / win) * v->inc * (float)v->dir;
+                    if (p >= e)
+                        p = s + fm_fmodf(p - s, e - s);
+                    if (p < s)
+                        p = e - fm_fmodf(s - p, e - s);
+                    y += tape_read_u(p) * w;
+                }
+                v->pos = v->base;
+            } else if (v->mode == TAPE_SHARDS) {      /* one shard at a time, in ORDER, with a GAP after each */
+                float seg = (e - s) / (float)v->n_sh, aud = seg * (1.0f - (v->lane >= 0 ? v->gap : gap)), f;
+                int idx = shard_at(v->order, v->n_sh, v->sh_k);
+                float a0 = s + seg * (float)idx;
+                if (v->sh_u < aud) {
+                    v->pos = v->dir > 0 ? a0 + v->sh_u : a0 + aud - v->sh_u;
+                    f = fm_minf(1.0f, fm_minf(v->sh_u / edge, (aud - v->sh_u) / edge));
+                    y = tape_read_u(v->pos) * f;
+                }
+                v->sh_u += v->inc;
+                if (v->sh_u >= seg) {
+                    v->sh_u -= seg;
+                    if (++v->sh_k >= v->n_sh) {
+                        v->sh_k = 0;
+                        if (v->play == TPLAY_FWD || v->play == TPLAY_REV) {
+                            v->on = 0;
+                            break;
+                        }
+                    }
+                }
+            } else {                                   /* KEYS: start to end, as PLAY says */
+                float d;
+                v->pos += v->inc * (float)v->dir;
+                if (!samp_wrap(v, &v->pos, s, e)) {
+                    v->on = 0;
+                    break;
+                }
+                d = fm_minf(v->pos - s, e - v->pos);
+                y = tape_read_u(v->pos) * fm_minf(1.0f, d / edge);
+            }
+            if (v->hs.on) {                            /* a ratchet's R MOVE: darker, shorter */
+                v->hs.lps += (y - v->hs.lps) * v->hs.lpc;
+                y = v->hs.lps * v->hs.gain * v->hs.env;
+                v->hs.env *= v->hs.dk > 0.0f ? 1.0f - v->hs.dk * RV_DT : 1.0f;
+            }
+            out[i] += y * a * v->vel * v->gain;
+        }
+        if (a > lvl)
+            lvl = a;
+    }
+    return lvl;
 }
 
 /* ------------------------------------------------------- tape track API --- */
@@ -237,11 +514,20 @@ static void tape_track_jump(track_t *tr, int pos, int loop_to, int now)
 
 static void tape_track_note(track_t *tr, int note, float vel)
 {
+    extern track_t trk[RV_TRACKS];
     tapetrk_t *tt = &tr->tape;
-    int mode = (int)(tr->eff[TP_S0] + 0.5f);
+    int mode = (int)(tr->eff[TP_S0] + 0.5f), t = (int)(tr - trk) & 7, kit = rv.tp[t][TP_ENGINE] == 1;
     if (vel <= 0.0f) {
-        if (mode != TAPE_MLR)
+        if (kit || mode == TAPE_MLR)
+            return;                                   /* (lanes play out; MLR plays on) */
+        if (mode == TAPE_SLICE)
             artic_release(&tt->a, &tt->cfg);
+        else
+            samp_note_off(t, note);
+        return;
+    }
+    if (kit) {                                        /* a tape kit: a lane, from C4 up */
+        samp_note_on(tr, t, note, vel, perc_lane_of(note));
         return;
     }
     if (mode == TAPE_MLR) {                         /* notes jump: white keys of an octave, 16 positions */
@@ -260,10 +546,8 @@ static void tape_track_note(track_t *tr, int note, float vel)
         tt->sl_on = 1;
         tt->sl_gain = vel;
         artic_start(&tt->a, &tt->cfg);
-    } else {                                        /* beads: a gate for clocked grains, pitch from the note */
-        tt->gate_pending = 1;
-        tt->note_ofs = (float)(note - 60);
-        artic_start(&tt->a, &tt->cfg);
+    } else {                                        /* KEYS, STRETCH, SHARDS: a sample voice */
+        samp_note_on(tr, t, note, vel, -1);
     }
 }
 
@@ -306,27 +590,34 @@ int rv_tape_heads(int t, float *pos, int max)
             pos[n++] = tt->h[1].x;
     } else if (mode == TAPE_SLICE && tt->sl_on && n < max) {
         pos[n++] = tt->sl_x;
+    } else {                                        /* the sample voices, where they read in the row */
+        float s, e;
+        int k;
+        row_span(rv.tp[t & 7][TP_S1], &s, &e);
+        for (k = 0; k < RV_SAMP_VOICES && n < max; k++)
+            if (sv[k].on && sv[k].track == (t & 7))
+                pos[n++] = clampf((sv[k].pos - s) / (e - s), 0.0f, 1.0f);
     }
     return n;
 }
 
-int rv_tape_grains(int t, float *pos, float *lvl, int max)
+int rv_tape_voices(int t)                         /* (tests) the sample voices sounding on track t */
+{
+    int k, n = 0;
+    for (k = 0; k < RV_SAMP_VOICES; k++)
+        n += sv[k].on && sv[k].track == (t & 7);
+    return n;
+}
+
+/* a track's span (START to END) within its row, 0..1, for the screen */
+void rv_tape_span(int t, float *a, float *b)
 {
     extern track_t trk[RV_TRACKS];
-    tapetrk_t *tt = &trk[t & 7].tape;
-    int32_t d[32], l[32];
-    int n, i, len = tape_len();
-    float s, e;
-    if (tt->beads < 0 || rv.tp[t & 7][TP_S0] != TAPE_BEADS)
-        return 0;
-    n = bd_active_grains(&beads[tt->beads], d, l, max < 32 ? max : 32);
-    row_span(rv.tp[t & 7][TP_S1], &s, &e);
-    for (i = 0; i < n; i++) {
-        float u = 1.0f - (float)d[i] / (float)len;
-        pos[i] = (u - s) / (e - s);
-        lvl[i] = (float)l[i] / 32768.0f;
-    }
-    return n;
+    float s, e, rs, re;
+    row_span(rv.tp[t & 7][TP_S1], &rs, &re);
+    track_span(&trk[t & 7], &s, &e);
+    *a = (s - rs) / (re - rs);
+    *b = (e - rs) / (re - rs);
 }
 
 /* a quantized jump waits for STEP, BEAT or BAR: the sequencer calls this at each boundary */
@@ -346,15 +637,20 @@ static void tape_boundary(track_t *tr, int kind)
 }
 
 /* ----------------------------------------------------- tape track render --- */
-static float tape_track_render(track_t *tr, int t, float *out, int n, int beads_idx)
+static float tape_track_render(track_t *tr, int t, float *out, int n)
 {
     tapetrk_t *tt = &tr->tape;
     const float *eff = tr->eff;
-    int mode = clampi((int)(eff[TP_S0] + 0.5f), 0, 2), i;
+    int mode = clampi((int)(eff[TP_S0] + 0.5f), 0, TAPE_MODES - 1), i;
     float s, e, span, lvl = 0.0f;
     float tl = (float)tape_len(), rate_base = tape_res == BD_RES_8 ? 0.5f : 1.0f;
     float pitch = fm_exp2f((eff[TP_PITCH] + eff[TP_FINE] * 0.01f) * (1.0f / 12.0f));
-    row_span((int)(eff[TP_S1] + 0.5f), &s, &e);
+    if (rv.tp[t][TP_ENGINE] == 1 || (mode != TAPE_MLR && mode != TAPE_SLICE))
+        return samp_render(tr, t, out, n);           /* KEYS, STRETCH, SHARDS and kits: the sample voices */
+    if (mode == TAPE_MLR)
+        track_span(tr, &s, &e);                       /* MLR plays START to END of its row */
+    else
+        row_span((int)(eff[TP_S1] + 0.5f), &s, &e);
     span = e - s;
     if (mode == TAPE_MLR) {
         float r = tape_rate_tab[clampi((int)(eff[TP_S2] + 0.5f), 0, 8)] * tt->rate_mul * pitch * (tt->rev ? -1.0f : 1.0f);
@@ -411,56 +707,6 @@ static float tape_track_render(track_t *tr, int t, float *out, int n, int beads_
             out[i] += y;
             lvl = a;
         }
-    } else if (beads_idx >= 0) {
-        /* Beads reads the shared tape; its feedback is added to the tape's input by the mixer */
-        bd_params p;
-        bd_frame in[RV_SUB], o[RV_SUB];
-        uint8_t gates[RV_SUB], frz[RV_SUB];
-        int32_t k64 = 65536 / 127;
-        float time_in_row = s + span * eff[TP_S6] * (1.0f / 127.0f);
-        for (i = 0; i < n; i++) {
-            in[i].l = in[i].r = 0;
-            frz[i] = tape_frozen;
-            gates[i] = 0;
-        }
-        if (tt->gate_pending) {
-            gates[0] = BD_GATE_RISING | BD_GATE_HIGH;
-            tt->gate_pending = 0;
-        }
-        p.time.base = (int32_t)(clampf(1.0f - time_in_row, 0.0f, 1.0f) * 65535.0f);
-        p.time.amount = (int32_t)(eff[TP_S13] * k64 / 4);
-        p.time.cv = 0;
-        p.time.has_cv = 0;
-        p.size.base = (int32_t)(eff[TP_S7] * k64);
-        p.size.amount = p.time.amount;
-        p.size.cv = 0;
-        p.size.has_cv = 0;
-        p.shape.base = (int32_t)(eff[TP_S8] * k64);
-        p.shape.amount = 0;
-        p.shape.cv = 0;
-        p.shape.has_cv = 0;
-        p.pitch.base = (int32_t)((eff[TP_S9] + tt->note_ofs + eff[TP_PITCH]) * 65536.0f);
-        p.pitch.amount = p.time.amount / 2;
-        p.pitch.cv = 0;
-        p.pitch.has_cv = 0;
-        p.density = (int32_t)(eff[TP_S10] * k64);
-        p.density_cv = 0;
-        p.feedback = 0;                                /* the tape's owner adds feedback */
-        p.dry_wet = 65535;
-        p.monophonic = 0;
-        bd_process(&beads[beads_idx], &p, BD_SEED_ON, gates, frz, in, o, n);
-        for (i = 0; i < n; i++) {
-            float a = artic_tick(&tt->a, &tt->cfg), y = (float)(o[i].l + o[i].r) * (0.5f / 32768.0f);
-            /* without a held note the cloud plays on its own while the sequencer runs, and fades out
-             * (about 0.2 s) when it stops: the envelope shapes only played notes. (Stopped, a free cloud
-             * listening to a tape that listens to it would go on forever, like a note that hangs.) */
-            tt->free_g += ((rv_live.playing ? 1.0f : 0.0f) - tt->free_g) * 0.0001f;
-            if (tt->a.stage == AS_OFF)
-                a = tt->free_g;
-            y *= a * eff[TP_S12] * (1.0f / 127.0f);
-            out[i] += y;
-            lvl = a;
-        }
     }
     (void)t;
     return lvl;
@@ -472,7 +718,6 @@ static void tape_init(void)
     extern track_t trk[RV_TRACKS];
     tape_setup(clampi(rv.gp[GP_TAPEQUAL], 0, 2));
     for (t = 0; t < RV_TRACKS; t++) {
-        trk[t].tape.beads = -1;
         trk[t].tape.pend_pos = -1;
         trk[t].tape.rate_mul = 1.0f;
     }

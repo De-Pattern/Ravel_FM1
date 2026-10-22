@@ -197,14 +197,28 @@ typedef struct {
     float sl_x, sl_end, sl_rate, sl_gain;
     uint8_t sl_on;
     float sl_old_x, sl_old_fade;
-    /* beads */
-    int8_t beads;                   /* which grain engine, -1 = none */
-    uint8_t gate_pending;
-    float free_g;                   /* Beads: the cloud's level with no note held (1 playing, 0 stopped) */
     artic_t a;
     artic_cfg_t cfg;
     float note_ofs;
 } tapetrk_t;
+
+/* a sample voice: plays a span of the tape, as KEYS (a sample across the keys), STRETCH (its
+ * speed apart from its pitch) or SHARDS (the span broken in pieces, one at a time, in an order) */
+typedef struct {
+    uint8_t on, track, gate, mode, play, order, n_sh;
+    int8_t lane, note, dir;
+    float vel, gain;
+    float s, e;                     /* a kit lane's span, in tape time (a track reads its own, live) */
+    float pos, inc;                 /* where it reads (tape time) and its step per sample (the pitch) */
+    float base, gph;                /* STRETCH: the window's place and its phase */
+    float sh_u, gap;                /* SHARDS: how far into the current shard; a kit lane's GAP */
+    uint8_t sh_k;                   /* SHARDS: which shard of the order */
+    float env, dk;                  /* a kit lane's decay (a track's notes use the articulation) */
+    uint32_t age;
+    artic_t a;
+    artic_cfg_t cfg;
+    hitshade_t hs;
+} samp_t;
 
 /* --------------------------------------------------------------- track --- */
 typedef struct {

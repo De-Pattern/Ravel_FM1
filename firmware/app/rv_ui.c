@@ -46,7 +46,7 @@ enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_M
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
-enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_BEADS, V_SLICE, V_NOTTAPE,
+enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_TSAMP, V_STRETCH, V_SHARDS, V_SLICE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
@@ -82,8 +82,8 @@ static const page_t pages[] = {
     /* a KIT: a page per lane, its whole sound on screen; PRESETS picks the machine, OCT the knobs' row */
 #define LANEPG(n) {SEC_VOICE, V_KIT, PIC_LANE, PR_LANE, "LANE " #n, {LF(LF_SLOT0), LF(LF_SLOT0 + 1), LF(LF_SLOT0 + 2), LF(LF_SLOT0 + 3)}}
     LANEPG(1), LANEPG(2), LANEPG(3), LANEPG(4), LANEPG(5), LANEPG(6),
-    {SEC_VOICE, V_KIT, PIC_SOURCE, PR_SOUND, "KIT FX", {TP(TP_S9), TP(TP_S10), TP(TP_S11), TP(TP_S12)}},
-    {SEC_VOICE, V_KIT, PIC_SOURCE, PR_SOUND, "KIT FILTER", {TP(TP_S13), TP(TP_S14), TP(TP_S15), NO}},
+    {SEC_VOICE, V_PKIT, PIC_SOURCE, PR_SOUND, "KIT FX", {TP(TP_S9), TP(TP_S10), TP(TP_S11), TP(TP_S12)}},
+    {SEC_VOICE, V_PKIT, PIC_SOURCE, PR_SOUND, "KIT FILTER", {TP(TP_S13), TP(TP_S14), TP(TP_S15), NO}},
     /* the CZ engine's lines: waves and key follow, then the three 8-step envelopes each */
     {SEC_VOICE, V_CZL1, PIC_CZWAVE, PR_SOUND, "LINE 1", {CZW(0, CZF_WAVE1), CZW(0, CZF_WAVE2), CZW(0, CZF_KFA), CZW(0, CZF_KFW)}},
     {SEC_VOICE, V_CZL1, PIC_CZENV, PR_CZSTEP, "DCO 1", {CZE(0, CZE_DCO, CZF_SLOT0), CZE(0, CZE_DCO, CZF_SLOT0 + 1), CZE(0, CZE_DCO, CZF_SLOT0 + 2), CZE(0, CZE_DCO, CZF_SLOT0 + 3)}},
@@ -121,24 +121,26 @@ static const page_t pages[] = {
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO", {XF(XF_DEST), XF(XF_START), XF(XF_END), XF(XF_CURVE)}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO WINDOW", {XF(XF_LO), XF(XF_HI), {K_GP, GP_MACRO1}, {K_GP, GP_MACRO2}}},
 
-    {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "DELAY", {GP(GP_DLYTIME), GP(GP_DLYFB), GP(GP_DLYTONE), GP(GP_DLYLEVEL)}},
-    {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "DELAY 2", {TP(TP_DLYS), GP(GP_DLYSPREAD), GP(GP_DLYWOB), GP(GP_DLYFREEZE)}},
+    /* each bus: this track's send first */
+    {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "DELAY", {TP(TP_DLYS), GP(GP_DLYTIME), GP(GP_DLYFB), GP(GP_DLYLEVEL)}},
+    {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "DELAY 2", {GP(GP_DLYTONE), GP(GP_DLYSPREAD), GP(GP_DLYDBL), GP(GP_DLYFREEZE)}},
+    {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "TAPE WEAR", {GP(GP_DLYWOB), GP(GP_DLYFLUT), GP(GP_DLYSAT), GP(GP_DLYAGE)}},
     {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "GRAINS", {GP(GP_DLYMODE), GP(GP_GRDENS), GP(GP_GRSIZE), GP(GP_GRPITCH)}},
-    {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE", {GP(GP_REVSIZE), GP(GP_REVDAMP), GP(GP_REVLEVEL), TP(TP_REVS)}},
+    {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE", {TP(TP_REVS), GP(GP_REVSIZE), GP(GP_REVDAMP), GP(GP_REVLEVEL)}},
     {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE 2", {GP(GP_REVMOD), GP(GP_REVDIFF), GP(GP_REVLOW), GP(GP_REVMODE)}},
     {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED", {GP(GP_BEDLEVEL), GP(GP_BEDDENS), GP(GP_BEDTONE), GP(GP_BEDSHIM)}},   /* dust on a tuned body, under everything */
     {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED 2", {GP(GP_BEDDUCK), GP(GP_BEDDECAY), GP(GP_BEDSPACE), NO}},
-    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK", {GP(GP_FBTIME), GP(GP_FBREGEN), GP(GP_FBPROC), GP(GP_FBAMT)}},
-    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 2", {GP(GP_FBTUNE), GP(GP_FBCUT), GP(GP_FBEDGE), GP(GP_FBRET)}},
-    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 3", {GP(GP_FBLEVEL), TP(TP_FBS), NO, NO}},
-    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "FILTER PAIR", {GP(GP_PAIRMODE), GP(GP_PAIRF1), GP(GP_PAIRF2), GP(GP_PAIRRES)}},
-    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR 2", {GP(GP_PAIRT1), GP(GP_PAIRT2), GP(GP_PAIRLEVEL), TP(TP_PAIRS)}},
+    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK", {TP(TP_FBS), GP(GP_FBTIME), GP(GP_FBREGEN), GP(GP_FBLEVEL)}},
+    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 2", {GP(GP_FBPROC), GP(GP_FBAMT), GP(GP_FBTUNE), GP(GP_FBCUT)}},
+    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 3", {GP(GP_FBEDGE), GP(GP_FBRET), NO, NO}},
+    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "FILTER PAIR", {TP(TP_PAIRS), GP(GP_PAIRMODE), GP(GP_PAIRF1), GP(GP_PAIRF2)}},
+    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR 2", {GP(GP_PAIRRES), GP(GP_PAIRT1), GP(GP_PAIRT2), GP(GP_PAIRLEVEL)}},
     {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR LFOS", {GP(GP_PAIRLFO1), GP(GP_PAIRLFO2), GP(GP_PAIRDEPTH), NO}},
     {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS", {TP(TP_BANDS), GP(GP_BANDLEVEL), GP(GP_BANDQ), GP(GP_BANDSHIFT)}},
     {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BAND SWEEP", {GP(GP_BANDSHAPE), GP(GP_BANDRATE), GP(GP_BANDDEPTH), GP(GP_BANDWIDTH)}},
     {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 1-4", {GP(GP_BAND1), GP(GP_BAND2), GP(GP_BAND3), GP(GP_BAND4)}},
     {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 5-8", {GP(GP_BAND5), GP(GP_BAND6), GP(GP_BAND7), GP(GP_BAND8)}},
-    {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER", {GP(GP_VOCBODY), GP(GP_VOCTILT), GP(GP_VOCLEVEL), TP(TP_VOC)}},
+    {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER", {TP(TP_VOC), GP(GP_VOCBODY), GP(GP_VOCTILT), GP(GP_VOCLEVEL)}},
     {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER 2", {GP(GP_VOCATK), GP(GP_VOCREL), GP(GP_VOCSHIFT), GP(GP_VOCQ)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER", {GP(GP_MDRIVE), GP(GP_CUTSIZE), GP(GP_CUTREP), GP(GP_CUTMIX)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER 2", {GP(GP_CUTSHAPE), NO, NO, NO}},
@@ -151,10 +153,13 @@ static const page_t pages[] = {
 #else
     {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "ROWS", {{K_ROW, 0}, {K_ROW, 1}, GP(GP_INPUTLEVEL), GP(GP_TAPEMON)}},
 #endif
-    {SEC_TAPE, V_TAPE, PIC_TAPE, PR_SOUND, "PLAYBACK", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
-    {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR", {TP(TP_S4), TP(TP_S5), TP(TP_PITCH), TP(TP_LEVEL)}},
-    {SEC_TAPE, V_BEADS, PIC_TAPE, PR_SOUND, "BEADS", {TP(TP_S6), TP(TP_S7), TP(TP_S8), TP(TP_S9)}},
-    {SEC_TAPE, V_BEADS, PIC_TAPE, PR_SOUND, "BEADS 2", {TP(TP_S10), TP(TP_S11), TP(TP_S12), TP(TP_S13)}},
+    /* a tape track: MODE (MLR, KEYS, SLICE, STRETCH, SHARDS), its row, and START and END within it */
+    {SEC_TAPE, V_TAPE, PIC_TAPE, PR_SOUND, "PLAYBACK", {TP(TP_S0), TP(TP_S1), TP(TP_S6), TP(TP_S7)}},
+    {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR", {TP(TP_S4), TP(TP_S5), TP(TP_S2), TP(TP_S3)}},
+    {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR 2", {TP(TP_PITCH), TP(TP_LEVEL), NO, NO}},
+    {SEC_TAPE, V_TSAMP, PIC_TAPE, PR_SOUND, "SAMPLE", {TP(TP_S8), TP(TP_PITCH), TP(TP_POLY), TP(TP_LEVEL)}},
+    {SEC_TAPE, V_STRETCH, PIC_TAPE, PR_SOUND, "STRETCH", {TP(TP_S9), NO, NO, NO}},
+    {SEC_TAPE, V_SHARDS, PIC_TAPE, PR_SOUND, "SHARDS", {TP(TP_S10), TP(TP_S11), TP(TP_S12), NO}},
     {SEC_TAPE, V_SLICE, PIC_TAPE, PR_SOUND, "SLICES", {TP(TP_S14), TP(TP_S15), TP(TP_PITCH), TP(TP_LEVEL)}},
 
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
@@ -343,7 +348,12 @@ static int lane_field(int id)
 
 static void lane_msg(int t);
 static void lane_open(int t, int l);
-static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
+static int is_kit_ui(int t) { return (rv.tp[t][TP_KIND] == KIND_PERC || rv.tp[t][TP_KIND] == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1; }
+static int is_tkit(int t) { return rv.tp[t][TP_KIND] == KIND_TAPE && rv.tp[t][TP_ENGINE] == 1; }   /* a TAPE kit: lanes of the tape */
+/* a kit lane's "machine": a drum machine, or (a tape kit) the row it reads */
+static const char *lane_mname(int t, int l) { return is_tkit(t) ? rv_tape_row_names[rv.kit[t].mach[l] & 3] : perc_mnames[rv.kit[t].mach[l] % PM_N]; }
+static const rv_pinfo *lane_pinfo(int t, int l, int f) { return is_tkit(t) ? &tape_lane_pi[f & 7] : &perc_pi[rv.kit[t].mach[l] % PM_N][f & 7]; }
+static uint16_t lane_col(int t) { return is_tkit(t) ? C_TAPE : C_PERC; }
 
 static int src_page_visible(int t, int pg)
 {
@@ -429,10 +439,13 @@ static int page_visible(int i)
     case V_SRC3: return kind != KIND_TAPE && !is_kit_ui(t) && src_page_visible(t, 3);
     case V_SYNTH: return kind == KIND_SYNTH;
     case V_STRIKE: return kind == KIND_STRIKE;
-    case V_TAPE: return kind == KIND_TAPE;
-    case V_MLR: return kind == KIND_TAPE && mode == TAPE_MLR;
-    case V_BEADS: return kind == KIND_TAPE && mode == TAPE_BEADS;
-    case V_SLICE: return kind == KIND_TAPE && mode == TAPE_SLICE;
+    case V_TAPE: return kind == KIND_TAPE && !is_kit_ui(t);
+    case V_MLR: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_MLR;
+    case V_TSAMP: return kind == KIND_TAPE && !is_kit_ui(t) && (mode == TAPE_KEYS || mode == TAPE_STRETCH || mode == TAPE_SHARDS);
+    case V_STRETCH: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_STRETCH;
+    case V_SHARDS: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_SHARDS;
+    case V_SLICE: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_SLICE;
+    case V_PKIT: return kind == KIND_PERC && is_kit_ui(t);
     case V_NOTTAPE: return kind != KIND_TAPE;
     case V_STEPSMODE: return !is_kit_ui(t) && rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH;
     case V_GRAPH: return !is_kit_ui(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH);
@@ -770,11 +783,17 @@ static kinfo_t kb_info(kb_t k)
         break;
     case K_LANE: {
         static const char *const lanes[RV_LANES] = {"1", "2", "3", "4", "5", "6"};
-        int l = ui.lane[ui.track] % RV_LANES, m = rv.kit[ui.track].mach[l] % PM_N;
+        int l = ui.lane[ui.track] % RV_LANES;
         switch (lane_field(k.id)) {
         case LF_NONE: break;
         case LF_SEL: r.name = "LANE"; r.max = RV_LANES - 1; r.fmt = PF_ENUM; r.names = lanes; break;
-        case LF_MACH: r.name = "MACHINE"; r.max = PM_N - 1; r.fmt = PF_ENUM; r.names = perc_mnames; break;
+        case LF_MACH:
+            if (is_tkit(ui.track)) {
+                r.name = "ROW"; r.max = 3; r.fmt = PF_ENUM; r.names = rv_tape_row_names;
+            } else {
+                r.name = "MACHINE"; r.max = PM_N - 1; r.fmt = PF_ENUM; r.names = perc_mnames;
+            }
+            break;
         case LF_LEVEL: r.name = "LEVEL"; r.max = 127; break;
         case LF_LEN: {                       /* 0: the track's */
             static const char *const ln[RV_STEPS + 1] = {"TRK", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64"};
@@ -782,10 +801,15 @@ static kinfo_t kb_info(kb_t k)
         }
         case LF_CHANCE: r.name = "CHANCE"; r.max = 100; break;
         case LF_RATE: r.name = "RATE"; r.max = 8; r.fmt = PF_ENUM; r.names = rv_lrate_names; break;
-        default:
-            r.name = perc_pi[m][(lane_field(k.id) - LF_P0) & 7].name;
-            r.max = 127;
+        default: {
+            const rv_pinfo *pi = lane_pinfo(ui.track, l, lane_field(k.id) - LF_P0);
+            r.name = pi->name;
+            r.min = is_tkit(ui.track) ? pi->min : 0;
+            r.max = is_tkit(ui.track) ? pi->max : 127;
+            r.fmt = is_tkit(ui.track) ? pi->fmt : PF_NUM;
+            r.names = is_tkit(ui.track) ? pi->names : 0;
             break;
+        }
         }
         break;
     }
@@ -1006,6 +1030,19 @@ static void kb_set(kb_t k, int v)
                 rv_engine_track_defaults(ui.track, v);
             return;
         }
+        if (k.id == TP_ENGINE && rv.tp[ui.track][TP_KIND] == KIND_TAPE && v != rv.tp[ui.track][TP_ENGINE]) {
+            int pt = rv.pat_cur[ui.track];               /* a tape kit's steps are lanes, a tape track's notes: start clean */
+            if (track_has_steps(ui.track) && !confirmed(CONF_MODE, "TURN AGAIN: CLEARS STEPS"))
+                return;
+            rv.tp[ui.track][TP_ENGINE] = (int16_t)v;
+            if (v)
+                rv_tape_kit_init(ui.track);
+            for (rv.pat_cur[ui.track] = 0; rv.pat_cur[ui.track] < RV_PATTERNS; rv.pat_cur[ui.track]++)
+                rv_pattern_clear(ui.track);
+            rv.pat_cur[ui.track] = (uint8_t)pt;
+            msg(v ? "TAPE KIT: STEPS CLEARED" : "SINGLE: STEPS CLEARED");
+            return;
+        }
         if (k.id == TP_ENGINE && rv.tp[ui.track][TP_KIND] == KIND_PERC && v != rv.tp[ui.track][TP_ENGINE]) {
             int pt = rv.pat_cur[ui.track], p;            /* notes mean nothing to lanes, or lanes to notes: start clean */
             if (track_has_steps(ui.track) && !confirmed(CONF_MODE, "TURN AGAIN: CLEARS STEPS"))
@@ -1115,9 +1152,12 @@ static void kb_set(kb_t k, int v)
                 if (nk == ui.cur_mat)
                     nk = cur;
                 m->dst = (uint16_t)PID_MAT(nk);
-            } else if (m->dst >= RV_GPID) {
-                int g = clampi(v, 0, GP_N - 1);
-                m->dst = (uint16_t)PID_G(g);
+            } else if (m->dst >= RV_GPID) {             /* GLOBAL: the next that can be moved */
+                int cur = m->dst - RV_GPID, g = clampi(v, 0, GP_N - 1), dir = v > cur ? 1 : -1;
+                while (g >= 0 && g < GP_N && !rv_is_moddest_g(g))
+                    g += dir;
+                if (g >= 0 && g < GP_N)
+                    m->dst = (uint16_t)PID_G(g);
             } else {
                 int cur = m->dst % RV_TP;
                 m->dst = (uint16_t)PID_T(m->dst / RV_TP, rv_moddest_next_t(m->dst / RV_TP, cur, v > cur ? 1 : -1));
@@ -1134,7 +1174,7 @@ static void kb_set(kb_t k, int v)
             int i = v, dir = v > macro_dst_to_index(d->dst) ? 1 : -1, guard = 2000;
             while (i > 0 && i <= macro_dest_count() && guard--) {
                 uint16_t pid = macro_index_to_dst(i);
-                if (pid >= RV_GPID ? rv_pinfo_pid(pid)->name != 0 : (rv_is_moddest(pid % RV_TP) && rv_pinfo_pid(pid)->name))
+                if (pid >= RV_GPID ? rv_pinfo_pid(pid)->name != 0 && rv_is_moddest_g(pid - RV_GPID) : (rv_is_moddest(pid % RV_TP) && rv_pinfo_pid(pid)->name))
                     break;
                 i += dir;
             }
@@ -1669,10 +1709,12 @@ static void preset_turn(int d)
         msg(rv_preset_name(cur));
         break;
     }
-    case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines */
+    case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines (a tape kit: the rows) */
         rv_kit *kt = &rv.kit[t];
-        int l = ui.lane[t] % RV_LANES, m = clampi(kt->mach[l] + d, 0, PM_N - 1), j;
-        if (m != kt->mach[l]) {
+        int l = ui.lane[t] % RV_LANES, m = clampi(kt->mach[l] + d, 0, is_tkit(t) ? 3 : PM_N - 1), j;
+        if (is_tkit(t)) {
+            kt->mach[l] = (uint8_t)m;
+        } else if (m != kt->mach[l]) {
             kt->mach[l] = (uint8_t)m;
             for (j = 0; j < 8; j++)
                 kt->p[l][j] = (uint8_t)(perc_pi[m][j].name ? perc_pi[m][j].def : 0);
@@ -1814,7 +1856,7 @@ static void lane_msg(int t)
     b[6] = ':';
     b[7] = ' ';
     b[8] = 0;
-    sx_cat(b, perc_mnames[rv.kit[t].mach[l] % PM_N]);
+    sx_cat(b, lane_mname(t, l));
     msg(b);
 }
 
@@ -3516,7 +3558,7 @@ static void pic_tape(void)
 {
     static uint8_t pk[224];
     int t = ui.track, istape = rv.tp[t][TP_KIND] == KIND_TAPE, row = istape ? rv.tp[t][TP_S1] : ui.cur_row, i, frozen = rv_tape_frozen();
-    float pos[32], lvl[32];
+    float pos[32];
     int n;
     char b[40];
     /* the whole tape, with the rows as spans */
@@ -3537,13 +3579,33 @@ static void pic_tape(void)
     }
     for (i = 0; i <= 16; i++)
         g_vline(8 + i * 14, PIC_Y + 104, i % 4 ? 3 : 6, C_DIM);
-    if (istape) {
-        n = rv_tape_heads(t, pos, 4);
+    if (istape && is_tkit(t)) {                       /* a tape kit: each lane's span of its row, the chosen one lit */
+        int l;
+        for (l = 0; l < RV_LANES; l++) {
+            const rv_kit *kt = &rv.kit[t];
+            int a = kt->p[l][1] * 224 / 128, e = (kt->p[l][2] + 1) * 224 / 128, y = PIC_Y + 30 + l * 4;
+            g_fill(8 + a, y, e - a > 1 ? e - a : 1, 2, l == ui.lane[t] % RV_LANES ? C_WHITE : (kt->mach[l] & 3) == row ? C_TAPE : C_LINE);
+        }
+    } else if (istape) {
+        float a, e;
+        int xa, xe;
+        if (rv.tp[t][TP_S0] != TAPE_SLICE) {          /* START and END: the part it plays; the rest dimmed */
+            rv_tape_span(t, &a, &e);
+            xa = 8 + (int)(clampf(a, 0.0f, 1.0f) * 223.0f);
+            xe = 8 + (int)(clampf(e, 0.0f, 1.0f) * 223.0f);
+            g_fill(8, PIC_Y + 30, xa - 8, 70, C_BG);
+            g_fill(xe, PIC_Y + 30, 232 - xe, 70, C_BG);
+            g_vline(xa, PIC_Y + 28, 76, C_INK);
+            g_vline(xe, PIC_Y + 28, 76, C_INK);
+            if (rv.tp[t][TP_S0] == TAPE_SHARDS) {    /* the shards */
+                int k, ns = clampi((int)rv_param_eff(t, TP_S10), 2, 16);
+                for (k = 1; k < ns; k++)
+                    g_vline(xa + (xe - xa) * k / ns, PIC_Y + 30, 8, C_WHITE);
+            }
+        }
+        n = rv_tape_heads(t, pos, 6);
         for (i = 0; i < n; i++)
             g_vline(8 + (int)(clampf(pos[i], 0.0f, 1.0f) * 223.0f), PIC_Y + 28, 76, i ? C_TEAL_D : C_TEAL);
-        n = rv_tape_grains(t, pos, lvl, 16);
-        for (i = 0; i < n; i++)
-            g_disc(8 + (int)(clampf(pos[i], 0.0f, 1.0f) * 223.0f), PIC_Y + 96 - (int)(lvl[i] * 60.0f), 2, C_TEAL);
         if (rv.tp[t][TP_S0] == TAPE_SLICE) {
             n = rv_tape_slices(t, pos, 32);
             for (i = 0; i < n; i++)
@@ -3584,6 +3646,8 @@ static void pic_tape(void)
     }
     if (!istape)
         g_text(8, PIC_Y + 126, &FONT_T, "PICK T7 OR T8 (ALGO) TO PLAY THE TAPE", C_DIM);
+    else if (is_tkit(t))
+        g_text(8, PIC_Y + 126, &FONT_T, "KIT: LANES ON EDIT > LANE, SEQ > DRUM", C_DIM);
     else if (rv.tp[t][TP_S0] == TAPE_MLR)
         g_text(8, PIC_Y + 126, &FONT_T, "16 WHITE KEYS = 16 SPOTS IN THE ROW", C_DIM);
 }
@@ -3598,9 +3662,9 @@ static void pic_drum(void)
     int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
     for (l = 0; l < RV_LANES; l++) {
         int y = PIC_Y + 6 + l * 20, len = kt->len[l] ? kt->len[l] : tlen;
-        uint16_t lc = l == sel ? C_PERC : C_O_DIM;
+        uint16_t lc = l == sel ? lane_col(t) : C_O_DIM;
         char nb[8];
-        const char *mn = perc_mnames[kt->mach[l] % PM_N];
+        const char *mn = lane_mname(t, l);
         int j = 0;
         while (mn[j] && mn[j] != '-')
             j++;
@@ -3608,6 +3672,10 @@ static void pic_drum(void)
         nb[1] = ' ';
         nb[2] = mn[j] ? mn[j + 1] : mn[0];
         nb[3] = mn[j] && mn[j + 1] ? mn[j + 2] : 0;
+        if (is_tkit(t)) {                            /* a tape lane: its row */
+            nb[2] = 'R';
+            nb[3] = mn[4];
+        }
         nb[4] = 0;
         if (l == sel)
             g_fill(0, y - 2, 240, 19, C_O_PANEL);
@@ -3620,7 +3688,7 @@ static void pic_drum(void)
             int si = ui.step_page * 16 + i, x = 40 + i * 12;
             const rv_step *s = &p->s[si];
             int on = (s->flags & ST_ON) && ((s->note >> l) & 1), acc = on && ((s->env >> l) & 1);
-            uint16_t c = si >= len ? C_BG : on ? (acc ? C_WHITE : lc == C_O_DIM ? C_O_MID : C_PERC) : ((i & 3) ? C_O_LINE : C_O_DIM);
+            uint16_t c = si >= len ? C_BG : on ? (acc ? C_WHITE : lc == C_O_DIM ? C_O_MID : lane_col(t)) : ((i & 3) ? C_O_LINE : C_O_DIM);
             if (si >= len)
                 g_frame(x, y, 10, 14, C_O_LINE);
             else
@@ -3647,22 +3715,26 @@ static void pic_lane(void)
     static const char *const fam[4] = {"TRX: ANALOG-STYLE", "EFM: FM", "P-I: PHYSICAL MODEL", "GND"};
     int t = ui.track, l = ui.lane[t] % RV_LANES, m = rv.kit[t].mach[l] % PM_N, i;
     const rv_kit *kt = &rv.kit[t];
+    uint16_t lc = lane_col(t);
     for (i = 0; i < RV_LANES; i++) {                  /* the tabs */
         char nb[2] = {(char)('1' + i), 0};
         int x = 4 + i * 39;
-        g_fill(x, PIC_Y + 2, 36, 14, i == l ? C_PERC : C_O_PANEL);
+        g_fill(x, PIC_Y + 2, 36, 14, i == l ? lc : C_O_PANEL);
         g_text_c(x + 18, PIC_Y + 5, &FONT_XS, nb, i == l ? C_WHITE : C_O_DIM);
     }
-    g_text(8, PIC_Y + 22, &FONT_B, perc_mnames[m], C_PERC);
-    g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
+    g_text(8, PIC_Y + 22, &FONT_B, lane_mname(t, l), lc);
+    g_text_r(234, PIC_Y + 26, &FONT_T, is_tkit(t) ? "A SPAN OF THE TAPE" : fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
     for (i = 0; i < 12; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH, RATE */
         int row = i < 4 ? 0 : i < 8 ? 1 : 2, col = i % 2, x = 6 + col * 118, y = PIC_Y + 46 + (i / 2) * 13;
         int lit = row == ui.lane_row % 3, v, mx = 127;
         const char *nm;
         char vb[8];
         if (i < 8) {
-            nm = perc_pi[m][i].name;
+            nm = lane_pinfo(t, l, i)->name;
             v = kt->p[l][i];
+            mx = lane_pinfo(t, l, i)->max;
+            if (!is_tkit(t))
+                mx = 127;
         } else {
             static const char *const extra[4] = {"LEVEL", "CHANCE", "LENGTH", "RATE"};
             nm = extra[i - 8];
@@ -3677,10 +3749,12 @@ static void pic_lane(void)
         }
         g_text(x + 9, y, &FONT_XS, nm, lit ? C_INK : C_O_DIM);
         g_fill(x + 52, y + 3, 40, 3, C_O_LINE);
-        g_fill(x + 52, y + 3, v * 40 / (mx ? mx : 1), 3, lit ? C_PERC : C_O_MID);
+        g_fill(x + 52, y + 3, v * 40 / (mx ? mx : 1), 3, lit ? lc : C_O_MID);
         vb[0] = 0;
         if (i == 10 && v == 0)
             sx_cat(vb, "TRK");
+        else if (i < 8 && lane_pinfo(t, l, i)->fmt == PF_ENUM && is_tkit(t))
+            sx_cat(vb, lane_pinfo(t, l, i)->names[clampi(v, 0, lane_pinfo(t, l, i)->max)]);
         else if (i == 11)
             sx_cat(vb, rv_lrate_names[v % 9]);
         else

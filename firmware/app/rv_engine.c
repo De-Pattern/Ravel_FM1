@@ -216,7 +216,6 @@ void rv_all_off(void) { cmd(C_ALLOFF, 0, 0, 0); }
 /* ------------------------------------------------------------- notes --- */
 /* a hit's shading: the sequencer sets the next note's (a ratchet's R MOVE) just before it plays;
  * GRAIN adds its own on strike and perc hits. A voice keeps its shading for its whole sound */
-static hitshade_t hs_pend;
 static void hs_clear(hitshade_t *h)
 {
     h->on = 0;
@@ -283,7 +282,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     spark_pend = 0;
     if (vel > 0 && !spark)
         lfo_note_trig = 1;
-    if (vel > 0 && !spark && !(kind == KIND_PERC && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
+    if (vel > 0 && !spark && !((kind == KIND_PERC || kind == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
         int e = env > 0 ? env : rv.tp[t][TP_SEDEF];
         if (e > 0)
             senv_trigger(t, e - 1);
@@ -506,6 +505,14 @@ static void all_off_now(void)
             artic_release(&trk[i].tape.a, &trk[i].tape.cfg);
             trk[i].tape.pend_pos = -1;
         }
+    for (i = 0; i < RV_SAMP_VOICES; i++)           /* the sample voices: held notes let go, lanes stop */
+        if (sv[i].on) {
+            sv[i].gate = 0;
+            if (sv[i].lane >= 0)
+                sv[i].dk = fm_maxf(sv[i].dk, 40.0f);
+            else
+                artic_release(&sv[i].a, &sv[i].cfg);
+        }
 }
 
 static void cmd_drain(void)
@@ -715,7 +722,6 @@ static void render_sub(float *outl, float *outr, int n)
     static float fb_out[RV_SUB];                    /* kept: the feedback return reads the last step's */
     static float tape_src[RV_SUB], bus_mono[RV_SUB], tape_fb[RV_SUB];
     int offs[8], np, i, t, k;
-    int beads_next = 0;
     static uint32_t lead_age[RV_TRACKS];
     float solo_on = rv.solo ? 1.0f : 0.0f;
     float ingain = rv.gp[GP_INPUTLEVEL] * (2.0f / 127.0f);
@@ -890,27 +896,19 @@ static void render_sub(float *outl, float *outr, int n)
         if (rv.solo && !((rv.solo >> t) & 1u))
             muted = 1;
         if (kind == KIND_TAPE) {
-            int bi = -1;
-            if (rv.tp[t][TP_S0] == TAPE_BEADS && beads_next < RV_BEADS)
-                bi = beads_next++;
-            if (tr->tape.beads != bi)
-                tr->tape.beads = (int8_t)bi;
             if (!tr->tape.a.gate && tr->tape.a.stage == AS_OFF)
                 artic_cfg_track(&tr->tape.cfg, eff);
-            tr->lead_env = tape_track_render(tr, t, tr->buf, n, bi);
+            tr->lead_env = tape_track_render(tr, t, tr->buf, n);
             if (buf_fix(tr->buf, n) || !(tr->lead_env == tr->lead_env)) {
                 fault(300 + rv.tp[t][TP_S0]);
                 tr->lead_env = 0.0f;
                 __builtin_memset(&tr->tape.a, 0, sizeof(tr->tape.a));
+                for (i = 0; i < RV_SAMP_VOICES; i++)
+                    if (sv[i].track == t)
+                        sv[i].on = 0;
             }
             rv_live.stage[t] = tr->tape.a.stage;
             rv_live.stage_pos[t] = tr->tape.a.u;
-            /* Beads FEEDBACK goes back into the tape */
-            if (bi >= 0 && eff[TP_S11] > 0.5f) {
-                float g = eff[TP_S11] * (0.9f / 127.0f);
-                for (i = 0; i < n; i++)
-                    tape_fb[i] += tr->buf[i] * g;
-            }
         } else if (kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_PERC) {
             /* a track with no voice still lets its incoming excitation through (influence) */
         }
@@ -1077,7 +1075,7 @@ static void render_sub(float *outl, float *outr, int n)
 
     /* master: drive, microcuts, punch filters, a gentle limiter */
     {
-        float md = rv.gp[GP_MDRIVE] * (1.0f / 127.0f), pre = 1.0f + md * 3.0f;
+        float md = geff[GP_MDRIVE] * (1.0f / 127.0f), pre = 1.0f + md * 3.0f;
         master_drive_comp = 1.0f / (1.0f + md * 1.2f);
         for (i = 0; i < n; i++) {
             outl[i] = sat(outl[i] * pre) * master_drive_comp;

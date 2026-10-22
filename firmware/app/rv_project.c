@@ -198,6 +198,19 @@ int rv_load(int slot)
                 rv_kit_init(t);
             if (f <= 7)
                 __builtin_memset(rv.kitlk[t], 0xFF, sizeof(rv.kitlk[t]));
+            if (f <= 17 && t == 0)                       /* the delay's MODE (TAPE, GRAINS) became how much is grains */
+                rv.gp[GP_DLYMODE] = (int16_t)(rv.gp[GP_DLYMODE] == 1 ? 110 : 0);
+            if (f <= 17 && rv.tp[t][TP_KIND] == KIND_TAPE) {   /* Beads left the tape track: its knobs became the sampler's */
+                int p;
+                if (rv.tp[t][TP_S0] == 1)
+                    rv.tp[t][TP_S0] = TAPE_KEYS;
+                for (p = TP_S6; p <= TP_S13; p++) {
+                    const rv_pinfo *pi = rv_pinfo_track(t, p);
+                    rv.tp[t][p] = pi->name ? pi->def : 0;
+                }
+                rv.tp[t][TP_ENGINE] = 0;
+                rv.tp[t][TP_POLY] = 3;
+            }
         }
     }
     rv.format = RV_FORMAT;

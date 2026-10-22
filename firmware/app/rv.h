@@ -115,6 +115,8 @@ enum {
     GP_CUTSHAPE,
     GP_BEDLEVEL, GP_BEDDENS, GP_BEDTONE, GP_BEDSHIM, GP_BEDDUCK, GP_BEDDECAY, GP_BEDSPACE,
     GP_SCNGLIDE, GP_ARCSPAN,
+    /* (format 18) the tape delay's wear: flutter, saturation, age, and a doubler */
+    GP_DLYFLUT, GP_DLYSAT, GP_DLYAGE, GP_DLYDBL,
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
@@ -146,7 +148,9 @@ enum { SEQ_STEPS, SEQ_GRAPH };
 enum { ROLE_OFF, ROLE_NOTES, ROLE_GATE, ROLE_PITCH };   /* what a playhead does at a step */
 enum { FG_OFF, FG_RISE, FG_FALL, FG_ARCH, FG_DECAY, FG_SWELL, FG_LFO1, FG_LFO2, FG_DUST, FG_N };
 enum { COMB_SCALE, COMB_ADD };                   /* function generator against the clock: times, or plus */
-enum { TAPE_MLR, TAPE_BEADS, TAPE_SLICE, TAPE_MODES };
+enum { TAPE_MLR, TAPE_KEYS, TAPE_SLICE, TAPE_STRETCH, TAPE_SHARDS, TAPE_MODES };   /* (KEYS was BEADS before format 18) */
+enum { TPLAY_FWD, TPLAY_LOOP, TPLAY_PING, TPLAY_REV, TPLAY_REVLOOP, TPLAY_N };     /* how a sample plays its START..END */
+#define RV_SAMP_VOICES 6                /* sample voices, shared by the tape tracks (KEYS, STRETCH, SHARDS, kit lanes) */
 enum { EXC_CLICK, EXC_NOISE, EXC_METAL, EXC_FM, EXC_DUST, EXC_RAIN, EXC_BOW, EXC_BLOW, EXC_INPUT, EXC_N };
 enum { BODY_PING, BODY_MODAL, BODY_DISC, BODY_STRINGS, BODY_N };
 
@@ -227,7 +231,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 17                /* 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 18                /* 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -360,7 +364,13 @@ void rv_track_defaults(int t, int kind, int engine);
 void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
 void rv_cz_init(int t);
 void rv_engine_track_defaults(int t, int engine);
-void rv_kit_init(int t);                         /* a PERC kit's six lanes at their defaults */   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
+void rv_kit_init(int t);
+int rv_is_moddest_g(int g);                     /* a global the matrix and macros can move */
+void rv_tape_kit_init(int t);                    /* a TAPE kit: six lanes, each a sixth of row 1 */
+extern const rv_pinfo tape_lane_pi[8];
+extern const char *const rv_tape_row_names[];
+void rv_tape_span(int t, float *a, float *b);
+int rv_tape_voices(int t);                         /* a PERC kit's six lanes at their defaults */   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
 void rv_project_init(void);
 
 /* rv_engine.c: the audio side */

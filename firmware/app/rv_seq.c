@@ -42,7 +42,7 @@ static void click_at(uint32_t when, int down, int countin)
 
 
 /* ------------------------------------------------- graph mode and heads --- */
-static int is_kit(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
+static int is_kit(int t) { return (rv.tp[t][TP_KIND] == KIND_PERC || rv.tp[t][TP_KIND] == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1; }   /* a PERC or TAPE kit */
 static int is_graph(int t) { return !is_kit(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH); }
 /* HEAD 2 picks the pair: OFF or NOTES (head 1 plays notes too), MELODY (head 2 sets the pitch,
  * head 1 plays it: ROLE_PITCH) or RHYTHM (head 2 plays head 1's pitches: ROLE_GATE). Head 1's role
@@ -457,7 +457,7 @@ static void step_fire(int t, int h, int si, uint32_t when)
     if (ci && !s->chord[ci - 1])
         continue;
     note = s->note + (ci ? s->chord[ci - 1] : 0);
-    if (rv.tp[tt][TP_KIND] != KIND_TAPE) {
+    if (rv.tp[tt][TP_KIND] != KIND_TAPE || (rv.tp[tt][TP_S0] != TAPE_MLR && rv.tp[tt][TP_S0] != TAPE_SLICE)) {   /* (MLR and SLICE: the note is a place) */
         int ivl = clampi(rv.tp[t][TP_INTERVAL], 1, 12);
         if (is_graph(t))
             note += rv.tp[t][h ? TP_H2TRANS : TP_H1TRANS];

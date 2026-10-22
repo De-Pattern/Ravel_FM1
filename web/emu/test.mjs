@@ -303,4 +303,36 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   rv.web_punch(2, 0); rv.web_transport(0);
   check(!bad && pk > 0.01 && pk < 1.5 && rv.web_fault_count() === 0, `cut shapes, BOUNCE and R MOVE ratchets, GRAIN: finite, no faults (peak ${pk.toFixed(2)})`);
 }
+{                                                           // TAPE: KEYS plays a caught sample across the keys (a chord: three voices); SHARDS, STRETCH, a tape kit; all finite
+  rv.rv_boot(); rv.rv_run(250); rv.web_demo(0); rv.web_transport(1); rv.rv_run(1500);
+  rv.web_resample(); for (let k = 0; k < 600; k++) rv.rv_run(10);
+  rv.web_transport(0); for (let k = 0; k < 150; k++) rv.rv_run(10);
+  rv.web_set_mute(0x7F); rv.web_set_track(7);
+  const play = (keys, ms) => { let pk = 0, bad = false; rv.rv_set_keys(keys); for (let t = 0; t < ms; t += 10) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) bad = true; pk = Math.max(pk, Math.abs(a[i])); } } rv.rv_set_keys(0); for (let k = 0; k < 80; k++) rv.rv_run(10); return [pk, bad]; };
+  rv.web_tp_set(7, 0, 2); rv.web_tp_set(7, 1, 0); rv.web_tp_set(7, 2, 1); rv.web_tp_set(7, 21, 3); rv.web_tp_set(7, 51, 110);
+  const [kp, kb] = play((1 << 12) | (1 << 16) | (1 << 19), 600);
+  let voices = 0; rv.rv_set_keys((1 << 12) | (1 << 16) | (1 << 19)); rv.rv_run(100); voices = rv.web_tape_voices(7); rv.rv_set_keys(0); for (let k = 0; k < 80; k++) rv.rv_run(10);
+  rv.web_tp_set(7, 2, 4); rv.web_tp_set(7, 10, 1); rv.web_tp_set(7, 13, 5); rv.web_tp_set(7, 14, 60);
+  const [sp, sb] = play(1 << 12, 800);
+  rv.web_tp_set(7, 2, 3); rv.web_tp_set(7, 11, 40);
+  const [tp, tb] = play(1 << 14, 800);
+  rv.web_tape_kit(7); for (let st = 0; st < 64; st++) rv.web_step_set(7, st, 0, 0); for (let st = 0; st < 16; st++) rv.web_kit_hit(7, st, st % 6);
+  rv.web_transport(1); let kitpk = 0, kitbad = false;
+  for (let k = 0; k < 300; k++) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) kitbad = true; kitpk = Math.max(kitpk, Math.abs(a[i])); } }
+  rv.web_transport(0);
+  check(kp > 0.02 && voices === 3 && !kb, `TAPE KEYS: a chord from the tape, ${voices} voices (peak ${kp.toFixed(2)})`);
+  check(sp > 0.02 && tp > 0.02 && !sb && !tb, `SHARDS and STRETCH sound (peaks ${sp.toFixed(2)}, ${tp.toFixed(2)})`);
+  check(kitpk > 0.02 && !kitbad && rv.web_fault_count() === 0, `a tape kit plays its lanes (peak ${kitpk.toFixed(2)}), no faults`);
+}
+{                                                           // the tape delay at its extremes: grains, full feedback, saturation, age, double: bounded and finite
+  rv.rv_boot(); rv.rv_run(250);
+  for (let st = 0; st < 16; st += 4) rv.web_step_set(0, st, 1, 0);
+  rv.web_tp_set(0, 55, 127);
+  for (const [g, v] of [[40, 30], [41, 127], [43, 127], [96, 127], [97, 127], [98, 127], [99, 24], [71, 127], [119, 127], [120, 127], [121, 127], [122, 127]]) rv.web_gp_set(g, v);
+  let bad = false, pk = 0;
+  rv.web_transport(1);
+  for (let k = 0; k < 800; k++) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) bad = true; pk = Math.max(pk, Math.abs(a[i])); } }
+  rv.web_transport(0);
+  check(!bad && pk < 1.6 && rv.web_fault_count() === 0, `the tape delay flat out stays bounded (peak ${pk.toFixed(2)})`);
+}
 process.exit(fails ? 1 : 0);

@@ -281,8 +281,10 @@ static const kit_preset_t kit_presets[] = {
 
 /* ----------------------------------------------------------------- tape --- */
 static const int8_t t_mlr[] = {TP_S0, TAPE_MLR, TP_S1, 0, TP_S2, 6, TP_S4, 1, TP_LEVEL, 100, END};
-static const int8_t t_cloud[] = {TP_S0, TAPE_BEADS, TP_S1, 0, TP_S6, 60, TP_S7, 84, TP_S8, 80, TP_S10, 96, TP_S12, 127, TP_LEVEL, 96, TP_REVS, 50, END};
-static const int8_t t_keys[] = {TP_S0, TAPE_BEADS, TP_S1, 0, TP_S6, 40, TP_S7, 60, TP_S8, 50, TP_S10, 64, TP_S12, 127, TP_LEVEL, 100, END};
+static const int8_t t_keys[] = {TP_S0, TAPE_KEYS, TP_S1, 0, TP_S8, TPLAY_FWD, TP_POLY, 3, TP_ATK, 0, TP_SUS, 127, TP_REL, 30, TP_LEVEL, 100, END};
+static const int8_t t_loopkeys[] = {TP_S0, TAPE_KEYS, TP_S1, 0, TP_S6, 0, TP_S7, 63, TP_S8, TPLAY_LOOP, TP_POLY, 3, TP_ATK, 10, TP_SUS, 127, TP_REL, 50, TP_LEVEL, 96, TP_REVS, 40, END};
+static const int8_t t_shards[] = {TP_S0, TAPE_SHARDS, TP_S1, 0, TP_S8, TPLAY_LOOP, TP_S10, 8, TP_S11, 5, TP_S12, 40, TP_POLY, 0, TP_SUS, 127, TP_REL, 20, TP_LEVEL, 100, END};
+static const int8_t t_stretch[] = {TP_S0, TAPE_STRETCH, TP_S1, 0, TP_S8, TPLAY_LOOP, TP_S9, 50, TP_POLY, 1, TP_ATK, 20, TP_SUS, 127, TP_REL, 60, TP_LEVEL, 96, TP_REVS, 50, END};
 static const int8_t t_slices[] = {TP_S0, TAPE_SLICE, TP_S1, 0, TP_S14, 16, TP_S15, 70, TP_ATK, 2, TP_DEC, 50, TP_SUS, 90, TP_REL, 30, TP_LEVEL, 100, END};
 static const int8_t t_half[] = {TP_S0, TAPE_MLR, TP_S1, 1, TP_S2, 5, TP_S3, 4, TP_S4, 2, TP_LEVEL, 90, TP_DLYS, 40, END};
 
@@ -340,7 +342,8 @@ static const rv_preset presets[] = {
     {"EFM BELL", KIND_PERC, 0, d_efmbell, 0}, {"PI KICK", KIND_PERC, 0, d_pikick, 0}, {"PI SNARE", KIND_PERC, 0, d_pisnare, 0},
     {"PI TOM", KIND_PERC, 0, d_pitom, 0}, {"PI RIDE", KIND_PERC, 0, d_piride, 0}, {"PI SHAKER", KIND_PERC, 0, d_pishaker, 0},
     {"METALLICA", KIND_PERC, 0, d_metal, 0}, {"GND SUB", KIND_PERC, 0, d_gndsub, 0}, {"IMPULSE", KIND_PERC, 0, d_blip, 0},
-    {"MLR LOOP", KIND_TAPE, 0, t_mlr, 0}, {"CLOUD", KIND_TAPE, 0, t_cloud, 0}, {"GRAIN KEYS", KIND_TAPE, 0, t_keys, 0},
+    {"MLR LOOP", KIND_TAPE, 0, t_mlr, 0}, {"SAMPLE KEYS", KIND_TAPE, 0, t_keys, 0}, {"LOOP KEYS", KIND_TAPE, 0, t_loopkeys, 0},
+    {"SHARDS", KIND_TAPE, 0, t_shards, 0}, {"SLOW STRETCH", KIND_TAPE, 0, t_stretch, 0},
     {"SLICES", KIND_TAPE, 0, t_slices, 0}, {"HALF SPEED", KIND_TAPE, 0, t_half, 0},
 };
 #define NPRESETS ((int)(sizeof(presets) / sizeof(presets[0])))
@@ -482,7 +485,7 @@ void rv_demo(int which)
         rv_preset_apply(4, find_preset("WOOD"));
         rv_preset_apply(5, find_preset("METAL"));
         rv_preset_apply(6, find_preset("MLR LOOP"));
-        rv_preset_apply(7, find_preset("CLOUD"));
+        rv_preset_apply(7, find_preset("SHARDS"));
         rv.tp[0][TP_LEN] = 32;
         on(0, 0, 57, 80, 60);
         on(0, 16, 53, 80, 60);
@@ -553,7 +556,7 @@ void rv_demo(int which)
         rv_preset_apply(4, find_preset("CLOCKWORK"));
         rv_preset_apply(5, find_preset("STRINGS"));
         rv_preset_apply(6, find_preset("SLICES"));
-        rv_preset_apply(7, find_preset("GRAIN KEYS"));
+        rv_preset_apply(7, find_preset("LOOP KEYS"));
         rv.tp[0][TP_VOC] = 90;
         rv.tp[0][TP_LEVEL] = 40;
         rv.gp[GP_VOCBODY] = 1;

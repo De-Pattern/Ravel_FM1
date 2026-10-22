@@ -41,7 +41,7 @@
   <text x="112" y="307" font-weight="600" fill="#dde5de">Perc  any track</text>
   <text x="112" y="329" font-size="12" fill="#c9a2a7">33 drum machines; a kit of six lanes on one track</text>
   <text x="112" y="391" font-weight="600" fill="#dde5de">Tape  T7, T8</text>
-  <text x="112" y="413" font-size="12" fill="#8c998f">MLR playheads, Beads grains, slices</text>
+  <text x="112" y="413" font-size="12" fill="#8c998f">sampler: MLR, keys, shards, stretch, kits</text>
 
   <!-- buses -->
   <rect x="440" y="92" width="200" height="338" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
@@ -50,7 +50,7 @@
   <text x="456" y="176" font-size="12" fill="#8c998f">Bands (eight resonant bands)</text>
   <text x="456" y="202" font-size="12" fill="#8c998f">Feedback bus</text>
   <text x="456" y="228" font-size="12" fill="#8c998f">Filter pair</text>
-  <text x="456" y="254" font-size="12" fill="#8c998f">Delay: tape or grains</text>
+  <text x="456" y="254" font-size="12" fill="#8c998f">Delay: granular tape</text>
   <text x="456" y="280" font-size="12" fill="#8c998f">Space: room, clouds,</text>
   <text x="456" y="297" font-size="12" fill="#8c998f">blackhole, 12-bit</text>
   <text x="456" y="323" font-size="12" fill="#8c998f">Bed: dust, wood to metal</text>

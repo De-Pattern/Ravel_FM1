@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape tracks feed the mixer and buses (the space reverb: room, clouds, blackhole or 12-bit); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space reverb: room, clouds, blackhole or 12-bit); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -24,13 +24,13 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Synth tracks** (T1 to T4), fourteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
-- **Tape tracks** (T7, T8): no oscillator. They play the shared 120 KB capture tape as **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), through the **Beads** grain engine, or as **slices** found in what was caught.
+- **Tape tracks** (T7, T8): the sampler, playing the shared 120 KB capture tape (filled by resampling Ravel itself): **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), **KEYS** (a span across the keys, up to four voices), **STRETCH** (speed apart from pitch), **SHARDS** (the span in pieces, one at a time, in an order, with gaps), **slices**, or a **kit** of six lanes, each its own span. START and END can be moved by LFOs, so loops breathe.
 - **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
-- **Buses:** a stereo delay (spread, wobble, freeze) that can become a Beads-style grain cloud, a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it.
+- **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it.
 - **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
@@ -178,7 +178,7 @@ Knobs speed up when you turn them quickly, so a fast turn crosses a whole range 
 **Pages appear and disappear.** A section only shows the pages that apply to the current track:
 
 - a VA synth has three SOURCE pages, FM has four;
-- a tape track has no SOURCE pages but gets PLAYBACK, then MLR, BEADS or SLICES depending on its mode;
+- a tape track has no SOURCE pages but gets PLAYBACK, then MLR, SAMPLE, STRETCH, SHARDS or SLICES depending on its mode;
 - the graph's HEAD pages only appear when the track is in GRAPH mode, and HEAD 2's pages only when head 2 is on.
 
 So if a page seems to be "skipped", it is hidden because it does not apply to this track. Change the track or the setting and it comes back.
@@ -195,7 +195,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 | --- | --- | --- |
 | **SYNTH** | An oscillator voice with fourteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
-| **TAPE** | No oscillator. It plays the shared capture tape: MLR playheads, Beads grains, or slices. | T7–T8 |
+| **TAPE** | The sampler. It plays the shared capture tape: MLR playheads, across the keys (up to 4 voices), stretched, as shards, as slices, or as a kit of six lanes. | T7–T8 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
 
 How the sound flows:
@@ -766,29 +766,34 @@ Each track can send part of its sound into six shared effects (buses). Their out
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **DELAY** | TIME: free below the middle, tempo-synced divisions above | FEEDBK | TONE: darker or brighter repeats | LEVEL |
-| **DELAY 2** | T SEND | SPREAD: stereo ping-pong width (GRAINS: STEREO, how widely grains scatter) | WOBBLE: tape wow and flutter (GRAINS: RANDOM) | FREEZE: ON holds the repeats forever |
-| **GRAINS** | MODE: TAPE (the delay) or GRAINS | DENSITY: how often grains start | SIZE: each grain, 20 ms to 0.4 s | PITCH: ±24 semitones |
-| **SPACE** | SIZE | DAMP: darker tail | LEVEL | T SEND |
+| **DELAY** | T SEND | TIME: free below the middle (10 ms to 0.5 s), tempo-synced divisions above | FEEDBK | LEVEL |
+| **DELAY 2** | TONE: darker or brighter repeats | SPREAD: stereo ping-pong width (and how widely grains scatter) | DOUBLE: double tracking, a second wavering copy close behind | FREEZE: ON holds the repeats forever |
+| **TAPE WEAR** | WOW: a slow, drifting sway of the tape's speed | FLUTTER: a fast waver | SATURAT: the tape driven, warm then gritty | AGE: darker repeats, hiss, dropouts |
+| **GRAINS** | GRAINS: how much of the delay is a grain cloud (0: none) | DENSITY: how often grains start | SIZE: each grain, 20 ms to 0.4 s | PITCH: ±24 semitones |
+| **SPACE** | T SEND | SIZE | DAMP: darker tail | LEVEL |
 | **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | MODE: ROOM, CLOUDS, BLACKHOLE or 12-BIT |
 | **BED** | LEVEL (0: off) | DENSITY: how often its dust falls | TONE: wood (left) to metal (right) | SHIMMER: the body an octave and two up, slowly beating |
 | **BED 2** | DUCK: how far busy tracks hold it down | DECAY: how long the body rings | SPACE: how much of it goes into the space reverb | – |
-| **FEEDBACK** | TIME of the loop | REGEN: how much goes round again | PROCESS inside the loop: FILTER, COMB, SMEAR, SHIFT, FOLD, CRUSH | AMOUNT of the process |
-| **FEEDBACK 2** | TUNE of the process | CUTOFF of the loop's filter | EDGE: a guard that keeps the loop from running away | RETURN: to the MASTER, or into a track (T1–T8) |
-| **FEEDBACK 3** | LEVEL | T SEND | – | – |
-| **FILTER PAIR** | ROUTING: SERIES, PARALLEL, FEEDBACK | FREQ 1 | FREQ 2 | RESO |
-| **PAIR 2** | TYPE 1: LOWPASS, BANDPASS, HIGHPASS | TYPE 2 | LEVEL | T SEND |
+| **FEEDBACK** | T SEND | TIME of the loop | REGEN: how much goes round again | LEVEL |
+| **FEEDBACK 2** | PROCESS inside the loop: FILTER, COMB, SMEAR, SHIFT, FOLD, CRUSH | AMOUNT of the process | TUNE of the process | CUTOFF of the loop's filter |
+| **FEEDBACK 3** | EDGE: a guard that keeps the loop from running away | RETURN: to the MASTER, or into a track (T1–T8) | – | – |
+| **FILTER PAIR** | T SEND | ROUTING: SERIES, PARALLEL, FEEDBACK | FREQ 1 | FREQ 2 |
+| **PAIR 2** | RESO | TYPE 1: LOWPASS, BANDPASS, HIGHPASS | TYPE 2 | LEVEL |
 | **PAIR LFOS** | LFO 1 rate (moves filter 1) | LFO 2 rate (moves filter 2) | DEPTH | – |
 | **BANDS** | T SEND | LEVEL | RESO: from broad bands to narrow, ringing ones | SHIFT: moves all eight bands, ±12 semitones |
 | **BAND SWEEP** | SWEEP: UP, DOWN, PINGPNG, RANDOM (a new band each cycle), STEP UP and STEP RND (band to band, eight steps a cycle) | RATE: about 0.03 to 20 sweeps a second | DEPTH: how dark the unlit bands go (0 = no sweep) | WIDTH: how many bands the sweep lights at once |
 | **BANDS 1-4** | 150 Hz band's level | 240 Hz | 380 Hz | 600 Hz |
 | **BANDS 5-8** | 950 Hz | 1.5 kHz | 2.4 kHz | 3.8 kHz |
-| **VOCODER** | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL | T SEND |
+| **VOCODER** | T SEND | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL |
 | **VOCODER 2** | ATTACK | RELEASE | SHIFT: moves the bands (±24 semitones) | NARROW: sharper, more resonant bands |
 | **MASTER** | DRIVE: master saturation | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
 | **MASTER 2** | C SHAPE: the punch-ins' cuts EVEN, BOUNCE or DRAG (as on SEQ › STEP CUT) | – | – | – |
 
-**GRAINS** (DELAY, MODE GRAINS) turns the delay into a small granular cloud after Mutable Instruments' Beads, kept lofi on purpose: the delay's memory holds about half a second at half the sample rate and 12 bits. Up to eight grains read from it at once. TIME becomes **POSITN** (how far back the grains reach), WOBBLE becomes **RANDOM** (how much each grain strays in position, pitch and length) and SPREAD becomes **STEREO**. FEEDBK sends the cloud back into its own buffer, TONE darkens it, and FREEZE stops recording, so the cloud keeps playing what it holds: freeze a chord, then play with POSITN, SIZE and PITCH. Switching MODE clears the buffer.
+<p align="center"><img src="docs/manual/bus-delay.png" alt="DELAY" width="240"> <img src="docs/manual/bus-wear.png" alt="TAPE WEAR" width="240"></p>
+
+**The delay is a tape.** One short loop of tape, written at half rate and 12 bits (about half a second), driven on the way in (**SATURAT**). The echoes read it at TIME while the tape's speed sways (**WOW**, slow and drifting) and wavers (**FLUTTER**, fast and shallow); each pass goes through TONE, the tape's **AGE** (darker, a little hiss, and now and then a dropout, more as it ages) and the saturation again, so the repeats wear down like an old tape echo's. **DOUBLE** adds two copies of what comes in, 18 and 27 ms behind and wavering apart: double tracking, one knob. **GRAINS** mixes in a cloud of up to eight grains read from the same tape around the echo (after Mutable Instruments' Beads, kept lofi): DENSITY, SIZE and PITCH shape them, WOW scatters them, SPREAD widens them, and the cloud feeds back into the tape with the echoes. **FREEZE** stops the tape recording, so the echoes and the cloud play what it holds: freeze a phrase, then turn GRAINS, SIZE and PITCH.
+
+**The buses follow the matrix and the macros.** On LFO › MATRIX, TRACK = GLOBAL, the PARAM knob walks the settings that can be moved: the clock, the LFOs and dust, and each bus's main settings (delay time, feedback, tone, level, wow, grains; space size, damp, level, motion; the feedback bus, the filter pair's frequencies, resonance and level; the bands' and vocoder's levels; the BED; master drive and cut mix). The macros reach the same ones.
 
 **CLOUDS** (SPACE, MODE CLOUDS) is a long, smooth plate in the manner of the reverb in Mutable Instruments' Clouds: a figure-eight tank of allpasses and delays that feed each other. SIZE becomes **DECAY**, from about half a second to a tail of twenty seconds or more. DAMP, DIFFUSE, MOTION and LOW CUT work as they do in ROOM. Switching MODE clears the tail.
 
@@ -866,15 +871,19 @@ The tape is Ravel's memory: one short loop of audio that every tape track plays 
 | --- | --- | --- | --- | --- | --- |
 | **CAPTURE** | QUALITY: DIRTY, TAPE, CLEAN | SOURCE: MASTER, T1–T8, BUSES, INPUT | RESAMPL: 1 BAR, 2 BARS, 4 BARS, 1/2 BAR | ERODE: the tape wears a little each pass | row |
 | **ROWS** | START of the row (0–127, in 128ths of the tape) | END of the row | IN GAIN: audio input level | INPUT: hear the input through the output | row 1–4 |
-| **PLAYBACK** (tape tracks) | MODE: MLR, BEADS, SLICE | ROW it plays | RATE: −2× to 4× | HEAD 2: a second playhead (+¼, +½, +¾ of the row, or REV) | sounds |
-| **MLR** | JUMP: when a jump lands: NOW, STEP, BEAT, BAR | XFADE: smoothing at jumps | PITCH | LEVEL | sounds |
-| **BEADS** | TIME: where in the row grains come from | SIZE of grains | SHAPE of grains | PITCH | sounds |
-| **BEADS 2** | DENSITY | FEEDBK | MIX | RANDOM | sounds |
-| **SLICES** | SLICES: 4–32 | SENS: how easily a hit counts as a slice | PITCH | LEVEL | sounds |
+| **PLAYBACK** (tape tracks) | MODE: MLR, KEYS, SLICE, STRETCH, SHARDS | ROW it plays | START: where in the row it begins (0–127) | END: where it ends | sounds |
+| **MLR** | JUMP: when a jump lands: NOW, STEP, BEAT, BAR | XFADE: smoothing at jumps | RATE: −2× to 4× | HEAD 2: a second playhead (+¼, +½, +¾ of the row, or REV) | sounds |
+| **MLR 2** | PITCH | LEVEL | – | – | sounds |
+| **SAMPLE** (KEYS, STRETCH, SHARDS) | PLAY: FWD, LOOP, PINGPNG, REV, REV LOOP | PITCH | VOICES: 1–4 | LEVEL | sounds |
+| **STRETCH** | SPEED: 0–200 % of the sample's own time, its pitch apart | – | – | – | sounds |
+| **SHARDS** | SHARDS: 2–16 pieces | ORDER: FWD, REV, SKIP, SWAP, INWARD, SHUF 1–3 | GAP: silence after each piece | – | sounds |
+| **SLICES** | SLICES: 4–32 | SENS: how easily a hit counts as a slice (0: an even grid) | PITCH | LEVEL | sounds |
 
 **Rows.** The tape is divided into four **rows**, which are windows onto the tape. By default row 1 is the whole tape, rows 2 and 3 are its first and second halves, and row 4 is its first eighth. A tape track plays one row at a time.
 
-### The three ways a tape track plays
+### The five ways a tape track plays
+
+A tape track is Ravel's sampler. It plays its **row** of the tape between **START** and **END** (PLAYBACK). START and END are ordinary parameters: the matrix, the macros, the LFOs and influence can move them, so a loop can shrink, stretch and wander while it plays. The picture dims what lies outside them.
 
 **MLR** (named after the monome app). The current row is laid across the **16 white keys**.
 
@@ -893,18 +902,24 @@ The tape is Ravel's memory: one short loop of audio that every tape track plays 
 
 The picture shows the whole tape, the four rows (the current one bright), the playhead(s) and "CAUGHT 1.4S" or "LISTENING".
 
-**BEADS:** the Mutable Instruments granular engine, reading the tape.
+<p align="center"><img src="docs/manual/tape-sample.png" alt="SAMPLE: a tape track playing its loop across the keys" width="240"> <img src="docs/manual/tape-shards.png" alt="SHARDS: the span marked into pieces" width="240"></p>
 
-- Keys play pitched grain clouds. While the sequencer runs, the cloud also plays on its own; when you stop, it fades out within a fraction of a second, and only the keys play it.
-- TIME scans through the row, SIZE and SHAPE set each grain, DENSITY sets how many, and RANDOM scatters them.
-- FEEDBK and MIX turn it into a smeared, blooming texture.
+**KEYS:** the row (START to END) played across the keys, like an early sampling keyboard. C4 plays it as it was caught; each key up or down is a semitone. Up to four at once (VOICES), each with the track's envelope. **PLAY** says what happens at the ends: **FWD** plays once, **LOOP** goes round while the key is held, **PINGPNG** goes back and forth, **REV** and **REV LOOP** run backwards. With LOOP on and an LFO on END, the loop breathes.
+
+**STRETCH:** as KEYS, with its **SPEED** apart from its pitch. At 100 % it keeps the sample's own time; at 50 % it takes twice as long at the same pitch; at 0 it stands still on one moment and hums it. Two short windows read the tape, so it smears a little: lofi on purpose.
+
+**SHARDS:** the span broken into **SHARDS** pieces (2–16), played one at a time, never overlapping, in an **ORDER**: forward, reversed, SKIP (the odd pieces, then the even), SWAP (each pair changed round), INWARD (the ends toward the middle) or one of three fixed shuffles. **GAP** leaves a silence after each piece, from none to most of it, so a phrase falls apart into clicks and fragments. Each piece fades in and out quickly, so there are no clicks except the ones you want. PLAY LOOP goes round; REV plays each piece backwards. The picture marks the pieces.
 
 **SLICE:** the row is cut where it hits (onsets).
 
 - Keys play slices from left to right, and so do steps.
-- SENS sets how many hits count; SLICES sets the maximum.
+- SENS sets how many hits count; SLICES sets the maximum. **SENS 0** cuts an even grid of SLICES instead.
 
-**Steps on a tape track** jump the playhead: the step's note picks the position. A pattern on T7 can therefore cut the loop up rhythmically, and recorded MLR jumps become these steps (see [Recording](#16-recording)).
+**A tape KIT** (EDIT › SOUND, MODE = KIT): six lanes, each its own span of the tape, sequenced on SEQ › DRUM like a perc kit, with each lane's own length, rate, chance, ratchets, R MOVE and EUCLID. A new tape kit cuts row 1 into six. Each lane (EDIT › LANE 1–6) has its **ROW** (PRESETS walks them) and **PITCH** (64: as caught, ±24 semitones), **START**, **END**, **PLAY**, **DECAY** (127: plays to its end), **SHARDS** (below 2: off; 2–16 plays it as shards), **ORDER** and **GAP**. A lane plays one hit at a time; outside SEQ the white keys play the lanes. Parameter locks work as on a perc kit.
+
+**Steps on a tape track** in MLR jump the playhead: the step's note picks the position. A pattern on T7 can therefore cut the loop up rhythmically, and recorded MLR jumps become these steps (see [Recording](#16-recording)). In KEYS, STRETCH and SHARDS steps play notes, through the scale like a synth's; in SLICE a step's note picks the slice.
+
+**Samples are kept in RAM:** what is on the tape is gone when the FM-1 is switched off. Resample it again from the project.
 
 **Audio in.**
 
@@ -1238,11 +1253,17 @@ Turning ALGORITHM while armed moves recording to the new track.
 5. Press black **5** for reverse, **6** for half speed.
 6. Tap **REC**, then jump around while it plays. Your jumps become a pattern.
 
-**Turn the tape into a cloud (Beads)**
+**Play the tape across the keys**
 
-1. With something caught, ALGORITHM to T8. Press **ARP**, SELECT to PLAYBACK, **MODE** = BEADS.
-2. SELECT to BEADS. Turn **SIZE** up, **DENSITY** up (BEADS 2) and **RANDOM** up a little.
-3. Play keys: pitched clouds of the loop.
+1. With something caught, ALGORITHM to T8. Press **ARP**, SELECT to PLAYBACK, **MODE** = KEYS.
+2. SELECT to SAMPLE: **PLAY** = LOOP. Back on PLAYBACK, turn **END** down for a shorter loop.
+3. Play chords. For a loop that breathes: LFO › MATRIX, SOURCE LFO1, TRACK T8, PARAM END.
+
+**Break a phrase into shards**
+
+1. On T8, **MODE** = SHARDS, PLAY = LOOP.
+2. SELECT to SHARDS: **SHARDS** 8, **ORDER** SHUF 1, **GAP** 50.
+3. Hold a key. Turn ORDER and GAP while it plays.
 
 **Two-headed graph melody**
 
@@ -1317,13 +1338,18 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Record a chord onto a step | Tap REC, PLAY, press the keys together |
 | Graph steps past 16 | GRAPH page, OCT+ / OCT− |
 | A huge, endless reverb | FX › SPACE 2: MODE BLACKHOLE; then SPACE: GRAVITY near the top |
+| A worn tape echo | FX › DELAY, then TAPE WEAR: WOW, FLUTTER, SATURAT, AGE |
+| Grains in the delay | FX › GRAINS: GRAINS up |
+| A sample across the keys | ARP › PLAYBACK: MODE KEYS (T7/T8, with something caught) |
+| A loop whose end breathes | Matrix: LFO1 → T8 END |
+| A tape kit | EDIT › SOUND on a tape track: MODE KIT |
 | A lo-fi 12-bit reverb | FX › SPACE 2: MODE 12-BIT, DIFFUSE becomes CRUNCH (fewer bits) |
 
 ## 19. Questions people ask
 
 **A page I saw before is gone.**
 
-- It only shows when it applies. SOURCE 3 and 4 depend on the engine. MLR, BEADS and SLICES depend on the tape mode. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on.
+- It only shows when it applies. SOURCE 3 and 4 depend on the engine. MLR, SAMPLE, STRETCH, SHARDS and SLICES depend on the tape mode. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on.
 - Holding LFO does not change pages: it puts the macros on the knobs.
 
 **The FX page changes a value for every track.**
@@ -1374,7 +1400,7 @@ The installer works from M-VAVE's own firmware, from Ravel, and from the other c
 | --- | --- |
 | `firmware/app/` | Ravel: the engine (`rv_engine.c`), synth engines (`rv_synth.c`), strike (`rv_strike.c`), tape (`rv_tape.c`), buses (`rv_bus.c`), sequencer (`rv_seq.c`), modulation and clock (`rv_mod.c`), parameters, presets, projects, and the interface (`rv_ui.c`, `rv_gfx.c`). Portable C99, single-precision float, no C library. |
 | `firmware/fm1/` | The FM-1 side, bare metal: Felucca's hardware layer (`hal/`), start-up and memory map, the update loader (`loader/`), and in `src/`: USB, LCD, storage, the update entry, the panel map, Ravel's platform (`plat_fm1.c`) and the boot, audio interrupt and main loop (`main_fm1.c`) |
-| `core/beads/` | Beads' grain engine rewritten in integer C (MIT, see `core/beads/LICENSE-beads`) |
+| `core/beads/` | Beads' grain engine rewritten in integer C (MIT, see `core/beads/LICENSE-beads`); Ravel keeps its tape store for the capture tape |
 | `host/` | The simulator: the whole app on a desktop, driven by scripts, writing screenshots and WAV files |
 | `web/emu/` | The browser emulator: the same code compiled to WebAssembly, on a drawn FM-1 panel |
 | `tests/beads/` | Renders 13 scenarios through the original Beads and the port, and compares them |
@@ -1433,7 +1459,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too. Ravel does not act on incoming MIDI yet.
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
 - **Not in this version:** Bluetooth, audio input, tape punch-in.
-- **Beads on the FM-1:** grain mode only (no delay mode, which the delay bus covers), reading the shared tape. The emulator and simulator use the same options.
+- **Beads:** the capture tape keeps Beads' tape formats (16-bit, 12-bit, µ-law); the grains themselves are now the delay's GRAINS, Ravel's own lofi take.
 
 ## Licence
 
@@ -1441,7 +1467,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 
 ## Credits
 
-- Mutable Instruments (Émilie Gillet) for Beads, which the tape tracks run and the GRAINS mode follows, and for Clouds, whose reverb the CLOUDS mode follows.
+- Mutable Instruments (Émilie Gillet) for Beads, whose tape formats the capture tape keeps and whose grains the delay's GRAINS follows, and for Clouds, whose reverb the CLOUDS mode follows.
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.

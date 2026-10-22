@@ -100,16 +100,21 @@ wait 150
 expect page DELAY
 wait 600
 shot bus-delay.png
+turn SELECT 2
+wait 150
+expect page TAPE WEAR
+wait 300
+shot bus-wear.png
 tap FX
 turn SELECT -20
-turn SELECT 3
+turn SELECT 4
 wait 150
 expect page SPACE
 wait 600
 shot bus-space.png
 tap FX
 turn SELECT -20
-turn SELECT 5
+turn SELECT 6
 wait 150
 expect page BED
 turn K1 10
@@ -135,35 +140,35 @@ turn K1 -10
 wait 150
 tap FX
 turn SELECT -20
-turn SELECT 7
+turn SELECT 8
 wait 150
 expect page FEEDBACK
 wait 600
 shot bus-feedback.png
 tap FX
 turn SELECT -20
-turn SELECT 10
+turn SELECT 11
 wait 150
 expect page FILTER PAIR
 wait 600
 shot bus-pair.png
 tap FX
 turn SELECT -20
-turn SELECT 13
+turn SELECT 14
 wait 150
 expect page BANDS
 wait 600
 shot bus-bands.png
 tap FX
 turn SELECT -20
-turn SELECT 17
+turn SELECT 18
 wait 150
 expect page VOCODER
 wait 600
 shot bus-vocoder.png
 tap FX
 turn SELECT -20
-turn SELECT 19
+turn SELECT 20
 wait 150
 expect page MASTER
 wait 600
@@ -204,9 +209,14 @@ tap ARP
 turn SELECT -20
 turn SELECT 3
 wait 150
-expect page BEADS
+expect page SAMPLE
 wait 600
-shot tape-beads.png
+shot tape-sample.png
+turn SELECT 1
+wait 150
+expect page SHARDS
+wait 600
+shot tape-shards.png
 turn ALGO -8
 turn ALGO 0
 tap SEQ
