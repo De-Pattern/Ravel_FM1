@@ -275,6 +275,7 @@ static void hs_mix(hitshade_t *h, const float *src, float *dst, int n)
 }
 
 static void guard_note(void);
+static int guard_wants(int t);
 /* the voices' decaying state, flushed once a block before it reaches the denormals (fm_flush_n):
  * filters, envelopes and above all the ringing modes of TINE, PHYS, the strikes and the drums */
 static void synth_flush(voice_t *v)
@@ -284,7 +285,7 @@ static void synth_flush(voice_t *v)
     fm_flush_n(&v->svf2.ic1, 2);
     fm_flush_n(&v->zp.s[0][0], 12);
     fm_flush_n(&v->hs.lps, 1);
-    switch (rv.tp[v->track][TP_ENGINE]) {
+    switch (v->e_eng - 1) {                           /* the engine its state belongs to (a step lock may change the track's) */
     case ENG_TINE:
         fm_flush_n(v->e.tn.re, TN_M);
         fm_flush_n(v->e.tn.im, TN_M);
@@ -335,7 +336,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;
     float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
     spark_pend = 0;
-    if (vel > 0)
+    if (vel > 0 && !spark && guard_wants(t))     /* (only a note that takes a voice of its own) */
         guard_note();
     if (vel > 0 && !spark)
         lfo_note_trig = 1;
@@ -1008,6 +1009,20 @@ static int shed_one(void)
 }
 
 /* a note about to start: past the guard's limit, the oldest voice makes room */
+/* does a note on track t start a voice of its own (not a mono retrigger, a tape track's playhead
+ * or a drum choking its own last hit)? */
+static int guard_wants(int t)
+{
+    int kind = rv.tp[t][TP_KIND];
+    if (kind == KIND_SYNTH)
+        return rv.tp[t][TP_POLY] > 0;
+    if (kind == KIND_TAPE)
+        return rv.tp[t][TP_ENGINE] == 1 || rv.tp[t][TP_S0] == TAPE_KEYS || rv.tp[t][TP_S0] == TAPE_STRETCH ||
+               rv.tp[t][TP_S0] == TAPE_SHARDS;
+    if (kind == KIND_PERC)
+        return rv.tp[t][TP_ENGINE] != 1 && rv.tp[t][TP_POLY] > 0;
+    return 1;
+}
 static void guard_note(void)
 {
     if (guard_cap != 255 && !rv_live.guard_off && voices_sounding() >= guard_cap)
@@ -1028,9 +1043,15 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     for (k = 0; k < RV_PERC_VOICES; k++)
         if (ps[k].on && shedding(&ps[k].hs) && ps[k].hs.env < 0.001f)
             ps[k].on = 0;
-    for (k = 0; k < RV_SAMP_VOICES; k++)
+    for (k = 0; k < RV_SAMP_VOICES; k++) {
+        int t = sv[k].track & 7;
         if (sv[k].on && shedding(&sv[k].hs) && sv[k].hs.env < 0.001f)
             sv[k].on = 0;
+        if (sv[k].on && (rv.tp[t][TP_KIND] != KIND_TAPE ||   /* left behind: its track no longer plays samples */
+                         (rv.tp[t][TP_ENGINE] != 1 && sv[k].lane < 0 && rv.tp[t][TP_S0] != TAPE_KEYS &&
+                          rv.tp[t][TP_S0] != TAPE_STRETCH && rv.tp[t][TP_S0] != TAPE_SHARDS)))
+            sv[k].on = 0;
+    }
     if (!cyc || hz <= 0.0f || n <= 0)
         return;                                     /* no clock here */
     /* read over the FM-1's audio block (512 frames, 11.6 ms), as it falls behind or not: one step
@@ -1495,11 +1516,14 @@ static void render_sub(float *outl, float *outr, int n)
     {
         float md = geff[GP_MDRIVE] * (1.0f / 127.0f), pre = 1.0f + md * 3.0f;
         master_drive_comp = 1.0f / (1.0f + md * 1.2f);
-        if (md > 0.0f)                                /* off at 0: the limiter alone keeps the peaks */
+        if (md > 0.0f) {                              /* off at 0 (the limiter alone keeps the peaks); faded in over the
+                                                       * first few steps, so moving it through 0 makes no jump */
+            float w = fm_minf(1.0f, md * 20.0f);
             for (i = 0; i < n; i++) {
-                outl[i] = sat(outl[i] * pre) * master_drive_comp;
-                outr[i] = sat(outr[i] * pre) * master_drive_comp;
+                outl[i] += (sat(outl[i] * pre) * master_drive_comp - outl[i]) * w;
+                outr[i] += (sat(outr[i] * pre) * master_drive_comp - outr[i]) * w;
             }
+        }
         cuts_run(outl, outr, n);
         if (punch[4] || punch[5]) {
             static float sweep = 1.0f;

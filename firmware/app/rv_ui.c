@@ -1282,7 +1282,7 @@ static void kb_set(kb_t k, int v)
             } else
                 ui.st_step = 0;
         }
-        if (k.id == 1)
+        if (k.id == 1 && ui.st_step && stress_loaded())
             ui.st_built = 255;                         /* the same step again, with this engine */
         ui.st_turn = plat_ms();
         break;
@@ -3715,16 +3715,16 @@ static void pic_cpu(void)
     b[0] = 0;
     sx_cat(b, "XRUNS ");
     sx_int(b + 6, (int)plat_xruns());
-    g_text_r(234, PIC_Y + 98, &FONT_T, b, plat_xruns() ? C_RED : C_DIM);
+    g_text_r(234, PIC_Y + 95, &FONT_T, b, plat_xruns() ? C_RED : C_DIM);
     if (rv_live.fetch_on) {                         /* the share of the render spent waiting for its code */
         b[0] = 0;
         sx_cat(b, "FLASH WAIT ");
         sx_int(b + 11, (int)(rv_live.fetch_pct + 0.5f));
         sx_cat(b, "%");
-        g_text_r(234, PIC_Y + 118, &FONT_T, b, rv_live.fetch_pct > 25.0f ? C_RED : C_DIM);
+        g_text_r(234, PIC_Y + 113, &FONT_T, b, rv_live.fetch_pct > 25.0f ? C_RED : C_DIM);
     }
     if (rv_live.cores2 || rv_live.c2_fail) {        /* the second core */
-        g_text_r(234, PIC_Y + 108, &FONT_T, rv_live.c2_fail ? "CORE 2 FAILED: ONE CORE" : rv_live.c2_used ? "CORE 2 WORKING" : "CORE 2 IDLE",
+        g_text_r(234, PIC_Y + 104, &FONT_T, rv_live.c2_fail ? "CORE 2 FAILED: ONE CORE" : rv_live.c2_used ? "CORE 2 WORKING" : "CORE 2 IDLE",
                rv_live.c2_fail ? C_RED : rv_live.c2_used ? C_TEAL : C_DIM);
     }
     b[0] = 0;                                       /* the overload guard */
@@ -3745,7 +3745,7 @@ static void pic_cpu(void)
         sx_int(b + l, rv_live.shed);
         sx_cat(b, " FADED");
     }
-    g_text(6, PIC_Y + 124, &FONT_T, b, rv_live.cap == 255 && !rv_live.guard_off ? C_DIM : C_RED);
+    g_text(6, PIC_Y + 125, &FONT_T, b, rv_live.cap == 255 && !rv_live.guard_off ? C_DIM : C_RED);
 }
 
 static void pic_master(void)

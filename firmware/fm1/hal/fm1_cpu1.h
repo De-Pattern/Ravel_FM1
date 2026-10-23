@@ -178,14 +178,21 @@ static inline int fm1_cpu1_wait(void)
     uint32_t t0 = FM1_C1_T4;
     for (;;) {
         FM1_C1_SYNC();
+        if (fm1_c1_mb.done == fm1_c1_mb.job) {  /* (Ravel) done comes first: a stray read seen while it was idle
+                                                 * must not throw away a job it finished; it is held after it */
+            if (fm1_c1_mb.bad) {
+                fm1_cpu1_hold();
+                fm1_cpu1_bar();
+                fm1_c1_gave_up = 1;
+            }
+            return 0;
+        }
         if (fm1_c1_mb.bad) {                    /* a unit that cannot run it: one core */
             fm1_cpu1_hold();
             fm1_cpu1_bar();
             fm1_c1_gave_up = 1;
             return -1;
         }
-        if (fm1_c1_mb.done == fm1_c1_mb.job)
-            return 0;
         if (FM1_C1_T4 - t0 > 24000u * 8u) {     /* 8 ms: far past any stretch (or it faulted) */
             fm1_cpu1_hold();
             fm1_cpu1_bar();
