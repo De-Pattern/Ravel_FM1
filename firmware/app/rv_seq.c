@@ -486,7 +486,7 @@ static void step_fire(int t, int h, int si, uint32_t when)
         e.type = EV_ON;
         e.note = (uint8_t)clampi(mv == 1 || mv == 2 ? scale_walk(note, mv == 1 ? k : -k) : note, 0, 127);   /* R MOVE: up or down the scale */
         e.vel = (uint8_t)clampi((int)((float)s->vel * rat_vel(s, k, cnt) + 0.5f), 1, 127);
-        len_s = cnt > 1 ? sd / (float)cnt * 0.7f : sd * (float)(s->len ? s->len : 1) * 0.125f;
+        len_s = cnt > 1 ? sd / (float)cnt * 0.7f : sd * rv_len_steps(s->len);
         if (cnt > 1 && curve == 3)                   /* a bounce: each note as long as its gap allows */
             len_s = fm_maxf(0.004f, ((k + 1 < cnt ? rat_pos(3, k + 1, cnt) : 1.0f) - u) * sd * 0.8f);
         if (mv == 3)                                 /* DARK: and shorter as they go */
@@ -1200,7 +1200,7 @@ static void record_note(int t, int note, int vel)
             if (sq[t].held_note[k] >= 0 && sq[t].held_key[k] == note) {   /* (a chord's notes share the step's length) */
                 rv_step *st = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[sq[t].held_note[k]];
                 float steps = (float)(now_s - sq[t].held_on[k]) * RV_DT / (sq[t].step_dur > 0.0f ? sq[t].step_dur : 0.125f);
-                st->len = (uint8_t)clampi((int)(steps * 8.0f + 0.5f), 1, 127);   /* (the last key let go sets it) */
+                st->len = (uint8_t)rv_len_code(steps);   /* (the last key let go sets it) */
                 sq[t].held_note[k] = -1;
                 break;
             }

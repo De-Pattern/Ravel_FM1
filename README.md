@@ -951,7 +951,7 @@ Editing a held empty step switches it on.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **STEPS** | NOTE | VELO | LENGTH: in eighths of a step (8 = one step, "7 1/2") | CHANCE: 0–100 % that it plays |
+| **STEPS** | NOTE | VELO | LENGTH: how long the note holds, in eighths of a step to 16 steps ("7 1/2"), then in half steps up to 64 steps | CHANCE: 0–100 % that it plays |
 | **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER, BOUNCE (see below); "-F" versions fade out | CONDITN, see below |
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |

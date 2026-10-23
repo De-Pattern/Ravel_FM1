@@ -245,6 +245,17 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   check(ct < 0.0005, `CLOUDS dies away (rms ${ct.toFixed(5)} after 12 s)`);
   check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s)`);
 }
+{                                                           // a step's note can hold for up to 64 steps (LENGTH past 16 steps in half steps)
+  const held = (len) => {
+    rv.rv_boot(); rv.rv_run(250);
+    rv.web_gp_set(0, 120); rv.web_tp_set(0, 57, 64); rv.web_tp_set(0, 27, 127);
+    rv.web_step_set(0, 0, 1, 0); rv.web_step_byte(0, 0, 4, len);
+    rv.web_transport(1); for (let t = 0; t < 6000; t += 250) rv.rv_run(250);
+    const v = rv.web_cpu(); rv.web_transport(0); rv.rv_run(100); return v;
+  };
+  const long = held(224), short = held(128);
+  check(long >= 1 && short === 0, `a 64-step note still holds after 6 s (${long} voice), a 16-step one has ended (${short})`);
+}
 {                                                           // effects start off: no sends, no master drive, ROOM; a preset keeps the track's sends
   const SENDS = [55, 56, 53, 54, 79, 46], GP_MDRIVE = 47, GP_REVMODE = 100;
   rv.rv_boot(); rv.rv_run(250);

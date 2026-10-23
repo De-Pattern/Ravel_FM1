@@ -296,6 +296,20 @@ extern rv_project rv;                      /* the project being played */
 #else
 #define RV_RAMBSS
 #endif
+/* a step's note length (rv_step.len): 1-128 in eighths of a step (to 16 steps, as it always was), then
+ * 129-224 in half steps, to 64 steps */
+#define RV_LEN_MAX 224
+static inline float rv_len_steps(int len)
+{
+    if (len < 1)
+        len = 1;
+    return len <= 128 ? (float)len * 0.125f : 16.0f + (float)(len - 128) * 0.5f;
+}
+static inline int rv_len_code(float steps)
+{
+    int c = steps <= 16.0f ? (int)(steps * 8.0f + 0.5f) : 128 + (int)((steps - 16.0f) * 2.0f + 0.5f);
+    return c < 1 ? 1 : c > RV_LEN_MAX ? RV_LEN_MAX : c;
+}
 void rv_fenv_from_env(int16_t *tp);
 void rv_senv_factory(void);                 /* the LIBRARY's twelve shapes, the rest empty */         /* the FILTER ENV from the volume envelope (older work) */
 void moom_start(void);                     /* the hidden game (rv_moom.c) */

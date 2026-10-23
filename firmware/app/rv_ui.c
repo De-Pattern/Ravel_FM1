@@ -642,7 +642,7 @@ static kinfo_t kb_info(kb_t k)
         switch (k.id) {
         case SF_NOTE: r.max = 127; r.fmt = PF_NOTE; break;
         case SF_VEL: r.min = 1; r.max = 127; break;
-        case SF_LEN: r.min = 1; r.max = 127; break;
+        case SF_LEN: r.min = 1; r.max = RV_LEN_MAX; break;   /* to 64 steps */
         case SF_CHANCE: r.max = 100; break;
         case SF_MICRO: r.min = -6; r.max = 12; r.fmt = PF_BI; break;
         case SF_RATCHET: r.min = 1; r.max = 8; break;
@@ -1432,6 +1432,10 @@ static void kb_format(kb_t k, int v, char *o)
     }
     if (k.kind == K_STEP && k.id == SF_LEN) {
         int whole = v / 8, rem = v % 8;
+        if (v > 128) {                               /* past 16 steps: half steps */
+            whole = 16 + (v - 128) / 2;
+            rem = (v - 128) & 1 ? 4 : 0;
+        }
         static const char *const fr[8] = {"", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8"};
         if (whole)
             sx_int(o, whole);
