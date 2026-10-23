@@ -24,6 +24,19 @@ static inline float fm_minf(float a, float b) { return a < b ? a : b; }
 static inline float fm_maxf(float a, float b) { return a > b ? a : b; }
 static inline float fm_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 static inline float fm_flush(float x) { return fm_fabsf(x) < 1e-20f ? 0.0f : x; }
+/* n floats of decaying state: anything under about 1e-15 to 0, before it sinks into the denormals
+ * (numbers so small a floating-point unit may take many times as long on them; a ringing filter
+ * left alone gets there in a second or two). Once a block is enough */
+static inline void fm_flush_n(float *p, int n)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        fm_bits_t b;
+        b.f = p[i];
+        if ((b.u & 0x7F800000u) < 0x26800000u)       /* exponent under 2^-50 */
+            p[i] = 0.0f;
+    }
+}
 
 /* floor, for |x| < 2^31 */
 static inline float fm_floorf(float x)

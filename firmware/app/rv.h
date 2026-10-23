@@ -231,7 +231,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 18                /* 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 19                /* 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -340,6 +340,15 @@ typedef struct {
     uint8_t bed_hit;                       /* counts up on each grain of its dust */
     float glide;                           /* a scene gliding in: 0..1 (1: arrived) */
     float prof[16];                        /* GLO > CPU: each part of the render, % of the time it has (smoothed) */
+    float load;                            /* the overload guard's reading: the render, % of the time it has */
+    uint16_t shed;                         /* voices the guard has faded out to keep up (counts up) */
+    uint8_t cap;                           /* the guard's voice limit now (255: none) */
+    uint8_t guard_off;                     /* the stress test turns the guard off, to find the real edge */
+    uint8_t cores2;                        /* GLO > CPU, CORES: the second core takes half the synth voices */
+    uint8_t c2_fail;                       /* it failed (or would not take work): one core since */
+    uint8_t c2_used;                       /* it took part in the last render */
+    uint8_t fetch_on;                      /* GLO > CPU, FLASH WAIT: counting the code fetch's waits */
+    float fetch_pct;                       /* the render's time spent waiting for its code (smoothed) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;
@@ -421,6 +430,10 @@ void ui_storage_changed(int slot);
 void rv_bank_settle(void);
 void rv_bank_reload(int slot);
 void rv_demo(int which);
+/* rv_stress.c: the stress test (GLO > CPU) */
+#define RV_STRESS_N 17
+void rv_stress(int step, int engine);          /* 0: stop; else build the project for that step and play it */
+const char *rv_stress_name(int step);
 
 /* rv_ui.c: the control side */
 void ui_init(void);

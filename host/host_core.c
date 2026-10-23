@@ -157,9 +157,54 @@ uint32_t plat_cycles(void)                       /* this machine: nanoseconds st
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint32_t)((uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec);
 }
-uint32_t plat_cycles_hz(void) { return 1000000000u; }
+/* RAVEL_CPU_SCALE=k: run as if this machine were k times slower (the CPU page, the overload guard
+ * and the stress test then read about as they would on the FM-1, once k is measured against it) */
+#include <stdlib.h>
+uint32_t plat_cycles_hz(void)
+{
+    static uint32_t hz;
+    if (!hz) {
+        const char *e = getenv("RAVEL_CPU_SCALE");
+        double k = e ? atof(e) : 1.0;
+        hz = (uint32_t)(1e9 / (k >= 1.0 ? k : 1.0));
+    }
+    return hz;
+}
 #endif
 uint32_t plat_xruns(void) { return 0; }
+
+/* no second core here. RAVEL_FAKE_CORE1=1 stands one in that does its work at once (the split's
+ * bookkeeping tested); =fail one that takes the work and never does it (the fallback tested) */
+static int par_fake, par_fail;
+int plat_fetch_on(int on) { return on ? -1 : 0; }   /* (no flash to wait on here) */
+uint32_t plat_fetch_wait(void) { return 0; }
+int plat_par_on(int on)
+{
+#ifndef __wasm__
+    const char *e = getenv("RAVEL_FAKE_CORE1");
+    par_fake = on && e && *e;
+    par_fail = par_fake && e[0] == 'f';
+#else
+    (void)on;
+#endif
+    return on && !par_fake ? -1 : 0;
+}
+int plat_par_run(void (*fn)(uint32_t), uint32_t arg)
+{
+    if (!par_fake)
+        return 0;
+    if (!par_fail)
+        fn(arg);
+    return 1;
+}
+int plat_par_wait(void)
+{
+    if (par_fail) {
+        par_fake = par_fail = 0;                  /* off from now on, as the FM-1 does */
+        return -1;
+    }
+    return 0;
+}
 
 /* ----------------------------------------------------------- the app --- */
 void ravel_start(void);

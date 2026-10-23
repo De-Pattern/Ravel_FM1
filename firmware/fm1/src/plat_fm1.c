@@ -286,6 +286,44 @@ uint32_t plat_cycles(void)
 }
 uint32_t plat_cycles_hz(void) { return 360000000u; }
 
+/* the second core (fm1_cpu1.h), started when GLO > CPU asks for it. It starts in the chip's ROM
+ * with its start word in the top of RAM, so both guards are opened for that and closed again. The
+ * first time it fails (a wrong job read, or a job not finished) it is held until power-off and the
+ * render does that work itself (fm1_cpu1_wait). Turned off between renders: idle then */
+int plat_par_on(int on)
+{
+    int r;
+    if (!on) {
+        fm1_cpu1_hold();
+        return 0;
+    }
+    if (fm1_c1_on)
+        return 0;
+    if (fm1_c1_gave_up)
+        return -1;
+    fm1_guard_unlock_top();
+    fm1_guard_pc_open();
+    r = fm1_cpu1_start();
+    fm1_guard_enable(FM1_GUARD_PC);
+    fm1_guard_lock_top();
+    return r;
+}
+int plat_par_run(void (*fn)(uint32_t), uint32_t arg) { return fm1_cpu1_run(fn, arg); }
+/* the instruction-fetch stall count (fm1_perf.h): enabled only when GLO > CPU asks (unverified on
+ * hardware; the SDK's bits may also arm a fault) */
+int plat_fetch_on(int on)
+{
+    fm1_perf_stalls_enable(on);
+    return 0;
+}
+uint32_t plat_fetch_wait(void)
+{
+    uint32_t s[3];
+    fm1_perf_stalls(s);
+    return s[0];
+}
+int plat_par_wait(void) { return fm1_cpu1_wait(); }
+
 /* the interrupts' stack (fm1_guard.h): filled with a mark before any interrupt runs (X0X) */
 #define IRQ_STACK_MARK 0x49525153u                  /* "IRQS" */
 static void irq_stack_mark(void)

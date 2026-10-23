@@ -231,7 +231,7 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   tap('PLAY');
   check(peak > 0.01 && most >= 3, `and plays back, all its notes at once (${most} voices)`);
 }
-{                                                           // the SPACE modes: BLACKHOLE at full GRAVITY holds its tail; 12-BIT rings and dies; none go NaN
+{                                                           // the SPACE modes: CLOUDS and 12-BIT ring and die away; none go NaN; ROOM is the default
   const tail = (mode, size, secs) => {
     rv.rv_boot(); rv.rv_run(250);
     rv.web_gp_set(100, mode); rv.web_gp_set(44, size); rv.web_tp_set(0, 56, 110); rv.rv_run(20);
@@ -240,10 +240,21 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
     for (let t = 0; t < secs * 1000; t += 10) { const k = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), k * 2); for (let i = 0; i < k * 2; i++) { if (!(a[i] === a[i])) nan = true; if (t >= (secs - 1) * 1000) { e += a[i] * a[i]; n++; } } }
     return [nan, Math.sqrt(e / Math.max(1, n))];
   };
-  const [bn, bt] = tail(2, 127, 12), [qn, qt] = tail(3, 90, 8), [rn] = tail(0, 70, 2);
-  check(!bn && !qn && !rn, 'the SPACE modes stay finite');
-  check(bt > 0.002 && bt < 0.3, `BLACKHOLE at full GRAVITY still blooms after 12 s (rms ${bt.toFixed(4)})`);
+  const [cn, ct] = tail(1, 90, 12), [qn, qt] = tail(2, 90, 8), [rn] = tail(0, 70, 2);
+  check(!cn && !qn && !rn, 'the SPACE modes stay finite');
+  check(ct < 0.0005, `CLOUDS dies away (rms ${ct.toFixed(5)} after 12 s)`);
   check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s)`);
+}
+{                                                           // effects start off: no sends, no master drive, ROOM; a preset keeps the track's sends
+  const SENDS = [55, 56, 53, 54, 79, 46], GP_MDRIVE = 47, GP_REVMODE = 100;
+  rv.rv_boot(); rv.rv_run(250);
+  let any = 0; for (let t = 0; t < 8; t++) for (const p of SENDS) any += rv.web_tp(t, p);
+  check(any === 0 && rv.web_gp(GP_MDRIVE) === 0 && rv.web_gp(GP_REVMODE) === 0, 'a new project feeds no effect: sends 0, MASTER DRIVE 0, SPACE ROOM');
+  let wet = 0; for (let i = 0; i < rv.web_preset_count(); i++) { rv.web_preset_apply(0, i); for (const p of SENDS) wet += rv.web_tp(0, p); }
+  rv.web_tp_set(0, 56, 33); rv.web_preset_apply(0, 3);
+  check(wet === 0 && rv.web_tp(0, 56) === 33, `presets leave the sends alone (sum over all ${rv.web_preset_count()} presets ${wet}; a send set by hand stays)`);
+  rv.web_demo(0); let dw = 0; for (let t = 0; t < 8; t++) dw += rv.web_tp(t, 56) + rv.web_tp(t, 55);
+  check(dw > 0, `a demo still brings its own sends (${dw})`);
 }
 {                                                           // the BED: silent at LEVEL 0, sounds when up, held down by busy tracks (DUCK)
   const GPB = 110;

@@ -443,8 +443,8 @@ static void delay_run(const float *in, int n, float *l, float *r)
 
 /* -------------------------------------------------------------- space --- */
 #define REV_N 4
-/* one memory for all the modes: ROOM uses the first 4096 samples, CLOUDS all of it, BLACKHOLE nearly
- * all of it at half rate, 12-BIT half of it */
+/* one memory for all the modes: ROOM uses the first 4096 samples, CLOUDS all of it, 12-BIT half of it
+ * (at half rate) */
 #define SPACE_MEM 10496
 static int16_t space_mem[SPACE_MEM] RV_BIG;
 #define rev_buf ((int16_t(*)[1024])space_mem)
@@ -548,11 +548,11 @@ static void clouds_run(const float *in, int n, float *l, float *r)
     }
 }
 
-/* BLACKHOLE and 12-BIT run at half the sample rate (a pair of samples in, one tank step, a pair out),
- * so the same memory holds twice the time. */
+/* 12-BIT runs at half the sample rate (a pair of samples in, one tank step, a pair out), so the same
+ * memory holds twice the time. */
 static int16_t hr_w[12];                                  /* write positions, a line each */
 static int16_t hr_base[12];
-static float hr_in, hr_out[2][2], hr_lp[8], hr_ph[4], hr_hp, hr_ext;   /* hr_ext: BLACKHOLE's slow swell */
+static float hr_in, hr_out[2][2], hr_lp[8], hr_ph[4], hr_hp;
 static uint8_t hr_odd;
 static void hr_layout(const int16_t *len, int n)
 {
@@ -591,35 +591,6 @@ static inline float hr_ap(const int16_t *len, int k, float x, float g, int32_t q
     return z - v * g;
 }
 
-/* BLACKHOLE (after Eventide's Blackhole): a vast, dark, unnatural space. Four long lines (100 to 125 ms
- * each at half rate), mixed every pass and fed back through a soft saturator, so near the top of GRAVITY
- * the tail stops dying and blooms instead, compressed and endless; MOTION swirls the lines, DIFFUSE
- * smears what goes in, DAMP darkens it, LOW CUT keeps the bass out. GRAVITY past the middle also lets
- * the reverb swell in after a note rather than leap out with it. */
-static const int16_t bh_len[8] = {113, 89, 241, 197, 2129, 2339, 2549, 2729};
-static void blackhole_tank(float x, float *ol, float *or_)
-{
-    float grav = gv(GP_REVSIZE) * (1.0f / 127.0f), g = grav < 0.85f ? 0.80f + grav * 0.22f : 0.987f + (grav - 0.85f) * 0.22f;
-    float damp = 0.08f + (127 - gv(GP_REVDAMP)) * (0.62f / 127.0f), dif = 0.45f + rv.gp[GP_REVDIFF] * (0.3f / 127.0f);
-    float modd = 2.0f + gv(GP_REVMOD) * (40.0f / 127.0f), o[4], sum;
-    int k;
-    for (k = 0; k < 4; k++)                               /* the input smeared */
-        x = hr_ap(bh_len, k, x, dif, 1);
-    for (k = 0; k < 4; k++) {
-        hr_ph[k] += (0.07f + 0.05f * (float)k) * gv(GP_REVMOD) * (1.0f / 127.0f) * (2.0f * RV_DT) + 0.00002f;
-        hr_ph[k] -= fm_floorf(hr_ph[k]);
-        o[k] = hr_rd(bh_len, 4 + k, (float)bh_len[4 + k] - 2.0f - modd - modd * sin_lut(hr_ph[k]));
-        hr_lp[k] += (o[k] - hr_lp[k]) * damp;
-    }
-    sum = (hr_lp[0] + hr_lp[1] + hr_lp[2] + hr_lp[3]) * 0.5f;   /* a Householder mix */
-    for (k = 0; k < 4; k++) {
-        float y = (hr_lp[k] - sum) * g + x * (k & 1 ? -0.6f : 0.6f);
-        hr_wr(bh_len, 4 + k, 1.2f * sat(y * (1.0f / 1.2f)), 1);   /* the saturator that lets it bloom, never blow up */
-    }
-    *ol = o[0] - o[2] + 0.4f * o[1];
-    *or_ = o[1] - o[3] + 0.4f * o[2];
-}
-
 /* 12-BIT (after the Alesis Quadraverb's era): a bright, metallic plate of four combs and two allpasses a
  * side, kept in 12 bits (CRUNCH takes it down to 8) at half rate with its steps held, so it lisps and
  * aliases the way early digital reverbs did. SIZE is how long it rings, DAMP how dark, MOTION a little
@@ -650,13 +621,12 @@ static void q12_tank(float x, float *ol, float *or_)
     *or_ = (float)((int32_t)(b * 2048.0f)) * (1.0f / 2048.0f);
 }
 
-static void halfrate_run(int mode, const float *in, int n, float *l, float *r)
+static void halfrate_run(const float *in, int n, float *l, float *r)
 {
     int i;
     float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
-    float swell = mode == 2 && gv(GP_REVSIZE) > 64 ? (gv(GP_REVSIZE) - 64) * (1.0f / 63.0f) : 0.0f;
     if (!hr_base[1])
-        hr_layout(mode == 2 ? bh_len : q12_len, mode == 2 ? 8 : 12);
+        hr_layout(q12_len, 12);
     for (i = 0; i < n; i++) {
         float x = in[i];
         if (lowc > 0.0f) {
@@ -667,27 +637,14 @@ static void halfrate_run(int mode, const float *in, int n, float *l, float *r)
         if (hr_odd) {                                     /* a pair in: one step of the tank */
             float ol, or_, xin = hr_in;
             hr_in = 0.0f;
-            if (swell > 0.0f) {                           /* BLACKHOLE: it swells in after the sound, slowly */
-                hr_ext += (fm_fabsf(xin) - hr_ext) * 0.0004f;
-                xin *= 1.0f - swell + swell * clampf(hr_ext * 12.0f, 0.0f, 1.0f);
-            }
-            if (mode == 2)
-                blackhole_tank(xin * 0.7f, &ol, &or_);
-            else
-                q12_tank(xin, &ol, &or_);
+            q12_tank(xin, &ol, &or_);
             hr_out[0][0] = hr_out[0][1];
             hr_out[1][0] = hr_out[1][1];
             hr_out[0][1] = ol;
             hr_out[1][1] = or_;
         }
-        if (mode == 2) {                                  /* out smoothly (interpolated) ... */
-            float u = hr_odd ? 1.0f : 0.5f;
-            l[i] += (hr_out[0][0] + (hr_out[0][1] - hr_out[0][0]) * u) * lvl * 1.6f;
-            r[i] += (hr_out[1][0] + (hr_out[1][1] - hr_out[1][0]) * u) * lvl * 1.6f;
-        } else {                                          /* ... or held, step by step, as the old units did */
-            l[i] += hr_out[0][1] * lvl * 1.2f;
-            r[i] += hr_out[1][1] * lvl * 1.2f;
-        }
+        l[i] += hr_out[0][1] * lvl * 1.2f;                /* held, step by step, as the old units did */
+        r[i] += hr_out[1][1] * lvl * 1.2f;
         hr_odd ^= 1u;
     }
 }
@@ -703,10 +660,10 @@ static void space_run(const float *in, int n, float *l, float *r)
         __builtin_memset(hr_base, 0, sizeof hr_base);
         __builtin_memset(hr_lp, 0, sizeof hr_lp);
         __builtin_memset(hr_out, 0, sizeof hr_out);
-        hr_in = hr_hp = hr_ext = 0.0f;
+        hr_in = hr_hp = 0.0f;
     }
     if (rv.gp[GP_REVMODE] >= 2) {
-        halfrate_run(rv.gp[GP_REVMODE] >= 3 ? 3 : 2, in, n, l, r);
+        halfrate_run(in, n, l, r);
         return;
     }
     if (rv.gp[GP_REVMODE] == 1) {

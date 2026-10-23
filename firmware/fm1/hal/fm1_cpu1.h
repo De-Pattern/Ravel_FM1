@@ -33,7 +33,7 @@
 
 extern void fm1_c1_entry(void);
 extern uint32_t _c1_ustack[], _c1_sstack_top[];
-#define FM1_C1_STACK_WORDS (2816u / 4u)
+#define FM1_C1_STACK_WORDS (4096u / 4u)    /* fm1_cpu1.S */
 #define FM1_C1_MARK 0x43314D4Bu                  /* "C1MK": how deep core 1's stack has gone */
 typedef struct {
     volatile uint32_t job, arg;                 /* core 0: job + 1 hands fn(arg) over */

@@ -23,7 +23,7 @@ fm1_c1_entry:
 	.balign 8
 	.globl _c1_ustack
 _c1_ustack:			/* after rti the core runs on this one: the render's (filled with a mark at start) */
-	.space 2816
+	.space 4096		/* (Ravel: synth voices render here; 2816 in X0X) */
 _c1_ustack_top:
 _c1_sstack:			/* exceptions only (no interrupts on this core) */
 	.space 256

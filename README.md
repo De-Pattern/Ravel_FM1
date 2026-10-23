@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space reverb: room, clouds, blackhole or 12-bit); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space reverb: room, clouds or 12-bit); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -30,7 +30,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
-- **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, BLACKHOLE, a vast dark space whose tail can bloom forever, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it.
+- **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a space reverb (motion, diffusion, low cut; ROOM, a long Clouds-style plate, or 12-BIT, a gritty late-80s rack plate), a feedback bus (filter, comb, smear, shift, fold or crush, returning to the master or into a track), a filter pair (low, band or high pass each; series, parallel or feedback, with two LFOs), an 8-band vocoder (its body is dust, drops, noise, the tape or a track; attack, release, shift, width), BANDS (eight resonant bands, like a fixed filter bank), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it. Every effect starts off: a new project sends nothing into any bus, and a bus with nothing coming in does not run at all.
 - **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
@@ -258,7 +258,7 @@ A trigger chain never plays the same track twice in one pass, so routes can form
 
 ## 6. EDIT: the voice
 
-All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds for the track's kind on every voice page; the sound's name flashes on screen.
+All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds for the track's kind on every voice page; the sound's name flashes on screen. A preset doesn't touch the track's sends into the effects (FX): they stay where you set them.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -763,6 +763,7 @@ Each track can send part of its sound into six shared effects (buses). Their out
 - Turn **ALGORITHM** to set another track's send without leaving the page.
 - The other knobs on the page set the bus itself, which is shared by every track.
 - The same sends are also on EDIT › MIX and EDIT › SENDS.
+- **Every effect starts off.** A new project's sends are all 0, the space is ROOM and MASTER DRIVE is 0. Picking a sound with PRESETS leaves the track's sends where you had them, so no effect starts running because of a preset. The demos are the exception: they come with their own sends. A bus with nothing sent into it stops running once its tail has died away, so it costs nothing.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -771,7 +772,7 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | **TAPE WEAR** | WOW: a slow, drifting sway of the tape's speed | FLUTTER: a fast waver | SATURAT: the tape driven, warm then gritty | AGE: darker repeats, hiss, dropouts |
 | **GRAINS** | GRAINS: how much of the delay is a grain cloud (0: none) | DENSITY: how often grains start | SIZE: each grain, 20 ms to 0.4 s | PITCH: ±24 semitones |
 | **SPACE** | T SEND | SIZE | DAMP: darker tail | LEVEL |
-| **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | MODE: ROOM, CLOUDS, BLACKHOLE or 12-BIT |
+| **SPACE 2** | MOTION: slow movement in the tail (chorus-like) | DIFFUSE: smooth wash vs. distinct echoes | LOW CUT: keeps the tail out of the bass | MODE: ROOM, CLOUDS or 12-BIT |
 | **BED** | LEVEL (0: off) | DENSITY: how often its dust falls | TONE: wood (left) to metal (right) | SHIMMER: the body an octave and two up, slowly beating |
 | **BED 2** | DUCK: how far busy tracks hold it down | DECAY: how long the body rings | SPACE: how much of it goes into the space reverb | – |
 | **FEEDBACK** | T SEND | TIME of the loop | REGEN: how much goes round again | LEVEL |
@@ -786,7 +787,7 @@ Each track can send part of its sound into six shared effects (buses). Their out
 | **BANDS 5-8** | 950 Hz | 1.5 kHz | 2.4 kHz | 3.8 kHz |
 | **VOCODER** | T SEND | BODY: what gets shaped (DUST, DROPS, NOISE, TAPE, or a track T1–T8) | TILT: darker or brighter | LEVEL |
 | **VOCODER 2** | ATTACK | RELEASE | SHIFT: moves the bands (±24 semitones) | NARROW: sharper, more resonant bands |
-| **MASTER** | DRIVE: master saturation | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
+| **MASTER** | DRIVE: master saturation (0, off, by default) | CUT SIZE: length of a microcut | REPEATS: how many times a microcut repeats | CUT MIX |
 | **MASTER 2** | C SHAPE: the punch-ins' cuts EVEN, BOUNCE or DRAG (as on SEQ › STEP CUT) | – | – | – |
 
 <p align="center"><img src="docs/manual/bus-delay.png" alt="DELAY" width="240"> <img src="docs/manual/bus-wear.png" alt="TAPE WEAR" width="240"></p>
@@ -796,8 +797,6 @@ Each track can send part of its sound into six shared effects (buses). Their out
 **The buses follow the matrix and the macros.** On LFO › MATRIX, TRACK = GLOBAL, the PARAM knob walks the settings that can be moved: the clock, the LFOs and dust, and each bus's main settings (delay time, feedback, tone, level, wow, grains; space size, damp, level, motion; the feedback bus, the filter pair's frequencies, resonance and level; the bands' and vocoder's levels; the BED; master drive and cut mix). The macros reach the same ones.
 
 **CLOUDS** (SPACE, MODE CLOUDS) is a long, smooth plate in the manner of the reverb in Mutable Instruments' Clouds: a figure-eight tank of allpasses and delays that feed each other. SIZE becomes **DECAY**, from about half a second to a tail of twenty seconds or more. DAMP, DIFFUSE, MOTION and LOW CUT work as they do in ROOM. Switching MODE clears the tail.
-
-**BLACKHOLE** (MODE BLACKHOLE) is a vast, dark, unnatural space in the spirit of Eventide's Blackhole: four long delay lines, mixed into each other on every pass and fed back through a soft saturator. SIZE becomes **GRAVITY**. Up to the middle it is a huge hall of a few seconds; past the middle the reverb also swells in after a note instead of leaping out with it; near the top the tail stops dying and settles into an endless, compressed bloom that holds whatever you feed it. MOTION swirls the lines (a slow, deep pitch drift at high settings), DIFFUSE smears what goes in, DAMP darkens it and LOW CUT keeps the bass out. Pull GRAVITY back down, or turn the send off, to let it go.
 
 **12-BIT** (MODE 12-BIT) is a bright, metallic plate in the manner of late-1980s rack reverbs such as the Alesis Quadraverb: combs and allpasses run at half rate and kept in 12 bits, with the output held step by step, so the tail lisps, grains and aliases as it fades. SIZE becomes **DECAY** and DIFFUSE becomes **CRUNCH**, which takes the stored samples from 12 bits down to 8. DAMP darkens it and MOTION adds a little chorus in the combs.
 
@@ -822,7 +821,7 @@ All four modes share one block of memory, so the two new ones cost no extra RAM;
 
 <p align="center"><img src="docs/manual/bus-bed.png" alt="The BED page: the body's modes, its shimmer and its dust" width="240"></p>
 
-**The BED** is a quiet layer under everything: grains of dust, and a breath of soft noise, falling on a small body tuned to the scale's root (SCL › ROOT). At TONE's left the body is wood, its modes spread like a marimba bar's and short; at the right it is metal, its modes clustered and inharmonic, and it rings long. SHIMMER adds its two lowest modes an octave and two octaves up, beating slowly. **DUCK** lets the tracks hold it down, quickly when they play and slowly letting go, so the bed comes up in the gaps between hits. **SPACE** sends it into the space reverb: into BLACKHOLE it becomes a deep floor under the clicks. The picture shows the body's modes, the shimmer, the dust as it falls and, with DUCK up, how far it is held down. The dust is random, as dust is; the bed plays no notes and changes nothing in the patterns.
+**The BED** is a quiet layer under everything: grains of dust, and a breath of soft noise, falling on a small body tuned to the scale's root (SCL › ROOT). At TONE's left the body is wood, its modes spread like a marimba bar's and short; at the right it is metal, its modes clustered and inharmonic, and it rings long. SHIMMER adds its two lowest modes an octave and two octaves up, beating slowly. **DUCK** lets the tracks hold it down, quickly when they play and slowly letting go, so the bed comes up in the gaps between hits. **SPACE** sends it into the space reverb: into CLOUDS with a long DECAY it becomes a deep floor under the clicks. The picture shows the body's modes, the shimmer, the dust as it falls and, with DUCK up, how far it is held down. The dust is random, as dust is; the bed plays no notes and changes nothing in the patterns.
 
 **Microcuts** (MASTER page) are slivers of the master output, looped, reversed or stuttered. Trigger them from steps (SEQ › STEP SHAPE › CUT, with their own shape and size on STEP CUT) or with the FX punch-ins (their shape: MASTER 2 › C SHAPE).
 
@@ -1070,7 +1069,34 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
-| **CPU** | A read-out, no knobs: how much of the time the audio has each part of the render takes (CONTROL, SYNTH, STRIKE, PERC, TAPE, TRACK FX, BED, VOCODER, FEEDBACK, PAIR, BANDS, DELAY, SPACE, MASTER), the RENDER total and XRUNS, the blocks that came too late (each one is a crackle). Over 90 % is the edge. The browser has no clock for it | – | – | – | – |
+| **CPU** | CORES: 1, or 2 to put half the synth voices on the FM-1's second core (see below; back to 1 at power-off) | FLASH WT: OFF, or ON to count how much of the render waits for its code to come from the flash | – | – | – |
+| **STRESS** | STEP: OFF, or 1–16, each adding load to the last (below) | ENGINE: the synth engine the voices use | AUTO: RUN walks the steps, three seconds each, and fills in the table | – | – |
+
+<p align="center"><img src="docs/manual/song-cpu.png" alt="CPU" width="240"> <img src="docs/manual/song-stress.png" alt="STRESS" width="240"></p>
+<p align="center"><sub>(Taken on the desktop simulator, a far faster machine: the same project reads many times higher on the FM-1.)</sub></p>
+
+**CPU: where the audio's time goes.** The bars show how much of the time the audio has each part of the render takes: CONTROL (the sequencer, modulation, the knobs), SYNTH, STRIKE, PERC, TAPE (the sample voices), TRACK FX, BED, VOCODER, FEEDBACK, PAIR, BANDS, DELAY, SPACE and MASTER. A bar's full length is 50 %. RENDER is the total; past about 90 % the FM-1 falls behind. **XRUNS** counts the blocks that came too late: each one is a crackle, and a steady stream of them is the loud noise an overloaded FM-1 makes. Measured on the FM-1 and the desktop simulator; the browser has no clock for it.
+
+**The overload guard.** When the render takes more than 80 % of the time it has, the guard fades out the oldest voice (a released one first, over about 7 ms) and holds the voice count there: a new note past the limit fades out the oldest to make room. When there is room again, the limit comes back up a voice at a time. The CPU page shows it (GUARD: 6 VOICES, and how many it has faded). It only acts when the voices are what costs; if the effects alone are too much, turn some sends down. It never acts in the browser.
+
+**Two cores.** The FM-1's chip has a second core that Ravel normally leaves off: on some units it misreads memory. CORES 2 starts it and gives it the synth voices of half the tracks (split by how many voices each has), while the first core plays the strikes, drums and samples. If it ever fails, by reading a wrong job or not finishing one in time, the first core takes the work back at once and the second stays off until the FM-1 is switched off (CORE 2 FAILED on the CPU page). It only helps when synth voices sound on two tracks or more. It goes back to 1 at power-off.
+
+**FLASH WAIT.** The FM-1 runs Ravel's code straight from its flash memory, through a cache. When the code the render needs is not in the cache, the core waits for the flash. FLASH WT ON counts those waits and shows them as a share of the render (FLASH WAIT 30 %). A high number means moving the busiest code into the chip's RAM would help. The counters are not verified on hardware yet, so it is off by default.
+
+**STRESS: how much this FM-1 takes.** The stress test replaces the project in memory (save yours first; it asks twice), builds a project that adds load a step at a time, and plays it, with the overload guard off so you see the real edge:
+
+| Step | Adds | Step | Adds |
+| --- | --- | --- | --- |
+| 1 | nothing (the idle cost) | 9 | every track into the DELAY |
+| 2 | 1 voice of ENGINE, held | 10 | every track into the SPACE (ROOM) |
+| 3 | 2 voices | 11 | the SPACE as CLOUDS |
+| 4 | 4 voices | 12 | the FEEDBACK bus |
+| 5 | 8 voices | 13 | the filter PAIR |
+| 6 | 2 strike voices, hit on every other step | 14 | BANDS |
+| 7 | a drum kit, a hit on every step | 15 | the VOCODER |
+| 8 | 3 sample voices, held | 16 | MASTER DRIVE |
+
+Each step is measured from its first second to its third; the table shows the RENDER % for each step, red with a ! where XRUNS started. AUTO RUN walks all sixteen in under a minute and leaves the table on screen: a photo of it says exactly what this FM-1 can do. Change ENGINE to compare engines (STEP 5 is 8 voices of it). Turn STEP to OFF to stop. Loading any project or demo ends the test.
 
 **Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 
@@ -1338,7 +1364,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Scenes that glide | GLO › SCENES: GLIDE 1–8 bars |
 | Record a chord onto a step | Tap REC, PLAY, press the keys together |
 | Graph steps past 16 | GRAPH page, OCT+ / OCT− |
-| A huge, endless reverb | FX › SPACE 2: MODE BLACKHOLE; then SPACE: GRAVITY near the top |
+| A huge, long reverb | FX › SPACE 2: MODE CLOUDS; then SPACE: DECAY near the top |
 | A worn tape echo | FX › DELAY, then TAPE WEAR: WOW, FLUTTER, SATURAT, AGE |
 | Grains in the delay | FX › GRAINS: GRAINS up |
 | A sample across the keys | ARP › PLAYBACK: MODE KEYS (T7/T8, with something caught) |
@@ -1368,6 +1394,12 @@ Turning ALGORITHM while armed moves recording to the new track.
 - Check SEQ › TRACK › MODE is GRAPH.
 - Steps need to be on (tap them).
 - With no cords, each step just goes to the next one, so it sounds like a normal sequence until you add cords or branches.
+
+**The FM-1 crackles, or makes a loud noise.**
+
+- The audio is taking longer than it has. Open GLO › CPU: if RENDER is near or over 90 % and XRUNS is counting, that's it. The bars show which part costs most.
+- Fewer voices (EDIT › SOUND › VOICES), fewer tracks playing at once, or lower effect sends bring it down. The overload guard fades out voices on its own, but it can't help when the effects alone are too much.
+- To know this unit's limits, run GLO › STRESS with AUTO.
 
 **Something got loud or stuck.**
 

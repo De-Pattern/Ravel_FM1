@@ -28,7 +28,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC };   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS };   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -42,7 +42,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
@@ -190,7 +190,8 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
-    {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {NO, NO, NO, NO}},   /* where the audio's time goes */
+    {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, NO, NO}},   /* where the audio's time goes; CORES */
+    {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
@@ -232,6 +233,13 @@ static struct {
     uint8_t dust_hist[60];
     uint8_t dust_w;
     uint8_t conf_what;                       /* a destructive action waiting for its second try */
+    /* the stress test: the step asked for and the one built, its engine, AUTO, whether its project is
+     * the one in memory; what each step measured (% of the time, 255: not yet) and where XRUNS came */
+    uint8_t st_step, st_built, st_eng, st_auto, st_on;
+    uint8_t st_res[RV_STRESS_N];
+    uint32_t st_xr, st_t0, st_turn, st_x0;
+    float st_acc;
+    uint16_t st_nacc;
     uint32_t conf_at;
 } ui;
 
@@ -286,7 +294,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_SCENE };
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_SCENE };   /* (CONF_SCENE + the scene) */
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -590,6 +598,7 @@ static void euc_write(int t, int hits, int rot)
     }
 }
 
+static int stress_loaded(void);
 static kinfo_t kb_info(kb_t k)
 {
     kinfo_t r = {0, 0, 0, PF_NUM, 0};
@@ -736,6 +745,16 @@ static kinfo_t kb_info(kb_t k)
         r.name = "DENSITY";
         r.max = 100;
         break;
+    case K_STRESS: {
+        static const char *const autos[2] = {"OFF", "RUN"};
+        static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
+        static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"};
+        r.name = k.id == 0 ? "STEP" : k.id == 1 ? "ENGINE" : k.id == 2 ? "AUTO" : k.id == 3 ? "CORES" : "FLASH WT";
+        r.max = k.id == 0 ? RV_STRESS_N - 1 : k.id == 1 ? ENG_N - 1 : 1;
+        r.fmt = PF_ENUM;
+        r.names = k.id == 0 ? nums : k.id == 1 ? rv_engine_names : k.id == 2 ? autos : k.id == 3 ? cores : onoff;
+        break;
+    }
     case K_EUC:
         r.name = k.id ? "ROTATE" : "HITS";
         r.max = euc_len(ui.track) - (k.id ? 1 : 0);
@@ -930,6 +949,7 @@ static int kb_get(kb_t k)
             return rv.arr_len ? rv.arr_len : 1;
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
+    case K_STRESS: return k.id == 0 ? ui.st_step : k.id == 1 ? ui.st_eng : k.id == 2 ? ui.st_auto : k.id == 3 ? rv_live.cores2 : rv_live.fetch_on;
     case K_EUC: return k.id ? clampi(ui.euc_rot[ui.track][euc_lane(ui.track)], 0, euc_len(ui.track) - 1) : euc_hits(ui.track);
     case K_LIB: {
         const rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
@@ -1216,6 +1236,55 @@ static void kb_set(kb_t k, int v)
         break;
     case K_ARC:
         rv.arcs[ui.track][ui.cur_arc & 15] = (uint8_t)v;
+        break;
+    case K_STRESS:
+        if (k.id == 4) {                               /* FLASH WAIT: count the code fetch's waits */
+            if (plat_fetch_on(v) < 0) {
+                msg("NOT MEASURED HERE: THE FM-1 COUNTS IT");
+                break;
+            }
+            rv_live.fetch_on = (uint8_t)v;
+            rv_live.fetch_pct = 0.0f;
+            break;
+        }
+        if (k.id == 3) {                               /* CORES: the second core on or off (until power-off) */
+            if (v && !rv_live.cores2) {
+                if (plat_par_on(1) < 0) {
+                    msg(rv_live.c2_fail ? "CORE 2 FAILED BEFORE: OFF TILL POWER-OFF" : "NO SECOND CORE HERE");
+                    break;
+                }
+                rv_live.c2_fail = 0;
+                rv_live.cores2 = 1;
+                msg("TWO CORES: HALF THE SYNTH VOICES ON CORE 2");
+            } else if (!v && rv_live.cores2) {
+                rv_live.cores2 = 0;
+                plat_par_on(0);
+            }
+            break;
+        }
+        if ((!ui.st_on || (ui.st_built == 0 && !stress_loaded())) && v > 0 && k.id != 1) {   /* starting: it replaces the project */
+            if (!confirmed(CONF_STRESS, "TURN AGAIN: STRESS REPLACES THE PROJECT"))
+                break;
+            ui.st_on = 1;
+            __builtin_memset(ui.st_res, 255, sizeof ui.st_res);
+            ui.st_xr = 0;
+        }
+        if (k.id == 0)
+            ui.st_step = (uint8_t)v;
+        else if (k.id == 1)
+            ui.st_eng = (uint8_t)v;
+        else {
+            ui.st_auto = (uint8_t)v;
+            if (v) {                                   /* from the first step, the results anew */
+                ui.st_step = 1;
+                __builtin_memset(ui.st_res, 255, sizeof ui.st_res);
+                ui.st_xr = 0;
+            } else
+                ui.st_step = 0;
+        }
+        if (k.id == 1)
+            ui.st_built = 255;                         /* the same step again, with this engine */
+        ui.st_turn = plat_ms();
         break;
     case K_EUC:
         if (k.id)
@@ -3527,6 +3596,95 @@ static void pic_euclid(void)
     g_text(8, PIC_Y + 116, &FONT_T, is_kit_ui(t) ? "WRITES THE CHOSEN LANE AS YOU TURN" : "WRITES THE STEPS AS YOU TURN", C_DIM);
 }
 
+/* the stress test: builds the asked-for step once the knob rests, measures each step from its first
+ * second to its third (the average of the reading), and AUTO walks the steps, three seconds each */
+static int stress_loaded(void)
+{
+    return rv.name[0] == 'S' && rv.name[1] == 'T' && rv.name[2] == 'R' && rv.name[3] == 'E' && rv.name[4] == 'S' && rv.name[5] == 'S' && !rv.name[6];
+}
+static void stress_tick(void)
+{
+    uint32_t now = plat_ms();
+    if (!ui.st_on)
+        return;
+    if (ui.st_built && ui.st_built != 255 && !stress_loaded()) {   /* another project came in: the test is over */
+        ui.st_on = ui.st_step = ui.st_built = ui.st_auto = 0;
+        rv_live.guard_off = 0;
+        return;
+    }
+    if (ui.st_step != ui.st_built && now - ui.st_turn > 200u) {
+        rv_stress(ui.st_step, ui.st_eng);
+        ui.st_built = ui.st_step;
+        ui.st_t0 = now;
+        ui.st_x0 = plat_xruns();
+        ui.st_acc = 0.0f;
+        ui.st_nacc = 0;
+        if (!ui.st_step)
+            msg("STRESS STOPPED");
+        return;
+    }
+    if (!ui.st_built || ui.st_step != ui.st_built)
+        return;
+    if (now - ui.st_t0 >= 1000u && now - ui.st_t0 < 3000u) {
+        ui.st_acc += rv_live.load;
+        ui.st_nacc++;
+    }
+    if (plat_xruns() != ui.st_x0)
+        ui.st_xr |= 1u << ui.st_built;
+    if (now - ui.st_t0 >= 3000u && ui.st_nacc) {
+        ui.st_res[ui.st_built] = (uint8_t)clampi((int)(ui.st_acc / (float)ui.st_nacc + 0.5f), 0, 254);
+        ui.st_nacc = 0;
+        if (ui.st_auto) {                              /* the next step, or done */
+            ui.st_step = (uint8_t)(ui.st_built + 1 < RV_STRESS_N ? ui.st_built + 1 : 0);
+            if (!ui.st_step)
+                ui.st_auto = 0;
+            ui.st_turn = now - 1000u;
+        }
+    }
+}
+
+/* GLO > STRESS: the step playing, its reading now, and the table of what each step measured */
+static void pic_stress(void)
+{
+    char b[32];
+    int k;
+    b[0] = 0;
+    if (!ui.st_on) {
+        g_text_c(120, PIC_Y + 30, &FONT_B, "STRESS TEST", C_INK);
+        g_text_c(120, PIC_Y + 54, &FONT_T, "TURN STEP OR SET AUTO TO RUN", C_DIM);
+        g_text_c(120, PIC_Y + 66, &FONT_T, "IT REPLACES THE PROJECT: SAVE FIRST", C_RED);
+        g_text_c(120, PIC_Y + 78, &FONT_T, "EACH STEP ADDS LOAD; XRUNS MARK THE EDGE", C_DIM);
+        return;
+    }
+    sx_cat(b, rv_stress_name(ui.st_step));
+    if (ui.st_step) {
+        sx_cat(b, "  ");
+        int l = 0;
+        while (b[l])
+            l++;
+        sx_int(b + l, (int)(rv_live.load + 0.5f));
+        sx_cat(b, "%");
+    }
+    g_text(6, PIC_Y + 2, &FONT_B, b, ui.st_auto ? C_TEAL : C_INK);
+    if (plat_cycles() == 0) {
+        g_text(6, PIC_Y + 20, &FONT_T, "NO CLOCK HERE: THE FM-1 MEASURES IT", C_DIM);
+        return;
+    }
+    for (k = 1; k < RV_STRESS_N; k++) {
+        int x = k <= 8 ? 6 : 122, y = PIC_Y + 22 + ((k - 1) % 8) * 13;
+        uint16_t c = (ui.st_xr >> k) & 1u ? C_RED : k == ui.st_step ? C_INK : C_DIM;
+        g_text(x, y, &FONT_T, rv_stress_name(k), c);
+        b[0] = 0;
+        if (ui.st_res[k] == 255)
+            sx_cat(b, "-");
+        else {
+            sx_int(b, ui.st_res[k]);
+            sx_cat(b, (ui.st_xr >> k) & 1u ? "%!" : "%");
+        }
+        g_text_r(x + 110, y, &FONT_T, b, c);
+    }
+}
+
 /* GLO > CPU: each part of the audio render as a share of the time it has, the whole, the
  * platform's own reading and the blocks that came too late */
 static void pic_cpu(void)
@@ -3535,7 +3693,7 @@ static void pic_cpu(void)
                                        "VOCODER", "FEEDBACK", "PAIR", "BANDS", "DELAY", "SPACE", "MASTER"};
     int k;
     float tot = 0.0f;
-    char b[24];
+    char b[40];
     for (k = 0; k < 14; k++)
         tot += rv_live.prof[k];
     if (tot <= 0.0f) {
@@ -3557,8 +3715,37 @@ static void pic_cpu(void)
     b[0] = 0;
     sx_cat(b, "XRUNS ");
     sx_int(b + 6, (int)plat_xruns());
-    g_text_r(234, PIC_Y + 108, &FONT_T, b, plat_xruns() ? C_RED : C_DIM);
-    g_text(6, PIC_Y + 124, &FONT_T, "A BAR'S LENGTH: 50% OF THE TIME THE AUDIO HAS", C_DIM);
+    g_text_r(234, PIC_Y + 98, &FONT_T, b, plat_xruns() ? C_RED : C_DIM);
+    if (rv_live.fetch_on) {                         /* the share of the render spent waiting for its code */
+        b[0] = 0;
+        sx_cat(b, "FLASH WAIT ");
+        sx_int(b + 11, (int)(rv_live.fetch_pct + 0.5f));
+        sx_cat(b, "%");
+        g_text_r(234, PIC_Y + 118, &FONT_T, b, rv_live.fetch_pct > 25.0f ? C_RED : C_DIM);
+    }
+    if (rv_live.cores2 || rv_live.c2_fail) {        /* the second core */
+        g_text_r(234, PIC_Y + 108, &FONT_T, rv_live.c2_fail ? "CORE 2 FAILED: ONE CORE" : rv_live.c2_used ? "CORE 2 WORKING" : "CORE 2 IDLE",
+               rv_live.c2_fail ? C_RED : rv_live.c2_used ? C_TEAL : C_DIM);
+    }
+    b[0] = 0;                                       /* the overload guard */
+    if (rv_live.guard_off)
+        sx_cat(b, "GUARD OFF (STRESS)");
+    else if (rv_live.cap == 255)
+        sx_cat(b, "GUARD: ALL VOICES");
+    else {
+        sx_cat(b, "GUARD: ");
+        sx_int(b + 7, rv_live.cap);
+        sx_cat(b, " VOICES");
+    }
+    if (rv_live.shed) {
+        int l = 0;
+        sx_cat(b, ", ");
+        while (b[l])
+            l++;
+        sx_int(b + l, rv_live.shed);
+        sx_cat(b, " FADED");
+    }
+    g_text(6, PIC_Y + 124, &FONT_T, b, rv_live.cap == 255 && !rv_live.guard_off ? C_DIM : C_RED);
 }
 
 static void pic_master(void)
@@ -4185,6 +4372,7 @@ static void draw_picture(void)
     case PIC_MASTER: pic_master(); break;
     case PIC_BED: pic_bed(); break;
     case PIC_CPU: pic_cpu(); break;
+    case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
     case PIC_BANDS: pic_bands(); break;
     case PIC_SCALE: pic_scale(); break;
@@ -4254,6 +4442,7 @@ void ui_frame(void)
         return;
     }
     ui_input_only();
+    stress_tick();
     if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || ui.sec != SEC_SAVE))
         bank_keep();                                  /* a renamed sound, kept once the naming pauses */
     ui.frame++;

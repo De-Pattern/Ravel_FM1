@@ -2240,8 +2240,6 @@ static void tine_render(voice_t *v, const float *eff, float f, float *out, int n
 static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
-static float sem_m;
-static int sem_bp;
 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
 {
     const float *eff = tr->eff;
@@ -2300,8 +2298,8 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         svf_set(&v->svf, rv_cut_hz(cut), 0.55f + res * res * 11.0f);
     else
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
-    sem_m = clampf(eff[TP_FMODE] * (1.0f / 127.0f), 0.0f, 1.0f);
-    sem_bp = eff[TP_FBP] > 0.5f;
+    const float sem_m = clampf(eff[TP_FMODE] * (1.0f / 127.0f), 0.0f, 1.0f);   /* (locals: two cores may render voices at once) */
+    const int sem_bp = eff[TP_FBP] > 0.5f;
     lvl = 0.0f;
     for (i = 0; i < n; i++) {
         float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */

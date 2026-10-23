@@ -368,11 +368,20 @@ void rv_track_set_kind(int t, int kind)
     }
 }
 
+/* the sends into the buses: a preset leaves them as they were, so no effect starts running because a
+ * sound was picked (the demos, made as whole pieces, bring their own) */
+static const uint8_t send_tp[6] = {TP_VOC, TP_FBS, TP_PAIRS, TP_BANDS, TP_DLYS, TP_REVS};
+static uint8_t preset_sends;
+
 void rv_preset_apply(int t, int i)
 {
     const int8_t *v;
+    int16_t keep[6];
+    int k;
     if (i < 0 || i >= NPRESETS)
         return;
+    for (k = 0; k < 6; k++)
+        keep[k] = rv.tp[t & 7][send_tp[k]];
     {
         int was_kit = rv.tp[t & 7][TP_KIND] == KIND_PERC && rv.tp[t & 7][TP_ENGINE] == 1;
         int is_kit = presets[i].kind == KIND_PERC && presets[i].engine == 1;
@@ -411,6 +420,9 @@ void rv_preset_apply(int t, int i)
     rv_fenv_from_env(rv.tp[t & 7]);                   /* the presets were made with one envelope for both */
     if (presets[i].cz)
         rv.cz[t & 7] = *presets[i].cz;
+    if (!preset_sends)
+        for (k = 0; k < 6; k++)
+            rv.tp[t & 7][send_tp[k]] = keep[k];
 }
 
 /* the preset whose kind and engine match a track best, from i in direction dir */
@@ -469,7 +481,14 @@ static void name_set(const char *s)
     rv.name[i] = 0;
 }
 
+static void demo_body(int which);
 void rv_demo(int which)
+{
+    preset_sends = 1;                                 /* a demo is a whole piece: its sounds' sends come with it */
+    demo_body(which);
+    preset_sends = 0;
+}
+static void demo_body(int which)
 {
     int s;
     rv_project_init();

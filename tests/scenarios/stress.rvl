@@ -1,0 +1,37 @@
+# GLO > STRESS: the stress test asks first, builds its project, steps up, runs on AUTO, and gives the
+# project back to the next one loaded
+wait 300
+tap GLO
+turn SELECT -20
+turn SELECT 9
+wait 150
+expect page STRESS
+shot stress-idle.png
+turn K1 1
+wait 500
+expect name BLANK
+turn K1 1
+wait 600
+expect name STRESS
+turn K1 1
+wait 100
+turn K1 1
+wait 100
+turn K1 1
+wait 100
+turn K1 1
+wait 3500
+wav stress.wav
+wait 1500
+expect peak_db_min -40
+wavstop
+shot stress-8voices.png
+turn K2 12
+wait 3500
+turn K3 1
+wait 52000
+shot stress-auto.png
+expect page STRESS
+demo 1
+wait 500
+expect name RAVEL

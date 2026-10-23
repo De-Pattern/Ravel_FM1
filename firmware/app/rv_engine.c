@@ -274,12 +274,69 @@ static void hs_mix(hitshade_t *h, const float *src, float *dst, int n)
     h->env = e1;
 }
 
+static void guard_note(void);
+/* the voices' decaying state, flushed once a block before it reaches the denormals (fm_flush_n):
+ * filters, envelopes and above all the ringing modes of TINE, PHYS, the strikes and the drums */
+static void synth_flush(voice_t *v)
+{
+    fm_flush_n(v->lad.s, 4);
+    fm_flush_n(&v->svf.ic1, 2);
+    fm_flush_n(&v->svf2.ic1, 2);
+    fm_flush_n(&v->zp.s[0][0], 12);
+    fm_flush_n(&v->hs.lps, 1);
+    switch (rv.tp[v->track][TP_ENGINE]) {
+    case ENG_TINE:
+        fm_flush_n(v->e.tn.re, TN_M);
+        fm_flush_n(v->e.tn.im, TN_M);
+        fm_flush_n(&v->e.tn.box[0].ic1, 2);
+        fm_flush_n(&v->e.tn.box[1].ic1, 2);
+        fm_flush_n(&v->e.tn.blp, 1);
+        fm_flush_n(&v->e.tn.thlp, 1);
+        break;
+    case ENG_PHYS:
+        fm_flush_n(&v->e.ph.mode_s[0][0], 12);
+        fm_flush_n(&v->e.ph.lp, 6);
+        break;
+    case ENG_FORMANT:
+        fm_flush_n(&v->e.fo.f[0].ic1, 2);
+        fm_flush_n(&v->e.fo.f[1].ic1, 2);
+        fm_flush_n(&v->e.fo.f[2].ic1, 2);
+        break;
+    default:
+        break;
+    }
+}
+static void strike_flush(strike_t *v)
+{
+    fm_flush_n(v->md_y1, 8);
+    fm_flush_n(v->md_y2, 8);
+    fm_flush_n(&v->ping.ic1, 2);
+    fm_flush_n(&v->exc_env, 3);
+    fm_flush_n(&v->lp1, 2);
+    fm_flush_n(&v->hs.lps, 1);
+}
+static void perc_flush(perc_t *v)
+{
+    fm_flush_n(v->my1, 8);
+    fm_flush_n(v->my2, 8);
+    fm_flush_n(&v->aenv, 5);
+    fm_flush_n(&v->fbv, 4);
+    fm_flush_n(&v->f1.ic1, 2);
+    fm_flush_n(&v->f2.ic1, 2);
+    fm_flush_n(&v->hpf.ic1, 2);
+    fm_flush_n(&v->lpf.ic1, 2);
+    fm_flush_n(&v->eq.ic1, 2);
+    fm_flush_n(&v->hs.lps, 1);
+}
+
 static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
 {
     track_t *tr = &trk[t];
     int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;
     float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
     spark_pend = 0;
+    if (vel > 0)
+        guard_note();
     if (vel > 0 && !spark)
         lfo_note_trig = 1;
     if (vel > 0 && !spark && !((kind == KIND_PERC || kind == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
@@ -769,7 +826,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
 /* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
 enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_VOC, PF_FB, PF_PAIR, PF_BANDS, PF_DLY, PF_SPACE, PF_MASTER, PF_N };
-static uint32_t prof_acc[PF_N], prof_t, prof_n;
+static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
 static void prof_end(int n)
 {
@@ -785,7 +842,239 @@ static void prof_end(int n)
             prof_acc[k] = 0;
         }
     }
+    if (rv_live.fetch_on && prof_rcyc)                /* FLASH WAIT: the share of the render spent fetching code */
+        rv_live.fetch_pct += ((float)prof_fetch * 100.0f / (float)prof_rcyc - rv_live.fetch_pct) * 0.5f;
+    prof_fetch = prof_rcyc = 0;
     prof_n = 0;
+}
+
+/* ------------------------------------------------------------ two cores --- */
+/* With the second core on (GLO > CPU, CORES 2), the synth voices are split by track between the two
+ * cores, as evenly as their voice counts go; the strikes, drums and samples render here meanwhile.
+ * synth_part touches only its tracks' voices and buffers (no counts, no faults: synth_count does
+ * those, here, after), so the halves never write the same thing. Off, or one track sounding: all
+ * here, as before. The platform holds the core and does the work here if it ever fails. */
+static float v_lv[RV_SYNTH_VOICES];
+static uint8_t v_done[RV_SYNTH_VOICES], v_bad[RV_SYNTH_VOICES];
+static int par_n;
+static uint32_t par_other;
+
+static void synth_part(uint32_t mask)
+{
+    int k, n = par_n;
+    for (k = 0; k < RV_SYNTH_VOICES; k++) {
+        voice_t *v = &vs[k];
+        track_t *tr;
+        float lv;
+        if (!v->on || !((mask >> v->track) & 1u))
+            continue;
+        tr = &trk[v->track];
+        if (v->hs.on) {                              /* a shaded hit: on its own, then into the track */
+            float tmp[RV_SUB];
+            zero_buf(tmp, n);
+            lv = synth_voice_render(v, tr, tmp, n, 0.0f);
+            hs_mix(&v->hs, tmp, tr->buf, n);
+        } else
+            lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
+        v_done[k] = 1;
+        v_lv[k] = lv;
+        v_bad[k] = (uint8_t)(buf_bad(tr->buf, n) || !(lv == lv));
+        if (v_bad[k])
+            zero_buf(tr->buf, n);
+        else
+            synth_flush(v);
+    }
+}
+
+/* after both halves: faults, the counts, the leading voice's envelopes for the screen */
+static void synth_count(uint32_t *lead_age)
+{
+    int k;
+    for (k = 0; k < RV_SYNTH_VOICES; k++) {
+        voice_t *v = &vs[k];
+        if (!v_done[k])
+            continue;
+        v_done[k] = 0;
+        if (v_bad[k]) {
+            fault(100 + rv.tp[v->track][TP_ENGINE]);
+            __builtin_memset(v, 0, sizeof(*v));
+            continue;
+        }
+        rv_live.voices_synth++;
+        if (v->age >= lead_age[v->track]) {          /* the newest voice leads */
+            lead_age[v->track] = v->age;
+            trk[v->track].lead_env = v_lv[k];
+            rv_live.stage[v->track] = v->a.stage;
+            rv_live.stage_pos[v->track] = v->a.u;
+            rv_live.fenv[v->track] = v->fe.lvl;
+            rv_live.fenv_pos[v->track] = v->fe.u;
+            rv_live.fenv_stage[v->track] = v->fe.stage;
+        }
+    }
+}
+
+/* which tracks' voices go to the second core: 1 = a split worth making */
+static int par_split(uint32_t *mine, uint32_t *other)
+{
+    int cnt[RV_TRACKS] = {0}, k, t, a = 0, b = 0, tracks = 0;
+    if (!rv_live.cores2)
+        return 0;
+    for (k = 0; k < RV_SYNTH_VOICES; k++)
+        if (vs[k].on)
+            cnt[vs[k].track & 7]++;
+    *mine = *other = 0u;
+    for (k = RV_SYNTH_VOICES; k > 0; k--)             /* the busiest tracks first, each to the lighter side */
+        for (t = 0; t < RV_TRACKS; t++)
+            if (cnt[t] == k) {
+                tracks++;
+                if (b < a) {
+                    *other |= 1u << t;
+                    b += k;
+                } else {
+                    *mine |= 1u << t;
+                    a += k;
+                }
+            }
+    return tracks >= 2 && *other;
+}
+
+/* ------------------------------------------------------- overload guard --- */
+/* When the render takes most of the time the audio has, the FM-1 falls behind and its output breaks
+ * up into loud noise. The guard watches the render's own time and, past GUARD_HI, fades out the
+ * oldest voice (released ones first) over a few milliseconds, and holds the voice count there: a new
+ * note past the limit fades out the oldest to make room. Once there is room for another voice and
+ * some (GUARD_LO, a voice's cost counted, for four blocks running) the limit comes back up by one. Where there is no clock (the browser)
+ * it never acts. A voice being faded is marked by its shading's decay, SHED_DK */
+#define GUARD_HI 0.80f                  /* (the interface needs the rest of the time) */
+#define GUARD_LO 0.72f                  /* (with a voice's cost added) */
+#define SHED_DK 150.0f                  /* about 7 ms */
+#define GUARD_WIN 512u                  /* frames read at a time */
+static float guard_load, guard_vc = 0.05f;
+static uint32_t guard_acc, guard_vacc, guard_n;
+static uint16_t guard_cool, guard_calm;
+static uint8_t guard_cap = 255;
+
+static int shedding(const hitshade_t *h) { return h->on && h->dk >= SHED_DK; }
+static void shed_start(hitshade_t *h)
+{
+    if (!h->on) {
+        h->on = 1;
+        h->semi = 0.0f;
+        h->lpc = 1.0f;
+        h->gain = 1.0f;
+        h->env = 1.0f;
+    }
+    h->dk = SHED_DK;
+}
+
+static int voices_sounding(void)
+{
+    int k, c = 0;
+    for (k = 0; k < RV_SYNTH_VOICES; k++)
+        c += vs[k].on && !shedding(&vs[k].hs);
+    for (k = 0; k < RV_STRIKE_VOICES; k++)
+        c += ss[k].on && !shedding(&ss[k].hs);
+    for (k = 0; k < RV_PERC_VOICES; k++)
+        c += ps[k].on && !shedding(&ps[k].hs);
+    for (k = 0; k < RV_SAMP_VOICES; k++)
+        c += sv[k].on && !shedding(&sv[k].hs);
+    return c;
+}
+
+/* the oldest sounding voice, a released one if there is one, starts fading out (1: one did) */
+static int shed_one(void)
+{
+    hitshade_t *pick = 0;
+    uint32_t best = 0xFFFFFFFFu;
+    int k, pass;
+    for (pass = 0; pass < 2 && !pick; pass++) {     /* pass 0: released voices; pass 1: any */
+#define SHED_CAND(v, held) \
+        if ((v).on && !shedding(&(v).hs) && (pass || !(held)) && (v).age < best) { best = (v).age; pick = &(v).hs; }
+        for (k = 0; k < RV_SYNTH_VOICES; k++)
+            SHED_CAND(vs[k], vs[k].a.gate)
+        for (k = 0; k < RV_STRIKE_VOICES; k++)
+            SHED_CAND(ss[k], ss[k].gate)
+        for (k = 0; k < RV_PERC_VOICES; k++)
+            SHED_CAND(ps[k], ps[k].gate)
+        for (k = 0; k < RV_SAMP_VOICES; k++)
+            SHED_CAND(sv[k], sv[k].gate)
+#undef SHED_CAND
+    }
+    if (!pick)
+        return 0;
+    shed_start(pick);
+    rv_live.shed++;
+    return 1;
+}
+
+/* a note about to start: past the guard's limit, the oldest voice makes room */
+static void guard_note(void)
+{
+    if (guard_cap != 255 && !rv_live.guard_off && voices_sounding() >= guard_cap)
+        shed_one();
+}
+
+static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices' part of cyc */
+{
+    float hz = (float)plat_cycles_hz(), x, vx;
+    int k;
+    /* faded out: off */
+    for (k = 0; k < RV_SYNTH_VOICES; k++)
+        if (vs[k].on && shedding(&vs[k].hs) && vs[k].hs.env < 0.001f)
+            vs[k].on = 0;
+    for (k = 0; k < RV_STRIKE_VOICES; k++)
+        if (ss[k].on && shedding(&ss[k].hs) && ss[k].hs.env < 0.001f)
+            ss[k].on = 0;
+    for (k = 0; k < RV_PERC_VOICES; k++)
+        if (ps[k].on && shedding(&ps[k].hs) && ps[k].hs.env < 0.001f)
+            ps[k].on = 0;
+    for (k = 0; k < RV_SAMP_VOICES; k++)
+        if (sv[k].on && shedding(&sv[k].hs) && sv[k].hs.env < 0.001f)
+            sv[k].on = 0;
+    if (!cyc || hz <= 0.0f || n <= 0)
+        return;                                     /* no clock here */
+    /* read over the FM-1's audio block (512 frames, 11.6 ms), as it falls behind or not: one step
+     * alone can be busy (a bar's events) and still fit */
+    guard_acc += cyc;
+    guard_vacc += vcyc;
+    guard_n += (uint32_t)n;
+    if (guard_n < GUARD_WIN)
+        return;
+    x = (float)guard_acc / (hz / (float)RV_FS * (float)guard_n);
+    vx = (float)guard_vacc / (hz / (float)RV_FS * (float)guard_n);
+    guard_acc = guard_vacc = guard_n = 0;
+    {
+        int s = voices_sounding();                  /* what a voice costs, about */
+        if (s > 0)
+            guard_vc += (vx / (float)s - guard_vc) * 0.3f;
+    }
+    guard_load += (x - guard_load) * 0.5f;
+    rv_live.load = guard_load * 100.0f;
+    if (guard_cool)
+        guard_cool--;
+    if (rv_live.guard_off) {
+        guard_cap = 255;
+    } else if (guard_load > GUARD_HI) {
+        guard_calm = 0;
+        if (!guard_cool && vx > 0.08f) {            /* (when the voices are what costs: fewer of them helps) */
+            int s = voices_sounding();
+            if (s > guard_cap)
+                s = guard_cap;
+            if (shed_one()) {
+                guard_cap = (uint8_t)(s > 2 ? s - 1 : 2);
+                guard_cool = 4;                     /* (let the fade show in the reading first: 46 ms) */
+            }
+        }
+    } else if (guard_load + guard_vc * 1.2f < GUARD_LO) {   /* room for another voice, and some */
+        if (guard_cap != 255 && ++guard_calm >= 4) {          /* (46 ms of it) */
+            guard_calm = 0;
+            if (++guard_cap >= RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES + RV_SAMP_VOICES)
+                guard_cap = 255;
+        }
+    } else {
+        guard_calm = 0;
+    }
+    rv_live.cap = guard_cap;
 }
 
 /* ----------------------------------------------------------- render --- */
@@ -801,8 +1090,8 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
-    uint32_t tape_cyc = 0;
-    prof_t = plat_cycles();
+    uint32_t tape_cyc = 0, cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
+    prof_t = cyc0 = plat_cycles();
     movement_tick(n);
     eff_compute();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
@@ -813,6 +1102,7 @@ static void render_sub(float *outl, float *outr, int n)
     seq_events(n);
     glide_tick(n);
     PROF(PF_CTRL);
+    vcyc0 = prof_t;
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
@@ -860,44 +1150,40 @@ static void render_sub(float *outl, float *outr, int n)
         for (i = 0; i < n; i++)
             tr->buf[i] = 0.0f;
     }
-    /* voices */
+    /* voices: the synth voices first, half of their tracks on the second core when it is on (the
+     * strikes, drums and samples go on here meanwhile); then what they did is counted, here */
     rv_live.voices_synth = rv_live.voices_strike = 0;
-    for (k = 0; k < RV_SYNTH_VOICES; k++) {
-        voice_t *v = &vs[k];
-        track_t *tr;
-        float lv;
-        if (!v->on)
-            continue;
-        tr = &trk[v->track];
-        if (rv.tp[v->track][TP_KIND] != KIND_SYNTH) {
-            v->on = 0;
-            continue;
+    {
+        uint32_t mine = 0xFFu, other = 0u;
+        par_other = 0u;
+        for (k = 0; k < RV_SYNTH_VOICES; k++) {
+            voice_t *v = &vs[k];
+            if (!v->on)
+                continue;
+            if (rv.tp[v->track][TP_KIND] != KIND_SYNTH) {
+                v->on = 0;
+                continue;
+            }
+            artic_cfg_track(&v->cfg, trk[v->track].eff);
         }
-        artic_cfg_track(&v->cfg, tr->eff);
-        if (v->hs.on) {                              /* a shaded hit: on its own, then into the track */
-            float tmp[RV_SUB];
-            zero_buf(tmp, n);
-            lv = synth_voice_render(v, tr, tmp, n, 0.0f);
-            hs_mix(&v->hs, tmp, tr->buf, n);
-        } else
-            lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
-        if (buf_bad(tr->buf, n) || !(lv == lv)) {
-            fault(100 + rv.tp[v->track][TP_ENGINE]);
-            __builtin_memset(v, 0, sizeof(*v));
-            zero_buf(tr->buf, n);
-            continue;
+        par_n = n;
+        {
+            uint32_t m, o;
+            rv_live.c2_used = 0;
+            if (par_split(&m, &o)) {
+                if (plat_par_run(synth_part, o)) {
+                    mine = m;
+                    other = o;
+                    rv_live.c2_used = 1;
+                } else
+                    rv_live.c2_fail = 1;
+            }                                        /* (else all here) */
         }
-        rv_live.voices_synth++;
-        if (v->age >= lead_age[v->track]) {          /* the newest voice leads */
-            lead_age[v->track] = v->age;
-            tr->lead_env = lv;
-            rv_live.stage[v->track] = v->a.stage;
-            rv_live.stage_pos[v->track] = v->a.u;
-            rv_live.fenv[v->track] = v->fe.lvl;
-            rv_live.fenv_pos[v->track] = v->fe.u;
-            rv_live.fenv_stage[v->track] = v->fe.stage;
-        }
+        synth_part(mine);
+        par_other = other;                           /* (the strikes etc. below run meanwhile) */
     }
+    if (!par_other)
+        synth_count(lead_age);
     PROF(PF_SYNTH);
     for (k = 0; k < RV_STRIKE_VOICES; k++) {
         strike_t *v = &ss[k];
@@ -924,6 +1210,7 @@ static void render_sub(float *outl, float *outr, int n)
             zero_buf(tr->buf, n);
             continue;
         }
+        strike_flush(v);
         rv_live.voices_strike++;
         tr->lead_env = lv;
         rv_live.stage[v->track] = v->a.stage;
@@ -954,6 +1241,7 @@ static void render_sub(float *outl, float *outr, int n)
             zero_buf(tr->buf, n);
             continue;
         }
+        perc_flush(v);
         rv_live.voices_strike++;
         if (v->age >= lead_age[v->track]) {
             lead_age[v->track] = v->age;
@@ -962,7 +1250,19 @@ static void render_sub(float *outl, float *outr, int n)
             rv_live.stage_pos[v->track] = 0.0f;
         }
     }
+    if (par_other) {                                 /* the second core's half */
+        if (plat_par_wait() < 0) {                   /* it failed (and is off now): its half here, again */
+            rv_live.c2_fail = 1;
+            for (t = 0; t < RV_TRACKS; t++)
+                if ((par_other >> t) & 1u)
+                    zero_buf(trk[t].buf, n);
+            synth_part(par_other);
+        }
+        synth_count(lead_age);
+        par_other = 0u;
+    }
     PROF(PF_PERC);
+    vcyc = prof_t - vcyc0;
     /* tape tracks, and the tracks' chains */
     for (t = 0; t < RV_TRACKS; t++) {
         track_t *tr = &trk[t];
@@ -1195,10 +1495,11 @@ static void render_sub(float *outl, float *outr, int n)
     {
         float md = geff[GP_MDRIVE] * (1.0f / 127.0f), pre = 1.0f + md * 3.0f;
         master_drive_comp = 1.0f / (1.0f + md * 1.2f);
-        for (i = 0; i < n; i++) {
-            outl[i] = sat(outl[i] * pre) * master_drive_comp;
-            outr[i] = sat(outr[i] * pre) * master_drive_comp;
-        }
+        if (md > 0.0f)                                /* off at 0: the limiter alone keeps the peaks */
+            for (i = 0; i < n; i++) {
+                outl[i] = sat(outl[i] * pre) * master_drive_comp;
+                outr[i] = sat(outr[i] * pre) * master_drive_comp;
+            }
         cuts_run(outl, outr, n);
         if (punch[4] || punch[5]) {
             static float sweep = 1.0f;
@@ -1283,7 +1584,12 @@ static void render_sub(float *outl, float *outr, int n)
     now_s += (uint32_t)n;
     rv_live.tick = now_s;
     PROF(PF_MASTER);
+    if (rv_live.fetch_on) {
+        prof_fetch += plat_fetch_wait() - fw0;
+        prof_rcyc += prof_t - cyc0;
+    }
     prof_end(n);
+    guard_tick(prof_t - cyc0, vcyc + tape_cyc, n);
 }
 
 void rv_render(int32_t *out, int frames)

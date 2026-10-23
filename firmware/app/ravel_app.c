@@ -14,6 +14,7 @@
 #include "rv_project.c"
 #include "rv_bank.c"
 #include "rv_xfer.c"
+#include "rv_stress.c"
 #include "rv_ui.c"
 
 /* start: always a blank project */

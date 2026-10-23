@@ -53,4 +53,15 @@ void plat_midi_out(const uint8_t *msg, int n);
 uint32_t plat_cpu_pct(void);            /* audio render load, % */
 uint32_t plat_cycles(void);             /* a free-running count of the processor's cycles (0: none to read) */
 uint32_t plat_cycles_hz(void);          /* how many of them a second */
-uint32_t plat_xruns(void);              /* audio blocks that were not ready in time, since boot */
+uint32_t plat_xruns(void);
+/* a second core (the FM-1's AC79 has one): on asks it to start (0 = running; < 0 = none here, or it
+ * would not start, or it failed before and stays off until power-off). run hands it fn(arg) while
+ * this core goes on (1 = it took it); wait waits for it (0 = done; < 0 = it failed and is off now:
+ * the caller does that work itself). */
+int plat_par_on(int on);
+int plat_par_run(void (*fn)(uint32_t), uint32_t arg);
+int plat_par_wait(void);
+/* the core's instruction-fetch waits (the FM-1 runs its code from the flash, through a cache): on
+ * starts counting them (0 = counting; < 0 = not here), wait is the count so far, in cycles */
+int plat_fetch_on(int on);
+uint32_t plat_fetch_wait(void);              /* audio blocks that were not ready in time, since boot */

@@ -39,7 +39,7 @@ static const char *const senv_names[RV_SENV + 1] = {"OFF", "1", "2", "3", "4", "
 typedef char senv_size_check[sizeof(rv_senv) == 24 ? 1 : -1];   /* the LIBRARY fills the triplets' room exactly */
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
-static const char *const revmode_names[] = {"ROOM", "CLOUDS", "BLACKHOLE", "12-BIT"};
+static const char *const revmode_names[] = {"ROOM", "CLOUDS", "12-BIT"};
 static const char *const cutshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
 static const char *const glide_names[] = {"JUMP", "1 BAR", "2 BARS", "3 BARS", "4 BARS", "5 BARS", "6 BARS", "7 BARS", "8 BARS"};
 static const char *const arcspan_names[] = {"1 BAR", "2 BARS", "4 BARS"};
@@ -428,7 +428,7 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_REVSIZE] = {"SIZE", 0, 127, 70, PF_NUM, 0},
     [GP_REVDAMP] = {"DAMP", 0, 127, 50, PF_NUM, 0},
     [GP_REVLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
-    [GP_MDRIVE] = {"DRIVE", 0, 127, 20, PF_NUM, 0},
+    [GP_MDRIVE] = {"DRIVE", 0, 127, 0, PF_NUM, 0},     /* (off until turned up: it was 20) */
     [GP_CUTSIZE] = {"CUT SIZE", 0, 127, 50, PF_NUM, 0},
     [GP_CUTREP] = {"REPEATS", 1, 16, 4, PF_NUM, 0},
     [GP_CUTMIX] = {"CUT MIX", 0, 127, 127, PF_NUM, 0},
@@ -552,11 +552,7 @@ const rv_pinfo *rv_pinfo_global(int g)
         static const rv_pinfo dec = {"DECAY", 0, 127, 70, PF_NUM, 0};
         return &dec;
     }
-    if (rv.gp[GP_REVMODE] == 2 && g == GP_REVSIZE) {                   /* BLACKHOLE: how far it falls in */
-        static const rv_pinfo grav = {"GRAVITY", 0, 127, 70, PF_NUM, 0};
-        return &grav;
-    }
-    if (rv.gp[GP_REVMODE] == 3 && (g == GP_REVSIZE || g == GP_REVDIFF)) {   /* 12-BIT: DECAY, and CRUNCH for DIFFUSE */
+    if (rv.gp[GP_REVMODE] == 2 && (g == GP_REVSIZE || g == GP_REVDIFF)) {   /* 12-BIT: DECAY, and CRUNCH for DIFFUSE */
         static const rv_pinfo q[2] = {{"DECAY", 0, 127, 70, PF_NUM, 0}, {"CRUNCH", 0, 127, 0, PF_NUM, 0}};
         return &q[g == GP_REVDIFF];
     }
