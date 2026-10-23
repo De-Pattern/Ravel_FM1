@@ -765,6 +765,29 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
     }
 }
 
+/* ------------------------------------------------------------ profile --- */
+/* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
+ * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
+enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_VOC, PF_FB, PF_PAIR, PF_BANDS, PF_DLY, PF_SPACE, PF_MASTER, PF_N };
+static uint32_t prof_acc[PF_N], prof_t, prof_n;
+#define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
+static void prof_end(int n)
+{
+    int k;
+    prof_n += (uint32_t)n;
+    if (prof_n < (uint32_t)RV_FS / 4u)
+        return;
+    {
+        float budget = (float)plat_cycles_hz() / (float)RV_FS * (float)prof_n;   /* the cycles these samples had */
+        for (k = 0; k < PF_N; k++) {
+            float pct = budget > 0.0f ? (float)prof_acc[k] * 100.0f / budget : 0.0f;
+            rv_live.prof[k] += (pct - rv_live.prof[k]) * 0.5f;
+            prof_acc[k] = 0;
+        }
+    }
+    prof_n = 0;
+}
+
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
@@ -778,6 +801,8 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
+    uint32_t tape_cyc = 0;
+    prof_t = plat_cycles();
     movement_tick(n);
     eff_compute();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
@@ -787,6 +812,7 @@ static void render_sub(float *outl, float *outr, int n)
     seq_other_clocks();
     seq_events(n);
     glide_tick(n);
+    PROF(PF_CTRL);
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
@@ -872,6 +898,7 @@ static void render_sub(float *outl, float *outr, int n)
             rv_live.fenv_stage[v->track] = v->fe.stage;
         }
     }
+    PROF(PF_SYNTH);
     for (k = 0; k < RV_STRIKE_VOICES; k++) {
         strike_t *v = &ss[k];
         track_t *tr;
@@ -902,6 +929,7 @@ static void render_sub(float *outl, float *outr, int n)
         rv_live.stage[v->track] = v->a.stage;
         rv_live.stage_pos[v->track] = v->a.u;
     }
+    PROF(PF_STRIKE);
     for (k = 0; k < RV_PERC_VOICES; k++) {
         perc_t *v = &ps[k];
         track_t *tr;
@@ -934,6 +962,7 @@ static void render_sub(float *outl, float *outr, int n)
             rv_live.stage_pos[v->track] = 0.0f;
         }
     }
+    PROF(PF_PERC);
     /* tape tracks, and the tracks' chains */
     for (t = 0; t < RV_TRACKS; t++) {
         track_t *tr = &trk[t];
@@ -948,7 +977,9 @@ static void render_sub(float *outl, float *outr, int n)
         if (kind == KIND_TAPE) {
             if (!tr->tape.a.gate && tr->tape.a.stage == AS_OFF)
                 artic_cfg_track(&tr->tape.cfg, eff);
+            uint32_t c0 = plat_cycles();
             tr->lead_env = tape_track_render(tr, t, tr->buf, n);
+            tape_cyc += plat_cycles() - c0;
             if (buf_fix(tr->buf, n) || !(tr->lead_env == tr->lead_env)) {
                 fault(300 + rv.tp[t][TP_S0]);
                 tr->lead_env = 0.0f;
@@ -1052,12 +1083,19 @@ static void render_sub(float *outl, float *outr, int n)
         tr->lead_env *= 0.995f;
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
+    {   /* the chains: all the tracks' loop, but for the tape tracks' own playing */
+        uint32_t c = plat_cycles();
+        prof_acc[PF_TAPE] += tape_cyc;
+        prof_acc[PF_CHAIN] += c - prof_t - tape_cyc;
+        prof_t = c;
+    }
     bed_run(rev_in, outl, outr, n);                  /* the BED, under the tracks (it listens to them) */
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(950);
         buses_reset();
     }
 
+    PROF(PF_BED);
     /* buses */
     for (i = 0; i < n; i++)
         bus_mono[i] = 0.0f;
@@ -1079,6 +1117,7 @@ static void render_sub(float *outl, float *outr, int n)
             buses_reset();
         }
     }
+    PROF(PF_VOC);
     if (bus_skip(BUS_FB, fb_in, n)) {
         for (i = 0; i < n; i++)
             fb_out[i] = 0.0f;
@@ -1095,16 +1134,20 @@ static void render_sub(float *outl, float *outr, int n)
         outl[i] += bus_mono[i];
         outr[i] += bus_mono[i];
     }
+    PROF(PF_FB);
     bus_stereo(BUS_PAIR, pair_run, pair_in, n, outl, outr);
+    PROF(PF_PAIR);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(700);
         buses_reset();
     }
     bus_stereo(BUS_BANDS, bands_run, band_in, n, outl, outr);
+    PROF(PF_BANDS);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(750);
         buses_reset();
     }
+    PROF(PF_BANDS);
     if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
         bus_quiet[BUS_DLY] = 0;
     bus_stereo(BUS_DLY, delay_run, dly_in, n, outl, outr);
@@ -1112,7 +1155,9 @@ static void render_sub(float *outl, float *outr, int n)
         fault(800);
         buses_reset();
     }
+    PROF(PF_DLY);
     bus_stereo(BUS_SPACE, space_run, rev_in, n, outl, outr);
+    PROF(PF_SPACE);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(900);
         buses_reset();
@@ -1237,6 +1282,8 @@ static void render_sub(float *outl, float *outr, int n)
     }
     now_s += (uint32_t)n;
     rv_live.tick = now_s;
+    PROF(PF_MASTER);
+    prof_end(n);
 }
 
 void rv_render(int32_t *out, int frames)

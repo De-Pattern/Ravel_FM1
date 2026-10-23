@@ -146,6 +146,20 @@ void plat_sysex_out(const uint8_t *p, uint32_t n)
 
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
+#ifdef __wasm__
+uint32_t plat_cycles(void) { return 0; }        /* (the browser gives no clock to read here) */
+uint32_t plat_cycles_hz(void) { return 1000000000u; }
+#else
+#include <time.h>
+uint32_t plat_cycles(void)                       /* this machine: nanoseconds stand in for cycles */
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)((uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec);
+}
+uint32_t plat_cycles_hz(void) { return 1000000000u; }
+#endif
+uint32_t plat_xruns(void) { return 0; }
 
 /* ----------------------------------------------------------- the app --- */
 void ravel_start(void);

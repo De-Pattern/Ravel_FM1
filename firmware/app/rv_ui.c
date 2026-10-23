@@ -42,7 +42,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
@@ -190,6 +190,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
+    {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {NO, NO, NO, NO}},   /* where the audio's time goes */
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
@@ -3526,6 +3527,40 @@ static void pic_euclid(void)
     g_text(8, PIC_Y + 116, &FONT_T, is_kit_ui(t) ? "WRITES THE CHOSEN LANE AS YOU TURN" : "WRITES THE STEPS AS YOU TURN", C_DIM);
 }
 
+/* GLO > CPU: each part of the audio render as a share of the time it has, the whole, the
+ * platform's own reading and the blocks that came too late */
+static void pic_cpu(void)
+{
+    static const char *const nm[14] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TAPE", "TRACK FX", "BED",
+                                       "VOCODER", "FEEDBACK", "PAIR", "BANDS", "DELAY", "SPACE", "MASTER"};
+    int k;
+    float tot = 0.0f;
+    char b[24];
+    for (k = 0; k < 14; k++)
+        tot += rv_live.prof[k];
+    if (tot <= 0.0f) {
+        g_text_c(120, PIC_Y + 40, &FONT_B, "NO CLOCK HERE", C_DIM);
+        g_text_c(120, PIC_Y + 64, &FONT_T, "THE FM-1 AND THE SIMULATOR MEASURE IT", C_DIM);
+        return;
+    }
+    for (k = 0; k < 14; k++) {
+        int x = k < 7 ? 6 : 122, y = PIC_Y + 2 + (k % 7) * 14, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
+        g_text(x, y, &FONT_T, nm[k], rv_live.prof[k] > 5.0f ? C_INK : C_DIM);
+        g_fill(x + 60, y + 3, 50, 3, C_LINE);
+        g_fill(x + 60, y + 3, w > 0 ? w : (rv_live.prof[k] > 0.05f ? 1 : 0), 3, rv_live.prof[k] > 20.0f ? C_RED : C_TEAL);
+    }
+    b[0] = 0;
+    sx_cat(b, "RENDER ");
+    sx_int(b + 7, (int)(tot + 0.5f));
+    sx_cat(b, "%");
+    g_text(6, PIC_Y + 104, &FONT_B, b, tot > 90.0f ? C_RED : C_INK);
+    b[0] = 0;
+    sx_cat(b, "XRUNS ");
+    sx_int(b + 6, (int)plat_xruns());
+    g_text_r(234, PIC_Y + 108, &FONT_T, b, plat_xruns() ? C_RED : C_DIM);
+    g_text(6, PIC_Y + 124, &FONT_T, "A BAR'S LENGTH: 50% OF THE TIME THE AUDIO HAS", C_DIM);
+}
+
 static void pic_master(void)
 {
     float l = fm_sqrtf(rv_live.master_l), r = fm_sqrtf(rv_live.master_r);
@@ -4149,6 +4184,7 @@ static void draw_picture(void)
     case PIC_SPACE: pic_space(); break;
     case PIC_MASTER: pic_master(); break;
     case PIC_BED: pic_bed(); break;
+    case PIC_CPU: pic_cpu(); break;
     case PIC_EUCLID: pic_euclid(); break;
     case PIC_BANDS: pic_bands(); break;
     case PIC_SCALE: pic_scale(); break;

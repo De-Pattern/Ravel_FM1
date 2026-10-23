@@ -339,6 +339,7 @@ typedef struct {
     float bed_env, bed_duck;               /* the BED: its level, and how far the tracks hold it down (1: not at all) */
     uint8_t bed_hit;                       /* counts up on each grain of its dust */
     float glide;                           /* a scene gliding in: 0..1 (1: arrived) */
+    float prof[16];                        /* GLO > CPU: each part of the render, % of the time it has (smoothed) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;

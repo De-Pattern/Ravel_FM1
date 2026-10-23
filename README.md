@@ -1070,6 +1070,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
+| **CPU** | A read-out, no knobs: how much of the time the audio has each part of the render takes (CONTROL, SYNTH, STRIKE, PERC, TAPE, TRACK FX, BED, VOCODER, FEEDBACK, PAIR, BANDS, DELAY, SPACE, MASTER), the RENDER total and XRUNS, the blocks that came too late (each one is a crackle). Over 90 % is the edge. The browser has no clock for it | – | – | – | – |
 
 **Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 

@@ -275,6 +275,16 @@ void plat_midi_out(const uint8_t *msg, int n)
 
 static volatile uint32_t audio_cpu_pct, audio_xruns;
 uint32_t plat_cpu_pct(void) { return audio_cpu_pct; }
+uint32_t plat_xruns(void) { return audio_xruns; }
+/* core 0's cycle counter (fm1_perf.h), if it moves; else TIMER4's 24 MHz ticks scaled to the 360 MHz clock */
+static int8_t perf_ok = -1;
+uint32_t plat_cycles(void)
+{
+    if (perf_ok < 0)
+        perf_ok = (int8_t)fm1_perf_cycles_run();
+    return perf_ok ? fm1_perf_cycles() : fm1_ticks() * (360u / 24u);
+}
+uint32_t plat_cycles_hz(void) { return 360000000u; }
 
 /* the interrupts' stack (fm1_guard.h): filled with a mark before any interrupt runs (X0X) */
 #define IRQ_STACK_MARK 0x49525153u                  /* "IRQS" */
