@@ -404,11 +404,13 @@ static void step_fire(int t, int h, int si, uint32_t when)
     if (h == 0) {                                   /* the locks hold for this step */
         for (k = 0; k < TP_N; k++)
             trk[t].lockon[k] = 0;
+        trk[t].lockany = 0;
         for (k = 0; k < 2; k++)
             if (s->lp[k] && s->lp[k] - 1 < TP_N) {
                 int p = s->lp[k] - 1;
                 const rv_pinfo *pi = rv_pinfo_track(t, p);
                 trk[t].lockon[p] = 1;
+                trk[t].lockany = 1;
                 trk[t].lockv[p] = (int16_t)(pi->min + s->lv[k]);
             }
         rv_live.step[t][0] = (int16_t)si;
@@ -810,6 +812,7 @@ static void seq_stop(void)
     for (t = 0; t < RV_TRACKS; t++) {
         for (k = 0; k < TP_N; k++)
             trk[t].lockon[k] = 0;
+        trk[t].lockany = 0;
         rv_live.step[t][0] = rv_live.step[t][1] = -1;
         sq[t].tied = 0;
     }

@@ -224,8 +224,9 @@ typedef struct {
 typedef struct {
     float eff[TP_N];                /* parameters after locks and modulation */
     int16_t lockv[TP_N];
-    uint8_t lockon[TP_N];
+    uint8_t lockon[TP_N], lockany;   /* lockany: any lock on this step (else the knobs, as they are) */
     float buf[RV_SUB];              /* this control step's output (mono, post insert) */
+    uint16_t quiet;                 /* control steps its chain has had nothing in and nothing out */
     float prev[RV_SUB];             /* the last one: influence audio reads it */
     float exc[RV_SUB];              /* excitation coming in (influence, feedback return) */
     float ring[RV_SUB];

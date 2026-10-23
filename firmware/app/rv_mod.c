@@ -64,7 +64,7 @@ static int clock_tick(int n, int *off, int max)
         clk_phb += brate * RV_DT;
         if (clk_phb >= 1.0f)
             clk_phb -= 1.0f;
-        wb = clock_wave(clk_phb, bshape);
+        wb = mode && depth > 0.001f ? clock_wave(clk_phb, bshape) : 0.0f;   /* (B only matters when it bends A) */
         if (mode == 1)
             fa = locked ? fa0 * (1.0f + 0.9f * depth * wb) : fa0 * fm_exp2f(depth * 1.5f * wb) * clk_drift;
         else if (mode == 2)
@@ -291,16 +291,23 @@ static float macro_curve(int c, float u)
     }
 }
 
+/* which values modulation moved this step: only those need putting back inside their range */
+static uint32_t eff_moved[RV_TRACKS][(TP_N + 31) / 32], geff_moved[(GP_N + 31) / 32];
+#define EFF_MOVE(t, p) (eff_moved[t][(p) >> 5] |= 1u << ((p) & 31))
+
 static void eff_add(int pid, float amt_units)
 {
     if (pid < 0)
         return;
     if (pid < RV_GPID) {
         int t = pid / RV_TP, p = pid % RV_TP;
-        if (p < TP_N)
+        if (p < TP_N) {
             trk[t].eff[p] += amt_units;
+            EFF_MOVE(t, p);
+        }
     } else if (pid - RV_GPID < GP_N) {
         geff[pid - RV_GPID] += amt_units;
+        geff_moved[(pid - RV_GPID) >> 5] |= 1u << ((pid - RV_GPID) & 31);
     }
 }
 
@@ -330,10 +337,20 @@ static void eff_compute(void)
 {
     int t, p, i, k;
     float src[MS_N];
+    static uint8_t full;                              /* now and then every value is checked, not only the moved */
+    __builtin_memset(eff_moved, 0, sizeof eff_moved);
+    __builtin_memset(geff_moved, 0, sizeof geff_moved);
     /* the knobs and the step locks */
-    for (t = 0; t < RV_TRACKS; t++)
+    for (t = 0; t < RV_TRACKS; t++) {
+        float *e = trk[t].eff;
+        const int16_t *v = rv.tp[t];
         for (p = 0; p < TP_N; p++)
-            trk[t].eff[p] = trk[t].lockon[p] ? (float)trk[t].lockv[p] : (float)rv.tp[t][p];
+            e[p] = (float)v[p];
+        if (trk[t].lockany)                             /* this step's locks over the knobs */
+            for (p = 0; p < TP_N; p++)
+                if (trk[t].lockon[p])
+                    e[p] = (float)trk[t].lockv[p];
+    }
     for (i = 0; i < GP_N; i++)
         geff[i] = (float)rv.gp[i];
     /* sources */
@@ -415,42 +432,56 @@ static void eff_compute(void)
         float e = trk[t].lead_env;
         int d1 = rv.tp[t][TP_EDST1], d2 = rv.tp[t][TP_EDST2];
         if (rv.tp[t][TP_EAMT1] && rv_is_moddest(d1))
-            trk[t].eff[d1] += e * rv.tp[t][TP_EAMT1] * (1.0f / 64.0f) * pid_range(PID_T(t, d1));
+            eff_add(PID_T(t, d1), e * rv.tp[t][TP_EAMT1] * (1.0f / 64.0f) * pid_range(PID_T(t, d1)));
         if (rv.tp[t][TP_EAMT2] && rv_is_moddest(d2))
-            trk[t].eff[d2] += e * rv.tp[t][TP_EAMT2] * (1.0f / 64.0f) * pid_range(PID_T(t, d2));
+            eff_add(PID_T(t, d2), e * rv.tp[t][TP_EAMT2] * (1.0f / 64.0f) * pid_range(PID_T(t, d2)));
         {   /* the FILTER ENV's own destination: the newest voice's, as a per-track LFO when it loops */
             int df = rv.tp[t][TP_FDST];
             if (rv.tp[t][TP_FAMT] && rv_is_moddest(df) && rv.tp[t][TP_KIND] == KIND_SYNTH)
-                trk[t].eff[df] += rv_live.fenv[t] * trk[t].eff[TP_FAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, df));
+                eff_add(PID_T(t, df), rv_live.fenv[t] * trk[t].eff[TP_FAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, df)));
         }
         {   /* STEP ENV: the LIBRARY envelope the steps started */
             int ds = rv.tp[t][TP_SEDST];
             if (rv.tp[t][TP_SEAMT] && rv_is_moddest(ds) && rv_tp_applies(t, TP_SEAMT))
-                trk[t].eff[ds] += senv[t].lvl * rv.tp[t][TP_SEAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, ds));
+                eff_add(PID_T(t, ds), senv[t].lvl * rv.tp[t][TP_SEAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, ds)));
         }
         for (k = 0; k < RV_TRACKS; k++) {
             const rv_route *r = &rv.infl[t][k];
             if (r->type == RT_MOD && r->amt && rv_is_moddest(r->arg))
-                trk[k].eff[r->arg] += e * r->amt * (1.0f / 64.0f) * pid_range(PID_T(k, r->arg));
+                eff_add(PID_T(k, r->arg), e * r->amt * (1.0f / 64.0f) * pid_range(PID_T(k, r->arg)));
         }
     }
-    /* back inside each range */
+    /* back inside each range: what modulation moved, and (one step in 32) everything, in case a
+     * knob's range changed under its value (a new engine, a new mode) */
+    full = (uint8_t)((full + 1u) & 31u);
     for (t = 0; t < RV_TRACKS; t++)
-        for (p = TP_PITCH; p < TP_N; p++) {
-            const rv_pinfo *pi = rv_pinfo_track(t, p);
-            if (pi->name)
-                trk[t].eff[p] = clampf(trk[t].eff[p], (float)pi->min, (float)pi->max);
+        for (k = 0; k < (TP_N + 31) / 32; k++) {
+            uint32_t m = full ? eff_moved[t][k] : 0xFFFFFFFFu;
+            while (m) {
+                const rv_pinfo *pi;
+                p = k * 32 + __builtin_ctz(m);
+                m &= m - 1u;
+                if (p >= TP_N)
+                    break;
+                if (p < TP_PITCH && !(p >= TP_S0 && p <= TP_S15))
+                    continue;
+                pi = rv_pinfo_track(t, p);
+                if (pi->name)
+                    trk[t].eff[p] = clampf(trk[t].eff[p], (float)pi->min, (float)pi->max);
+            }
         }
-    for (p = TP_S0; p <= TP_S15; p++)
-        for (t = 0; t < RV_TRACKS; t++) {
-            const rv_pinfo *pi = rv_pinfo_track(t, p);
+    for (k = 0; k < (GP_N + 31) / 32; k++) {
+        uint32_t m = full ? geff_moved[k] : 0xFFFFFFFFu;
+        while (m) {
+            const rv_pinfo *pi;
+            i = k * 32 + __builtin_ctz(m);
+            m &= m - 1u;
+            if (i >= GP_N)
+                break;
+            pi = rv_pinfo_global(i);
             if (pi->name)
-                trk[t].eff[p] = clampf(trk[t].eff[p], (float)pi->min, (float)pi->max);
+                geff[i] = clampf(geff[i], (float)pi->min, (float)pi->max);
         }
-    for (i = 0; i < GP_N; i++) {
-        const rv_pinfo *pi = rv_pinfo_global(i);
-        if (pi->name)
-            geff[i] = clampf(geff[i], (float)pi->min, (float)pi->max);
     }
     for (i = 0; i < MS_N; i++)
         rv_live.msrc[i] = src[i];

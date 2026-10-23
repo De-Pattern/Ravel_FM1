@@ -715,6 +715,56 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
     }
 }
 
+/* ------------------------------------------------------------- idling --- */
+/* a bus (or a track's chain) with nothing coming in and nothing left ringing is skipped: its input
+ * and its own output have both been silent for a while (BUS_HOLD control steps, about 70 ms).
+ * A frozen delay or an endless reverb never falls silent, so they keep running */
+#define BUS_HOLD 96u
+enum { BUS_VOC, BUS_FB, BUS_PAIR, BUS_BANDS, BUS_DLY, BUS_SPACE, BUS_N };
+static uint16_t bus_quiet[BUS_N];
+static float peak_of(const float *b, int n)
+{
+    float m = 0.0f;
+    int i;
+    for (i = 0; i < n; i++)
+        if (fm_fabsf(b[i]) > m)
+            m = fm_fabsf(b[i]);
+    return m;
+}
+static int bus_skip(int k, const float *in, int n)
+{
+    if (peak_of(in, n) > 1e-7f) {
+        bus_quiet[k] = 0;
+        return 0;
+    }
+    return bus_quiet[k] >= BUS_HOLD;
+}
+static void bus_note(int k, float out_peak)
+{
+    if (out_peak < 1e-6f) {
+        if (bus_quiet[k] < 0xFFFFu)
+            bus_quiet[k]++;
+    } else {
+        bus_quiet[k] = 0;
+    }
+}
+/* a stereo bus run on its own, so its output can be measured, then added */
+static void bus_stereo(int k, void (*run)(const float *, int, float *, float *), const float *in, int n, float *l, float *r)
+{
+    float bl[RV_SUB], br[RV_SUB];
+    int i;
+    if (bus_skip(k, in, n))
+        return;
+    for (i = 0; i < n; i++)
+        bl[i] = br[i] = 0.0f;
+    run(in, n, bl, br);
+    bus_note(k, fm_maxf(peak_of(bl, n), peak_of(br, n)));
+    for (i = 0; i < n; i++) {
+        l[i] += bl[i];
+        r[i] += br[i];
+    }
+}
+
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
@@ -890,7 +940,7 @@ static void render_sub(float *outl, float *outr, int n)
         const float *eff = tr->eff;
         int kind = rv.tp[t][TP_KIND];
         float drive, fld, derez, ia, ib, imix, lvl, pan, gl, gr, peak = 0.0f, ring = tr->ring_amt;
-        int bits, mask, ins, chain_bad = 0;
+        int bits, mask, ins, chain_bad = 0, n_chain = n;
         int chorus = kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ ? clampi(rv.tp[t][TP_S3], 0, 3) : 0;
         uint8_t muted = (rv.mute >> t) & 1u;
         if (rv.solo && !((rv.solo >> t) & 1u))
@@ -930,7 +980,13 @@ static void render_sub(float *outl, float *outr, int n)
             gl *= 0.6f;
             gr *= 0.6f;
         }
-        for (i = 0; i < n; i++) {
+        if (ring <= 0.001f && peak_of(tr->buf, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
+            if (tr->quiet >= BUS_HOLD)
+                n_chain = 0;
+        } else {
+            tr->quiet = 0;
+        }
+        for (i = 0; i < n_chain; i++) {
             float x = tr->buf[i];
             x = skin(tr, x, drive, fld, bits, derez, mask);
             if (ins)
@@ -961,6 +1017,12 @@ static void render_sub(float *outl, float *outr, int n)
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
                 rev_in[i] += m * (punch[6] ? 0.8f : eff[TP_REVS] * (1.0f / 127.0f));
             }
+        }
+        if (peak < 1e-6f) {                          /* silent out: counting toward skipping it */
+            if (tr->quiet < 0xFFFFu)
+                tr->quiet++;
+        } else {
+            tr->quiet = 0;
         }
         if (chain_bad) {                             /* the chain blew up: clear its memory */
             fault(400 + ins);
@@ -1008,13 +1070,22 @@ static void render_sub(float *outl, float *outr, int n)
                 tape_body[i] = tape_read_u(1.0f - (float)((now_s + (uint32_t)i) % 44100u) / 44100.0f * 0.5f) * 0.5f;
             body = tape_body;
         }
-        vocoder_run(voc_in, body, n, bus_mono);
+        if (!bus_skip(BUS_VOC, voc_in, n)) {
+            vocoder_run(voc_in, body, n, bus_mono);
+            bus_note(BUS_VOC, peak_of(bus_mono, n));
+        }
         if (buf_fix(bus_mono, n)) {
             fault(500);
             buses_reset();
         }
     }
-    feedback_run(fb_in, n, fb_out);
+    if (bus_skip(BUS_FB, fb_in, n)) {
+        for (i = 0; i < n; i++)
+            fb_out[i] = 0.0f;
+    } else {
+        feedback_run(fb_in, n, fb_out);
+        bus_note(BUS_FB, peak_of(fb_out, n));
+    }
     if (buf_fix(fb_out, n)) {
         fault(600);
         buses_reset();
@@ -1024,22 +1095,24 @@ static void render_sub(float *outl, float *outr, int n)
         outl[i] += bus_mono[i];
         outr[i] += bus_mono[i];
     }
-    pair_run(pair_in, n, outl, outr);
+    bus_stereo(BUS_PAIR, pair_run, pair_in, n, outl, outr);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(700);
         buses_reset();
     }
-    bands_run(band_in, n, outl, outr);
+    bus_stereo(BUS_BANDS, bands_run, band_in, n, outl, outr);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(750);
         buses_reset();
     }
-    delay_run(dly_in, n, outl, outr);
+    if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
+        bus_quiet[BUS_DLY] = 0;
+    bus_stereo(BUS_DLY, delay_run, dly_in, n, outl, outr);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(800);
         buses_reset();
     }
-    space_run(rev_in, n, outl, outr);
+    bus_stereo(BUS_SPACE, space_run, rev_in, n, outl, outr);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(900);
         buses_reset();
