@@ -4,7 +4,6 @@
 
 <h3 align="center">▶&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/">Open the emulator</a> &nbsp;·&nbsp; play Ravel in your browser</h3>
 <h3 align="center">📖&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/manual.html">Read the manual</a> &nbsp;·&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/manual.pdf">PDF</a></h3>
-<h3 align="center">✦&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/software/">Ravel Software</a> &nbsp;·&nbsp; the full version for the browser, every engine and effect (<a href="https://de-pattern.github.io/Ravel_FM1/software/manual.html">its manual</a>)</h3>
 <h3 align="center">⬇&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/install/">Install the firmware on an FM-1</a> &nbsp;·&nbsp; <a href="https://github.com/De-Pattern/Ravel_FM1/releases/latest">download the .fwsc</a></h3>
 
 # Ravel
@@ -1470,6 +1469,10 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
 - **Not in this version:** Bluetooth, audio input, tape punch-in.
 - **Beads:** the capture tape keeps Beads' tape formats (16-bit, 12-bit, µ-law); the grains themselves are now the delay's GRAINS, Ravel's own lofi take.
+
+## Ravel Software
+
+The FM-1 has to fit everything into a small chip, so this firmware keeps only what runs well on it. The fuller version, with every engine and effect it had before (ROOM and CLOUDS spaces, the filter pair, BANDS and the vocoder), lives on as **Ravel Software**, for the browser: [play it here](https://de-pattern.github.io/Ravel_FM1/software/) ([its manual](https://de-pattern.github.io/Ravel_FM1/software/manual.html)). The emulator's **Software** button opens it. It is kept on the `software` branch and doesn't run on the FM-1.
 
 ## Licence
 
