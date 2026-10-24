@@ -777,7 +777,7 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
 /* a bus (or a track's chain) with nothing coming in and nothing left ringing is skipped: its input
  * and its own output have both been silent for a while (BUS_HOLD control steps, about 70 ms).
  * A frozen delay or an endless reverb never falls silent, so they keep running */
-#define BUS_HOLD 96u
+#define BUS_HOLD (96u * 32u / RV_SUB)   /* (about 70 ms of steps) */
 enum { BUS_FB, BUS_DLY, BUS_SPACE, BUS_N };
 static uint16_t bus_quiet[BUS_N];
 static float peak_of(const float *b, int n)

@@ -115,7 +115,7 @@ RV_INL float fb_insert(float x, int proc, float amt, float tune)
 static svf_t fb_bp[2];
 RV_HOT static void feedback_run(const float *in, int n, float *out)
 {
-    int hp_on = rv.gp[GP_PAIRF1] > 0, lp_on = rv.gp[GP_PAIRF2] < 127;
+    int hp_on = gv(GP_PAIRF1) > 0.5f, lp_on = gv(GP_PAIRF2) < 126.5f;   /* (as moved by the matrix and macros) */
     int i, proc = clampi(rv.gp[GP_FBPROC], 0, 5);
     float target = 40.0f + fm_exp2f(gv(GP_FBTIME) * (7.2f / 127.0f)) * 40.0f;   /* samples: ~2 ms .. 0.14 s */
     float regen = gv(GP_FBREGEN) * (1.05f / 127.0f), amt = gv(GP_FBAMT) * (1.0f / 127.0f);

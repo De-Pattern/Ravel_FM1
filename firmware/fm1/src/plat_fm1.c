@@ -299,6 +299,8 @@ int plat_par_on(int on)
     int r;
     if (!on) {
         fm1_cpu1_hold();
+        if (fm1_c1_bar.magic == FM1_C1_BAR_MAGIC && fm1_c1_bar.barred == 2u)
+            fm1_c1_bar.barred = 0;                  /* held on purpose: not running any more */
         return 0;
     }
     if (fm1_c1_on)

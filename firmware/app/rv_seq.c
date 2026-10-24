@@ -820,17 +820,26 @@ static void seq_stop(void)
 }
 
 /* events due in this control step */
+/* in the order they fall (a note-off before a note-on at the same moment): a step is long enough
+ * (128 frames) for a ratchet's off and its next hit to share one */
 static void seq_events(int n)
 {
-    int i = 0;
     uint32_t end = now_s + (uint32_t)n;
-    while (i < evn) {
-        event_t e = evq[i];
-        if ((int32_t)(e.when - end) >= 0) {
-            i++;
-            continue;
+    for (;;) {
+        event_t e;
+        int j, best = -1;
+        for (j = 0; j < evn; j++) {
+            int32_t d;
+            if ((int32_t)(evq[j].when - end) >= 0)
+                continue;
+            d = best < 0 ? -1 : (int32_t)(evq[j].when - evq[best].when);
+            if (best < 0 || d < 0 || (d == 0 && evq[j].type == EV_OFF && evq[best].type != EV_OFF))
+                best = j;
         }
-        evq[i] = evq[--evn];
+        if (best < 0)
+            break;
+        e = evq[best];
+        evq[best] = evq[--evn];
         switch (e.type) {
         case EV_ADV:
             if (playing)
