@@ -236,7 +236,7 @@ static struct {
     /* the stress test: the step asked for and the one built, its engine, AUTO, whether its project is
      * the one in memory; what each step measured (% of the time, 255: not yet) and where XRUNS came */
     uint8_t st_step, st_built, st_eng, st_auto, st_on;
-    uint8_t st_res[RV_STRESS_N];
+    uint16_t st_res[RV_STRESS_N];               /* (0xFFFF: not measured yet) */
     uint32_t st_xr, st_t0, st_turn, st_x0;
     float st_acc;
     uint16_t st_nacc;
@@ -1266,7 +1266,7 @@ static void kb_set(kb_t k, int v)
             if (!confirmed(CONF_STRESS, "TURN AGAIN: STRESS REPLACES THE PROJECT"))
                 break;
             ui.st_on = 1;
-            __builtin_memset(ui.st_res, 255, sizeof ui.st_res);
+            __builtin_memset(ui.st_res, 0xFF, sizeof ui.st_res);
             ui.st_xr = 0;
         }
         if (k.id == 0)
@@ -1277,7 +1277,7 @@ static void kb_set(kb_t k, int v)
             ui.st_auto = (uint8_t)v;
             if (v) {                                   /* from the first step, the results anew */
                 ui.st_step = 1;
-                __builtin_memset(ui.st_res, 255, sizeof ui.st_res);
+                __builtin_memset(ui.st_res, 0xFF, sizeof ui.st_res);
                 ui.st_xr = 0;
             } else
                 ui.st_step = 0;
@@ -3636,7 +3636,7 @@ static void stress_tick(void)
     if (plat_xruns() != ui.st_x0)
         ui.st_xr |= 1u << ui.st_built;
     if (now - ui.st_t0 >= 3000u && ui.st_nacc) {
-        ui.st_res[ui.st_built] = (uint8_t)clampi((int)(ui.st_acc / (float)ui.st_nacc + 0.5f), 0, 254);
+        ui.st_res[ui.st_built] = (uint16_t)clampi((int)(ui.st_acc / (float)ui.st_nacc + 0.5f), 0, 9999);
         ui.st_nacc = 0;
         if (ui.st_auto) {                              /* the next step, or done */
             ui.st_step = (uint8_t)(ui.st_built + 1 < RV_STRESS_N ? ui.st_built + 1 : 0);
@@ -3679,7 +3679,7 @@ static void pic_stress(void)
         uint16_t c = (ui.st_xr >> k) & 1u ? C_RED : k == ui.st_step ? C_INK : C_DIM;
         g_text(x, y, &FONT_T, rv_stress_name(k), c);
         b[0] = 0;
-        if (ui.st_res[k] == 255)
+        if (ui.st_res[k] == 0xFFFFu)
             sx_cat(b, "-");
         else {
             sx_int(b, ui.st_res[k]);

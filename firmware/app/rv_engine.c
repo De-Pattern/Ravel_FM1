@@ -1401,7 +1401,7 @@ static void render_sub(float *outl, float *outr, int n)
         for (i = 0; i < n; i++)
             tr->prev[i] = tr->buf[i];
         /* a voice-less track decays its lead envelope */
-        tr->lead_env *= 0.995f;
+        tr->lead_env *= fm_expf(-0.005013f * (float)n * (1.0f / 32.0f));   /* (0.995 a 32-frame step) */
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
     {   /* the chains: all the tracks' loop, but for the tape tracks' own playing */
@@ -1527,7 +1527,7 @@ static void render_sub(float *outl, float *outr, int n)
         cuts_run(outl, outr, n);
         if (punch[4] || punch[5]) {
             static float sweep = 1.0f;
-            sweep += ((punch[4] ? 0.15f : 0.05f) - sweep) * 0.02f;
+            sweep += ((punch[4] ? 0.15f : 0.05f) - sweep) * (1.0f - fm_expf(-0.0202f * (float)n * (1.0f / 32.0f)));
             svf_set(&punch_f[0], punch[4] ? 200.0f + sweep * 8000.0f : 300.0f + (1.0f - sweep) * 3000.0f, 1.5f);
             punch_f[1] = punch_f[0];
             for (i = 0; i < n; i++) {

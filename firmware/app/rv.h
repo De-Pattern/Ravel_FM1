@@ -15,7 +15,9 @@
 /* ------------------------------------------------------------------ sizes --- */
 #define RV_FS 44100                 /* the FM-1's codec runs at about 44.1 kHz */
 #define RV_BLOCK 128                /* frames per audio interrupt */
-#define RV_SUB 32                   /* frames per control step: events, modulation */
+#ifndef RV_SUB
+#define RV_SUB 64                   /* frames per control step: events, modulation */
+#endif
 #define RV_TRACKS 8
 #define RV_STEPS 64
 #define RV_PATTERNS 2               /* patterns per track (A, B) kept in RAM */

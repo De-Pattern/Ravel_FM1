@@ -2282,7 +2282,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         cut += eff[TP_S12] * (70.0f / 127.0f) * (v->vel - 0.5f);
     if (ft == FT_LPG) {
         float target = clampf(lvl0, 0.0f, 1.0f);
-        v->lpg += (target - v->lpg) * 0.35f;          /* a vactrol lags a little */
+        v->lpg += (target - v->lpg) * (1.0f - fm_expf(-0.4308f * (float)n * (1.0f / 32.0f)));   /* a vactrol lags a little (35 % a 32-frame step, whatever the step) */
         cut = eff[TP_CUT] * v->lpg + 6.0f;
     }
     cut = clampf(cut, 0.0f, 135.0f);

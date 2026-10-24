@@ -289,7 +289,8 @@ static void fm1_main(void)
 #if RAVEL_CDC
         cdc_task();
 #endif
-        if (fm1_ms - last_frame >= 33u) {           /* ~30 frames/s; input in between */
+        if (fm1_ms - last_frame >= (audio_cpu_pct > 70u ? 66u : 33u)) {   /* ~30 frames/s, 15 when the audio is busy
+                                                     * (each frame also pushes the audio's code out of the cache); input in between */
             last_frame = fm1_ms;
             ui_frame();
         } else {
