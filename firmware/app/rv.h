@@ -16,7 +16,7 @@
 #define RV_FS 44100                 /* the FM-1's codec runs at about 44.1 kHz */
 #define RV_BLOCK 128                /* frames per audio interrupt */
 #ifndef RV_SUB
-#define RV_SUB 64                   /* frames per control step: events, modulation */
+#define RV_SUB 128                   /* frames per control step: events, modulation */
 #endif
 #define RV_TRACKS 8
 #define RV_STEPS 64
@@ -61,7 +61,7 @@ enum {
     /* filter */
     TP_FTYPE, TP_CUT, TP_RES, TP_KTRK,
     /* skin */
-    TP_DRIVE, TP_FOLD, TP_BITS, TP_DEREZ, TP_MASK, TP_VOC,
+    TP_DRIVE, TP_FOLD, TP_BITS, TP_DEREZ, TP_MASK, TP_VOC,   /* (TP_VOC, TP_PAIRS, TP_BANDS and the VOC, PAIR, BAND globals: unused since format 20, kept so pids stay) */
     /* insert */
     TP_INS, TP_INA, TP_INB, TP_INMIX,
     /* mixer */
@@ -233,7 +233,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 19                /* 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 20                /* 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -345,8 +345,6 @@ typedef struct {
     float lfo1, lfo2, dust, clock_env;
     float msrc[MS_N];
     int8_t mat_amt[RV_MATRIX];          /* each matrix row's AMOUNT as other rows move it */
-    float voc_band[8];
-    float band_g[8];                       /* BANDS: each band's gain now, sweep included */
     float fb_env;
     uint32_t cpu;                          /* render time, % of the budget */
     uint8_t voices_synth, voices_strike;
@@ -447,7 +445,7 @@ void rv_bank_settle(void);
 void rv_bank_reload(int slot);
 void rv_demo(int which);
 /* rv_stress.c: the stress test (GLO > CPU) */
-#define RV_STRESS_N 17
+#define RV_STRESS_N 13
 void rv_stress(int step, int engine);          /* 0: stop; else build the project for that step and play it */
 const char *rv_stress_name(int step);
 

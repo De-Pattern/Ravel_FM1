@@ -7,8 +7,7 @@
 
 static const char *const stress_names[RV_STRESS_N] = {
     "OFF", "IDLE", "1 VOICE", "2 VOICES", "4 VOICES", "8 VOICES", "+2 STRIKES", "+DRUM KIT",
-    "+3 SAMPLES", "+DELAY", "+SPACE ROOM", "SPACE CLOUDS", "+FEEDBACK", "+PAIR", "+BANDS", "+VOCODER",
-    "+MASTER DRIVE"};
+    "+3 SAMPLES", "+DELAY", "+SPACE", "+FEEDBACK", "+MASTER DRIVE"};
 
 const char *rv_stress_name(int step)
 {
@@ -82,17 +81,10 @@ void rv_stress(int step, int engine)
             rv.tp[t][TP_DLYS] = 50;
         if (step >= 10)
             rv.tp[t][TP_REVS] = 50;
-        if (step >= 12)
+        if (step >= 11)
             rv.tp[t][TP_FBS] = 40;
-        if (step >= 13)
-            rv.tp[t][TP_PAIRS] = 40;
-        if (step >= 14)
-            rv.tp[t][TP_BANDS] = 40;
-        if (step >= 15)
-            rv.tp[t][TP_VOC] = 40;
     }
-    rv.gp[GP_REVMODE] = (int16_t)(step >= 11 ? 1 : 0);
-    rv.gp[GP_MDRIVE] = (int16_t)(step >= 16 ? 60 : 0);
+    rv.gp[GP_MDRIVE] = (int16_t)(step >= 12 ? 60 : 0);
     rv_transport(1);
     /* the held notes: 1, 2, 4, then 8 voices of the engine */
     k = step >= 5 ? 8 : step >= 4 ? 4 : step >= 3 ? 2 : step >= 2 ? 1 : 0;

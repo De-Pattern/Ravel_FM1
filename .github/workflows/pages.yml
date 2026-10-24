@@ -50,6 +50,14 @@ jobs:
           node tools/make_manual_pdf.mjs
       - name: Assemble the site
         run: python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc "$RAVEL_VERSION"
+      - name: Ravel Software (the full version, kept on the software branch) at /software/
+        run: |
+          git worktree add ../sw origin/software
+          (cd ../sw && sh web/emu/build.sh && node web/emu/test.mjs && python3 web/emu/bundle.py)
+          mkdir -p _site/software
+          cp ../sw/build/web/ravel-emulator.html _site/software/index.html
+          cp ../sw/build/web/ravel-manual.html _site/software/manual.html
+          node tools/make_manual_pdf.mjs ../sw/build/web/ravel-manual.html _site/software/manual.pdf
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

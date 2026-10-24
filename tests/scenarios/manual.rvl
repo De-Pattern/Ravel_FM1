@@ -149,27 +149,6 @@ tap FX
 turn SELECT -20
 turn SELECT 11
 wait 150
-expect page FILTER PAIR
-wait 600
-shot bus-pair.png
-tap FX
-turn SELECT -20
-turn SELECT 14
-wait 150
-expect page BANDS
-wait 600
-shot bus-bands.png
-tap FX
-turn SELECT -20
-turn SELECT 18
-wait 150
-expect page VOCODER
-wait 600
-shot bus-vocoder.png
-tap FX
-turn SELECT -20
-turn SELECT 20
-wait 150
 expect page MASTER
 wait 600
 shot bus-master.png

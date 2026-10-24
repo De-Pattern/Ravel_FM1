@@ -370,17 +370,17 @@ void rv_track_set_kind(int t, int kind)
 
 /* the sends into the buses: a preset leaves them as they were, so no effect starts running because a
  * sound was picked (the demos, made as whole pieces, bring their own) */
-static const uint8_t send_tp[6] = {TP_VOC, TP_FBS, TP_PAIRS, TP_BANDS, TP_DLYS, TP_REVS};
+static const uint8_t send_tp[3] = {TP_FBS, TP_DLYS, TP_REVS};
 static uint8_t preset_sends;
 
 void rv_preset_apply(int t, int i)
 {
     const int8_t *v;
-    int16_t keep[6];
+    int16_t keep[3];
     int k;
     if (i < 0 || i >= NPRESETS)
         return;
-    for (k = 0; k < 6; k++)
+    for (k = 0; k < 3; k++)
         keep[k] = rv.tp[t & 7][send_tp[k]];
     {
         int was_kit = rv.tp[t & 7][TP_KIND] == KIND_PERC && rv.tp[t & 7][TP_ENGINE] == 1;
@@ -421,7 +421,7 @@ void rv_preset_apply(int t, int i)
     if (presets[i].cz)
         rv.cz[t & 7] = *presets[i].cz;
     if (!preset_sends)
-        for (k = 0; k < 6; k++)
+        for (k = 0; k < 3; k++)
             rv.tp[t & 7][send_tp[k]] = keep[k];
 }
 
@@ -576,9 +576,7 @@ static void demo_body(int which)
         rv_preset_apply(5, find_preset("STRINGS"));
         rv_preset_apply(6, find_preset("SLICES"));
         rv_preset_apply(7, find_preset("LOOP KEYS"));
-        rv.tp[0][TP_VOC] = 90;
-        rv.tp[0][TP_LEVEL] = 40;
-        rv.gp[GP_VOCBODY] = 1;
+        rv.tp[0][TP_LEVEL] = 60;
         rv.tp[0][TP_LEN] = 32;
         on(0, 0, 60, 70, 120);
         on(0, 16, 63, 70, 120);

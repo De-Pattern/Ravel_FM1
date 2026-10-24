@@ -778,7 +778,7 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
  * and its own output have both been silent for a while (BUS_HOLD control steps, about 70 ms).
  * A frozen delay or an endless reverb never falls silent, so they keep running */
 #define BUS_HOLD 96u
-enum { BUS_VOC, BUS_FB, BUS_PAIR, BUS_BANDS, BUS_DLY, BUS_SPACE, BUS_N };
+enum { BUS_FB, BUS_DLY, BUS_SPACE, BUS_N };
 static uint16_t bus_quiet[BUS_N];
 static float peak_of(const float *b, int n)
 {
@@ -826,7 +826,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
 /* ------------------------------------------------------------ profile --- */
 /* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
-enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_VOC, PF_FB, PF_PAIR, PF_BANDS, PF_DLY, PF_SPACE, PF_MASTER, PF_N };
+enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_N };   /* (GLO > CPU names them in this order) */
 static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
 static void prof_end(int n)
@@ -1101,7 +1101,7 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
-    static float voc_in[RV_SUB], fb_in[RV_SUB], pair_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB], band_in[RV_SUB];
+    static float fb_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB];
     static float fb_out[RV_SUB];                    /* kept: the feedback return reads the last step's */
     static float tape_src[RV_SUB], bus_mono[RV_SUB], tape_fb[RV_SUB];
     int offs[8], np, i, t, k;
@@ -1127,7 +1127,7 @@ static void render_sub(float *outl, float *outr, int n)
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
-        voc_in[i] = fb_in[i] = pair_in[i] = band_in[i] = dly_in[i] = rev_in[i] = tape_fb[i] = 0.0f;
+        fb_in[i] = dly_in[i] = rev_in[i] = tape_fb[i] = 0.0f;
     }
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
@@ -1362,10 +1362,7 @@ static void render_sub(float *outl, float *outr, int n)
                 }
                 outl[i] += sl;
                 outr[i] += sr;
-                voc_in[i] += m * eff[TP_VOC] * (1.0f / 127.0f);
                 fb_in[i] += m * eff[TP_FBS] * (1.0f / 127.0f);
-                pair_in[i] += m * eff[TP_PAIRS] * (1.0f / 127.0f);
-                band_in[i] += m * eff[TP_BANDS] * (1.0f / 127.0f);
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
                 rev_in[i] += m * (punch[6] ? 0.8f : eff[TP_REVS] * (1.0f / 127.0f));
             }
@@ -1418,27 +1415,6 @@ static void render_sub(float *outl, float *outr, int n)
 
     PROF(PF_BED);
     /* buses */
-    for (i = 0; i < n; i++)
-        bus_mono[i] = 0.0f;
-    {
-        int vb = clampi(rv.gp[GP_VOCBODY], 0, 11);
-        const float *body = vb == 3 ? 0 : vb >= 4 ? trk[vb - 4].prev : 0;
-        static float tape_body[RV_SUB];
-        if (vb == 3) {
-            for (i = 0; i < n; i++)
-                tape_body[i] = tape_read_u(1.0f - (float)((now_s + (uint32_t)i) % 44100u) / 44100.0f * 0.5f) * 0.5f;
-            body = tape_body;
-        }
-        if (!bus_skip(BUS_VOC, voc_in, n)) {
-            vocoder_run(voc_in, body, n, bus_mono);
-            bus_note(BUS_VOC, peak_of(bus_mono, n));
-        }
-        if (buf_fix(bus_mono, n)) {
-            fault(500);
-            buses_reset();
-        }
-    }
-    PROF(PF_VOC);
     if (bus_skip(BUS_FB, fb_in, n)) {
         for (i = 0; i < n; i++)
             fb_out[i] = 0.0f;
@@ -1451,24 +1427,11 @@ static void render_sub(float *outl, float *outr, int n)
         buses_reset();
     }
     for (i = 0; i < n; i++) {
-        bus_mono[i] += fb_out[i];
+        bus_mono[i] = fb_out[i];                     /* (the tape's BUS source) */
         outl[i] += bus_mono[i];
         outr[i] += bus_mono[i];
     }
     PROF(PF_FB);
-    bus_stereo(BUS_PAIR, pair_run, pair_in, n, outl, outr);
-    PROF(PF_PAIR);
-    if (buf_fix(outl, n) | buf_fix(outr, n)) {
-        fault(700);
-        buses_reset();
-    }
-    bus_stereo(BUS_BANDS, bands_run, band_in, n, outl, outr);
-    PROF(PF_BANDS);
-    if (buf_fix(outl, n) | buf_fix(outr, n)) {
-        fault(750);
-        buses_reset();
-    }
-    PROF(PF_BANDS);
     if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
         bus_quiet[BUS_DLY] = 0;
     bus_stereo(BUS_DLY, delay_run, dly_in, n, outl, outr);

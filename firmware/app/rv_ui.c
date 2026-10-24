@@ -42,9 +42,9 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_VOC, PIC_FB, PIC_PAIR, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_BANDS, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_TSAMP, V_STRETCH, V_SHARDS, V_SLICE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
@@ -100,7 +100,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_SKIN, PR_SOUND, "SKIN 2", {TP(TP_MASK), TP(TP_DEREZ), TP(TP_GRAIN), NO}},
     {SEC_VOICE, V_ALL, PIC_INSERT, PR_SOUND, "INSERT", {TP(TP_INS), TP(TP_INA), TP(TP_INB), TP(TP_INMIX)}},
     {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "MIX", {TP(TP_LEVEL), TP(TP_PAN), TP(TP_DLYS), TP(TP_REVS)}},
-    {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_PAIRS), TP(TP_VOC), TP(TP_BANDS)}},
+    {SEC_VOICE, V_ALL, PIC_MIX, PR_SOUND, "SENDS", {TP(TP_FBS), TP(TP_DLYS), TP(TP_REVS), NO}},
 
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ENVELOPE", {TP(TP_ATK), TP(TP_DEC), TP(TP_SUS), TP(TP_REL)}},
     {SEC_ARTIC, V_ALL, PIC_ENV, PR_SOUND, "ONSET", {TP(TP_ACURVE), TP(TP_OVER), TP(TP_GIVE), NO}},
@@ -127,21 +127,12 @@ static const page_t pages[] = {
     {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "TAPE WEAR", {GP(GP_DLYWOB), GP(GP_DLYFLUT), GP(GP_DLYSAT), GP(GP_DLYAGE)}},
     {SEC_BUS, V_ALL, PIC_DELAY, PR_NONE, "GRAINS", {GP(GP_DLYMODE), GP(GP_GRDENS), GP(GP_GRSIZE), GP(GP_GRPITCH)}},
     {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE", {TP(TP_REVS), GP(GP_REVSIZE), GP(GP_REVDAMP), GP(GP_REVLEVEL)}},
-    {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE 2", {GP(GP_REVMOD), GP(GP_REVDIFF), GP(GP_REVLOW), GP(GP_REVMODE)}},
+    {SEC_BUS, V_ALL, PIC_SPACE, PR_NONE, "SPACE 2", {GP(GP_REVMOD), GP(GP_REVDIFF), GP(GP_REVLOW), NO}},   /* (12-BIT: DECAY, CRUNCH) */
     {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED", {GP(GP_BEDLEVEL), GP(GP_BEDDENS), GP(GP_BEDTONE), GP(GP_BEDSHIM)}},   /* dust on a tuned body, under everything */
     {SEC_BUS, V_ALL, PIC_BED, PR_NONE, "BED 2", {GP(GP_BEDDUCK), GP(GP_BEDDECAY), GP(GP_BEDSPACE), NO}},
     {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK", {TP(TP_FBS), GP(GP_FBTIME), GP(GP_FBREGEN), GP(GP_FBLEVEL)}},
     {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 2", {GP(GP_FBPROC), GP(GP_FBAMT), GP(GP_FBTUNE), GP(GP_FBCUT)}},
-    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 3", {GP(GP_FBEDGE), GP(GP_FBRET), NO, NO}},
-    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "FILTER PAIR", {TP(TP_PAIRS), GP(GP_PAIRMODE), GP(GP_PAIRF1), GP(GP_PAIRF2)}},
-    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR 2", {GP(GP_PAIRRES), GP(GP_PAIRT1), GP(GP_PAIRT2), GP(GP_PAIRLEVEL)}},
-    {SEC_BUS, V_ALL, PIC_PAIR, PR_NONE, "PAIR LFOS", {GP(GP_PAIRLFO1), GP(GP_PAIRLFO2), GP(GP_PAIRDEPTH), NO}},
-    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS", {TP(TP_BANDS), GP(GP_BANDLEVEL), GP(GP_BANDQ), GP(GP_BANDSHIFT)}},
-    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BAND SWEEP", {GP(GP_BANDSHAPE), GP(GP_BANDRATE), GP(GP_BANDDEPTH), GP(GP_BANDWIDTH)}},
-    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 1-4", {GP(GP_BAND1), GP(GP_BAND2), GP(GP_BAND3), GP(GP_BAND4)}},
-    {SEC_BUS, V_ALL, PIC_BANDS, PR_NONE, "BANDS 5-8", {GP(GP_BAND5), GP(GP_BAND6), GP(GP_BAND7), GP(GP_BAND8)}},
-    {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER", {TP(TP_VOC), GP(GP_VOCBODY), GP(GP_VOCTILT), GP(GP_VOCLEVEL)}},
-    {SEC_BUS, V_ALL, PIC_VOC, PR_NONE, "VOCODER 2", {GP(GP_VOCATK), GP(GP_VOCREL), GP(GP_VOCSHIFT), GP(GP_VOCQ)}},
+    {SEC_BUS, V_ALL, PIC_FB, PR_NONE, "FEEDBACK 3", {GP(GP_FBEDGE), GP(GP_FBRET), GP(GP_PAIRF1), GP(GP_PAIRF2)}},   /* BASE, WIDTH: the loop's band */
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER", {GP(GP_MDRIVE), GP(GP_CUTSIZE), GP(GP_CUTREP), GP(GP_CUTMIX)}},
     {SEC_BUS, V_ALL, PIC_MASTER, PR_NONE, "MASTER 2", {GP(GP_CUTSHAPE), NO, NO, NO}},
 
@@ -236,6 +227,7 @@ static struct {
     /* the stress test: the step asked for and the one built, its engine, AUTO, whether its project is
      * the one in memory; what each step measured (% of the time, 255: not yet) and where XRUNS came */
     uint8_t st_step, st_built, st_eng, st_auto, st_on;
+    uint8_t c2_tried;                         /* the second core was asked for at start */
     uint16_t st_res[RV_STRESS_N];               /* (0xFFFF: not measured yet) */
     uint32_t st_xr, st_t0, st_turn, st_x0;
     float st_acc;
@@ -607,7 +599,7 @@ static kinfo_t kb_info(kb_t k)
     case K_TP:
         pi = rv_pinfo_track(ui.track, k.id);
         r.name = pi->name;
-        if (ui.sec == SEC_BUS && (k.id == TP_DLYS || k.id == TP_REVS || k.id == TP_FBS || k.id == TP_PAIRS || k.id == TP_VOC || k.id == TP_BANDS)) {
+        if (ui.sec == SEC_BUS && (k.id == TP_DLYS || k.id == TP_REVS || k.id == TP_FBS)) {
             static char send[12];                    /* on a bus page a track's send reads as its own */
             send[0] = 'T';
             send[1] = (char)('1' + ui.track);
@@ -747,7 +739,7 @@ static kinfo_t kb_info(kb_t k)
         break;
     case K_STRESS: {
         static const char *const autos[2] = {"OFF", "RUN"};
-        static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
+        static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
         static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"};
         r.name = k.id == 0 ? "STEP" : k.id == 1 ? "ENGINE" : k.id == 2 ? "AUTO" : k.id == 3 ? "CORES" : "FLASH WT";
         r.max = k.id == 0 ? RV_STRESS_N - 1 : k.id == 1 ? ENG_N - 1 : 1;
@@ -1250,7 +1242,7 @@ static void kb_set(kb_t k, int v)
         if (k.id == 3) {                               /* CORES: the second core on or off (until power-off) */
             if (v && !rv_live.cores2) {
                 if (plat_par_on(1) < 0) {
-                    msg(rv_live.c2_fail ? "CORE 2 FAILED BEFORE: OFF TILL POWER-OFF" : "NO SECOND CORE HERE");
+                    msg(rv_live.c2_fail ? "CORE 2 FAILED: OFF TILL POWER-OFF" : "CORE 2 CAN'T START NOW");
                     break;
                 }
                 rv_live.c2_fail = 0;
@@ -3057,11 +3049,11 @@ static void pic_mix(void)
     (void)h;
     meter_bar(108, PIC_Y + 58, 24, 72, fm_sqrtf(rv_live.meter[t]), C_PANEL, C_TEAL);
     {
-        static const int sends[6] = {TP_FBS, TP_PAIRS, TP_BANDS, TP_DLYS, TP_REVS, TP_VOC};
-        static const char *const sn[6] = {"FB", "PAIR", "BND", "DLY", "SPC", "VOC"};
+        static const int sends[3] = {TP_FBS, TP_DLYS, TP_REVS};
+        static const char *const sn[3] = {"FB", "DLY", "SPC"};
         int i;
-        for (i = 0; i < 6; i++) {
-            int sx = i < 3 ? 12 + i * 30 : 146 + (i - 3) * 30;
+        for (i = 0; i < 3; i++) {
+            int sx = i < 1 ? 42 : 146 + (i - 1) * 40;
             meter_bar(sx, PIC_Y + 80, 12, 50, rv.tp[t][sends[i]] / 127.0f, C_PANEL, C_AMBER);
             g_text_c(sx + 6, PIC_Y + 66, &FONT_T, sn[i], C_DIM);
         }
@@ -3435,17 +3427,6 @@ static void pic_macro(void)
         g_fill(20 + i * 26, PIC_Y + 118, 22, 6, rv.macro[m].d[i].dst < RV_NPID ? (i == d ? C_TEAL : C_TEAL_D) : (i == d ? C_MID : C_LINE));
 }
 
-static void pic_voc(void)
-{
-    int b;
-    static const char *const hz[8] = {"140", "220", "340", "520", "800", "1K2", "2K6", "6K"};
-    for (b = 0; b < 8; b++) {
-        int h = (int)(clampf(fm_sqrtf(rv_live.voc_band[b]) * 3.0f, 0.0f, 1.0f) * 100.0f);
-        g_fill(14 + b * 28, PIC_Y + 10, 18, 100, C_LINE);
-        g_fill(14 + b * 28, PIC_Y + 110 - h, 18, h, C_TEAL);
-        g_text_c(23 + b * 28, PIC_Y + 114, &FONT_T, hz[b], C_DIM);
-    }
-}
 
 static void pic_fb(void)
 {
@@ -3465,35 +3446,7 @@ static void pic_fb(void)
     g_text(20, PIC_Y + 114, &FONT_T, rv.gp[GP_FBRET] ? "RETURNS INTO A TRACK" : "RETURNS TO THE MASTER", C_DIM);
 }
 
-static void pic_pair(void)
-{
-    int k, i, prev = 0;
-    for (k = 0; k < 2; k++) {
-        float fc = rv_cut_hz((float)rv.gp[k ? GP_PAIRF2 : GP_PAIRF1]), res = rv.gp[GP_PAIRRES] / 127.0f;
-        for (i = 0; i <= 224; i += 2) {
-            float f = 20.0f * fm_exp2f((float)i / 224.0f * 10.0f), m = filt_mag(FT_BP, f, fc, res);
-            int y = PIC_Y + 100 - (int)(clampf(m, 0.0f, 3.0f) * 30.0f);
-            if (i)
-                g_line(8 + i - 2, prev, 8 + i, y, k ? C_AMBER : C_TEAL);
-            prev = y;
-        }
-    }
-}
 
-/* BANDS: eight bars, each band's level (outline) and its gain now, sweep included (filled) */
-static void pic_bands(void)
-{
-    static const char *const hz[8] = {"150", "240", "380", "600", "950", "1.5K", "2.4K", "3.8K"};
-    int k;
-    for (k = 0; k < 8; k++) {
-        int x = 12 + k * 28, full = rv.gp[GP_BAND1 + k] * 96 / 127, now = (int)(clampf(rv_live.band_g[k], 0.0f, 1.0f) * 96.0f);
-        g_rbox(x + 1, PIC_Y + 8, 18, 96, 9, C_PANEL, 1);
-        if (full > 0)                                 /* the band's setting: a ring as tall as it is */
-            g_rbox(x + 1, PIC_Y + 104 - (full > 18 ? full : 18), 18, full > 18 ? full : 18, 9, C_TEAL_D, 1);
-        meter_bar(x + 4, PIC_Y + 11, 12, 90, (float)now / 96.0f, full > 0 ? C_TEAL_D : C_PANEL, C_TEAL);
-        g_text_c(x + 10, PIC_Y + 110, &FONT_XS, hz[k], C_DIM);
-    }
-}
 
 static void pic_delay(void)
 {
@@ -3675,7 +3628,7 @@ static void pic_stress(void)
         return;
     }
     for (k = 1; k < RV_STRESS_N; k++) {
-        int x = k <= 8 ? 6 : 122, y = PIC_Y + 22 + ((k - 1) % 8) * 13;
+        int x = k <= 6 ? 6 : 122, y = PIC_Y + 22 + ((k - 1) % 6) * 14;
         uint16_t c = (ui.st_xr >> k) & 1u ? C_RED : k == ui.st_step ? C_INK : C_DIM;
         g_text(x, y, &FONT_T, rv_stress_name(k), c);
         b[0] = 0;
@@ -3693,20 +3646,20 @@ static void pic_stress(void)
  * platform's own reading and the blocks that came too late */
 static void pic_cpu(void)
 {
-    static const char *const nm[14] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TAPE", "TRACK FX", "BED",
-                                       "VOCODER", "FEEDBACK", "PAIR", "BANDS", "DELAY", "SPACE", "MASTER"};
+    static const char *const nm[11] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TAPE", "TRACK FX", "BED", "FEEDBACK",
+                                       "DELAY", "SPACE", "MASTER"};
     int k;
     float tot = 0.0f;
     char b[40];
-    for (k = 0; k < 14; k++)
+    for (k = 0; k < 11; k++)
         tot += rv_live.prof[k];
     if (tot <= 0.0f) {
         g_text_c(120, PIC_Y + 40, &FONT_B, "NO CLOCK HERE", C_DIM);
         g_text_c(120, PIC_Y + 64, &FONT_T, "THE FM-1 AND THE SIMULATOR MEASURE IT", C_DIM);
         return;
     }
-    for (k = 0; k < 14; k++) {
-        int x = k < 7 ? 6 : 122, y = PIC_Y + 2 + (k % 7) * 14, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
+    for (k = 0; k < 11; k++) {
+        int x = k < 6 ? 6 : 122, y = PIC_Y + 2 + (k % 6) * 15, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
         g_text(x, y, &FONT_T, nm[k], rv_live.prof[k] > 5.0f ? C_INK : C_DIM);
         g_fill(x + 60, y + 3, 50, 3, C_LINE);
         g_fill(x + 60, y + 3, w > 0 ? w : (rv_live.prof[k] > 0.05f ? 1 : 0), 3, rv_live.prof[k] > 20.0f ? C_RED : C_TEAL);
@@ -4368,9 +4321,7 @@ static void draw_picture(void)
     case PIC_LFO2: pic_lfo(0); pic_lfo(1); break;
     case PIC_DUST: pic_dust(); break;
     case PIC_MACRO: pic_macro(); break;
-    case PIC_VOC: pic_voc(); break;
     case PIC_FB: pic_fb(); break;
-    case PIC_PAIR: pic_pair(); break;
     case PIC_DELAY: pic_delay(); break;
     case PIC_SPACE: pic_space(); break;
     case PIC_MASTER: pic_master(); break;
@@ -4378,7 +4329,6 @@ static void draw_picture(void)
     case PIC_CPU: pic_cpu(); break;
     case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
-    case PIC_BANDS: pic_bands(); break;
     case PIC_SCALE: pic_scale(); break;
     case PIC_TAPE: pic_tape(); break;
     case PIC_STEPS: pic_steps(); break;
@@ -4446,6 +4396,11 @@ void ui_frame(void)
         return;
     }
     ui_input_only();
+    if (!ui.c2_tried) {                               /* the second core, on from the start (GLO > CPU, CORES) */
+        ui.c2_tried = 1;
+        if (plat_par_on(1) == 0)
+            rv_live.cores2 = 1;
+    }
     stress_tick();
     if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || ui.sec != SEC_SAVE))
         bank_keep();                                  /* a renamed sound, kept once the naming pauses */

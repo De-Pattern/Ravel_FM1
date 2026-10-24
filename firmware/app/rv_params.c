@@ -31,7 +31,6 @@ static const char *const clkmode_names[] = {"STEADY", "RATE", "SHAPE", "PHASE", 
 static const char *const lock_names[] = {"LOCKED", "FREE"};
 static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", "S&H", "DRIFT"};
 static const char *const lfo_modes[] = {"LOOP", "RETRIG", "1 SHOT"};
-static const char *const vocbody_names[] = {"DUST", "DROPS", "NOISE", "TAPE", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const fbproc_names[] = {"FILTER", "COMB", "SMEAR", "SHIFT", "FOLD", "CRUSH"};
 static const char *const fbret_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const senv_names[RV_SENV + 1] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
@@ -39,13 +38,9 @@ static const char *const senv_names[RV_SENV + 1] = {"OFF", "1", "2", "3", "4", "
 typedef char senv_size_check[sizeof(rv_senv) == 24 ? 1 : -1];   /* the LIBRARY fills the triplets' room exactly */
 static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
-static const char *const revmode_names[] = {"ROOM", "CLOUDS", "12-BIT"};
 static const char *const cutshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
 static const char *const glide_names[] = {"JUMP", "1 BAR", "2 BARS", "3 BARS", "4 BARS", "5 BARS", "6 BARS", "7 BARS", "8 BARS"};
 static const char *const arcspan_names[] = {"1 BAR", "2 BARS", "4 BARS"};
-static const char *const bandshape_names[] = {"UP", "DOWN", "PINGPNG", "RANDOM", "STEP UP", "STEP RND"};
-static const char *const pair_names[] = {"SERIES", "PARALLEL", "FEEDBACK"};
-static const char *const ptype_names[] = {"LOWPASS", "BANDPASS", "HIGHPASS"};
 static const char *const qual_names[] = {"DIRTY", "TAPE", "CLEAN"};   /* = bd_res: 8, 12, 16 bit */
 static const char *const tapesrc_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "BUSES", "INPUT"};
 static const char *const resbars_names[] = {"1 BAR", "2 BARS", "4 BARS", "1/2 BAR"};
@@ -323,7 +318,6 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_BITS] = {"BITS", 0, 127, 0, PF_NUM, 0},
     [TP_DEREZ] = {"DEREZ", 0, 127, 0, PF_NUM, 0},
     [TP_MASK] = {"BITMASK", 0, 127, 0, PF_NUM, 0},
-    [TP_VOC] = {"VOCODER", 0, 127, 0, PF_NUM, 0},
     [TP_INS] = {"INSERT", 0, INS_N - 1, INS_OFF, E(ins_names)},
     [TP_INA] = {"TUNE", 0, 127, 64, PF_NUM, 0},
     [TP_INB] = {"AMOUNT", 0, 127, 64, PF_NUM, 0},
@@ -331,7 +325,6 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_LEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
     [TP_PAN] = {"PAN", -64, 63, 0, PF_BI, 0},
     [TP_FBS] = {"FEEDBK", 0, 127, 0, PF_NUM, 0},
-    [TP_PAIRS] = {"PAIR", 0, 127, 0, PF_NUM, 0},
     [TP_DLYS] = {"DELAY", 0, 127, 0, PF_NUM, 0},
     [TP_REVS] = {"SPACE", 0, 127, 0, PF_NUM, 0},
     [TP_LEN] = {"LENGTH", 1, 64, 16, PF_NUM, 0},
@@ -356,7 +349,6 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_H2CYCLE] = {"CYCLE", 2, 64, 16, PF_NUM, 0},
     [TP_H2COMB] = {"COMBINE", 0, N(comb_names), COMB_SCALE, E(comb_names)},
     [TP_H2TRANS] = {"TRANSP", -24, 24, 0, PF_SEMI, 0},
-    [TP_BANDS] = {"BANDS", 0, 127, 0, PF_NUM, 0},
     /* the FILTER ENV: delay, attack, hold, decay, sustain, release (the volume's defaults) */
     [TP_FDLY] = {"F DELAY", 0, 127, 0, PF_TIME, 0},
     [TP_FATK] = {"F ATK", 0, 127, 4, PF_TIME, 0},
@@ -400,10 +392,6 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_LFO2SHAPE] = {"L2 SHAPE", 0, N(lfo_names), 1, E(lfo_names)},
     [GP_DUSTRATE] = {"RATE", 0, 127, 40, PF_NUM, 0},
     [GP_DUSTDECAY] = {"DECAY", 0, 127, 40, PF_NUM, 0},
-    [GP_VOCBODY] = {"BODY", 0, N(vocbody_names), 1, E(vocbody_names)},
-    [GP_VOCTILT] = {"TILT", -64, 63, 0, PF_BI, 0},
-    [GP_VOCREL] = {"RELEASE", 0, 127, 40, PF_NUM, 0},
-    [GP_VOCLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
     [GP_FBTIME] = {"TIME", 0, 127, 50, PF_NUM, 0},
     [GP_FBREGEN] = {"REGEN", 0, 127, 70, PF_NUM, 0},
     [GP_FBPROC] = {"PROCESS", 0, N(fbproc_names), 0, E(fbproc_names)},
@@ -413,19 +401,15 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_FBRET] = {"RETURN", 0, N(fbret_names), 0, E(fbret_names)},
     [GP_FBLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
     [GP_FBCUT] = {"CUTOFF", 0, 127, 80, PF_HZ, 0},
-    [GP_PAIRMODE] = {"ROUTING", 0, N(pair_names), 0, E(pair_names)},
-    [GP_PAIRF1] = {"FREQ 1", 0, 127, 60, PF_HZ, 0},
-    [GP_PAIRF2] = {"FREQ 2", 0, 127, 85, PF_HZ, 0},
-    [GP_PAIRRES] = {"RESO", 0, 127, 80, PF_NUM, 0},
-    [GP_PAIRLFO1] = {"LFO 1", 0, 127, 20, PF_NUM, 0},
-    [GP_PAIRLFO2] = {"LFO 2", 0, 127, 33, PF_NUM, 0},
-    [GP_PAIRDEPTH] = {"DEPTH", 0, 127, 40, PF_NUM, 0},
-    [GP_PAIRLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
+    /* (format 20: the filter pair's two slots) the feedback loop's band: BASE a high pass over the lower half
+     * of the range, WIDTH a low pass over the upper half; turned in, they meet near 600 Hz */
+    [GP_PAIRF1] = {"BASE", 0, 63, 0, PF_HZ, 0},
+    [GP_PAIRF2] = {"WIDTH", 64, 127, 127, PF_HZ, 0},
     [GP_DLYTIME] = {"TIME", 0, 127, 60, PF_NUM, 0},
     [GP_DLYFB] = {"FEEDBK", 0, 127, 50, PF_NUM, 0},
     [GP_DLYTONE] = {"TONE", 0, 127, 70, PF_NUM, 0},
     [GP_DLYLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
-    [GP_REVSIZE] = {"SIZE", 0, 127, 70, PF_NUM, 0},
+    [GP_REVSIZE] = {"DECAY", 0, 127, 70, PF_NUM, 0},      /* (the space is 12-BIT, format 20) */
     [GP_REVDAMP] = {"DAMP", 0, 127, 50, PF_NUM, 0},
     [GP_REVLEVEL] = {"LEVEL", 0, 127, 90, PF_NUM, 0},
     [GP_MDRIVE] = {"DRIVE", 0, 127, 0, PF_NUM, 0},     /* (off until turned up: it was 20) */
@@ -455,29 +439,12 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_DLYWOB] = {"WOW", 0, 127, 0, PF_NUM, 0},              /* a slow, wandering drift of the tape's speed */
     [GP_DLYFREEZE] = {"FREEZE", 0, 1, 0, E(onoff_names)},
     [GP_REVMOD] = {"MOTION", 0, 127, 20, PF_NUM, 0},
-    [GP_REVDIFF] = {"DIFFUSE", 0, 127, 85, PF_NUM, 0},
+    [GP_REVDIFF] = {"CRUNCH", 0, 127, 0, PF_NUM, 0},      /* 12 bits down to 8 */
     [GP_REVLOW] = {"LOW CUT", 0, 127, 0, PF_NUM, 0},
-    [GP_VOCATK] = {"ATTACK", 0, 127, 18, PF_NUM, 0},
-    [GP_VOCSHIFT] = {"SHIFT", -24, 24, 0, PF_SEMI, 0},
-    [GP_VOCQ] = {"NARROW", 0, 127, 64, PF_NUM, 0},
-    [GP_PAIRT1] = {"TYPE 1", 0, N(ptype_names), 0, E(ptype_names)},
-    [GP_PAIRT2] = {"TYPE 2", 0, N(ptype_names), 1, E(ptype_names)},
-    [GP_BAND1] = {"150", 0, 127, 100, PF_NUM, 0}, [GP_BAND2] = {"240", 0, 127, 100, PF_NUM, 0},
-    [GP_BAND3] = {"380", 0, 127, 100, PF_NUM, 0}, [GP_BAND4] = {"600", 0, 127, 100, PF_NUM, 0},
-    [GP_BAND5] = {"950", 0, 127, 100, PF_NUM, 0}, [GP_BAND6] = {"1.5K", 0, 127, 100, PF_NUM, 0},
-    [GP_BAND7] = {"2.4K", 0, 127, 100, PF_NUM, 0}, [GP_BAND8] = {"3.8K", 0, 127, 100, PF_NUM, 0},
-    [GP_BANDQ] = {"RESO", 0, 127, 80, PF_NUM, 0},
-    [GP_BANDSHIFT] = {"SHIFT", -12, 12, 0, PF_SEMI, 0},
-    [GP_BANDLEVEL] = {"LEVEL", 0, 127, 100, PF_NUM, 0},
-    [GP_BANDSHAPE] = {"SWEEP", 0, N(bandshape_names), 0, E(bandshape_names)},
-    [GP_BANDRATE] = {"RATE", 0, 127, 50, PF_NUM, 0},
-    [GP_BANDDEPTH] = {"DEPTH", 0, 127, 0, PF_NUM, 0},
-    [GP_BANDWIDTH] = {"WIDTH", 0, 127, 30, PF_NUM, 0},
     [GP_DLYMODE] = {"GRAINS", 0, 127, 0, PF_NUM, 0},          /* (format 18; was MODE) how much of the delay is grains */
     [GP_GRDENS] = {"DENSITY", 0, 127, 60, PF_NUM, 0},
     [GP_GRSIZE] = {"SIZE", 0, 127, 60, PF_NUM, 0},
     [GP_GRPITCH] = {"PITCH", -24, 24, 0, PF_SEMI, 0},
-    [GP_REVMODE] = {"MODE", 0, N(revmode_names), 0, E(revmode_names)},
     [GP_METRO] = {"METRO", 0, N(metro_names), 0, E(metro_names)},
     [GP_COUNTIN] = {"COUNT-IN", 0, N(countin_names), 1, E(countin_names)},
     [GP_LFO1SYM] = {"L1 SYM", -64, 63, 0, PF_BI, 0},     /* skews the wave: - leans early, + late */
@@ -548,14 +515,6 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
 
 const rv_pinfo *rv_pinfo_global(int g)
 {
-    if (rv.gp[GP_REVMODE] == 1 && g == GP_REVSIZE) {                   /* CLOUDS: SIZE is how long it rings */
-        static const rv_pinfo dec = {"DECAY", 0, 127, 70, PF_NUM, 0};
-        return &dec;
-    }
-    if (rv.gp[GP_REVMODE] == 2 && (g == GP_REVSIZE || g == GP_REVDIFF)) {   /* 12-BIT: DECAY, and CRUNCH for DIFFUSE */
-        static const rv_pinfo q[2] = {{"DECAY", 0, 127, 70, PF_NUM, 0}, {"CRUNCH", 0, 127, 0, PF_NUM, 0}};
-        return &q[g == GP_REVDIFF];
-    }
     return g >= 0 && g < GP_N && GLOBAL[g].name ? &GLOBAL[g] : &NONE;
 }
 
@@ -864,8 +823,8 @@ int rv_is_moddest(int p)
 {
     switch (p) {
     case TP_PITCH: case TP_FINE: case TP_CUT: case TP_RES: case TP_DRIVE: case TP_FOLD: case TP_BITS:
-    case TP_DEREZ: case TP_MASK: case TP_VOC: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
-    case TP_PAN: case TP_FBS: case TP_PAIRS: case TP_DLYS: case TP_REVS: case TP_BANDS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_SEAMT: case TP_FAMT: case TP_ATK: case TP_DEC:
+    case TP_DEREZ: case TP_MASK: case TP_INA: case TP_INB: case TP_INMIX: case TP_LEVEL:
+    case TP_PAN: case TP_FBS: case TP_DLYS: case TP_REVS: case TP_FMODE: case TP_OSC1: case TP_FATK: case TP_FDEC: case TP_FSUS: case TP_FREL: case TP_FRATE: case TP_EFILT: case TP_SEAMT: case TP_FAMT: case TP_ATK: case TP_DEC:
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
@@ -884,8 +843,7 @@ int rv_is_moddest_g(int g)
     case GP_GRDENS: case GP_GRSIZE: case GP_GRPITCH:
     case GP_REVSIZE: case GP_REVDAMP: case GP_REVLEVEL: case GP_REVMOD:
     case GP_FBTIME: case GP_FBREGEN: case GP_FBAMT: case GP_FBTUNE: case GP_FBCUT: case GP_FBLEVEL:
-    case GP_PAIRF1: case GP_PAIRF2: case GP_PAIRRES: case GP_PAIRLEVEL:
-    case GP_BANDLEVEL: case GP_VOCTILT: case GP_VOCLEVEL:
+    case GP_PAIRF1: case GP_PAIRF2:                   /* (the feedback loop's BASE and WIDTH) */
     case GP_BEDLEVEL: case GP_BEDDENS: case GP_BEDDUCK: case GP_BEDSPACE:
     case GP_MDRIVE: case GP_CUTMIX:
         return 1;

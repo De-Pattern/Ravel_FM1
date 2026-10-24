@@ -231,19 +231,27 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   tap('PLAY');
   check(peak > 0.01 && most >= 3, `and plays back, all its notes at once (${most} voices)`);
 }
-{                                                           // the SPACE modes: CLOUDS and 12-BIT ring and die away; none go NaN; ROOM is the default
+{                                                           // the SPACE (12-BIT) rings and dies away, stays finite; the feedback loop's band (BASE, WIDTH) narrows it
   const tail = (mode, size, secs) => {
     rv.rv_boot(); rv.rv_run(250);
-    rv.web_gp_set(100, mode); rv.web_gp_set(44, size); rv.web_tp_set(0, 56, 110); rv.rv_run(20);
+    rv.web_gp_set(44, size); rv.web_tp_set(0, 56, 110); rv.rv_run(20);
     rv.rv_set_keys(1 << 12); rv.rv_run(400); rv.rv_set_keys(0);
     let nan = false, e = 0, n = 0;
     for (let t = 0; t < secs * 1000; t += 10) { const k = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), k * 2); for (let i = 0; i < k * 2; i++) { if (!(a[i] === a[i])) nan = true; if (t >= (secs - 1) * 1000) { e += a[i] * a[i]; n++; } } }
     return [nan, Math.sqrt(e / Math.max(1, n))];
   };
-  const [cn, ct] = tail(1, 90, 12), [qn, qt] = tail(2, 90, 8), [rn] = tail(0, 70, 2);
-  check(!cn && !qn && !rn, 'the SPACE modes stay finite');
-  check(ct < 0.0005, `CLOUDS dies away (rms ${ct.toFixed(5)} after 12 s)`);
-  check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s)`);
+  const [qn, qt] = tail(0, 127, 8), [rn] = tail(0, 70, 2);
+  check(!qn && !rn, 'the SPACE stays finite');
+  check(qt < 0.0005, `12-BIT dies away (rms ${qt.toFixed(5)} after 8 s at full DECAY)`);
+  const fb = (base, width) => {
+    rv.rv_boot(); rv.rv_run(250);
+    rv.web_gp_set(33, base); rv.web_gp_set(34, width); rv.web_gp_set(24, 100); rv.web_tp_set(0, 53, 127); rv.web_tp_set(0, 56, 0);
+    rv.rv_set_keys(1 << 12); let e = 0, n = 0, nan = false;
+    for (let t = 0; t < 2000; t += 10) { const k = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), k * 2); for (let i = 0; i < k * 2; i++) { if (!(a[i] === a[i])) nan = true; e += a[i] * a[i]; n++; } }
+    rv.rv_set_keys(0); return [nan, Math.sqrt(e / n)];
+  };
+  const [on, open] = fb(0, 127), [nn, narrow] = fb(63, 64);
+  check(!on && !nn && open > 0.001 && narrow < open, `the feedback loop's BASE and WIDTH narrow it (rms open ${open.toFixed(4)}, narrow ${narrow.toFixed(4)})`);
 }
 {                                                           // a step's note can hold for up to 64 steps (LENGTH past 16 steps in half steps)
   const held = (len) => {
@@ -257,10 +265,10 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   check(long >= 1 && short === 0, `a 64-step note still holds after 6 s (${long} voice), a 16-step one has ended (${short})`);
 }
 {                                                           // effects start off: no sends, no master drive, ROOM; a preset keeps the track's sends
-  const SENDS = [55, 56, 53, 54, 79, 46], GP_MDRIVE = 47, GP_REVMODE = 100;
+  const SENDS = [55, 56, 53], GP_MDRIVE = 47;
   rv.rv_boot(); rv.rv_run(250);
   let any = 0; for (let t = 0; t < 8; t++) for (const p of SENDS) any += rv.web_tp(t, p);
-  check(any === 0 && rv.web_gp(GP_MDRIVE) === 0 && rv.web_gp(GP_REVMODE) === 0, 'a new project feeds no effect: sends 0, MASTER DRIVE 0, SPACE ROOM');
+  check(any === 0 && rv.web_gp(GP_MDRIVE) === 0, 'a new project feeds no effect: sends 0, MASTER DRIVE 0');
   let wet = 0; for (let i = 0; i < rv.web_preset_count(); i++) { rv.web_preset_apply(0, i); for (const p of SENDS) wet += rv.web_tp(0, p); }
   rv.web_tp_set(0, 56, 33); rv.web_preset_apply(0, 3);
   check(wet === 0 && rv.web_tp(0, 56) === 33, `presets leave the sends alone (sum over all ${rv.web_preset_count()} presets ${wet}; a send set by hand stays)`);

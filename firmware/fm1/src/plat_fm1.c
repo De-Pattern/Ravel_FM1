@@ -290,8 +290,12 @@ uint32_t plat_cycles_hz(void) { return 360000000u; }
  * with its start word in the top of RAM, so both guards are opened for that and closed again. The
  * first time it fails (a wrong job read, or a job not finished) it is held until power-off and the
  * render does that work itself (fm1_cpu1_wait). Turned off between renders: idle then */
+/* Ravel starts it at power-on. While it runs, a mark in the memory that survives a reset (not a
+ * power-off) says so: after any reset with it running (a crash, a hang the watchdog caught, an update)
+ * it stays off until the FM-1 is switched off and on, so a unit it does not suit never loops */
 int plat_par_on(int on)
 {
+    static uint8_t started;
     int r;
     if (!on) {
         fm1_cpu1_hold();
@@ -299,13 +303,20 @@ int plat_par_on(int on)
     }
     if (fm1_c1_on)
         return 0;
-    if (fm1_c1_gave_up)
+    if (!started && fm1_c1_bar.magic == FM1_C1_BAR_MAGIC && fm1_c1_bar.barred == 2u)
+        fm1_c1_bar.barred = 1;                      /* it was running when the FM-1 reset */
+    if (fm1_c1_gave_up || (fm1_c1_bar.magic == FM1_C1_BAR_MAGIC && fm1_c1_bar.barred == 1u))
         return -1;
     fm1_guard_unlock_top();
     fm1_guard_pc_open();
     r = fm1_cpu1_start();
     fm1_guard_enable(FM1_GUARD_PC);
     fm1_guard_lock_top();
+    if (r == 0) {
+        started = 1;
+        fm1_c1_bar.magic = FM1_C1_BAR_MAGIC;
+        fm1_c1_bar.barred = 2;                      /* running (see above) */
+    }
     return r;
 }
 int plat_par_run(void (*fn)(uint32_t), uint32_t arg) { return fm1_cpu1_run(fn, arg); }
