@@ -383,12 +383,11 @@ static int page_all_dead(int i, int t)
 /* OSC MIX: the engine's oscillator levels side by side (0: an engine with one source) */
 static const uint8_t *osc_mix_map(int eng)
 {
-    static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0}, fm[4] = {TP_OSC1, TP_S6, TP_S7, TP_S8}, sq[4] = {TP_OSC1, TP_S6, TP_S7, 0};
+    static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0}, fm[4] = {TP_OSC1, TP_S6, TP_S7, TP_S8};
     static const uint8_t wv[4] = {TP_OSC1, TP_S15, 0, 0}, ch[4] = {TP_OSC1, TP_S8, 0, 0}, mo[4] = {TP_S0, TP_S1, TP_S2, TP_S4};
     switch (eng) {
     case ENG_VA: return va;
     case ENG_FM: return fm;
-    case ENG_SQ: return sq;
     case ENG_WAVE: return wv;
     case ENG_CHIP: return ch;
     case ENG_MONO: return mo;
@@ -1031,14 +1030,14 @@ static void kb_set(kb_t k, int v)
         if (k.id == TP_ENGINE && v != rv.tp[ui.track][TP_ENGINE] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH) {
             int p;
             rv.tp[ui.track][TP_ENGINE] = (int16_t)v;
+            for (p = TP_S0; p <= TP_S15; p++)            /* (first cleared: a knob's table may follow the old engine's MODEL) */
+                rv.tp[ui.track][p] = 0;
             for (p = TP_S0; p <= TP_S15; p++) {
                 const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
                 rv.tp[ui.track][p] = pi->name ? pi->def : 0;
             }
             if (v == ENG_CZ)
                 rv_cz_init(ui.track);
-            if (v == ENG_SQ)                          /* the SQ comes with its own filter */
-                rv.tp[ui.track][TP_FTYPE] = FT_SQ80;
             if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE)
                 rv_engine_track_defaults(ui.track, v);
             return;
@@ -2895,7 +2894,7 @@ static void pic_source(void)
         static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO CZ: 2 LINES, 8-STEP DCO DCW DCA",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
-                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "SQ-80: 3 OSCS, 8-BIT WAVES, CEM FILTER", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
+                                                "SID WAVES, ARP OFFSETS, DECOMPOSE", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
                                                 "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN",
                                                 "BOWED STRING OR REED, AND QUAKE", "KALIMBA, MARIMBA, ELECTRIC PIANO"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
@@ -2947,7 +2946,6 @@ static float filt_mag(int type, float f, float fc, float res)
     float w = f / fc, q = 0.5f + res * res * 18.0f, re = 1.0f - w * w, im = w / q, m2 = re * re + im * im, m;
     switch (type) {
     case FT_SH101:
-    case FT_SQ80:
     case FT_LADDER: {
         float q2 = 0.6f + res * 4.0f, im2 = w / q2;
         m = 1.0f / fm_sqrtf(m2 > 1e-6f ? m2 : 1e-6f);
@@ -3072,9 +3070,9 @@ static void pic_fenv(void)
     float w[6], tot = 0.0f;
     int loop = rv.tp[t][TP_FLOOP] != 0, amt = rv.tp[t][TP_EFILT];
     char b[28];
-    if (rv.tp[t][TP_KIND] != KIND_SYNTH || ((rv.tp[t][TP_FTYPE] == FT_LPG || rv.tp[t][TP_ENGINE] == ENG_SQ) && !rv.tp[t][TP_FAMT])) {
-        g_text_c(120, PIC_Y + 40, &FONT_B, rv.tp[t][TP_KIND] != KIND_SYNTH ? "NO FILTER HERE" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "THE SQ HAS ITS OWN" : "THE LPG FOLLOWS", C_DIM);
-        g_text_c(120, PIC_Y + 62, &FONT_T, rv.tp[t][TP_KIND] != KIND_SYNTH ? "THE FILTER ENV IS FOR SYNTH TRACKS" : rv.tp[t][TP_ENGINE] == ENG_SQ ? "ENV 2 (SOURCE PAGES) MOVES ITS FILTER" : "THE VOLUME ENVELOPE", C_DIM);
+    if (rv.tp[t][TP_KIND] != KIND_SYNTH || (rv.tp[t][TP_FTYPE] == FT_LPG && !rv.tp[t][TP_FAMT])) {
+        g_text_c(120, PIC_Y + 40, &FONT_B, rv.tp[t][TP_KIND] != KIND_SYNTH ? "NO FILTER HERE" : "THE LPG FOLLOWS", C_DIM);
+        g_text_c(120, PIC_Y + 62, &FONT_T, rv.tp[t][TP_KIND] != KIND_SYNTH ? "THE FILTER ENV IS FOR SYNTH TRACKS" : "THE VOLUME ENVELOPE", C_DIM);
         return;
     }
     for (i = 0; i < 5; i++) {

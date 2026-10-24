@@ -8,7 +8,7 @@ turn K2 20
 wait 100
 turn K2 -1
 wait 200
-expect tp 1 ENGINE 12
+expect tp 1 ENGINE 11
 wav resin.wav
 key 12 down
 wait 1200

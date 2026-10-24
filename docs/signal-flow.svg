@@ -32,9 +32,9 @@
     <rect x="96" y="366" width="300" height="64" rx="8"/>
   </g>
   <rect x="96" y="282" width="300" height="64" rx="8" fill="#831c29" fill-opacity="0.28" stroke="#9a2a37" stroke-width="1.5"/>
-  <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4 · fourteen engines</text>
+  <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4 · thirteen engines</text>
   <text x="112" y="140" font-size="12" fill="#8c998f">VA, CZ, FM, PHYS, FORMANT, PARTICLE,</text>
-  <text x="112" y="158" font-size="12" fill="#8c998f">CHIP, SQ, WAVE, LOGIC, ORGAN, MONO,</text>
+  <text x="112" y="158" font-size="12" fill="#8c998f">CHIP, WAVE, LOGIC, ORGAN, MONO,</text>
   <text x="112" y="176" font-size="12" fill="#8c998f">RESIN, TINE</text>
   <text x="112" y="223" font-weight="600" fill="#dde5de">Strike  T5, T6</text>
   <text x="112" y="245" font-size="12" fill="#8c998f">exciter into modes, strings, pings</text>

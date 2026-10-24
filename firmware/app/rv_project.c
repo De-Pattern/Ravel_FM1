@@ -200,6 +200,23 @@ int rv_load(int slot)
                 __builtin_memset(rv.kitlk[t], 0xFF, sizeof(rv.kitlk[t]));
             if (f <= 18 && t == 0 && rv.gp[GP_REVMODE] >= 2)   /* (format 19) BLACKHOLE left the space: CLOUDS, the nearest */
                 rv.gp[GP_REVMODE] = (int16_t)(rv.gp[GP_REVMODE] == 2 ? 1 : 2);
+            if (f <= 20) {                               /* (format 21) the SQ engine and the SQ-80 filter gone */
+                int was_sq = rv.tp[t][TP_KIND] == KIND_SYNTH && rv.tp[t][TP_ENGINE] == 7, pt, st, k;
+                if (rv.tp[t][TP_KIND] == KIND_SYNTH)
+                    rv.tp[t][TP_ENGINE] = (int16_t)rv_up21_engine(rv.tp[t][TP_ENGINE]);
+                rv.tp[t][TP_FTYPE] = (int16_t)rv_up21_ftype(rv.tp[t][TP_FTYPE]);
+                if (was_sq)
+                    rv_track_src_defaults(t);            /* (the SQ's knobs mean nothing to VA) */
+                for (pt = 0; pt < RV_PATTERNS; pt++)     /* locks of ENGINE or FILTER on steps */
+                    for (st = 0; st < RV_STEPS; st++)
+                        for (k = 0; k < 2; k++) {
+                            rv_step *s = &rv.pat[t][pt].s[st];
+                            if (s->lp[k] == TP_ENGINE + 1 && rv.tp[t][TP_KIND] == KIND_SYNTH)
+                                s->lv[k] = (uint8_t)rv_up21_engine(s->lv[k]);
+                            else if (s->lp[k] == TP_FTYPE + 1)
+                                s->lv[k] = (uint8_t)rv_up21_ftype(s->lv[k]);
+                        }
+            }
             if (f <= 19) {                               /* (format 20) the FM-1 build's cuts */
                 rv.tp[t][TP_VOC] = rv.tp[t][TP_PAIRS] = rv.tp[t][TP_BANDS] = 0;
                 if (t == 0) {

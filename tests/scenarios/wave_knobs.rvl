@@ -18,10 +18,8 @@ wait 120
 turn K2 1
 wait 120
 turn K2 1
-wait 120
-turn K2 1
 wait 200
-expect tp 1 ENGINE 8
+expect tp 1 ENGINE 7
 shot wave_one.png
 turn K4 1
 wait 200

@@ -5,7 +5,7 @@ wait 200
 expect page SOUND
 turn K2 20
 wait 200
-expect tp 1 ENGINE 13
+expect tp 1 ENGINE 12
 wav tine.wav
 key 12 down
 wait 600

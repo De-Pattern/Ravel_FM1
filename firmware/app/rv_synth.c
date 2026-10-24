@@ -1173,119 +1173,6 @@ static void chip_render(voice_t *v, const float *eff, float f, float *out, int n
 /* clear a voice's engine state for eng. The engines share one block of memory (a union), so only
  * eng's own fields are seeded: writing another engine's fields would land on eng's phases and
  * filter states as garbage numbers. */
-/* ----------------------------------------------------------------- SQ --- */
-/* After the Ensoniq SQ-80. Three oscillators read 8-bit single cycles (Ravel's own waves in the
- * SQ's families: saws, bells, piano, voices, formants, organ, reed, digital) the way its DOC
- * chip did. Osc 1 can hard-sync osc 2 and/or amplitude-modulate it (the DOC's sync and AM
- * pairs). ENV 2 (attack, decay to E2 SUS, release) is the filter's envelope; its pure decay
- * bends the pitch (P ENV) and lifts osc 3 for a struck or breathy onset (TRANS). VIBRATO is
- * the SQ's LFO with its delay: it fades in over half a second. GRIT is the hardware: at 0 the
- * waves are band-limited and interpolated; rising, the band limit opens until the raw cycle
- * aliases, the read drops to the nearest sample, then samples are held (the DOC's own slower
- * rate) and the output DAC coarsens. The track's ADSR is the SQ's ENV 4 (the level). */
-#define SQ_WAVE_DATA
-#include "rv_sqwaves.h"
-
-static void sq_note(voice_t *v, const float *eff)
-{
-    sq_t *s = &v->e.sq;
-    s->e2 = s->e2d = 1.0f;
-    s->vib_t = 0.0f;
-    if (!s->ns)
-        s->ns = v->rng | 1u;
-    if (((int)(eff[TP_S8] + 0.5f)) & SQM_SYNC)       /* sync: the pair starts together */
-        s->ph[0] = s->ph[1] = 0.0f;
-}
-
-static inline float sq_read(const int8_t *tab, float ph, float smooth)
-{
-    int i = (int)ph;
-    float a = (float)tab[i & 255], b = (float)tab[(i + 1) & 255];
-    return (a + (b - a) * (ph - (float)i) * smooth) * (1.0f / 127.0f);
-}
-
-static inline int sq_mip(float hz, float open)
-{
-    float room = 0.45f * (float)RV_FS / (hz > 1.0f ? hz : 1.0f) * open;   /* harmonics that fit */
-    int k;
-    for (k = 0; k < SQ_NMIPS - 1; k++)
-        if ((float)sq_mip_caps[k] <= room)
-            return k;
-    return SQ_NMIPS - 1;
-}
-
-static void sq_render(voice_t *v, const float *eff, float f, float *out, int n)
-{
-    sq_t *s = &v->e.sq;
-    int w[3], mode = clampi((int)(eff[TP_S8] + 0.5f), 0, 3), i, k;
-    float grit = clampf(eff[TP_S15], 0.0f, 127.0f), det = eff[TP_S5] * (0.25f / 127.0f);   /* up to a quarter tone */
-    float l1 = eff[TP_OSC1] * (1.0f / 127.0f), l2 = eff[TP_S6] * (1.0f / 127.0f), l3 = eff[TP_S7] * (1.0f / 127.0f), trans = eff[TP_S12] * (1.2f / 127.0f);
-    float dec = 0.004f * fm_exp2f(eff[TP_S9] * (10.5f / 127.0f)), sus = eff[TP_S10] * (1.0f / 127.0f);
-    float vib = eff[TP_S13] * (0.8f / 127.0f), vrate = 0.5f * fm_exp2f(eff[TP_S14] * (4.5f / 127.0f));
-    float dt = (float)n * RV_DT, semi, hz[3], inc[3], smooth, open, hold, q, l3e, norm, vt;
-    const int8_t *tab[3];
-    w[0] = clampi((int)(eff[TP_S0] + 0.5f), 0, SQ_NWAVES - 1);
-    w[1] = clampi((int)(eff[TP_S1] + 0.5f), 0, SQ_NWAVES - 1);
-    w[2] = clampi((int)(eff[TP_S2] + 0.5f), 0, SQ_NWAVES - 1);
-    /* ENV 2 and its decay: per block */
-    if (v->a.gate) {                                /* (the key: the articulation's gate) */
-        s->e2 = sus + (s->e2 - sus) * fm_expf(-dt / dec);
-    } else {
-        s->e2 *= fm_expf(-dt / (dec * 0.7f + 0.01f));
-    }
-    s->e2d *= fm_expf(-dt / dec);
-    /* the delayed vibrato: a triangle fading in over its first half second */
-    s->vib_t += dt;
-    s->vib_ph += vrate * dt;
-    s->vib_ph -= fm_floorf(s->vib_ph);
-    vt = s->vib_ph < 0.5f ? 4.0f * s->vib_ph - 1.0f : 3.0f - 4.0f * s->vib_ph;
-    semi = eff[TP_S11] * (24.0f / 64.0f) * s->e2d + vib * vt * clampf(s->vib_t * 2.0f, 0.0f, 1.0f);
-    hz[0] = f * fm_exp2f(semi * (1.0f / 12.0f));
-    hz[1] = f * fm_exp2f((semi + eff[TP_S3] + det) * (1.0f / 12.0f));
-    hz[2] = f * fm_exp2f((semi + eff[TP_S4] - det) * (1.0f / 12.0f));
-    /* GRIT: 0-64 opens the band limit and fades out interpolation; 64-127 holds samples and
-     * coarsens the DAC */
-    open = fm_exp2f(grit * (1.0f / 16.0f));
-    smooth = clampf(1.0f - grit * (1.0f / 64.0f), 0.0f, 1.0f);
-    hold = grit > 64.0f ? fm_exp2f(-(grit - 64.0f) * (1.4f / 63.0f)) : 1.0f;   /* new samples per output sample */
-    q = grit > 64.0f ? fm_exp2f(15.0f - (grit - 64.0f) * (6.0f / 63.0f)) : 0.0f;   /* DAC steps: 15 bits down to 9 */
-    for (k = 0; k < 3; k++) {
-        hz[k] = clampf(hz[k], 1.0f, 18000.0f);
-        inc[k] = hz[k] * RV_DT * 256.0f;
-        tab[k] = sq_waves[w[k]][sq_mip(hz[k], open)];
-    }
-    l3e = clampf(l3 + trans * s->e2d, 0.0f, 1.5f);
-    norm = 1.0f / (1.0f + 0.55f * (l2 + l3e));
-    for (i = 0; i < n; i++) {
-        float x;
-        s->hold_acc += hold;
-        if (s->hold_acc >= 1.0f) {                    /* a new sample from the oscillators */
-            float a, b, c;
-            s->hold_acc -= 1.0f;
-            a = sq_read(tab[0], s->ph[0], smooth);
-            b = sq_read(tab[1], s->ph[1], smooth);
-            if (mode & 2)                             /* AM: osc 1's level opens osc 2 */
-                b *= 0.5f + 0.5f * a;
-            c = l3e > 0.0005f ? sq_read(tab[2], s->ph[2], smooth) : 0.0f;
-            x = (l1 * a + l2 * b + l3e * c) * norm;
-            if (q > 0.0f)
-                x = fm_floorf(x * q + 0.5f) / q;
-            s->hold_y = x;
-        }
-        for (k = 0; k < 3; k++)
-            s->ph[k] += inc[k];
-        if (s->ph[0] >= 256.0f) {
-            s->ph[0] -= 256.0f;
-            if (mode & 1)                             /* SYNC: osc 2 restarts with osc 1 */
-                s->ph[1] = s->ph[0] * (inc[1] / (inc[0] > 1e-6f ? inc[0] : 1e-6f));
-        }
-        for (k = 1; k < 3; k++)
-            while (s->ph[k] >= 256.0f)
-                s->ph[k] -= 256.0f;
-        out[i] = s->hold_y * 0.55f;
-    }
-}
-
 /* --------------------------------------------------------------- WAVE --- */
 /* After the PPG Wave and the Waldorf Microwave. Two oscillators read wavetables: each table is
  * 8 key waves and POS (0-63) moves between them. Osc 1 can hard-sync osc 2, ring-modulate it or
@@ -2237,7 +2124,7 @@ static void tine_render(voice_t *v, const float *eff, float f, float *out, int n
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 /* the voice after its source, a sample at a time: the envelope, the filter, the level (RAM code on the
@@ -2258,7 +2145,6 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
         case FT_LADDER: y = ladder_tick(&v->lad, x); break;
         case FT_MS20: y = ms20_tick(&v->lad, x); break;
         case FT_SH101: y = sh101_tick(&v->lad, x); break;
-        case FT_SQ80: y = sq80_tick(&v->lad, x); break;
         case FT_ZVOWEL: case FT_ZTALK: case FT_ZPHASER: case FT_ZPEAKS: case FT_ZSWEEP: case FT_ZMETAL:
             y = zp_tick(&v->zp, x);
             break;
@@ -2327,7 +2213,6 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_PHYS: phys_render(v, eff, f, tr->exc, buf, n); break;
     case ENG_FORMANT: form_render(v, eff, f, buf, n); break;
     case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
-    case ENG_SQ: sq_render(v, eff, f, buf, n); break;
     case ENG_WAVE: wave_render(v, eff, f, buf, n); break;
     case ENG_LOGIC: logic_render(v, eff, f, buf, n); break;
     case ENG_ORGAN: organ_render(v, eff, f, buf, n); break;
@@ -2336,11 +2221,9 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     case ENG_TINE: tine_render(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
-    /* the filter: cutoff from its knob, the FILTER ENV (SQ: its own ENV 2), the key */
+    /* the filter: cutoff from its knob, the FILTER ENV, the key */
     lvl0 = eng == ENG_CZ ? v->e.cz.level : v->a.out;  /* the level's envelope (CZ: its DCA): the LPG follows it */
     fl = fenv_tick(&v->fe, eff, (float)n * RV_DT);
-    if (eng == ENG_SQ)
-        fl = v->e.sq.e2;
     ktrk = eff[TP_KTRK] * (1.0f / 127.0f);
     env_amt = eff[TP_EFILT] * (1.0f / 64.0f);
     cut = eff[TP_CUT] + env_amt * 64.0f * fl + ktrk * ((float)v->note - 60.0f) * (127.0f / 120.0f);
@@ -2359,7 +2242,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         svf_set(&v->svf2, rv_cut_hz(cut), ft == FT_XLP24 || ft == FT_XBP24 ? 0.55f : q);
     } else if (FT_IS_Z(ft))                           /* MORPH and XFORM */
         zp_design(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
-    else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101 || ft == FT_SQ80)
+    else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
     else if (ft == FT_SEM)                            /* 12 dB, its resonance stops short of oscillating */
         svf_set(&v->svf, rv_cut_hz(cut), 0.55f + res * res * 11.0f);

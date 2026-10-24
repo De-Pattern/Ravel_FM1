@@ -136,28 +136,6 @@ static const int8_t p_lpg[] = {TP_S0, 40, TP_S1, 30, TP_S9, 8, TP_FTYPE, FT_LPG,
  * 7 PIANO, 8 EPIANO, 9 VOICE1, 10 VOICE2, 11 ORGAN, 12 REED, 13 SYNTH1, 14 SYNTH2, 15-17 FORMT1-3,
  * 18 OCTAVE, 19 DIGIT, 20 GLINT, 21 SPIKE), S3-S4 SEMI 2-3, S5 DETUNE, S6-S7 LEVEL 2-3, S8 MOD,
  * S9 E2 DEC, S10 E2 SUS, S11 P ENV, S12 TRANS, S13 VIBRATO, S14 VIB RATE, S15 GRIT */
-#define SQF TP_FTYPE, FT_SQ80
-static const int8_t q_piano[] = {TP_S0, 7, TP_S1, 8, TP_S2, 21, TP_S3, 0, TP_S4, 24, TP_S5, 10, TP_S6, 60, TP_S7, 0, TP_S9, 52,
-                                 TP_S10, 10, TP_S12, 90, TP_S15, 70, SQF, TP_CUT, 62, TP_RES, 10, TP_EFILT, 40, TP_KTRK, 60,
-                                 TP_ATK, 0, TP_DEC, 82, TP_SUS, 0, TP_REL, 50, TP_POLY, 3, TP_LEVEL, 106, END};
-static const int8_t q_vox[] = {TP_S0, 9, TP_S1, 10, TP_S2, 15, TP_S3, 0, TP_S5, 22, TP_S6, 100, TP_S7, 40, TP_S9, 80, TP_S10, 90,
-                               TP_S13, 40, TP_S14, 60, TP_S15, 60, SQF, TP_CUT, 80, TP_RES, 20, TP_EFILT, 10, TP_ATK, 60,
-                               TP_SUS, 110, TP_REL, 80, TP_POLY, 3, TP_REVS, 60, TP_LEVEL, 124, END};
-static const int8_t q_bells[] = {TP_S0, 5, TP_S1, 20, TP_S2, 3, TP_S3, 19, TP_S4, 24, TP_S5, 12, TP_S6, 50, TP_S7, 30, TP_S9, 70,
-                                 TP_S10, 0, TP_S12, 60, TP_S15, 80, SQF, TP_CUT, 96, TP_RES, 16, TP_EFILT, 30, TP_ATK, 0,
-                                 TP_DEC, 96, TP_SUS, 0, TP_REL, 90, TP_POLY, 3, TP_REVS, 60, TP_DLYS, 30, TP_LEVEL, 111, END};
-static const int8_t q_bass[] = {TP_S0, 6, TP_S1, 0, TP_S3, -12, TP_S5, 6, TP_S6, 70, TP_S9, 44, TP_S10, 20, TP_S11, 4,
-                                TP_S15, 96, SQF, TP_CUT, 44, TP_RES, 50, TP_EFILT, 52, TP_ATK, 0, TP_DEC, 60, TP_SUS, 80,
-                                TP_REL, 20, TP_POLY, 0, TP_PITCH, -12, TP_LEVEL, 127, END};
-static const int8_t q_sync[] = {TP_S0, 0, TP_S1, 0, TP_S3, 19, TP_S6, 110, TP_S8, SQM_SYNC, TP_S9, 64, TP_S10, 30, TP_S11, 30,
-                                TP_S15, 76, SQF, TP_CUT, 74, TP_RES, 30, TP_EFILT, 36, TP_ATK, 0, TP_DEC, 70, TP_SUS, 90,
-                                TP_REL, 30, TP_LEVEL, 122, END};
-static const int8_t q_pad[] = {TP_S0, 13, TP_S1, 14, TP_S2, 17, TP_S3, 0, TP_S4, 12, TP_S5, 34, TP_S6, 100, TP_S7, 50, TP_S9, 110,
-                               TP_S10, 60, TP_S13, 20, TP_S14, 50, TP_S15, 56, SQF, TP_CUT, 60, TP_RES, 36, TP_EFILT, 30,
-                               TP_ATK, 90, TP_SUS, 110, TP_REL, 100, TP_POLY, 3, TP_REVS, 80, TP_LEVEL, 127, END};
-static const int8_t q_organ[] = {TP_S0, 11, TP_S1, 18, TP_S2, 19, TP_S3, 12, TP_S4, 19, TP_S5, 4, TP_S6, 60, TP_S7, 0, TP_S9, 20,
-                                 TP_S10, 127, TP_S12, 40, TP_S13, 24, TP_S14, 80, TP_S15, 100, SQF, TP_CUT, 110, TP_RES, 0,
-                                 TP_EFILT, 0, TP_ATK, 2, TP_SUS, 127, TP_REL, 16, TP_POLY, 3, TP_LEVEL, 89, END};
 
 /* WAVE: S0 TABLE 1 (0 PPG SWEEP, 1 RESONANT, 2 PULSE, 3 SYNC, 4 VOICES, 5 ORGAN, 6 BELLS, 7 FORMANT,
  * 8 DIGITAL, 9 SQR TO SAW, 10 PARTIALS, 11 OCTAVES, 12 FM, 13 BRASS, 14 STRINGS, 15 PPG HARD,
@@ -313,9 +291,6 @@ static const rv_preset presets[] = {
     {"CHIP ARP", KIND_SYNTH, ENG_CHIP, p_chiparp, 0}, {"SID BASS", KIND_SYNTH, ENG_CHIP, p_sidbass, 0}, {"CHIP KICK", KIND_SYNTH, ENG_CHIP, p_chipkick, 0},
     {"CHIP SNARE", KIND_SYNTH, ENG_CHIP, p_chipsnare, 0}, {"DECOMPOSED", KIND_SYNTH, ENG_CHIP, p_decomposed, 0},
     {"SYNC ARP", KIND_SYNTH, ENG_CHIP, p_syncarp, 0}, {"101 BASS", KIND_SYNTH, ENG_VA, p_101bass, 0}, {"MS SCREAM", KIND_SYNTH, ENG_VA, p_msscream, 0}, {"SEM BRASS", KIND_SYNTH, ENG_VA, p_sembrass, 0}, {"SEM NOTCH", KIND_SYNTH, ENG_VA, p_semnotch, 0},
-    {"SQ PIANO", KIND_SYNTH, ENG_SQ, q_piano, 0}, {"SQ VOX", KIND_SYNTH, ENG_SQ, q_vox, 0}, {"SQ BELLS", KIND_SYNTH, ENG_SQ, q_bells, 0},
-    {"SQ BASS", KIND_SYNTH, ENG_SQ, q_bass, 0}, {"SQ SYNC", KIND_SYNTH, ENG_SQ, q_sync, 0}, {"SQ PAD", KIND_SYNTH, ENG_SQ, q_pad, 0},
-    {"SQ ORGAN", KIND_SYNTH, ENG_SQ, q_organ, 0},
     {"TALK BOX", KIND_SYNTH, ENG_VA, p_talkbox, 0}, {"PHASE PAD", KIND_SYNTH, ENG_VA, p_phasepad, 0},
     {"Z VOX", KIND_SYNTH, ENG_VA, p_zvox, 0}, {"Z SWEEP", KIND_SYNTH, ENG_VA, p_zsweep, 0},
     {"PPG PAD", KIND_SYNTH, ENG_WAVE, w_ppgpad, 0}, {"WAVE BELLS", KIND_SYNTH, ENG_WAVE, w_bells, 0},

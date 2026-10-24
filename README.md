@@ -11,7 +11,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space: a 12-bit reverb); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space: a 12-bit reverb); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
@@ -21,7 +21,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), fourteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **SQ** (after the Ensoniq SQ-80: three oscillators on 8-bit waves, sync and AM, a CEM-style filter and the DOC chip's grit), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
+- **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Tape tracks** (T7, T8): the sampler, playing the shared 120 KB capture tape (filled by resampling Ravel itself): **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), **KEYS** (a span across the keys, up to four voices), **STRETCH** (speed apart from pitch), **SHARDS** (the span in pieces, one at a time, in an order, with gaps), **slices**, or a **kit** of six lanes, each its own span. START and END can be moved by LFOs, so loops breathe.
@@ -193,7 +193,7 @@ Ravel has **8 tracks**. Each track is one of four kinds, and any track can be an
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with fourteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **TAPE** | The sampler. It plays the shared capture tape: MLR playheads, across the keys (up to 4 voices), stretched, as shards, as slices, or as a kit of six lanes. | T7–T8 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
@@ -227,7 +227,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, SQ, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
+| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -264,11 +264,11 @@ All pages here act on the current track (ALGORITHM). **PRESETS** browses sounds 
 | --- | --- | --- | --- | --- |
 | **SOUND** | KIND | ENGINE | VOICES (mono, 2, 3, 4) | VELO: how much key velocity changes the level |
 | **SOURCE 1–4** | the engine's own controls, see below | | | |
-| **OSC MIX** | each oscillator's level, side by side: VA OSC LVL, SUB, NOISE · FM LEVEL1–4 · SQ LEVEL 1–3 · WAVE LEVEL 1, ASIC · CHIP OSC LVL, SUB · MONO SAW, PULSE, SUB, NOISE | | | |
+| **OSC MIX** | each oscillator's level, side by side: VA OSC LVL, SUB, NOISE · FM LEVEL1–4 · WAVE LEVEL 1, ASIC · CHIP OSC LVL, SUB · MONO SAW, PULSE, SUB, NOISE | | | |
 
-OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on SQ and WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
+OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 on FM, LEVEL 1 on WAVE) is the first oscillator's own level, new here; the others are the engine's existing level knobs, shown together (they stay on the SOURCE pages too). The CZ's two lines are levelled by their DCA envelopes, ORGAN's by its rank footages.
 | **PITCH** | PITCH (±24 semitones) | FINE (±50 cents) | GLIDE | VCF KEY: the filter's cutoff (or a Z filter's morph) follows the note |
-| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, SQ-80, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV ROUTE, so turning either moves both |
+| **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV ROUTE, so turning either moves both |
 | **SKIN** | DRIVE (saturation of everything the track plays at once: 0 by default, so chords stay clean; turn it up to make them break up together) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | GRAIN (strike and perc tracks): each hit a little different, see below | – |
 | **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
@@ -277,7 +277,7 @@ OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 
 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
 
-**MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises. **SQ-80** is warm and a touch dark: four transistor-style stages (after the CEM3379 chip in the Ensoniq SQ-80) whose resonance whistles rather than screams, and thins the bass as it rises, as the SQ-80's does. All three are on synth tracks (all engines); try the 101 BASS and MS SCREAM presets, and any SQ preset. Picking the SQ engine sets the filter to SQ-80.
+**MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises.
 
 **The Z filters** morph, in the manner of E-mu's Z-plane filters (Morpheus, the Audity, the later samplers). Each is twelve poles: six sections, peaks, dips and slopes, laid out at the four corners of a square. CUTOFF becomes **MORPH**, which moves across the square one way, and RESO becomes **XFORM**, which moves it the other. In between, every peak glides at once, so the whole shape turns into the next one rather than a single cutoff moving. The filter envelope (ENV), VCF KEY, the LFOs and the matrix move MORPH like any cutoff. The FILTER picture draws the real response as it morphs. The shapes are Ravel's own:
 
@@ -304,7 +304,7 @@ Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRES
 
 **GRAIN** (EDIT › SKIN 2, on strike and perc tracks) makes each hit slightly different from the last: a little sharper or flatter (up to half a semitone), a little louder or softer, now and then darker or shorter. Most hits move a little and a few a lot, the way a hand never strikes twice the same. It changes nothing about which steps play or when: it is texture, so sixteen hats sound like sixteen hits instead of one copied. On a kit it acts on every lane.
 
-### The fourteen synth engines (SOURCE pages)
+### The thirteen synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -410,21 +410,6 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **Sync:** with SYNC on and SUB OCT at -1, the sub holds the root while the arp's notes become synced, tearing timbres over it (the SYNC ARP preset). SUB OCT greys out while SUB is 0 and SYNC is off.
 - **Decompose:** the voice keeps its last 46 ms. At the end of each fragment, DECOMP is the chance that the next one breaks: the last fragment repeats, plays backwards, drops out, has its bits flipped, or plays at double speed. FRAG greys out while DECOMP is 0.
 - **Presets:** CHIP ARP, SID BASS (through the MS-20 filter), CHIP KICK, CHIP SNARE, DECOMPOSED and SYNC ARP.
-
-**SQ:** after the Ensoniq SQ-80. Three oscillators play 8-bit single-cycle waves, osc 1 can hard-sync and amplitude-modulate osc 2, a second envelope moves the filter, the pitch and an attack layer, a delayed vibrato fades in, and GRIT dials in what made the SQ-80 sound the way it does: its DOC sound chip reading 8-bit waves without smoothing, at its own sample rate, into a coarse converter. The SQ-80's many parameters are folded into these sixteen. The waves are Ravel's own, built from harmonic recipes in the SQ's families; none come from Ensoniq's ROM.
-
-| SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
-| --- | --- | --- | --- |
-| WAVE 1: the main oscillator's wave | SEMI 3: osc 3's interval, ±24 semitones | MOD: OFF, SYNC (osc 2 restarts with osc 1), AM (osc 1's level opens and closes osc 2), SYNC+AM | TRANS: osc 3 lifted by ENV 2's decay, for a struck, plucked or breathy onset |
-| WAVE 2 | DETUNE: osc 2 up and osc 3 down, up to a quarter tone | E2 DEC: ENV 2's decay, 4 ms to about 6 s | VIBRATO: depth (fades in over half a second, like the SQ's delayed LFO) |
-| WAVE 3 | LEVEL 2: osc 2's level | E2 SUS: where ENV 2 settles while the note is held | VIB RATE: 0.5 to 11 Hz |
-| SEMI 2: osc 2's interval, ±24 semitones | LEVEL 3: osc 3's level | P ENV: pitch from ENV 2's decay, ±24 semitones | GRIT: 0 clean; to 64 the waves alias and lose their smoothing; to 127 the samples are held and the converter coarsens |
-
-- **The waves:** SAW, SQUARE, PULSE, SINE, TRI, BELL, BASS, PIANO, EPIANO, VOICE1 (an "ah"), VOICE2 (an "oh"), ORGAN, REED, SYNTH1, SYNTH2, FORMT1 to FORMT3 (formant peaks, low to high), OCTAVE, DIGIT (bit logic, harsh), GLINT and SPIKE.
-- **The envelopes:** the track's ADSR on the ENV page is the SQ's ENV 4, the level. ENV 2 is the filter's: FILTER's ENV amount follows it, not the level. Its decay alone drives P ENV and TRANS, so they fall away even while ENV 2 holds at E2 SUS.
-- **More movement:** the LFO page's LFOs and the matrix reach every SOURCE knob, so wave levels, GRIT and the intervals can all be modulated, as the SQ-80's own modulators could.
-- **Greyed knobs:** WAVE 2 and SEMI 2 grey out while LEVEL 2 is 0 and MOD is off; WAVE 3 and SEMI 3 while LEVEL 3 and TRANS are 0; VIB RATE while VIBRATO is 0.
-- **Presets:** SQ PIANO, SQ VOX, SQ BELLS, SQ BASS, SQ SYNC, SQ PAD and SQ ORGAN.
 
 **WAVE:** a wavetable synth after the PPG Wave and the Waldorf Microwave. Two oscillators each read a wavetable: 8 key waves, with POS moving through 64 positions between them. Osc 1 can sync, ring-modulate or frequency-modulate osc 2, both read through a phase warp (after Serum's), and a mixer adds a sweet saturation as you push it. The wave envelope sweeps the positions in a loop, as the Microwave's does. ASIC dials in the hardware: from smooth to the PPG's stepping to the early Microwave's sizzle. The 20 tables are Ravel's own, built in the families the PPG made famous; none come from a PPG or Waldorf ROM.
 
@@ -652,7 +637,7 @@ The filter has its own envelope: delay, attack, hold, decay, sustain and release
 | **FENV ROUTE** | ENV>CUT: how far it moves the cutoff (±) | F DEST: a second destination, any of the track's modulation destinations (pitch, pan, drive, an engine's knobs, the volume envelope's times…) | F AMT: how far it moves F DEST (±; 0 off) | VCF KEY (also on PITCH) |
 
 - **The picture** draws the whole envelope with its bends, marks the loop when it is on, and shows the playing note as a dot.
-- **Which tracks:** synth tracks. With the LPG the filter follows the volume envelope instead, and the SQ engine's ENV 2 (on its source pages) is its own filter envelope, so these pages grey out there, unless F AMT sends the envelope somewhere: then it runs for F DEST. The CZ engine uses it like any other.
+- **Which tracks:** synth tracks. With the LPG the filter follows the volume envelope instead, so these pages grey out there, unless F AMT sends the envelope somewhere: then it runs for F DEST. The CZ engine uses it like any other.
 - **F DEST and F AMT:** the newest note's envelope, 0 to its peak, moves F DEST up by F AMT (or down, with F AMT below 0), as the volume envelope's DEST 1 and 2 do. The picture shows where it goes (INTO PAN +20, say). F DEST steps only through what can be moved.
 - **Moving it:** F ATK, F DEC, F SUS, F REL, F RATE, ENV>CUT and F AMT are modulation destinations, so an LFO or the matrix can deepen the track's own one.
 - **Older projects and sounds** load with a FILTER ENV copied from their volume envelope, so they sound as they did (the one envelope used to drive both). The factory presets do the same. The SHAPE envelopes of earlier versions are gone; a project that used one plays the classic volume envelope.
@@ -1492,7 +1477,6 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - Elektron's Machinedrum, whose synthesis machines and their documented parameters the PERC tracks are built from (Ravel's own designs; no Elektron code or data).
 - Kurzweil's VAST and E-mu's patch-cord functions, whose idea of building sound from function blocks the LOGIC engine follows.
 - Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).
-- Ensoniq's SQ-80, the instrument the SQ engine is modelled on, and the SQ8L plugin by Siegfried Kullmann, which showed how much of the SQ-80's character is in its digital path (no code or waves are taken from either).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).
 
 <p align="center"><img src="docs/brand/ravel-logo-footer.jpg" alt="RAVEL · FM-1 custom synth firmware" width="360"></p>

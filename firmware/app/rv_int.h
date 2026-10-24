@@ -69,9 +69,6 @@ typedef struct {
     uint16_t flip;
 } chip_t;
 
-/* SQ: three wavetable oscillators (the DOC chip's way: 8-bit cycles, read without interpolation as
- * GRIT rises), ENV 2 (the filter's) and its pure decay (pitch, the osc 3 transient), a delayed vibrato */
-typedef struct { float ph[3], e2, e2d, vib_t, vib_ph, hold_acc, hold_y; uint32_t ns; } sq_t;
 /* WAVE: two wavetable oscillators and the wave envelope (where in its shape, 0..1) */
 typedef struct { float ph[2], wu, wv; uint8_t wdone; } wave_t;
 /* ORGAN: seven ranks and a celeste, each pipe's own onset, the chiff, air, wind and tremulant */
@@ -133,7 +130,7 @@ typedef struct {
     float last;
     uint32_t rng;
     hitshade_t hs;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; sq_t sq; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; } e;
 } voice_t;
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */

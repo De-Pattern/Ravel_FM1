@@ -418,8 +418,6 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             chip_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_CZ)
             cz_note(vo, tr->eff, t);
-        else if (rv.tp[t][TP_ENGINE] == ENG_SQ)
-            sq_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_WAVE)
             wave_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_LOGIC)

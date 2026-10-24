@@ -77,7 +77,7 @@ enum {
      * decay, sustain; release, the attack's and the decay's bends, loop and rate follow below */
     TP_FDLY, TP_FATK, TP_FHOLD, TP_FDEC, TP_FSUS,
     TP_FMODE, TP_FBP,               /* the SEM filter: low pass to notch to high pass, and its band pass (0: LP, off) */
-    TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), SQ, WAVE, CHIP */
+    TP_OSC1,                        /* (format 11) the first oscillator's level: VA, FM (op 1), WAVE, CHIP */
     TP_FREL, TP_FACRV, TP_FDCRV, TP_FLOOP, TP_FRATE,   /* the FILTER ENV, continued */
     TP_SEDST, TP_SEAMT, TP_SEDEF,   /* (format 13) STEP ENV: where the step envelopes go, how far, the one a note starts */
     TP_FDST, TP_FAMT,               /* (format 15) the FILTER ENV into a second destination, any of the track's */
@@ -130,8 +130,7 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum */
-enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_SQ, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
-enum { SQM_OFF, SQM_SYNC, SQM_AM, SQM_BOTH };   /* SQ: osc 1 on osc 2 */
+enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
 enum { PM_TRX_BD, PM_TRX_B2, PM_TRX_SD, PM_TRX_XT, PM_TRX_CP, PM_TRX_RS, PM_TRX_CB, PM_TRX_CH, PM_TRX_OH, PM_TRX_CY,
@@ -141,7 +140,7 @@ enum { PM_TRX_BD, PM_TRX_B2, PM_TRX_SD, PM_TRX_XT, PM_TRX_CP, PM_TRX_RS, PM_TRX_
 enum { WX_OFF, WX_SYNC, WX_RING, WX_FM, WX_SYNCFM };   /* WAVE: osc 1 on osc 2 */
 enum { WW_OFF, WW_SYNC, WW_BEND, WW_PWM, WW_MIRROR, WW_REMAP2, WW_REMAP4, WW_SQUEEZE, WW_FLIP, WW_QUANT, WW_N };   /* WAVE: phase warps */
 enum { CW_TRI, CW_SAW, CW_PULSE, CW_NOISE, CW_SAWPUL, CW_RING, CW_PWM, CW_KICK, CW_SNARE, CW_N };   /* CHIP waves */
-enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_SQ80, FT_ZVOWEL, FT_ZTALK, FT_ZPHASER, FT_ZPEAKS, FT_ZSWEEP, FT_ZMETAL, FT_XLP24, FT_XBP24, FT_XNOTCH, FT_XSH, FT_XSHAPE, FT_SEM, FT_N };   /* Z: morphing; X: digital (XT) */
+enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_ZVOWEL, FT_ZTALK, FT_ZPHASER, FT_ZPEAKS, FT_ZSWEEP, FT_ZMETAL, FT_XLP24, FT_XBP24, FT_XNOTCH, FT_XSH, FT_XSHAPE, FT_SEM, FT_N };   /* Z: morphing; X: digital (XT) */
 #define FT_IS_Z(f) ((f) >= FT_ZVOWEL && (f) <= FT_ZMETAL)
 #define FT_IS_XT(f) ((f) >= FT_XLP24 && (f) <= FT_XSHAPE)
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
@@ -233,7 +232,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 20                /* 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 21                /* 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -396,6 +395,8 @@ extern const char *const rv_tape_row_names[];
 void rv_tape_span(int t, float *a, float *b);
 int rv_tape_voices(int t);                         /* a PERC kit's six lanes at their defaults */   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
 void rv_project_init(void);
+int rv_up21_engine(int e);                      /* (format 21) an old engine or filter number, as it is now */
+int rv_up21_ftype(int f);
 
 /* rv_engine.c: the audio side */
 void rv_engine_init(void);

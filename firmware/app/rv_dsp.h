@@ -140,24 +140,6 @@ RV_INL float sh101_tick(ladder_t *l, float x)
     return y;
 }
 
-/* SQ-80 style (the CEM3379's four-pole lowpass): transistor stages that each round off a little,
- * resonance fed back through a soft curve and nothing made up for the bass it costs, so the
- * passband thins as Q rises the way the SQ-80's does: warm, a touch dark, resonance that whistles
- * more than it screams */
-RV_INL float sq80_tick(ladder_t *l, float x)
-{
-    float G = l->g / (1.0f + l->g), k = l->res * (3.7f / 4.2f), u, y = 0.0f, fb = l->s[3];
-    int i;
-    fb = fb - 0.11f * fb * fb * fb;                   /* the feedback path's gentle curve */
-    u = sat(x * 0.9f - k * fb);
-    for (i = 0; i < 4; i++) {
-        float v = (u - l->s[i]) * G;
-        y = v + l->s[i];
-        l->s[i] = y + v;
-        u = i == 1 ? sat(y * 1.15f) * (1.0f / 1.15f) : y;   /* the middle stages round off */
-    }
-    return y * 1.1f;
-}
 
 /* polyBLEP for band-limited steps: t = phase 0..1, dt = increment */
 RV_INL float blep(float t, float dt)
