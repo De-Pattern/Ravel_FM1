@@ -8,6 +8,8 @@
 
 # Ravel
 
+> **This is Ravel Software**, the full version kept for the browser: every engine and effect, as it was before the FM-1 firmware was trimmed to fit the hardware. It lives on the `software` branch and plays at [de-pattern.github.io/Ravel_FM1/software/](https://de-pattern.github.io/Ravel_FM1/software/). The FM-1 firmware is on `main`.
+
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
 
 <p align="center">
