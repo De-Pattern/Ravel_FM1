@@ -577,7 +577,7 @@ static int put_int(char *o, int i, int max, int v, int plus)
 
 /* the time a TIME parameter stands for, in seconds: 0.5 ms .. 8 s */
 float rv_time_s(int v) { return 0.0005f * fm_exp2f((float)v * (13.97f / 127.0f)); }
-float rv_cut_hz(float v) { return 20.0f * fm_exp2f(v * (10.0f / 127.0f)); }
+float rv_cut_hz(float v) { return rv_cut_hz_i(v); }
 
 static const char *dest_name(int p)
 {

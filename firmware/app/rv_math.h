@@ -17,13 +17,28 @@
 #define FM_LN2 0.693147180559945f
 #define FM_LOG2E 1.44269504088896f
 
+/* RV_HOT: render code the FM-1 copies into the chip's own RAM at start (app.ld .fast_text), so it runs
+ * without waiting on the flash. That RAM is more than a direct call's reach (4 MB) from the flash both
+ * ways, so: the flash calls it through a pointer the compiler cannot see through (RV_FAR), and it calls
+ * nothing in the flash, its helpers forced inline (RV_INL). RAVEL_FAST=0 builds it all in the flash */
+#if defined(RV_FM1) && (!defined(RAVEL_FAST) || RAVEL_FAST)
+#define RV_HOT __attribute__((section(".fast_text"), noinline))
+#define RV_INL static inline __attribute__((always_inline))
+/* (read through a volatile pointer: the compiler cannot turn it back into a direct call) */
+#define RV_FAR(fn) ({ static __typeof__(&fn) const volatile rv_far_ = fn; rv_far_; })
+#else
+#define RV_HOT
+#define RV_INL static inline
+#define RV_FAR(fn) fn
+#endif
+
 typedef union { float f; uint32_t u; int32_t i; } fm_bits_t;
 
-static inline float fm_fabsf(float x) { fm_bits_t b; b.f = x; b.u &= 0x7FFFFFFFu; return b.f; }
+RV_INL float fm_fabsf(float x) { fm_bits_t b; b.f = x; b.u &= 0x7FFFFFFFu; return b.f; }
 static inline float fm_minf(float a, float b) { return a < b ? a : b; }
-static inline float fm_maxf(float a, float b) { return a > b ? a : b; }
+RV_INL float fm_maxf(float a, float b) { return a > b ? a : b; }
 static inline float fm_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
-static inline float fm_flush(float x) { return fm_fabsf(x) < 1e-20f ? 0.0f : x; }
+RV_INL float fm_flush(float x) { return fm_fabsf(x) < 1e-20f ? 0.0f : x; }
 /* n floats of decaying state: anything under about 1e-15 to 0, before it sinks into the denormals
  * (numbers so small a floating-point unit may take many times as long on them; a ringing filter
  * left alone gets there in a second or two). Once a block is enough */
@@ -39,14 +54,14 @@ static inline void fm_flush_n(float *p, int n)
 }
 
 /* floor, for |x| < 2^31 */
-static inline float fm_floorf(float x)
+RV_INL float fm_floorf(float x)
 {
     float t = (float)(int32_t)x;
     return t > x ? t - 1.0f : t;
 }
 
 /* 2^x: 2^n from the exponent bits, 2^f (f in [0, 1)) from a degree-6 fit */
-static float fm_exp2f(float x)
+RV_INL float fm_exp2f(float x)
 {
     fm_bits_t s;
     float n, f, p;
@@ -66,6 +81,8 @@ static float fm_exp2f(float x)
     s.u = (uint32_t)((int32_t)n + 127) << 23;
     return p * s.f;
 }
+/* a cutoff knob (0..127) in Hz: 20 Hz to 20 kHz (rv_params.c's rv_cut_hz; this one inlines into the RAM code) */
+RV_INL float rv_cut_hz_i(float v) { return 20.0f * fm_exp2f(v * (10.0f / 127.0f)); }
 
 static inline float fm_expf(float x) { return fm_exp2f(x * FM_LOG2E); }
 
@@ -123,7 +140,7 @@ static float fm_sin_r(float r)
 static inline float fm_sin_turns(float ph) { return fm_sin_r(ph - fm_floorf(ph + 0.5f)); }
 
 /* sin(x): x in turns, the whole turns taken out in two parts so large x keep their precision */
-static float fm_sinf(float x)
+RV_INL float fm_sinf(float x)
 {
     float k = fm_floorf(x * 0.159154943f + 0.5f);
     float r = (x - k * 6.28125f) - k * 1.93530718e-3f;   /* 2 pi = 6.28125 + 0.00193530718 */
@@ -132,7 +149,7 @@ static float fm_sinf(float x)
 
 static inline float fm_cosf(float x) { return fm_sinf(x + 1.57079633f); }
 
-static inline float fm_tanf(float x)
+RV_INL float fm_tanf(float x)
 {
     float c = fm_cosf(x);
     if (fm_fabsf(c) < 1e-7f)
@@ -141,7 +158,7 @@ static inline float fm_tanf(float x)
 }
 
 /* sqrt for x >= 0: a guess from the exponent bits, then three Newton steps */
-static float fm_sqrtf(float x)
+RV_INL float fm_sqrtf(float x)
 {
     fm_bits_t b;
     float y;

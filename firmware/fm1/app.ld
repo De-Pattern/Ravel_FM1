@@ -24,7 +24,10 @@ SECTIONS
     _rt_load = LOADADDR(.ram_text);
     .c1_text : { _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4); _c1_end = .; } > RAMTEXT AT > XIP
     _c1_load = LOADADDR(.c1_text);
-    _rt_end = _c1_end;                  /* the guard's RAM code window covers both */
+    /* the render's busiest code, run from RAM (RV_HOT in firmware/app) */
+    .fast_text : { _fast_start = .; KEEP(*(.fast_text*)) . = ALIGN(4); _fast_end = .; } > RAMTEXT AT > XIP
+    _fast_load = LOADADDR(.fast_text);
+    _rt_end = _fast_end;                /* the guard's RAM code window covers all three */
     .data : { . = ALIGN(4); _data_start = .; *(.data*) *(.sdata*) . = ALIGN(4); _data_end = .; } > RAM AT > XIP
     _data_load = LOADADDR(.data);
     .bss (NOLOAD) : { _bss_start = .; *(.rv_ram_bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .sbss*)

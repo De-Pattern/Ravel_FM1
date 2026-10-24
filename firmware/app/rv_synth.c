@@ -155,7 +155,7 @@ static void artic_release(artic_t *a, const artic_cfg_t *c)
 }
 
 /* one sample; returns the level */
-static inline float artic_tick(artic_t *a, const artic_cfg_t *c)
+RV_INL float artic_tick(artic_t *a, const artic_cfg_t *c)
 {
     float o;
     switch (a->stage) {
@@ -257,7 +257,7 @@ static void synth_tables(void)
         wt[t][WT_LEN] = wt[t][0];
 }
 
-static inline float sin_lut(float ph)              /* ph in turns, any range */
+RV_INL float sin_lut(float ph)              /* ph in turns, any range */
 {
     float x = ph - fm_floorf(ph), f;
     int i;
@@ -280,7 +280,7 @@ static inline float wt_read(const int16_t *w, float ph)
 /* ---------------------------------------------------------------- VA --- */
 static const float va_ratios[8] = {0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f};
 
-static void va_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_HOT static void va_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     va_t *s = &v->e.va;
     float dt = f * RV_DT, wave = eff[TP_S0] * (1.0f / 127.0f), pw = 0.5f + (eff[TP_S1] - 64.0f) * (0.45f / 64.0f);
@@ -2240,11 +2240,78 @@ static void tine_render(voice_t *v, const float *eff, float f, float *out, int n
 static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
+/* the voice after its source, a sample at a time: the envelope, the filter, the level (RAM code on the
+ * FM-1: every synth voice runs it) */
+RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, float *out, int n, int eng, int ft,
+                               float res, float cut, float velamt, float sem_m, int sem_bp)
+{
+    int i;
+    float lvl;
+    lvl = 0.0f;
+    for (i = 0; i < n; i++) {
+        float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */
+        if (eng != ENG_PHYS)
+            x += exc[i] * 0.5f;
+        if (v->a.tailv > 0.0005f)
+            x += xs_bi(&v->rng) * v->a.tailv * 0.35f;
+        switch (ft) {
+        case FT_LADDER: y = ladder_tick(&v->lad, x); break;
+        case FT_MS20: y = ms20_tick(&v->lad, x); break;
+        case FT_SH101: y = sh101_tick(&v->lad, x); break;
+        case FT_SQ80: y = sq80_tick(&v->lad, x); break;
+        case FT_ZVOWEL: case FT_ZTALK: case FT_ZPHASER: case FT_ZPEAKS: case FT_ZSWEEP: case FT_ZMETAL:
+            y = zp_tick(&v->zp, x);
+            break;
+        case FT_XLP24:                                /* two clean stages, the resonance in the first */
+            y = svf_tick(&v->svf2, svf_tick(&v->svf, x, 0, 0), 0, 0);
+            break;
+        case FT_XBP24:
+            svf_tick(&v->svf, x, &bp, 0);
+            svf_tick(&v->svf2, bp * v->svf.k, &hp, 0);
+            y = hp * v->svf2.k * (1.0f + res * 2.0f);
+            break;
+        case FT_XNOTCH:
+            svf_tick(&v->svf, x, &bp, 0);
+            y = x - v->svf.k * bp * (1.0f + res * 0.8f);
+            break;
+        case FT_XSH:                                  /* sample and hold: CUTOFF is the clock, RESO smooths less */
+            v->xs_acc += rv_cut_hz_i(cut) * 2.0f * RV_DT;
+            if (v->xs_acc >= 1.0f) {
+                v->xs_acc -= fm_floorf(v->xs_acc);
+                v->xs_y = x;
+            }
+            y = svf_tick(&v->svf2, v->xs_y, 0, 0) * (1.0f - res) + v->xs_y * res;
+            break;
+        case FT_XSHAPE: {                             /* a wave shaper: CUTOFF drives it, RESO folds it */
+            float g = 1.0f + cut * (6.0f / 127.0f);
+            y = fm_sinf(x * g * (1.0f + res * 2.0f)) * (0.7f + 0.3f / g);
+            break;
+        }
+        case FT_SEM: {                                /* Oberheim SEM: one state variable, LP to notch to HP, or BP */
+            float lp = svf_tick(&v->svf, x, &bp, &hp);
+            v->svf.ic1 = 2.0f * sat(v->svf.ic1 * 0.5f);   /* the OTA integrators round off when it rings */
+            y = sem_bp ? bp * fm_sqrtf(v->svf.k) : lp + (hp - lp) * sem_m;   /* BP rises with RESO, as the SEM's does */
+            break;
+        }
+        case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
+        case FT_BP: svf_tick(&v->svf, x, &bp, 0); y = bp * (1.0f + res); break;
+        case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;
+        default: y = svf_tick(&v->svf, x, 0, 0) * v->lpg; break;
+        }
+        y *= a * (1.0f - velamt + velamt * v->vel);
+        y = 2.0f * sat(y * 0.5f);                     /* a resonant filter or body driven hard: rounded, not runaway */
+        out[i] += y * eng_trim[eng];
+        v->last = y;
+        lvl = a;
+    }
+    return lvl;
+}
+
 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
 {
     const float *eff = tr->eff;
     float buf[RV_SUB], f, lvl0, fl, cut, res, ktrk, env_amt, lvl;
-    int i, eng = clampi((int)(eff[TP_ENGINE] + 0.5f), 0, ENG_N - 1), ft = clampi((int)(eff[TP_FTYPE] + 0.5f), 0, FT_N - 1);
+    int eng = clampi((int)(eff[TP_ENGINE] + 0.5f), 0, ENG_N - 1), ft = clampi((int)(eff[TP_FTYPE] + 0.5f), 0, FT_N - 1);
     float glide = eff[TP_GLIDE] < 0.5f ? 1.0f : 1.0f - fm_expf(-(float)n * RV_DT / (0.002f + eff[TP_GLIDE] * eff[TP_GLIDE] * 0.00012f));
     float velamt = eff[TP_VELO] * (1.0f / 127.0f);
     v->pitch += (v->target - v->pitch) * glide;
@@ -2254,7 +2321,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
     if (v->e_eng != eng + 1)                          /* the engine changed under a sounding voice */
         voice_engine_reset(v, eng);
     switch (eng) {
-    case ENG_VA: va_render(v, eff, f, buf, n); break;
+    case ENG_VA: RV_FAR(va_render)(v, eff, f, buf, n); break;
     case ENG_CZ: cz_render(v, eff, f, buf, n, v->track); break;
     case ENG_FM: fm_render(v, eff, f, buf, n); break;
     case ENG_PHYS: phys_render(v, eff, f, tr->exc, buf, n); break;
@@ -2300,63 +2367,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
     const float sem_m = clampf(eff[TP_FMODE] * (1.0f / 127.0f), 0.0f, 1.0f);   /* (locals: two cores may render voices at once) */
     const int sem_bp = eff[TP_FBP] > 0.5f;
-    lvl = 0.0f;
-    for (i = 0; i < n; i++) {
-        float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */
-        if (eng != ENG_PHYS)
-            x += tr->exc[i] * 0.5f;
-        if (v->a.tailv > 0.0005f)
-            x += xs_bi(&v->rng) * v->a.tailv * 0.35f;
-        switch (ft) {
-        case FT_LADDER: y = ladder_tick(&v->lad, x); break;
-        case FT_MS20: y = ms20_tick(&v->lad, x); break;
-        case FT_SH101: y = sh101_tick(&v->lad, x); break;
-        case FT_SQ80: y = sq80_tick(&v->lad, x); break;
-        case FT_ZVOWEL: case FT_ZTALK: case FT_ZPHASER: case FT_ZPEAKS: case FT_ZSWEEP: case FT_ZMETAL:
-            y = zp_tick(&v->zp, x);
-            break;
-        case FT_XLP24:                                /* two clean stages, the resonance in the first */
-            y = svf_tick(&v->svf2, svf_tick(&v->svf, x, 0, 0), 0, 0);
-            break;
-        case FT_XBP24:
-            svf_tick(&v->svf, x, &bp, 0);
-            svf_tick(&v->svf2, bp * v->svf.k, &hp, 0);
-            y = hp * v->svf2.k * (1.0f + res * 2.0f);
-            break;
-        case FT_XNOTCH:
-            svf_tick(&v->svf, x, &bp, 0);
-            y = x - v->svf.k * bp * (1.0f + res * 0.8f);
-            break;
-        case FT_XSH:                                  /* sample and hold: CUTOFF is the clock, RESO smooths less */
-            v->xs_acc += rv_cut_hz(cut) * 2.0f * RV_DT;
-            if (v->xs_acc >= 1.0f) {
-                v->xs_acc -= fm_floorf(v->xs_acc);
-                v->xs_y = x;
-            }
-            y = svf_tick(&v->svf2, v->xs_y, 0, 0) * (1.0f - res) + v->xs_y * res;
-            break;
-        case FT_XSHAPE: {                             /* a wave shaper: CUTOFF drives it, RESO folds it */
-            float g = 1.0f + cut * (6.0f / 127.0f);
-            y = fm_sinf(x * g * (1.0f + res * 2.0f)) * (0.7f + 0.3f / g);
-            break;
-        }
-        case FT_SEM: {                                /* Oberheim SEM: one state variable, LP to notch to HP, or BP */
-            float lp = svf_tick(&v->svf, x, &bp, &hp);
-            v->svf.ic1 = 2.0f * sat(v->svf.ic1 * 0.5f);   /* the OTA integrators round off when it rings */
-            y = sem_bp ? bp * fm_sqrtf(v->svf.k) : lp + (hp - lp) * sem_m;   /* BP rises with RESO, as the SEM's does */
-            break;
-        }
-        case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
-        case FT_BP: svf_tick(&v->svf, x, &bp, 0); y = bp * (1.0f + res); break;
-        case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;
-        default: y = svf_tick(&v->svf, x, 0, 0) * v->lpg; break;
-        }
-        y *= a * (1.0f - velamt + velamt * v->vel);
-        y = 2.0f * sat(y * 0.5f);                     /* a resonant filter or body driven hard: rounded, not runaway */
-        out[i] += y * eng_trim[eng];
-        v->last = y;
-        lvl = a;
-    }
+    lvl = RV_FAR(voice_post)(v, tr->exc, buf, out, n, eng, ft, res, cut, velamt, sem_m, sem_bp);
     if (eng == ENG_CZ) {
         if (v->e.cz.done)
             v->on = 0;

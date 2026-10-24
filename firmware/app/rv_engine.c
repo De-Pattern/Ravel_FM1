@@ -1098,6 +1098,47 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     rv_live.cap = guard_cap;
 }
 
+/* the master's last stage, a sample at a time: no DC, the peak limiter at -1 dB (instant attack, about
+ * 80 ms release), the metronome's blip, the meters (RAM code on the FM-1: it runs on every block) */
+RV_HOT static void master_tail(float *outl, float *outr, int n)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        float a;
+        float yl = outl[i] - master_dc[0].x1 + 0.9995f * master_dc[0].y1;   /* DC blocker, about 3.5 Hz */
+        float yr = outr[i] - master_dc[1].x1 + 0.9995f * master_dc[1].y1;
+        master_dc[0].x1 = outl[i];
+        master_dc[1].x1 = outr[i];
+        master_dc[0].y1 = fm_flush(yl);
+        master_dc[1].y1 = fm_flush(yr);
+        outl[i] = yl;
+        outr[i] = yr;
+        a = fm_maxf(fm_fabsf(outl[i]), fm_fabsf(outr[i])) * lim_gain;
+        if (a > 0.89f)
+            lim_gain *= 0.89f / a;
+        else
+            lim_gain += (1.0f - lim_gain) * 0.0003f;
+        outl[i] = clampf(outl[i] * lim_gain, -0.95f, 0.95f);
+        outr[i] = clampf(outr[i] * lim_gain, -0.95f, 0.95f);
+        if (click_armed && (int32_t)(now_s + (uint32_t)i - click_when) >= 0) {   /* the metronome: a short blip */
+            click_armed = 0;
+            click_env = click_amp;
+            click_ph = 0.0f;
+            click_hz = click_down ? 1600.0f : 1100.0f;
+        }
+        if (click_env > 0.0005f) {
+            float c = sin_lut(click_ph) * click_env;
+            click_ph += click_hz * RV_DT;
+            click_ph -= fm_floorf(click_ph);
+            click_env *= 0.9978f;
+            outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
+            outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
+        }
+        rv_live.master_l = fm_maxf(fm_fabsf(outl[i]), rv_live.master_l * 0.9999f);
+        rv_live.master_r = fm_maxf(fm_fabsf(outr[i]), rv_live.master_r * 0.9999f);
+    }
+}
+
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
@@ -1419,7 +1460,7 @@ static void render_sub(float *outl, float *outr, int n)
         for (i = 0; i < n; i++)
             fb_out[i] = 0.0f;
     } else {
-        feedback_run(fb_in, n, fb_out);
+        RV_FAR(feedback_run)(fb_in, n, fb_out);
         bus_note(BUS_FB, peak_of(fb_out, n));
     }
     if (buf_fix(fb_out, n)) {
@@ -1440,7 +1481,7 @@ static void render_sub(float *outl, float *outr, int n)
         buses_reset();
     }
     PROF(PF_DLY);
-    bus_stereo(BUS_SPACE, space_run, rev_in, n, outl, outr);
+    bus_stereo(BUS_SPACE, halfrate_run, rev_in, n, outl, outr);
     PROF(PF_SPACE);
     if (buf_fix(outl, n) | buf_fix(outr, n)) {
         fault(900);
@@ -1514,37 +1555,9 @@ static void render_sub(float *outl, float *outr, int n)
         }
         if (!(lim_gain > 0.0f && lim_gain <= 1.0f))
             lim_gain = 1.0f;
-        for (i = 0; i < n; i++) {
-            float a;
-            float yl = outl[i] - master_dc[0].x1 + 0.9995f * master_dc[0].y1;   /* DC blocker, about 3.5 Hz */
-            float yr = outr[i] - master_dc[1].x1 + 0.9995f * master_dc[1].y1;
-            master_dc[0].x1 = outl[i];
-            master_dc[1].x1 = outr[i];
-            master_dc[0].y1 = fm_flush(yl);
-            master_dc[1].y1 = fm_flush(yr);
-            outl[i] = yl;
-            outr[i] = yr;
-            a = fm_maxf(fm_fabsf(outl[i]), fm_fabsf(outr[i])) * lim_gain;
-            if (a > 0.89f)
-                lim_gain *= 0.89f / a;
-            else
-                lim_gain += (1.0f - lim_gain) * 0.0003f;
-            outl[i] = clampf(outl[i] * lim_gain, -0.95f, 0.95f);
-            outr[i] = clampf(outr[i] * lim_gain, -0.95f, 0.95f);
-            if (click_armed && (int32_t)(now_s + (uint32_t)i - click_when) >= 0) {   /* the metronome: a short blip */
-                click_armed = 0;
-                click_env = click_amp;
-                click_ph = 0.0f;
-                click_hz = click_down ? 1600.0f : 1100.0f;
-            }
-            if (click_env > 0.0005f) {
-                float c = sin_lut(click_ph) * click_env;
-                click_ph += click_hz * RV_DT;
-                click_ph -= fm_floorf(click_ph);
-                click_env *= 0.9978f;
-                outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
-                outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
-            }
+        RV_FAR(master_tail)(outl, outr, n);
+        if (moom_sfx_req || moom_music || sfx_kind || mus_t != 0.0f)   /* MOOM's sounds, when it plays */
+            for (i = 0; i < n; i++) {
             if (moom_sfx_req) {                       /* a MOOM sound starts */
                 sfx_kind = moom_sfx_req;
                 moom_sfx_req = 0;
@@ -1564,9 +1577,7 @@ static void render_sub(float *outl, float *outr, int n)
                 outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
                 outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
             }
-            rv_live.master_l = fm_maxf(fm_fabsf(outl[i]), rv_live.master_l * 0.9999f);
-            rv_live.master_r = fm_maxf(fm_fabsf(outr[i]), rv_live.master_r * 0.9999f);
-        }
+            }
     }
     now_s += (uint32_t)n;
     rv_live.tick = now_s;

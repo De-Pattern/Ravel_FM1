@@ -5,6 +5,7 @@
  * (ALNK0), USB; then the main loop: the interface about 30 frames a second, input polled between. */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[], _c1_start[], _c1_end[], _c1_load[];
+extern uint32_t _fast_start[], _fast_end[], _fast_load[];
 
 /* --------------------------------------------------------------- audio --- */
 #define HALF_FRAMES 512u                    /* I2S half buffer: 11.6 ms at 44.1 kHz */
@@ -335,6 +336,8 @@ void fm1_cstart(void)
     for (s = _rt_load, d = _rt_start; d < _rt_end; s++, d++)
         *d = *s;
     for (s = _c1_load, d = _c1_start; d < _c1_end; s++, d++)
+        *d = *s;
+    for (s = _fast_load, d = _fast_start; d < _fast_end; s++, d++)   /* the render's RAM code (RV_HOT) */
         *d = *s;
     fm1_mailbox_clear();
     fm1_guard_enable(FM1_GUARD_STACK | FM1_GUARD_WRITE | FM1_GUARD_BUS | FM1_GUARD_PC);

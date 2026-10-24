@@ -46,14 +46,11 @@
   <!-- buses -->
   <rect x="440" y="92" width="200" height="338" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
   <text x="456" y="117" font-weight="600" fill="#dde5de">Mixer and buses</text>
-  <text x="456" y="150" font-size="12" fill="#8c998f">Material vocoder</text>
-  <text x="456" y="176" font-size="12" fill="#8c998f">Bands (eight resonant bands)</text>
-  <text x="456" y="202" font-size="12" fill="#8c998f">Feedback bus</text>
-  <text x="456" y="228" font-size="12" fill="#8c998f">Filter pair</text>
-  <text x="456" y="254" font-size="12" fill="#8c998f">Delay: granular tape</text>
-  <text x="456" y="280" font-size="12" fill="#8c998f">Space: room, clouds, 12-bit</text>
-  <text x="456" y="306" font-size="12" fill="#8c998f">Bed: dust, wood to metal</text>
-  <text x="456" y="332" font-size="12" fill="#8c998f">Master drive, cuts, punch-ins</text>
+  <text x="456" y="150" font-size="12" fill="#8c998f">Feedback bus, band in the loop</text>
+  <text x="456" y="176" font-size="12" fill="#8c998f">Delay: granular tape</text>
+  <text x="456" y="202" font-size="12" fill="#8c998f">Space: 12-bit</text>
+  <text x="456" y="228" font-size="12" fill="#8c998f">Bed: dust, wood to metal</text>
+  <text x="456" y="254" font-size="12" fill="#8c998f">Master drive, cuts, punch-ins</text>
 
   <!-- master -->
   <rect x="664" y="237" width="112" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>

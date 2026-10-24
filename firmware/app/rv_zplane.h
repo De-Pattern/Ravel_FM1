@@ -127,7 +127,7 @@ static float zp_mag(int type, float m, float x, float f)
     return fm_sqrtf(mag2) * g;
 }
 
-static inline float zp_tick(zp_t *z, float x)
+RV_INL float zp_tick(zp_t *z, float x)
 {
     int s;
     x *= z->g;

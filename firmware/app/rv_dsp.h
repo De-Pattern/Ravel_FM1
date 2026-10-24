@@ -7,15 +7,15 @@
 #define RV_DT (1.0f / 44100.0f)
 #define RV_NYQ 22050.0f
 
-static inline float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
-static inline float lerpf(float a, float b, float t) { return a + (b - a) * t; }
-static inline int clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
+RV_INL float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+RV_INL float lerpf(float a, float b, float t) { return a + (b - a) * t; }
+RV_INL int clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 
 /* note number to Hz */
 static inline float note_hz(float n) { return 440.0f * fm_exp2f((n - 69.0f) * (1.0f / 12.0f)); }
 
 /* soft saturation with no exp: x(27+x^2)/(27+9x^2), exact at |x| = 3 */
-static inline float sat(float x)
+RV_INL float sat(float x)
 {
     float x2;
     if (x > 3.0f)
@@ -44,15 +44,15 @@ static inline uint32_t xs32(uint32_t *s)
     *s = x;
     return x;
 }
-static inline float xs_uni(uint32_t *s) { return (float)(xs32(s) >> 8) * (1.0f / 16777216.0f); }
-static inline float xs_bi(uint32_t *s) { return (float)(int32_t)xs32(s) * (1.0f / 2147483648.0f); }
+RV_INL float xs_uni(uint32_t *s) { return (float)(xs32(s) >> 8) * (1.0f / 16777216.0f); }
+RV_INL float xs_bi(uint32_t *s) { return (float)(int32_t)xs32(s) * (1.0f / 2147483648.0f); }
 
 /* one-pole low pass; coefficient from a cutoff in Hz */
 static inline float op_coef(float hz) { return 1.0f - fm_expf(-6.2831853f * hz * RV_DT); }
 
 /* topology-preserving state variable filter (Zavalishin), low/band/high at once */
 typedef struct { float ic1, ic2, g, k, a1, a2, a3; } svf_t;
-static inline void svf_set(svf_t *f, float hz, float q)
+RV_INL void svf_set(svf_t *f, float hz, float q)
 {
     float g;
     hz = clampf(hz, 10.0f, RV_NYQ * 0.9f);
@@ -64,7 +64,7 @@ static inline void svf_set(svf_t *f, float hz, float q)
     f->a3 = g * f->a2;
 }
 /* returns low pass; *bp and *hp optional */
-static inline float svf_tick(svf_t *f, float x, float *bp, float *hp)
+RV_INL float svf_tick(svf_t *f, float x, float *bp, float *hp)
 {
     float v3 = x - f->ic2, v1 = f->a1 * f->ic1 + f->a2 * v3, v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
     f->ic1 = 2.0f * v1 - f->ic1;
@@ -84,7 +84,7 @@ static inline void ladder_set(ladder_t *l, float hz, float res)
     l->g = fm_tanf(3.14159265f * hz * RV_DT);
     l->res = res * 4.2f;
 }
-static inline float ladder_tick(ladder_t *l, float x)
+RV_INL float ladder_tick(ladder_t *l, float x)
 {
     float G = l->g / (1.0f + l->g), y, u;
     int i;
@@ -103,7 +103,7 @@ static inline float ladder_tick(ladder_t *l, float x)
 /* MS-20 style (Korg35 topology): two one-pole lowpasses with positive feedback taken through a
  * highpass, so the resonance peaks hard and can scream. The input is driven and the feedback
  * goes through an asymmetric clipper: hot and dirty. s[0..2]: the stages, s[3]: the feedback. */
-static inline float ms20_tick(ladder_t *l, float x)
+RV_INL float ms20_tick(ladder_t *l, float x)
 {
     float G = l->g / (1.0f + l->g), K = l->res * (2.05f / 4.2f), v, y1, y2, hp, fb;
     x = sat(x * 1.6f) * 0.85f;                        /* the input, already pushed */
@@ -125,7 +125,7 @@ static inline float ms20_tick(ladder_t *l, float x)
 /* SH-101 style (the IR3109's four OTA stages): smooth, linear stages, the resonance through a
  * gentle curve, and the passband's loss made up as resonance rises: round and liquid, with a
  * resonance that sings rather than bites */
-static inline float sh101_tick(ladder_t *l, float x)
+RV_INL float sh101_tick(ladder_t *l, float x)
 {
     float G = l->g / (1.0f + l->g), k = l->res * (3.85f / 4.2f), u, y = 0.0f;
     int i;
@@ -144,7 +144,7 @@ static inline float sh101_tick(ladder_t *l, float x)
  * resonance fed back through a soft curve and nothing made up for the bass it costs, so the
  * passband thins as Q rises the way the SQ-80's does: warm, a touch dark, resonance that whistles
  * more than it screams */
-static inline float sq80_tick(ladder_t *l, float x)
+RV_INL float sq80_tick(ladder_t *l, float x)
 {
     float G = l->g / (1.0f + l->g), k = l->res * (3.7f / 4.2f), u, y = 0.0f, fb = l->s[3];
     int i;
@@ -160,7 +160,7 @@ static inline float sq80_tick(ladder_t *l, float x)
 }
 
 /* polyBLEP for band-limited steps: t = phase 0..1, dt = increment */
-static inline float blep(float t, float dt)
+RV_INL float blep(float t, float dt)
 {
     if (t < dt) {
         t /= dt;

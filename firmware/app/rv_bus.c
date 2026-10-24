@@ -7,7 +7,7 @@
 #include "rv_int.h"
 
 /* a bus setting as the matrix and the macros move it (GLOBAL destinations) */
-static inline float gv(int g) { return geff[g]; }
+RV_INL float gv(int g) { return geff[g]; }
 
 /* ----------------------------------------------------------- feedback --- */
 static int16_t fb_buf[RV_FB_SAMPLES] RV_BIG;
@@ -34,7 +34,7 @@ static inline float ap2(float *s, float c, float x)
     return y;
 }
 
-static inline float fb_read(float d)
+RV_INL float fb_read(float d)
 {
     float rp = (float)fb_w - d, fr;
     int32_t i0, i1;
@@ -46,7 +46,7 @@ static inline float fb_read(float d)
     return (fb_buf[i0] + (fb_buf[i1] - fb_buf[i0]) * fr) * (1.0f / 16384.0f);
 }
 
-static inline float fb_insert(float x, int proc, float amt, float tune)
+RV_INL float fb_insert(float x, int proc, float amt, float tune)
 {
     int k;
     switch (proc) {
@@ -113,7 +113,7 @@ static inline float fb_insert(float x, int proc, float amt, float tune)
 /* BASE and WIDTH: a high pass and a low pass in the loop (no resonance), each over its half of the
  * range; at BASE 0 and WIDTH full the band is open and they are skipped */
 static svf_t fb_bp[2];
-static void feedback_run(const float *in, int n, float *out)
+RV_HOT static void feedback_run(const float *in, int n, float *out)
 {
     int hp_on = rv.gp[GP_PAIRF1] > 0, lp_on = rv.gp[GP_PAIRF2] < 127;
     int i, proc = clampi(rv.gp[GP_FBPROC], 0, 5);
@@ -123,11 +123,11 @@ static void feedback_run(const float *in, int n, float *out)
     int edge = rv.gp[GP_FBEDGE];
     if (target > (float)RV_FB_SAMPLES - 4.0f)
         target = (float)RV_FB_SAMPLES - 4.0f;
-    svf_set(&fb_f, rv_cut_hz((float)gv(GP_FBCUT)), 0.9f);
+    svf_set(&fb_f, rv_cut_hz_i((float)gv(GP_FBCUT)), 0.9f);
     if (hp_on)
-        svf_set(&fb_bp[0], rv_cut_hz(clampf(gv(GP_PAIRF1), 0.0f, 63.0f)), 0.707f);
+        svf_set(&fb_bp[0], rv_cut_hz_i(clampf(gv(GP_PAIRF1), 0.0f, 63.0f)), 0.707f);
     if (lp_on)
-        svf_set(&fb_bp[1], rv_cut_hz(clampf(gv(GP_PAIRF2), 64.0f, 127.0f)), 0.707f);
+        svf_set(&fb_bp[1], rv_cut_hz_i(clampf(gv(GP_PAIRF2), 64.0f, 127.0f)), 0.707f);
     if (fb_dt <= 0.0f)
         fb_dt = target;
     for (i = 0; i < n; i++) {
@@ -185,7 +185,7 @@ static uint32_t gr_rng = 0x6EA1u;
 
 
 /* the tape at p (in half-rate samples, fractional) */
-static inline float dly_read(float p)
+RV_INL float dly_read(float p)
 {
     int32_t i0;
     float fr;
@@ -199,12 +199,12 @@ static inline float dly_read(float p)
 
 /* the tape's saturation: unity for quiet signals, rounding the loud ones off, a little lopsided
  * (even harmonics), so it can never make the loop gain more than FEEDBK */
-static inline float dly_sat(float x, float drv)
+RV_INL float dly_sat(float x, float drv)
 {
     return drv > 1.01f ? sat(x * drv + 0.08f * (drv - 1.0f) * x * x) / drv : x;
 }
 
-static void delay_run(const float *in, int n, float *l, float *r)
+RV_HOT static void delay_run(const float *in, int n, float *l, float *r)
 {
     int i, k;
     float spb = 60.0f / gv(GP_TEMPO), tv = gv(GP_DLYTIME), target;
@@ -337,7 +337,7 @@ static int16_t hr_w[12];                                  /* write positions, a 
 static int16_t hr_base[12];
 static float hr_in, hr_out[2][2], hr_lp[8], hr_ph[4], hr_hp;
 static uint8_t hr_odd;
-static void hr_layout(const int16_t *len, int n)
+RV_INL void hr_layout(const int16_t *len, int n)
 {
     int k, b = 0;
     for (k = 0; k < n; k++) {
@@ -379,7 +379,7 @@ static inline float hr_ap(const int16_t *len, int k, float x, float g, int32_t q
  * aliases the way early digital reverbs did. SIZE is how long it rings, DAMP how dark, MOTION a little
  * chorus in the combs. */
 static const int16_t q12_len[12] = {558, 594, 639, 678, 581, 617, 662, 701, 113, 171, 124, 182};
-static void q12_tank(float x, float *ol, float *or_)
+RV_INL void q12_tank(float x, float *ol, float *or_)
 {
     float fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f), damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
     float modd = gv(GP_REVMOD) * (6.0f / 127.0f), a = 0.0f, b = 0.0f;
@@ -404,10 +404,10 @@ static void q12_tank(float x, float *ol, float *or_)
     *or_ = (float)((int32_t)(b * 2048.0f)) * (1.0f / 2048.0f);
 }
 
-static void halfrate_run(const float *in, int n, float *l, float *r)
+RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
 {
     int i;
-    float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
+    float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz_i(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
     if (!hr_base[1])
         hr_layout(q12_len, 12);
     for (i = 0; i < n; i++) {
@@ -430,11 +430,6 @@ static void halfrate_run(const float *in, int n, float *l, float *r)
         r[i] += hr_out[1][1] * lvl * 1.2f;
         hr_odd ^= 1u;
     }
-}
-
-static void space_run(const float *in, int n, float *l, float *r)
-{
-    halfrate_run(in, n, l, r);
 }
 
 /* ---------------------------------------------------------------- BED --- */

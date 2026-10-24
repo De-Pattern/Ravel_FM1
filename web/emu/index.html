@@ -676,7 +676,7 @@ const GUIDE = {
 <tr><td>EDIT</td><td>Voice: sound, source pages, pitch, filter, skin, insert, mix, sends</td></tr>
 <tr><td>ENV</td><td>The volume envelope (ATTACK, DECAY, SUSTAIN, RELEASE first, then its shaping and two destinations), the FILTER ENV (with a loop and a destination of its own), STEP ENV and the LIBRARY</td></tr>
 <tr><td>LFO</td><td>Mod: matrix (a row can also move another row's amount), the LFOs and their shaping, dust, macros</td></tr>
-<tr><td>FX</td><td>Buses: delay, space, feedback, filter pair, bands, vocoder, master. Tap FX again for the next bus. Each bus page shows the current track's <b>SEND</b> into it.</td></tr>
+<tr><td>FX</td><td>Buses: delay, space, BED, feedback, master. Tap FX again for the next bus. Each bus page shows the current track's <b>SEND</b> into it.</td></tr>
 <tr><td>SCL</td><td>Scale, root, transpose and the track's note interval</td></tr>
 <tr><td>ARP</td><td>Tape: capture, rows, and the tape track's playback (MLR, keys, slices, stretch, shards)</td></tr>
 <tr><td>SEQ</td><td>Steps, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
@@ -721,13 +721,11 @@ const GUIDE = {
 <li><b>Two playheads</b> walk the same graph. HEAD 1 plays this track. HEAD 2 (off by default) can play this track or another (PLAYS), at its own rate and start step.</li>
 <li><b>HEAD 2</b> (on the GRAPH page): OFF; NOTES, a second voice on the same graph; MELODY, head 2 picks the notes and head 1 plays them in its rhythm; RHYTHM, head 2 plays head 1's notes in its own rhythm. Rhythm and melody then walk different paths at different speeds.</li>
 <li><b>MOTION</b> (Silt's function generator): a shape (rise, fall, arch, decay, swell, or LFO 1, LFO 2, dust) that moves the head's rate over CYCLE steps. DEPTH sets how far. COMBINE: <b>× clock</b> multiplies or divides the clock (up to two octaves); <b>+ clock</b> adds to it.</li></ul>`,
-  "FX": `<p>Each track sends into five buses; the buses' outputs go to the master. On every FX page the knob called <b>T1 SEND</b> (for the current track) sets how much of this track goes in; ALGORITHM picks the track.</p><table>
+  "FX": `<p>Each track sends into three buses (delay, space, feedback); the buses' outputs go to the master. On every FX page the knob called <b>T1 SEND</b> (for the current track) sets how much of this track goes in; ALGORITHM picks the track.</p><table>
 <tr><td>DELAY</td><td>a granular tape delay: send, time, feedback, level · tone, spread, double tracking, freeze · wow, flutter, saturation, age · grains, density, size, pitch</td></tr>
 <tr><td>BED</td><td>dust on a body tuned to the root, wood to metal, shimmer, ducked by the tracks</td></tr>
-<tr><td>SPACE</td><td>send, size, damping, level · motion, diffusion, low cut, mode (room, clouds, 12-bit)</td></tr>
-<tr><td>FEEDBACK</td><td>a delay loop with a process inside (filter, comb, smear, shift, fold, crush), returned to the master or into a track</td></tr>
-<tr><td>FILTER PAIR</td><td>two filters (low, band or high pass) in series, parallel or feedback, each moved by its own LFO</td></tr>
-<tr><td>VOCODER</td><td>the track's sound shapes a body (dust, drops, noise, the tape or another track): attack, release, shift, narrow</td></tr>
+<tr><td>SPACE</td><td>a 12-bit plate: send, decay, damping, level · motion, crunch, low cut</td></tr>
+<tr><td>FEEDBACK</td><td>a delay loop with a process inside (filter, comb, smear, shift, fold, crush), returned to the master or into a track · BASE and WIDTH, a band filter in the loop</td></tr>
 <tr><td>MASTER</td><td>drive and the microcuts</td></tr></table>
 <p>Hold FX for punch-ins on the white keys: loop, reverse, stutter, delay freeze, low pass, high pass, throw (everything into delay and space), fill.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
