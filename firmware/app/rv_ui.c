@@ -229,8 +229,9 @@ static struct {
     uint8_t st_step, st_built, st_eng, st_auto, st_on;
     uint8_t c2_tried;                         /* the second core was asked for at start */
     uint16_t st_res[RV_STRESS_N];               /* (0xFFFF: not measured yet) */
+    uint8_t st_res2[RV_STRESS_N];               /* the second core's, % (0: not working) */
     uint32_t st_xr, st_t0, st_turn, st_x0;
-    float st_acc;
+    float st_acc, st_acc2;
     uint16_t st_nacc;
     uint32_t conf_at;
 } ui;
@@ -738,7 +739,7 @@ static kinfo_t kb_info(kb_t k)
         break;
     case K_STRESS: {
         static const char *const autos[2] = {"OFF", "RUN"};
-        static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
+        static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
         static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"};
         r.name = k.id == 0 ? "STEP" : k.id == 1 ? "ENGINE" : k.id == 2 ? "AUTO" : k.id == 3 ? "CORES" : "FLASH WT";
         r.max = k.id == 0 ? RV_STRESS_N - 1 : k.id == 1 ? ENG_N - 1 : 1;
@@ -1258,6 +1259,7 @@ static void kb_set(kb_t k, int v)
                 break;
             ui.st_on = 1;
             __builtin_memset(ui.st_res, 0xFF, sizeof ui.st_res);
+            __builtin_memset(ui.st_res2, 0, sizeof ui.st_res2);
             ui.st_xr = 0;
         }
         if (k.id == 0)
@@ -1269,6 +1271,7 @@ static void kb_set(kb_t k, int v)
             if (v) {                                   /* from the first step, the results anew */
                 ui.st_step = 1;
                 __builtin_memset(ui.st_res, 0xFF, sizeof ui.st_res);
+                __builtin_memset(ui.st_res2, 0, sizeof ui.st_res2);
                 ui.st_xr = 0;
             } else
                 ui.st_step = 0;
@@ -3572,7 +3575,7 @@ static void stress_tick(void)
         ui.st_built = ui.st_step;
         ui.st_t0 = now;
         ui.st_x0 = plat_xruns();
-        ui.st_acc = 0.0f;
+        ui.st_acc = ui.st_acc2 = 0.0f;
         ui.st_nacc = 0;
         if (!ui.st_step)
             msg("STRESS STOPPED");
@@ -3582,12 +3585,14 @@ static void stress_tick(void)
         return;
     if (now - ui.st_t0 >= 1000u && now - ui.st_t0 < 3000u) {
         ui.st_acc += rv_live.load;
+        ui.st_acc2 += rv_live.c2_used ? rv_live.c2_load : 0.0f;
         ui.st_nacc++;
     }
     if (plat_xruns() != ui.st_x0)
         ui.st_xr |= 1u << ui.st_built;
     if (now - ui.st_t0 >= 3000u && ui.st_nacc) {
         ui.st_res[ui.st_built] = (uint16_t)clampi((int)(ui.st_acc / (float)ui.st_nacc + 0.5f), 0, 9999);
+        ui.st_res2[ui.st_built] = (uint8_t)clampi((int)(ui.st_acc2 / (float)ui.st_nacc + 0.5f), 0, 255);
         ui.st_nacc = 0;
         if (ui.st_auto) {                              /* the next step, or done */
             ui.st_step = (uint8_t)(ui.st_built + 1 < RV_STRESS_N ? ui.st_built + 1 : 0);
@@ -3626,7 +3631,7 @@ static void pic_stress(void)
         return;
     }
     for (k = 1; k < RV_STRESS_N; k++) {
-        int x = k <= 6 ? 6 : 122, y = PIC_Y + 22 + ((k - 1) % 6) * 14;
+        int x = k <= 8 ? 6 : 122, y = PIC_Y + 20 + ((k - 1) % 8) * 12;
         uint16_t c = (ui.st_xr >> k) & 1u ? C_RED : k == ui.st_step ? C_INK : C_DIM;
         g_text(x, y, &FONT_T, rv_stress_name(k), c);
         b[0] = 0;
@@ -3634,6 +3639,13 @@ static void pic_stress(void)
             sx_cat(b, "-");
         else {
             sx_int(b, ui.st_res[k]);
+            if (ui.st_res2[k]) {                      /* and the second core's */
+                int l = 0;
+                sx_cat(b, "/");
+                while (b[l])
+                    l++;
+                sx_int(b + l, ui.st_res2[k]);
+            }
             sx_cat(b, (ui.st_xr >> k) & 1u ? "%!" : "%");
         }
         g_text_r(x + 110, y, &FONT_T, b, c);
@@ -3678,9 +3690,16 @@ static void pic_cpu(void)
         sx_cat(b, "%");
         g_text_r(234, PIC_Y + 113, &FONT_T, b, rv_live.fetch_pct > 25.0f ? C_RED : C_DIM);
     }
-    if (rv_live.cores2 || rv_live.c2_fail) {        /* the second core */
-        g_text_r(234, PIC_Y + 104, &FONT_T, rv_live.c2_fail ? "CORE 2 FAILED: ONE CORE" : rv_live.c2_used ? "CORE 2 WORKING" : "CORE 2 IDLE",
-               rv_live.c2_fail ? C_RED : rv_live.c2_used ? C_TEAL : C_DIM);
+    if (rv_live.cores2 || rv_live.c2_fail) {        /* the second core: its load (the buses, its synth voices) */
+        if (rv_live.c2_fail || !rv_live.c2_used)
+            g_text_r(234, PIC_Y + 104, &FONT_T, rv_live.c2_fail ? "CORE 2 FAILED: ONE CORE" : "CORE 2 IDLE", rv_live.c2_fail ? C_RED : C_DIM);
+        else {
+            b[0] = 0;
+            sx_cat(b, "CORE 2 ");
+            sx_int(b + 7, (int)(rv_live.c2_load + 0.5f));
+            sx_cat(b, "%");
+            g_text_r(234, PIC_Y + 104, &FONT_T, b, rv_live.c2_load > 90.0f ? C_RED : C_TEAL);
+        }
     }
     b[0] = 0;                                       /* the overload guard */
     if (rv_live.guard_off)

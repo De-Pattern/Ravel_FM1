@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Ravel: the stress test (GLO > CPU). A project built to load the audio a step at a time, each step
- * adding to the last: voices of one engine, then strikes, a drum kit, sample voices, then each bus.
+ * adding to the last: voices of one engine, then strikes, a drum kit, sample voices, then each effect
+ * (the delay, its grains and its tape wear, the space, the feedback and its processor, the BED).
  * Held notes and a busy pattern keep the load steady, so the CPU page's reading at each step is what
  * that step costs on this machine. The overload guard stays off while it runs, so the step where the
  * XRUNS count starts is the real edge. It replaces the project in memory, as a demo does. */
 
 static const char *const stress_names[RV_STRESS_N] = {
     "OFF", "IDLE", "1 VOICE", "2 VOICES", "4 VOICES", "8 VOICES", "+2 STRIKES", "+DRUM KIT",
-    "+3 SAMPLES", "+DELAY", "+SPACE", "+FEEDBACK", "+MASTER DRIVE"};
+    "+3 SAMPLES", "+DELAY", "+GRAINS", "+TAPE WEAR", "+SPACE", "+FEEDBACK", "+FB PROCESS", "+BED",
+    "+MASTER DRIVE"};
 
 const char *rv_stress_name(int step)
 {
     return stress_names[clampi(step, 0, RV_STRESS_N - 1)];
 }
+
+enum { ST_DELAY = 9, ST_GRAINS, ST_WEAR, ST_SPACE, ST_FB, ST_FBPROC, ST_BED, ST_DRIVE };
 
 static void stress_hit(int t, int s, int note)
 {
@@ -75,16 +79,36 @@ void rv_stress(int step, int engine)
         rv_track_src_defaults(6);
         rv.tp[6][TP_SUS] = 127;
     }
-    /* the buses, one at a time: every track sends into each */
+    /* the effects, one at a time: every track sends into each bus */
     for (t = 0; t < RV_TRACKS; t++) {
-        if (step >= 9)
+        if (step >= ST_DELAY)
             rv.tp[t][TP_DLYS] = 50;
-        if (step >= 10)
+        if (step >= ST_SPACE)
             rv.tp[t][TP_REVS] = 50;
-        if (step >= 11)
+        if (step >= ST_FB)
             rv.tp[t][TP_FBS] = 40;
     }
-    rv.gp[GP_MDRIVE] = (int16_t)(step >= 12 ? 60 : 0);
+    if (step >= ST_GRAINS) {                         /* half the delay grains, busy */
+        rv.gp[GP_DLYMODE] = 64;
+        rv.gp[GP_GRDENS] = 100;
+    }
+    if (step >= ST_WEAR) {                           /* the tape worn: wow, flutter, age */
+        rv.gp[GP_DLYWOB] = 60;
+        rv.gp[GP_DLYFLUT] = 60;
+        rv.gp[GP_DLYAGE] = 60;
+    }
+    if (step >= ST_FBPROC) {                         /* the loop's processor (the frequency shift) and its band */
+        rv.gp[GP_FBPROC] = 3;
+        rv.gp[GP_FBTUNE] = 90;
+        rv.gp[GP_PAIRF1] = 20;
+        rv.gp[GP_PAIRF2] = 110;
+    }
+    if (step >= ST_BED) {
+        rv.gp[GP_BEDLEVEL] = 60;
+        rv.gp[GP_BEDSHIM] = 40;
+        rv.gp[GP_BEDSPACE] = 40;
+    }
+    rv.gp[GP_MDRIVE] = (int16_t)(step >= ST_DRIVE ? 60 : 0);
     rv_transport(1);
     /* the held notes: 1, 2, 4, then 8 voices of the engine */
     k = step >= 5 ? 8 : step >= 4 ? 4 : step >= 3 ? 2 : step >= 2 ? 1 : 0;

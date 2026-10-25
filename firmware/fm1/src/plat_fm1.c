@@ -336,6 +336,8 @@ uint32_t plat_fetch_wait(void)
     return s[0];
 }
 int plat_par_wait(void) { return fm1_cpu1_wait(); }
+void plat_par_sync(void) { fm1_cpu1_sync(); }
+uint32_t plat_par_cycles(void) { return fm1_ticks() * (360u / 24u); }   /* (TIMER4: either core reads the same) */
 
 /* the interrupts' stack (fm1_guard.h): filled with a mark before any interrupt runs (X0X) */
 #define IRQ_STACK_MARK 0x49525153u                  /* "IRQS" */

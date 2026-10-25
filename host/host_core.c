@@ -197,6 +197,8 @@ int plat_par_run(void (*fn)(uint32_t), uint32_t arg)
         fn(arg);
     return 1;
 }
+void plat_par_sync(void) {}
+uint32_t plat_par_cycles(void) { return plat_cycles(); }
 int plat_par_wait(void)
 {
     if (par_fail) {

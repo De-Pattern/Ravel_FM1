@@ -296,7 +296,8 @@ def check(img, syms, dis, rt):
     bss = sym("_bss_end") - 0x01C08000
     pool = sym("_pool_end") - sym("_pool_start")
     ft = OUT / "fasttext.bin"
-    notes.append(f".fast_text (the render's RAM code): {ft.stat().st_size if ft.exists() else 0} B of about 21000")
+    room = 0x01C08000 - sym("_fast_start")             # (RAMTEXT ends at 0x01C08000)
+    notes.append(f".fast_text (the render's RAM code): {ft.stat().st_size if ft.exists() else 0} B of {room}")
     notes.append(f"image {len(img)} B; RAM .data+.bss {bss} B of 98304; pool {pool} B of {0x54000}")
     if bss > 96 * 1024:
         errors.append("RAM region overflow")

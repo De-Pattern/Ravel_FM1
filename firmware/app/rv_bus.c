@@ -42,17 +42,65 @@ RV_INL float fb_read(float d)
         rp += (float)RV_FB_SAMPLES;
     i0 = (int32_t)rp;
     fr = rp - (float)i0;
-    i1 = (i0 + 1) % (int32_t)RV_FB_SAMPLES;
+    if (i0 >= (int32_t)RV_FB_SAMPLES)                 /* (rp can round up to the size) */
+        i0 -= (int32_t)RV_FB_SAMPLES;
+    i1 = i0 + 1 >= (int32_t)RV_FB_SAMPLES ? 0 : i0 + 1;
     return (fb_buf[i0] + (fb_buf[i1] - fb_buf[i0]) * fr) * (1.0f / 16384.0f);
 }
 
-RV_INL float fb_insert(float x, int proc, float amt, float tune)
+/* the processor's settings, worked out once a step (fb_prep) */
+typedef struct { int proc; float amt, tune, a, b; int32_t i, L[4], hold; } fbp_t;
+RV_INL void fb_prep(fbp_t *p, int proc, float amt, float tune)
+{
+    static const int lens[4] = {61, 113, 173, 241};
+    int k;
+    p->proc = proc;
+    p->amt = amt;
+    p->tune = tune;
+    p->a = p->b = 0.0f;
+    p->i = p->hold = 0;
+    for (k = 0; k < 4; k++)
+        p->L[k] = 2;
+    switch (proc) {
+    case 1: {                                         /* comb: its length */
+        float fr = 40.0f * fm_exp2f(tune * 7.0f), d = clampf(44100.0f / fr, 2.0f, 1020.0f);
+        p->i = (int32_t)d;
+        break;
+    }
+    case 2:                                           /* smear: the allpasses' lengths */
+        for (k = 0; k < 4; k++)
+            p->L[k] = clampi((int)((float)lens[k] * (0.3f + tune * 0.7f)), 2, 255);
+        break;
+    case 3: {                                         /* frequency shift: its rate */
+        float c = (tune - 0.5f) * 2.0f, ac = fm_fabsf(c), hz = 0.0f;
+        if (ac > 0.03f) {
+            hz = 0.5f * fm_powf(400.0f, (ac - 0.03f) / 0.97f);
+            if (c < 0.0f)
+                hz = -hz;
+        }
+        p->a = hz * RV_DT;
+        break;
+    }
+    case 4:
+        p->a = 1.0f + amt * 8.0f * (0.5f + tune);
+        break;
+    case 5:
+        p->hold = 1 + (int)(tune * tune * 40.0f);
+        p->a = fm_exp2f(15.0f - amt * 13.0f);
+        break;
+    default:
+        break;
+    }
+}
+
+RV_INL float fb_insert(float x, const fbp_t *p)
 {
     int k;
-    switch (proc) {
+    float amt = p->amt;
+    switch (p->proc) {
     case 1: {                                         /* comb, 40 Hz .. 5 kHz */
-        float fr = 40.0f * fm_exp2f(tune * 7.0f), d = clampf(44100.0f / fr, 2.0f, 1020.0f), z, y;
-        int32_t i0 = fb_cw - (int32_t)d;
+        float z, y;
+        int32_t i0 = fb_cw - p->i;
         if (i0 < 0)
             i0 += 1024;
         z = fb_comb[i0] * (1.0f / 16384.0f);
@@ -63,11 +111,9 @@ RV_INL float fb_insert(float x, int proc, float amt, float tune)
         return y * (1.0f - amt * 0.5f);
     }
     case 2: {                                         /* smear: four allpasses */
-        static const int lens[4] = {61, 113, 173, 241};
         float g = amt * 0.75f, y = x;
         for (k = 0; k < 4; k++) {
-            int L = clampi((int)((float)lens[k] * (0.3f + tune * 0.7f)), 2, 255);
-            int ri = (fb_api[k] - L + 256) & 255;
+            int ri = (fb_api[k] - p->L[k] + 256) & 255;
             float z = fb_ap[k][ri] * (1.0f / 16384.0f), v = y + z * g;
             fb_ap[k][fb_api[k]] = (int16_t)clampf(v * 16384.0f, -32000.0f, 32000.0f);
             y = z - v * g;
@@ -76,29 +122,23 @@ RV_INL float fb_insert(float x, int proc, float amt, float tune)
         return y;
     }
     case 3: {                                         /* frequency shift, -200 .. +200 Hz */
-        float c = (tune - 0.5f) * 2.0f, ac = fm_fabsf(c), hz = 0.0f, ai = x, aq = x, s;
-        if (ac > 0.03f) {
-            hz = 0.5f * fm_powf(400.0f, (ac - 0.03f) / 0.97f);
-            if (c < 0.0f)
-                hz = -hz;
-        }
+        float ai = x, aq = x, s;
         for (k = 0; k < 4; k++) {
             ai = ap2(fb_hi[k], hil_ci[k], ai);
             aq = ap2(fb_hq[k], hil_cq[k], aq);
         }
         s = fb_hz1;
         fb_hz1 = ai;
-        fb_shph += hz * RV_DT;
+        fb_shph += p->a;
         fb_shph -= fm_floorf(fb_shph);
         s = s * sin_lut(fb_shph + 0.25f) + aq * sin_lut(fb_shph);
         return lerpf(x, s, amt);
     }
     case 4:
-        return lerpf(x, fm_sinf(x * (1.0f + amt * 8.0f * (0.5f + tune))), amt);
+        return lerpf(x, fm_sinf(x * p->a), amt);
     case 5: {
-        int hold = 1 + (int)(tune * tune * 40.0f);
-        float q = fm_exp2f(15.0f - amt * 13.0f);
-        if (++fb_crc >= hold) {
+        float q = p->a;
+        if (++fb_crc >= p->hold) {
             fb_crc = 0;
             fb_crush = x;
         }
@@ -128,13 +168,15 @@ RV_HOT static void feedback_run(const float *in, int n, float *out)
         svf_set(&fb_bp[0], rv_cut_hz_i(clampf(gv(GP_PAIRF1), 0.0f, 63.0f)), 0.707f);
     if (lp_on)
         svf_set(&fb_bp[1], rv_cut_hz_i(clampf(gv(GP_PAIRF2), 64.0f, 127.0f)), 0.707f);
+    fbp_t fp;
+    fb_prep(&fp, proc, amt, tune);
     if (fb_dt <= 0.0f)
         fb_dt = target;
     for (i = 0; i < n; i++) {
         float dly, ff, y, d, a, r = regen;
         fb_dt += (target - fb_dt) * 0.0008f;
         dly = fb_read(fb_dt);
-        ff = proc == 0 ? svf_tick(&fb_f, dly, 0, 0) : fb_insert(svf_tick(&fb_f, dly, 0, 0), proc, amt, tune);
+        ff = proc == 0 ? svf_tick(&fb_f, dly, 0, 0) : fb_insert(svf_tick(&fb_f, dly, 0, 0), &fp);
         if (hp_on) {
             float hp;
             svf_tick(&fb_bp[0], ff, 0, &hp);
@@ -154,7 +196,8 @@ RV_HOT static void feedback_run(const float *in, int n, float *out)
             r *= fb_edge;
         }
         fb_buf[fb_w] = (int16_t)clampf(sat(in[i] + d * r) * 16384.0f, -32000.0f, 32000.0f);
-        fb_w = (fb_w + 1) % (int32_t)RV_FB_SAMPLES;
+        if (++fb_w >= (int32_t)RV_FB_SAMPLES)
+            fb_w = 0;
         out[i] = d * lvl;
     }
     rv_live.fb_env = fb_env;
@@ -187,14 +230,16 @@ static uint32_t gr_rng = 0x6EA1u;
 /* the tape at p (in half-rate samples, fractional) */
 RV_INL float dly_read(float p)
 {
-    int32_t i0;
+    int32_t i0, i1;
     float fr;
     while (p < 0.0f)
         p += (float)RV_DELAY_SAMPLES;
     i0 = (int32_t)p;
     fr = p - (float)i0;
-    i0 %= (int32_t)RV_DELAY_SAMPLES;
-    return (dly_buf[i0] + (dly_buf[(i0 + 1) % (int32_t)RV_DELAY_SAMPLES] - dly_buf[i0]) * fr) * (1.0f / 16384.0f);
+    while (i0 >= (int32_t)RV_DELAY_SAMPLES)               /* (no division: the % it was, for what p can be) */
+        i0 -= (int32_t)RV_DELAY_SAMPLES;
+    i1 = i0 + 1 >= (int32_t)RV_DELAY_SAMPLES ? 0 : i0 + 1;
+    return (dly_buf[i0] + (dly_buf[i1] - dly_buf[i0]) * fr) * (1.0f / 16384.0f);
 }
 
 /* the tape's saturation: unity for quiet signals, rounding the loud ones off, a little lopsided
@@ -318,7 +363,8 @@ RV_HOT static void delay_run(const float *in, int n, float *l, float *r)
             dly_ph = 0;
             int v = (int)clampf(dly_sat(dly_half, drv) * 16384.0f, -32000.0f, 32000.0f);
             dly_buf[dly_w] = (int16_t)(v >= 0 ? v & ~15 : -((-v) & ~15));   /* 12 bits, toward zero: a tail can die away */
-            dly_w = (dly_w + 1) % (int32_t)RV_DELAY_SAMPLES;
+            if (++dly_w >= (int32_t)RV_DELAY_SAMPLES)
+                dly_w = 0;
             dly_half = 0.0f;
         }
         l[i] += (a * (1.0f - gmix * 0.7f) + gr_lpl * gmix * 1.3f) * lvl + d1 * dbl * 0.8f;   /* ping left, pong right */
@@ -348,21 +394,25 @@ RV_INL void hr_layout(const int16_t *len, int n)
 static inline float hr_rd(const int16_t *len, int k, float d)   /* line k, d samples ago (fractional) */
 {
     float p = (float)hr_w[k] - d;
-    int32_t a, b;
+    int32_t a, b, L = len[k];
+    const int16_t *m = space_mem + hr_base[k];
     float fr;
     while (p < 0.0f)
-        p += (float)len[k];
+        p += (float)L;
     a = (int32_t)p;
     fr = p - (float)a;
-    a %= len[k];
-    b = a + 1 >= len[k] ? 0 : a + 1;
-    return (space_mem[hr_base[k] + a] + (space_mem[hr_base[k] + b] - space_mem[hr_base[k] + a]) * fr) * (1.0f / 8192.0f);
+    if (a >= L)                                           /* (p rounds up to L at most) */
+        a -= L;
+    b = a + 1 >= L ? 0 : a + 1;
+    return (m[a] + (m[b] - m[a]) * fr) * (1.0f / 8192.0f);
 }
-static inline void hr_wr(const int16_t *len, int k, float x, int32_t q)   /* q: the step a sample is kept in (1: 16 bits) */
+/* q: the step a sample is kept in, a power of two (1: 16 bits); truncated toward zero, as cheap
+ * converters did */
+static inline void hr_wr(const int16_t *len, int k, float x, int32_t q)
 {
     int32_t v = (int32_t)clampf(x * 8192.0f, -32000.0f, 32000.0f);
     if (q > 1)
-        v = v >= 0 ? v / q * q : -((-v) / q * q);         /* (truncated, as cheap converters did) */
+        v = v >= 0 ? v & -q : -((-v) & -q);
     space_mem[hr_base[k] + hr_w[k]] = (int16_t)v;
     if (++hr_w[k] >= len[k])
         hr_w[k] = 0;
@@ -379,11 +429,11 @@ static inline float hr_ap(const int16_t *len, int k, float x, float g, int32_t q
  * aliases the way early digital reverbs did. SIZE is how long it rings, DAMP how dark, MOTION a little
  * chorus in the combs. */
 static const int16_t q12_len[12] = {558, 594, 639, 678, 581, 617, 662, 701, 113, 171, 124, 182};
-RV_INL void q12_tank(float x, float *ol, float *or_)
+typedef struct { float fb, damp, modd; int32_t q; } q12_set_t;
+RV_INL void q12_tank(const q12_set_t *st, float x, float *ol, float *or_)
 {
-    float fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f), damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
-    float modd = gv(GP_REVMOD) * (6.0f / 127.0f), a = 0.0f, b = 0.0f;
-    int32_t q = 1 << (2 + (rv.gp[GP_REVDIFF] * 4) / 127);   /* 12 bits of full scale, down to 8 */
+    float fb = st->fb, damp = st->damp, modd = st->modd, a = 0.0f, b = 0.0f;
+    int32_t q = st->q;
     int k;
     hr_ph[0] += 0.6f * 2.0f * RV_DT;
     hr_ph[0] -= fm_floorf(hr_ph[0]);
@@ -408,6 +458,11 @@ RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
 {
     int i;
     float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz_i(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
+    q12_set_t st;
+    st.fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f);   /* (the settings, once a step) */
+    st.damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
+    st.modd = gv(GP_REVMOD) * (6.0f / 127.0f);
+    st.q = 1 << (2 + (rv.gp[GP_REVDIFF] * 4) / 127);    /* 12 bits of full scale, down to 8 */
     if (!hr_base[1])
         hr_layout(q12_len, 12);
     for (i = 0; i < n; i++) {
@@ -420,7 +475,7 @@ RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
         if (hr_odd) {                                     /* a pair in: one step of the tank */
             float ol, or_, xin = hr_in;
             hr_in = 0.0f;
-            q12_tank(xin, &ol, &or_);
+            q12_tank(&st, xin, &ol, &or_);
             hr_out[0][0] = hr_out[0][1];
             hr_out[1][0] = hr_out[1][1];
             hr_out[0][1] = ol;
@@ -472,13 +527,14 @@ static void bed_setup(void)
     }
 }
 
-/* l, r: the tracks so far (it listens to them to duck); adds itself to them and to the space's input */
-static void bed_run(float *rev_in, float *l, float *r, int n)
+/* act: how loud the tracks were (it ducks under them); adds itself to l, r and to the space's input */
+RV_HOT static void bed_run(float *rev_in, float *l, float *r, int n, float act)
 {
     float lvl = gv(GP_BEDLEVEL) * (1.0f / 127.0f), dens = gv(GP_BEDDENS) * (1.0f / 127.0f);
-    float duck = gv(GP_BEDDUCK) * (1.0f / 127.0f), send = gv(GP_BEDSPACE) * (1.0f / 127.0f), act = 0.0f, want;
-    float hz = 0.4f + dens * dens * 40.0f, breath = 0.004f + dens * 0.012f;
-    int i, k;
+    float duck = gv(GP_BEDDUCK) * (1.0f / 127.0f), send = gv(GP_BEDSPACE) * (1.0f / 127.0f), want;
+    float hz = 0.4f + dens * dens * 40.0f, breath = 0.004f + dens * 0.012f, env = rv_live.bed_env;
+    int i, k, nlive;
+    uint8_t live[BED_M];
     if (lvl <= 0.0f && bed_lvl < 0.0001f) {
         bed_lvl = 0.0f;
         rv_live.bed_env *= 0.9f;
@@ -489,43 +545,83 @@ static void bed_run(float *rev_in, float *l, float *r, int n)
         bed_key[1] = rv.gp[GP_ROOT];
         bed_key[2] = rv.gp[GP_BEDDECAY];
         bed_key[3] = rv.gp[GP_BEDSHIM];
-        bed_setup();
+        RV_FAR(bed_setup)();                         /* (in the flash) */
     }
-    for (i = 0; i < n; i++)
-        act += fm_fabsf(l[i]) + fm_fabsf(r[i]);
-    act /= (float)n;
     bed_follow += (act - bed_follow) * (act > bed_follow ? 0.25f : 0.012f);   /* quick to duck, slow to come back */
     want = 1.0f - duck * 0.92f * clampf(bed_follow * 5.0f, 0.0f, 1.0f);   /* (at most down about 22 dB) */
     bed_ph += (float)n * RV_DT * 0.11f;
     bed_ph -= fm_floorf(bed_ph);
-    for (i = 0; i < n; i++) {
-        float x = 0.0f, yl = 0.0f, yr = 0.0f, trem = 0.75f + 0.25f * sin_lut(bed_ph);
-        bed_wait -= RV_DT;
-        if (bed_wait <= 0.0f) {                       /* a grain of dust */
-            float u = xs_uni(&bed_rng);
-            x = 0.25f + 0.75f * xs_uni(&bed_rng);
-            bed_wait = -0.6931472f * fm_log2f(u > 0.001f ? u : 0.001f) / hz;
-            rv_live.bed_hit++;
-        }
-        bed_nlp += (xs_bi(&bed_rng) - bed_nlp) * 0.05f;   /* and a breath of soft noise */
-        x += bed_nlp * breath * 8.0f;
-        bed_lvl += (lvl - bed_lvl) * 0.002f;
-        bed_gain += (want - bed_gain) * 0.0008f;
+    {   /* the partials that sound: one with no gain and nothing left ringing adds nothing (skipped) */
+        int m = 0;
         for (k = 0; k < BED_M; k++) {
-            float re = bed_b1[k] * bed_y1[k] - bed_b2[k] * bed_y2[k] + bed_g[k] * x;
-            float im = bed_b2[k] * bed_y1[k] + bed_b1[k] * bed_y2[k], o = im * (k >= 6 ? trem : 1.0f);
-            bed_y1[k] = re;
-            bed_y2[k] = im;
-            yl += o * bed_pan[k];
-            yr += o * (1.0f - bed_pan[k]);
+            if (fm_fabsf(bed_y1[k]) + fm_fabsf(bed_y2[k]) < 1e-15f)
+                bed_y1[k] = bed_y2[k] = 0.0f;
+            if (bed_g[k] != 0.0f || bed_y1[k] != 0.0f || bed_y2[k] != 0.0f)
+                live[m++] = (uint8_t)k;
         }
-        yl = sat(yl * 2.0f) * bed_lvl * bed_lvl * bed_gain;
-        yr = sat(yr * 2.0f) * bed_lvl * bed_lvl * bed_gain;
-        l[i] += yl;
-        r[i] += yr;
-        rev_in[i] += (yl + yr) * send;
-        rv_live.bed_env = fm_maxf(fm_fabsf(yl + yr) * 0.5f, rv_live.bed_env * 0.9995f);
+        nlive = m;
     }
+    {   /* a sample at a time, the dust and the breath that strike it; then each partial over the whole
+         * step (its state in registers), summed in the same order as ever; then the level */
+        static float xin[RV_SUB] RV_RAMBSS, yl[RV_SUB] RV_RAMBSS, yr[RV_SUB] RV_RAMBSS;   /* (off the stack: the second core's is small) */
+        float trem = 0.75f + 0.25f * sin_lut(bed_ph);
+        int j;
+        for (i = 0; i < n; i++) {
+            float x = 0.0f;
+            bed_wait -= RV_DT;
+            if (bed_wait <= 0.0f) {                   /* a grain of dust */
+                float u = xs_uni(&bed_rng);
+                x = 0.25f + 0.75f * xs_uni(&bed_rng);
+                bed_wait = -0.6931472f * fm_log2f(u > 0.001f ? u : 0.001f) / hz;
+                rv_live.bed_hit++;
+            }
+            bed_nlp += (xs_bi(&bed_rng) - bed_nlp) * 0.05f;   /* and a breath of soft noise */
+            xin[i] = x + bed_nlp * breath * 8.0f;
+            yl[i] = yr[i] = 0.0f;
+        }
+        for (j = 0; j < nlive; j++) {
+            float b1, b2, g, pl, pr, y1, y2;
+            k = live[j];
+            b1 = bed_b1[k];
+            b2 = bed_b2[k];
+            g = bed_g[k];
+            pl = bed_pan[k];
+            pr = 1.0f - bed_pan[k];
+            y1 = bed_y1[k];
+            y2 = bed_y2[k];
+            if (k >= 6) {                             /* the shimmer, beating */
+                for (i = 0; i < n; i++) {
+                    float re = b1 * y1 - b2 * y2 + g * xin[i], im = b2 * y1 + b1 * y2, o = im * trem;
+                    y1 = re;
+                    y2 = im;
+                    yl[i] += o * pl;
+                    yr[i] += o * pr;
+                }
+            } else {
+                for (i = 0; i < n; i++) {
+                    float re = b1 * y1 - b2 * y2 + g * xin[i], im = b2 * y1 + b1 * y2;
+                    y1 = re;
+                    y2 = im;
+                    yl[i] += im * pl;
+                    yr[i] += im * pr;
+                }
+            }
+            bed_y1[k] = y1;
+            bed_y2[k] = y2;
+        }
+        for (i = 0; i < n; i++) {
+            float a, b;
+            bed_lvl += (lvl - bed_lvl) * 0.002f;
+            bed_gain += (want - bed_gain) * 0.0008f;
+            a = sat(yl[i] * 2.0f) * bed_lvl * bed_lvl * bed_gain;
+            b = sat(yr[i] * 2.0f) * bed_lvl * bed_lvl * bed_gain;
+            l[i] += a;
+            r[i] += b;
+            rev_in[i] += (a + b) * send;
+            env = fm_maxf(fm_fabsf(a + b) * 0.5f, env * 0.9995f);
+        }
+    }
+    rv_live.bed_env = env;
     rv_live.bed_duck = bed_gain;
 }
 

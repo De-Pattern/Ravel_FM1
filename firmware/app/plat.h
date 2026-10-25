@@ -61,6 +61,8 @@ uint32_t plat_xruns(void);
 int plat_par_on(int on);
 int plat_par_run(void (*fn)(uint32_t), uint32_t arg);
 int plat_par_wait(void);
+void plat_par_sync(void);               /* both cores' writes seen before what follows */
+uint32_t plat_par_cycles(void);         /* a cycle count either core can read (as plat_cycles) */
 /* the core's instruction-fetch waits (the FM-1 runs its code from the flash, through a cache): on
  * starts counting them (0 = counting; < 0 = not here), wait is the count so far, in cycles */
 int plat_fetch_on(int on);

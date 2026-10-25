@@ -826,6 +826,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
 enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_N };   /* (GLO > CPU names them in this order) */
 static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
+static uint32_t c2_acc, c2_wacc;                          /* the second core's work, and this one's waiting for it (cycles) */
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
 static void prof_end(int n)
 {
@@ -840,6 +841,9 @@ static void prof_end(int n)
             rv_live.prof[k] += (pct - rv_live.prof[k]) * 0.5f;
             prof_acc[k] = 0;
         }
+        rv_live.c2_load += ((budget > 0.0f ? (float)c2_acc * 100.0f / budget : 0.0f) - rv_live.c2_load) * 0.5f;
+        rv_live.c2_wait += ((budget > 0.0f ? (float)c2_wacc * 100.0f / budget : 0.0f) - rv_live.c2_wait) * 0.5f;
+        c2_acc = c2_wacc = 0;
     }
     if (rv_live.fetch_on && prof_rcyc)                /* FLASH WAIT: the share of the render spent fetching code */
         rv_live.fetch_pct += ((float)prof_fetch * 100.0f / (float)prof_rcyc - rv_live.fetch_pct) * 0.5f;
@@ -848,93 +852,253 @@ static void prof_end(int n)
 }
 
 /* ------------------------------------------------------------ two cores --- */
-/* With the second core on (GLO > CPU, CORES 2), the synth voices are split by track between the two
- * cores, as evenly as their voice counts go; the strikes, drums and samples render here meanwhile.
- * synth_part touches only its tracks' voices and buffers (no counts, no faults: synth_count does
- * those, here, after), so the halves never write the same thing. Off, or one track sounding: all
- * here, as before. The platform holds the core and does the work here if it ever fails. */
-static float v_lv[RV_SYNTH_VOICES];
-static uint8_t v_done[RV_SYNTH_VOICES], v_bad[RV_SYNTH_VOICES];
-static int par_n;
-static uint32_t par_other;
+/* With the second core on (GLO > CPU, CORES 2) it takes every other sounding voice, synth, strike or
+ * drum, in their order (so each engine's voices are shared out, and the two cores read the same code
+ * through the cache they share), up to a number that keeps it from holding this one up; then the
+ * buses (below). It plays its voices into buffers of its own, added to the tracks after; the faults,
+ * the counts and the screen's envelopes are all done here, after both, in the voices' order. Off,
+ * or failed: all here, as before. */
+enum { VK_SYNTH, VK_STRIKE, VK_PERC };
+#define VL_MAX (RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES)
+static uint8_t vl_kind[VL_MAX], vl_idx[VL_MAX], vl_c2[VL_MAX], vl_bad[VL_MAX];
+static float vl_lv[VL_MAX];
+static int vl_n, par_n;
+static float c2_buf[RV_TRACKS][RV_SUB] RV_RAMBSS;    /* the second core's voices, by track (plain RAM: the pool keeps its room) */
+static uint8_t c2_trk;                                /* the tracks it plays into this step */
+static uint8_t c2_vcap = VL_MAX;                      /* at most this many voices to it (it adapts) */
+static uint32_t c2_vcyc[3];                           /* its voices' cycles, by kind */
+static uint8_t c2_voices_given;                       /* how many it had this step */
 
-static void synth_part(uint32_t mask)
+static int vl_track(int e)
 {
-    int k, n = par_n;
-    for (k = 0; k < RV_SYNTH_VOICES; k++) {
+    int k = vl_idx[e];
+    return (vl_kind[e] == VK_SYNTH ? vs[k].track : vl_kind[e] == VK_STRIKE ? ss[k].track : ps[k].track) & 7;
+}
+
+/* one voice of the list, added into out; its level and whether it went bad are kept for the count */
+static void voice_one(int e, float *out, int n)
+{
+    int k = vl_idx[e];
+    float lv, tmp[RV_SUB];
+    switch (vl_kind[e]) {
+    case VK_SYNTH: {
         voice_t *v = &vs[k];
-        track_t *tr;
-        float lv;
-        if (!v->on || !((mask >> v->track) & 1u))
-            continue;
-        tr = &trk[v->track];
+        track_t *tr = &trk[v->track];
         if (v->hs.on) {                              /* a shaded hit: on its own, then into the track */
-            float tmp[RV_SUB];
             zero_buf(tmp, n);
             lv = synth_voice_render(v, tr, tmp, n, 0.0f);
-            hs_mix(&v->hs, tmp, tr->buf, n);
+            hs_mix(&v->hs, tmp, out, n);
         } else
-            lv = synth_voice_render(v, tr, tr->buf, n, 0.0f);
-        v_done[k] = 1;
-        v_lv[k] = lv;
-        v_bad[k] = (uint8_t)(buf_bad(tr->buf, n) || !(lv == lv));
-        if (v_bad[k])
-            zero_buf(tr->buf, n);
-        else
+            lv = synth_voice_render(v, tr, out, n, 0.0f);
+        vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
+        if (!vl_bad[e])
             synth_flush(v);
+        break;
     }
+    case VK_STRIKE: {
+        strike_t *v = &ss[k];
+        track_t *tr = &trk[v->track];
+        if (v->hs.on) {
+            zero_buf(tmp, n);
+            lv = strike_render(v, tr, tmp, n);
+            hs_mix(&v->hs, tmp, out, n);
+        } else
+            lv = strike_render(v, tr, out, n);
+        vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
+        if (!vl_bad[e])
+            strike_flush(v);
+        break;
+    }
+    default: {
+        perc_t *v = &ps[k];
+        track_t *tr = &trk[v->track];
+        if (v->hs.on) {
+            zero_buf(tmp, n);
+            lv = perc_render(v, tr, tmp, n);
+            hs_mix(&v->hs, tmp, out, n);
+        } else
+            lv = perc_render(v, tr, out, n);
+        vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
+        if (!vl_bad[e])
+            perc_flush(v);
+        break;
+    }
+    }
+    if (vl_bad[e])
+        zero_buf(out, n);
+    vl_lv[e] = lv;
 }
 
-/* after both halves: faults, the counts, the leading voice's envelopes for the screen */
-static void synth_count(uint32_t *lead_age)
+/* the second core's voices */
+static void c2_voices(void)
 {
-    int k;
-    for (k = 0; k < RV_SYNTH_VOICES; k++) {
-        voice_t *v = &vs[k];
-        if (!v_done[k])
-            continue;
-        v_done[k] = 0;
-        if (v_bad[k]) {
-            fault(100 + rv.tp[v->track][TP_ENGINE]);
-            __builtin_memset(v, 0, sizeof(*v));
-            continue;
+    int e;
+    uint32_t c = plat_par_cycles(), c1;
+    for (e = 0; e < vl_n; e++)
+        if (vl_c2[e]) {
+            voice_one(e, c2_buf[vl_track(e)], par_n);
+            c1 = plat_par_cycles();
+            c2_vcyc[vl_kind[e]] += c1 - c;
+            c = c1;
         }
-        rv_live.voices_synth++;
-        if (v->age >= lead_age[v->track]) {          /* the newest voice leads */
-            lead_age[v->track] = v->age;
-            trk[v->track].lead_env = v_lv[k];
+}
+
+/* after both cores: faults, the counts, the leading voice's envelopes for the screen */
+static void voices_count(uint32_t *lead_age)
+{
+    int e;
+    for (e = 0; e < vl_n; e++) {
+        int k = vl_idx[e];
+        float lv = vl_lv[e];
+        switch (vl_kind[e]) {
+        case VK_SYNTH: {
+            voice_t *v = &vs[k];
+            if (vl_bad[e]) {
+                fault(100 + rv.tp[v->track][TP_ENGINE]);
+                __builtin_memset(v, 0, sizeof(*v));
+                break;
+            }
+            rv_live.voices_synth++;
+            if (v->age >= lead_age[v->track]) {      /* the newest voice leads */
+                lead_age[v->track] = v->age;
+                trk[v->track].lead_env = lv;
+                rv_live.stage[v->track] = v->a.stage;
+                rv_live.stage_pos[v->track] = v->a.u;
+                rv_live.fenv[v->track] = v->fe.lvl;
+                rv_live.fenv_pos[v->track] = v->fe.u;
+                rv_live.fenv_stage[v->track] = v->fe.stage;
+            }
+            break;
+        }
+        case VK_STRIKE: {
+            strike_t *v = &ss[k];
+            if (vl_bad[e]) {
+                fault(200 + rv.tp[v->track][TP_S0]);
+                __builtin_memset(v, 0, sizeof(*v));
+                break;
+            }
+            rv_live.voices_strike++;
+            trk[v->track].lead_env = lv;
             rv_live.stage[v->track] = v->a.stage;
             rv_live.stage_pos[v->track] = v->a.u;
-            rv_live.fenv[v->track] = v->fe.lvl;
-            rv_live.fenv_pos[v->track] = v->fe.u;
-            rv_live.fenv_stage[v->track] = v->fe.stage;
+            break;
+        }
+        default: {
+            perc_t *v = &ps[k];
+            if (vl_bad[e]) {
+                fault(300 + rv.tp[v->track][TP_S0]);
+                __builtin_memset(v, 0, sizeof(*v));
+                break;
+            }
+            rv_live.voices_strike++;
+            if (v->age >= lead_age[v->track]) {
+                lead_age[v->track] = v->age;
+                trk[v->track].lead_env = lv;
+                rv_live.stage[v->track] = AS_CONT;
+                rv_live.stage_pos[v->track] = 0.0f;
+            }
+            break;
+        }
         }
     }
 }
 
-/* which tracks' voices go to the second core: 1 = a split worth making */
-static int par_split(uint32_t *mine, uint32_t *other)
+/* ------------------------------------------------------- the buses' job --- */
+/* The buses (the BED, the feedback loop, the delay, the space) play one control step behind the
+ * tracks: each step they take what the tracks sent them the step before (about 3 ms at 44.1 kHz).
+ * So the second core can run them while this one plays the voices and the tracks' chains; their
+ * code is in the chip's RAM (RV_HOT), so the two cores don't fight over the cache for it. With one
+ * core they run here, at the same point in the sound, so it is the same either way. */
+#define BX_LEN (2 * RV_SUB)
+static float bx_fb[BX_LEN], bx_dly[BX_LEN], bx_rev[BX_LEN];   /* the tracks' sends, a ring */
+static int bx_w;                                           /* where this step's go */
+static float bx_act;                                       /* how loud the tracks were (the BED ducks) */
+static float bo_l[RV_SUB], bo_r[RV_SUB], bo_fb[RV_SUB];   /* the buses' output this step */
+static float bo_act;
+static int bo_n, bo_fault;
+static uint32_t bo_cyc[4], bo_all;                        /* BED, FEEDBACK, DELAY, SPACE; and in all */
+static volatile uint8_t par_vdone;                       /* the second core's synth voices are done */
+static uint8_t par_job;                                   /* it has this step's job */
+
+static float bj_fb[RV_SUB] RV_RAMBSS, bj_dly[RV_SUB] RV_RAMBSS, bj_rev[RV_SUB] RV_RAMBSS;   /* (off the stack: the second core's is small) */
+static __attribute__((noinline)) void bus_job(void)
 {
-    int cnt[RV_TRACKS] = {0}, k, t, a = 0, b = 0, tracks = 0;
-    if (!rv_live.cores2)
-        return 0;
-    for (k = 0; k < RV_SYNTH_VOICES; k++)
-        if (vs[k].on)
-            cnt[vs[k].track & 7]++;
-    *mine = *other = 0u;
-    for (k = RV_SYNTH_VOICES; k > 0; k--)             /* the busiest tracks first, each to the lighter side */
-        for (t = 0; t < RV_TRACKS; t++)
-            if (cnt[t] == k) {
-                tracks++;
-                if (b < a) {
-                    *other |= 1u << t;
-                    b += k;
-                } else {
-                    *mine |= 1u << t;
-                    a += k;
-                }
-            }
-    return tracks >= 2 && *other;
+    float *fin = bj_fb, *din = bj_dly, *rin = bj_rev;
+    int i, n = bo_n, j = bx_w - RV_SUB;
+    uint32_t c0 = plat_par_cycles(), c = c0, c1;
+    if (j < 0)
+        j += BX_LEN;
+    for (i = 0; i < n; i++) {
+        fin[i] = bx_fb[j];
+        din[i] = bx_dly[j];
+        rin[i] = bx_rev[j];
+        bo_l[i] = bo_r[i] = 0.0f;
+        if (++j >= BX_LEN)
+            j = 0;
+    }
+    bo_fault = 0;
+    RV_FAR(bed_run)(rin, bo_l, bo_r, n, bo_act);      /* the BED, under the tracks (it ducks under them) */
+    if (buf_fix(bo_l, n) | buf_fix(bo_r, n))
+        bo_fault = 950;
+    c1 = plat_par_cycles();
+    bo_cyc[0] += c1 - c;
+    c = c1;
+    if (bus_skip(BUS_FB, fin, n)) {
+        for (i = 0; i < n; i++)
+            bo_fb[i] = 0.0f;
+    } else {
+        RV_FAR(feedback_run)(fin, n, bo_fb);
+        bus_note(BUS_FB, peak_of(bo_fb, n));
+    }
+    if (buf_fix(bo_fb, n) && !bo_fault)
+        bo_fault = 600;
+    for (i = 0; i < n; i++) {
+        bo_l[i] += bo_fb[i];
+        bo_r[i] += bo_fb[i];
+    }
+    c1 = plat_par_cycles();
+    bo_cyc[1] += c1 - c;
+    c = c1;
+    if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
+        bus_quiet[BUS_DLY] = 0;
+    bus_stereo(BUS_DLY, delay_run, din, n, bo_l, bo_r);
+    if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
+        bo_fault = 800;
+    c1 = plat_par_cycles();
+    bo_cyc[2] += c1 - c;
+    c = c1;
+    bus_stereo(BUS_SPACE, halfrate_run, rin, n, bo_l, bo_r);
+    if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
+        bo_fault = 900;
+    c1 = plat_par_cycles();
+    bo_cyc[3] += c1 - c;
+    bo_all += c1 - c0;
+}
+
+/* the second core's work for a step: its voices (if any), then the buses */
+static void c2_job(uint32_t voices)
+{
+    if (voices) {
+        c2_voices();
+        plat_par_sync();
+        par_vdone = 1;
+        plat_par_sync();
+    }
+    bus_job();
+}
+
+/* this core waits for the second's voices: 0 = they are done; < 0 = it failed (and is off now:
+ * its voices are to be played here) */
+static int par_voices_wait(void)
+{
+    uint32_t t0 = plat_par_cycles();
+    while (!par_vdone) {
+        plat_par_sync();
+        if (plat_par_cycles() - t0 > plat_cycles_hz() / 125u)   /* 8 ms: far past any step */
+            return plat_par_wait() < 0 ? -1 : 0;   /* (done after all, or failed) */
+    }
+    plat_par_sync();
+    return 0;
 }
 
 /* ------------------------------------------------------- overload guard --- */
@@ -1210,12 +1374,13 @@ static void render_sub(float *outl, float *outr, int n)
         for (i = 0; i < n; i++)
             tr->buf[i] = 0.0f;
     }
-    /* voices: the synth voices first, half of their tracks on the second core when it is on (the
-     * strikes, drums and samples go on here meanwhile); then what they did is counted, here */
+    /* the voices: synth, strike, drum, in that order; every other one to the second core when it is
+     * on (the buses go there too); then what they did is counted, here */
     rv_live.voices_synth = rv_live.voices_strike = 0;
     {
-        uint32_t mine = 0xFFu, other = 0u;
-        par_other = 0u;
+        int e, nc2 = 0;
+        uint32_t c, c1, wv = 0;
+        vl_n = 0;
         for (k = 0; k < RV_SYNTH_VOICES; k++) {
             voice_t *v = &vs[k];
             if (!v->on)
@@ -1225,103 +1390,96 @@ static void render_sub(float *outl, float *outr, int n)
                 continue;
             }
             artic_cfg_track(&v->cfg, trk[v->track].eff);
+            vl_kind[vl_n] = VK_SYNTH;
+            vl_idx[vl_n++] = (uint8_t)k;
         }
+        for (k = 0; k < RV_STRIKE_VOICES; k++) {
+            strike_t *v = &ss[k];
+            if (!v->on)
+                continue;
+            if (rv.tp[v->track][TP_KIND] != KIND_STRIKE) {
+                v->on = 0;
+                continue;
+            }
+            artic_cfg_track(&v->cfg, trk[v->track].eff);
+            vl_kind[vl_n] = VK_STRIKE;
+            vl_idx[vl_n++] = (uint8_t)k;
+        }
+        for (k = 0; k < RV_PERC_VOICES; k++) {
+            perc_t *v = &ps[k];
+            if (!v->on)
+                continue;
+            if (rv.tp[v->track][TP_KIND] != KIND_PERC) {
+                v->on = 0;
+                continue;
+            }
+            vl_kind[vl_n] = VK_PERC;
+            vl_idx[vl_n++] = (uint8_t)k;
+        }
+        c2_trk = 0;
+        for (e = 0; e < vl_n; e++) {                 /* every other voice, up to its limit */
+            vl_c2[e] = (uint8_t)(rv_live.cores2 && (e & 1) && nc2 < c2_vcap);
+            if (vl_c2[e]) {
+                nc2++;
+                c2_trk |= (uint8_t)(1u << vl_track(e));
+            }
+        }
+        for (t = 0; t < RV_TRACKS; t++)
+            if ((c2_trk >> t) & 1u)
+                zero_buf(c2_buf[t], n);
         par_n = n;
-        {
-            uint32_t m, o;
-            rv_live.c2_used = 0;
-            if (par_split(&m, &o)) {
-                if (plat_par_run(synth_part, o)) {
-                    mine = m;
-                    other = o;
-                    rv_live.c2_used = 1;
-                } else
-                    rv_live.c2_fail = 1;
-            }                                        /* (else all here) */
+        bo_n = n;
+        bo_act = bx_act;
+        par_vdone = 0;
+        par_job = 0;
+        rv_live.c2_used = 0;
+        if (rv_live.cores2) {                        /* the second core: its voices, then the buses */
+            if (plat_par_run(c2_job, (uint32_t)nc2)) {
+                par_job = 1;
+                rv_live.c2_used = 1;
+            } else
+                rv_live.c2_fail = 1;
         }
-        synth_part(mine);
-        par_other = other;                           /* (the strikes etc. below run meanwhile) */
+        if (!par_job)
+            for (e = 0; e < vl_n; e++)
+                vl_c2[e] = 0;
+        c = plat_cycles();
+        for (e = 0; e < vl_n; e++)                   /* this core's */
+            if (!vl_c2[e]) {
+                voice_one(e, trk[vl_track(e)].buf, n);
+                c1 = plat_cycles();
+                prof_acc[PF_SYNTH + vl_kind[e]] += c1 - c;
+                c = c1;
+            }
+        if (par_job && nc2) {                        /* the second core's */
+            uint32_t w0 = plat_par_cycles();
+            int r = par_voices_wait();
+            wv = plat_par_cycles() - w0;
+            c2_wacc += wv;
+            if (r < 0) {                             /* it failed (and is off now): its voices here, again */
+                rv_live.c2_fail = 1;
+                par_job = 0;                         /* (and the buses) */
+                for (e = 0; e < vl_n; e++)
+                    if (vl_c2[e]) {
+                        vl_c2[e] = 0;
+                        voice_one(e, trk[vl_track(e)].buf, n);
+                    }
+            } else {
+                for (t = 0; t < RV_TRACKS; t++)
+                    if ((c2_trk >> t) & 1u)
+                        for (i = 0; i < n; i++)
+                            trk[t].buf[i] += c2_buf[t][i];
+                for (k = 0; k < 3; k++) {            /* (its voices' time, in their bars and in its load) */
+                    prof_acc[PF_SYNTH + k] += c2_vcyc[k];
+                    c2_acc += c2_vcyc[k];
+                }
+            }
+        }
+        c2_vcyc[0] = c2_vcyc[1] = c2_vcyc[2] = 0;
+        voices_count(lead_age);
+        prof_t = plat_cycles();                      /* (the waiting: in no part's bar, in the total) */
+        c2_voices_given = (uint8_t)nc2;
     }
-    if (!par_other)
-        synth_count(lead_age);
-    PROF(PF_SYNTH);
-    for (k = 0; k < RV_STRIKE_VOICES; k++) {
-        strike_t *v = &ss[k];
-        track_t *tr;
-        float lv;
-        if (!v->on)
-            continue;
-        tr = &trk[v->track];
-        if (rv.tp[v->track][TP_KIND] != KIND_STRIKE) {
-            v->on = 0;
-            continue;
-        }
-        artic_cfg_track(&v->cfg, tr->eff);
-        if (v->hs.on) {
-            float tmp[RV_SUB];
-            zero_buf(tmp, n);
-            lv = strike_render(v, tr, tmp, n);
-            hs_mix(&v->hs, tmp, tr->buf, n);
-        } else
-            lv = strike_render(v, tr, tr->buf, n);
-        if (buf_bad(tr->buf, n) || !(lv == lv)) {
-            fault(200 + rv.tp[v->track][TP_S0]);
-            __builtin_memset(v, 0, sizeof(*v));
-            zero_buf(tr->buf, n);
-            continue;
-        }
-        strike_flush(v);
-        rv_live.voices_strike++;
-        tr->lead_env = lv;
-        rv_live.stage[v->track] = v->a.stage;
-        rv_live.stage_pos[v->track] = v->a.u;
-    }
-    PROF(PF_STRIKE);
-    for (k = 0; k < RV_PERC_VOICES; k++) {
-        perc_t *v = &ps[k];
-        track_t *tr;
-        float lv;
-        if (!v->on)
-            continue;
-        tr = &trk[v->track];
-        if (rv.tp[v->track][TP_KIND] != KIND_PERC) {
-            v->on = 0;
-            continue;
-        }
-        if (v->hs.on) {
-            float tmp[RV_SUB];
-            zero_buf(tmp, n);
-            lv = perc_render(v, tr, tmp, n);
-            hs_mix(&v->hs, tmp, tr->buf, n);
-        } else
-            lv = perc_render(v, tr, tr->buf, n);
-        if (buf_bad(tr->buf, n) || !(lv == lv)) {
-            fault(300 + rv.tp[v->track][TP_S0]);
-            __builtin_memset(v, 0, sizeof(*v));
-            zero_buf(tr->buf, n);
-            continue;
-        }
-        perc_flush(v);
-        rv_live.voices_strike++;
-        if (v->age >= lead_age[v->track]) {
-            lead_age[v->track] = v->age;
-            tr->lead_env = lv;
-            rv_live.stage[v->track] = AS_CONT;
-            rv_live.stage_pos[v->track] = 0.0f;
-        }
-    }
-    if (par_other) {                                 /* the second core's half */
-        if (plat_par_wait() < 0) {                   /* it failed (and is off now): its half here, again */
-            rv_live.c2_fail = 1;
-            for (t = 0; t < RV_TRACKS; t++)
-                if ((par_other >> t) & 1u)
-                    zero_buf(trk[t].buf, n);
-            synth_part(par_other);
-        }
-        synth_count(lead_age);
-        par_other = 0u;
-    }
-    PROF(PF_PERC);
     vcyc = prof_t - vcyc0;
     /* tape tracks, and the tracks' chains */
     for (t = 0; t < RV_TRACKS; t++) {
@@ -1446,44 +1604,60 @@ static void render_sub(float *outl, float *outr, int n)
         prof_acc[PF_CHAIN] += c - prof_t - tape_cyc;
         prof_t = c;
     }
-    bed_run(rev_in, outl, outr, n);                  /* the BED, under the tracks (it listens to them) */
-    if (buf_fix(outl, n) | buf_fix(outr, n)) {
-        fault(950);
-        buses_reset();
-    }
-
-    PROF(PF_BED);
-    /* buses */
-    if (bus_skip(BUS_FB, fb_in, n)) {
-        for (i = 0; i < n; i++)
-            fb_out[i] = 0.0f;
-    } else {
-        RV_FAR(feedback_run)(fb_in, n, fb_out);
-        bus_note(BUS_FB, peak_of(fb_out, n));
-    }
-    if (buf_fix(fb_out, n)) {
-        fault(600);
-        buses_reset();
-    }
-    for (i = 0; i < n; i++) {
-        bus_mono[i] = fb_out[i];                     /* (the tape's BUS source) */
-        outl[i] += bus_mono[i];
-        outr[i] += bus_mono[i];
-    }
-    PROF(PF_FB);
-    if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
-        bus_quiet[BUS_DLY] = 0;
-    bus_stereo(BUS_DLY, delay_run, dly_in, n, outl, outr);
-    if (buf_fix(outl, n) | buf_fix(outr, n)) {
-        fault(800);
-        buses_reset();
-    }
-    PROF(PF_DLY);
-    bus_stereo(BUS_SPACE, halfrate_run, rev_in, n, outl, outr);
-    PROF(PF_SPACE);
-    if (buf_fix(outl, n) | buf_fix(outr, n)) {
-        fault(900);
-        buses_reset();
+    /* the buses: this step's sends go into the ring (they play next step); what they made of the
+     * last step's comes back from the second core, or is made here now */
+    {
+        float act = 0.0f;
+        int j = bx_w;
+        for (i = 0; i < n; i++) {
+            bx_fb[j] = fb_in[i];
+            bx_dly[j] = dly_in[i];
+            bx_rev[j] = rev_in[i];
+            if (++j >= BX_LEN)
+                j = 0;
+            act += fm_fabsf(outl[i]) + fm_fabsf(outr[i]);
+        }
+        if (par_job) {
+            uint32_t w0 = plat_par_cycles(), we, bud = (uint32_t)((float)plat_cycles_hz() / (float)RV_FS * (float)n);
+            int r = plat_par_wait();
+            we = plat_par_cycles() - w0;
+            c2_wacc += we;
+            if (r < 0) {                             /* it failed (and is off now): here */
+                rv_live.c2_fail = 1;
+                par_job = 0;
+            } else if (we > bud / 50u)               /* this core waited for it: fewer voices to it */
+                c2_vcap = (uint8_t)(c2_voices_given ? c2_voices_given - 1 : 0);
+            else if (we < bud / 200u && c2_vcap <= c2_voices_given && c2_vcap < VL_MAX)
+                c2_vcap++;                           /* it was done in time: one more, if there are more */
+        }
+        if (!par_job) {
+            bo_all = 0;
+            bus_job();
+            prof_acc[PF_BED] += bo_cyc[0];
+            prof_acc[PF_FB] += bo_cyc[1];
+            prof_acc[PF_DLY] += bo_cyc[2];
+            prof_acc[PF_SPACE] += bo_cyc[3];
+            prof_t += bo_all;                        /* (counted in the parts above, not the master's) */
+        } else {
+            prof_acc[PF_BED] += bo_cyc[0];
+            prof_acc[PF_FB] += bo_cyc[1];
+            prof_acc[PF_DLY] += bo_cyc[2];
+            prof_acc[PF_SPACE] += bo_cyc[3];
+            c2_acc += bo_all;
+        }
+        bo_cyc[0] = bo_cyc[1] = bo_cyc[2] = bo_cyc[3] = bo_all = 0;
+        par_job = 0;
+        bx_w = j;
+        bx_act = act / (float)n;
+        if (bo_fault) {
+            fault(bo_fault);
+            buses_reset();
+        }
+        for (i = 0; i < n; i++) {
+            fb_out[i] = bus_mono[i] = bo_fb[i];      /* (the feedback return next step; the tape's BUS source) */
+            outl[i] += bo_l[i];
+            outr[i] += bo_r[i];
+        }
     }
 
     /* the tape's input */

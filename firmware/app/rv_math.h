@@ -26,6 +26,10 @@
 #define RV_INL static inline __attribute__((always_inline))
 /* (read through a volatile pointer: the compiler cannot turn it back into a direct call) */
 #define RV_FAR(fn) ({ static __typeof__(&fn) const volatile rv_far_ = fn; rv_far_; })
+#elif defined(RV_PROF_HOT)                   /* (the simulator's profile: RV_HOT kept apart, so it can be counted) */
+#define RV_HOT __attribute__((noinline))
+#define RV_INL static inline __attribute__((always_inline))
+#define RV_FAR(fn) fn
 #else
 #define RV_HOT
 #define RV_INL static inline
@@ -88,7 +92,7 @@ static inline float fm_expf(float x) { return fm_exp2f(x * FM_LOG2E); }
 
 /* log2 for x > 0: the exponent, plus log2 of the mantissa m in [0.707, 1.414) through
  * atanh: log2 m = 2/ln2 (t + t^3/3 + t^5/5 + t^7/7 + t^9/9), t = (m - 1) / (m + 1) */
-static float fm_log2f(float x)
+RV_INL float fm_log2f(float x)
 {
     fm_bits_t b;
     int32_t e;

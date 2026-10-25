@@ -1032,32 +1032,34 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
-| **CPU** | CORES: 2 (the default) puts half the synth voices on the FM-1's second core; 1 turns it off (see below) | FLASH WT: OFF, or ON to count how much of the render waits for its code to come from the flash | – | – | – |
-| **STRESS** | STEP: OFF, or 1–12, each adding load to the last (below) | ENGINE: the synth engine the voices use | AUTO: RUN walks the steps, three seconds each, and fills in the table | – | – |
+| **CPU** | CORES: 2 (the default) gives the FM-1's second core the effects and every other voice; 1 turns it off (see below) | FLASH WT: OFF, or ON to count how much of the render waits for its code to come from the flash | – | – | – |
+| **STRESS** | STEP: OFF, or 1–16, each adding load to the last (below) | ENGINE: the synth engine the voices use | AUTO: RUN walks the steps, three seconds each, and fills in the table | – | – |
 
 <p align="center"><img src="docs/manual/song-cpu.png" alt="CPU" width="240"> <img src="docs/manual/song-stress.png" alt="STRESS" width="240"></p>
 <p align="center"><sub>(Taken on the desktop simulator, a far faster machine: the same project reads many times higher on the FM-1.)</sub></p>
 
-**CPU: where the audio's time goes.** The bars show how much of the time the audio has each part of the render takes: CONTROL (the sequencer, modulation, the knobs), SYNTH, STRIKE, PERC, TAPE (the sample voices), TRACK FX, BED, FEEDBACK, DELAY, SPACE and MASTER. A bar's full length is 50 %. RENDER is the total; past about 90 % the FM-1 falls behind. **XRUNS** counts the blocks that came too late: each one is a crackle, and a steady stream of them is the loud noise an overloaded FM-1 makes. Measured on the FM-1 and the desktop simulator; the browser has no clock for it.
+**CPU: where the audio's time goes.** The bars show how much of the time the audio has each part of the render takes: CONTROL (the sequencer, modulation, the knobs), SYNTH, STRIKE, PERC, TAPE (the sample voices), TRACK FX, BED, FEEDBACK, DELAY, SPACE and MASTER. A bar's full length is 50 %. RENDER is the total on the first core (the one that must keep up); past about 90 % the FM-1 falls behind. CORE 2 is the second core's share: the effects and the voices it plays (a part's bar counts its time on whichever core runs it). **XRUNS** counts the blocks that came too late: each one is a crackle, and a steady stream of them is the loud noise an overloaded FM-1 makes. Measured on the FM-1 and the desktop simulator; the browser has no clock for it.
 
 **The overload guard.** When the render takes more than 80 % of the time it has, the guard fades out the oldest voice (a released one first, over about 7 ms) and holds the voice count there: a new note past the limit fades out the oldest to make room. When there is room again, the limit comes back up a voice at a time. The CPU page shows it (GUARD: 6 VOICES, and how many it has faded). It only acts when the voices are what costs; if the effects alone are too much, turn some sends down. It never acts in the browser.
 
-**Two cores.** The FM-1's chip has two cores, and Ravel starts the second at power-on. It takes the synth voices of half the tracks (split by how many voices each has), while the first core plays the strikes, drums and samples, so it helps when synth voices sound on two tracks or more. On some units the second core misreads memory, so it is watched: if it ever reads a wrong job or doesn't finish one in time, the first core takes the work back at once (CORE 2 FAILED on the CPU page), and after any restart with it running (a crash, a hang, an update) it stays off until the FM-1 is switched off and on. CORES 1 turns it off by hand.
+**Two cores.** The FM-1's chip has two cores, and Ravel starts the second at power-on. It runs the effect buses (the BED, FEEDBACK, DELAY and SPACE), and it takes every other sounding voice, synth, strike or drum, while the first core plays the rest, the tape tracks and every track's chain. It takes only as many voices as keep it from holding the first core up: when the effects are heavy it takes fewer, and the CPU page shows its share (CORE 2 40 %). For this the buses play one control step behind the tracks: the effects come about 3 ms after the dry sound, with one core or two, so the sound is the same either way. On some units the second core misreads memory, so it is watched: if it ever reads a wrong job or doesn't finish one in time, the first core takes the work back at once (CORE 2 FAILED on the CPU page), and after any restart with it running (a crash, a hang, an update) it stays off until the FM-1 is switched off and on. CORES 1 turns it off by hand.
 
-**FLASH WAIT.** The FM-1 runs Ravel's code straight from its flash memory, through a cache. When the code the render needs is not in the cache, the core waits for the flash. FLASH WT ON counts those waits and shows them as a share of the render (FLASH WAIT 30 %). The busiest audio code already runs from the chip's RAM (the delay, the space, the feedback loop, every synth voice's filter and amplifier, the VA oscillator, the master's limiter); a high number says more of it should. The counters are not verified on hardware yet, so it is off by default.
+**FLASH WAIT.** The FM-1 runs Ravel's code straight from its flash memory, through a cache. When the code the render needs is not in the cache, the core waits for the flash. FLASH WT ON counts those waits and shows them as a share of the render (FLASH WAIT 30 %). The busiest audio code already runs from the chip's RAM (the delay, the space, the feedback loop, the BED, every synth voice's filter and amplifier, the VA oscillator, the master's limiter); a high number says more of it should. The counters are not verified on hardware yet, so it is off by default.
 
 **STRESS: how much this FM-1 takes.** The stress test replaces the project in memory (save yours first; it asks twice), builds a project that adds load a step at a time, and plays it, with the overload guard off so you see the real edge:
 
 | Step | Adds | Step | Adds |
 | --- | --- | --- | --- |
-| 1 | nothing (the idle cost) | 7 | a drum kit, a hit on every step |
-| 2 | 1 voice of ENGINE, held | 8 | 3 sample voices, held |
-| 3 | 2 voices | 9 | every track into the DELAY |
-| 4 | 4 voices | 10 | every track into the SPACE |
-| 5 | 8 voices | 11 | the FEEDBACK bus |
-| 6 | 2 strike voices, hit on every other step | 12 | MASTER DRIVE |
+| 1 | nothing (the idle cost) | 9 | every track into the DELAY |
+| 2 | 1 voice of ENGINE, held | 10 | the delay's GRAINS, busy |
+| 3 | 2 voices | 11 | TAPE WEAR: wow, flutter, age |
+| 4 | 4 voices | 12 | every track into the SPACE |
+| 5 | 8 voices | 13 | the FEEDBACK bus |
+| 6 | 2 strike voices, hit on every other step | 14 | the feedback's PROCESS (a frequency shift) and its band |
+| 7 | a drum kit, a hit on every step | 15 | the BED, with SHIMMER and a send to the space |
+| 8 | 3 sample voices, held | 16 | MASTER DRIVE |
 
-Each step is measured from its first second to its third; the table shows the RENDER % for each step, red with a ! where XRUNS started. AUTO RUN walks all twelve in under a minute and leaves the table on screen: a photo of it says exactly what this FM-1 can do. Change ENGINE to compare engines (STEP 5 is 8 voices of it). Turn STEP to OFF to stop. Loading any project or demo ends the test.
+Each step is measured from its first second to its third; the table shows the RENDER % for each step (and the second core's after a /, when it works), red with a ! where XRUNS started. Each effect step's rise over the one before is what that effect costs. AUTO RUN walks all sixteen in under a minute and leaves the table on screen: a photo of it says exactly what this FM-1 can do. Change ENGINE to compare engines (STEP 5 is 8 voices of it). Turn STEP to OFF to stop. Loading any project or demo ends the test.
 
 **Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 

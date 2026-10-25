@@ -29,7 +29,7 @@ shot stress-8voices.png
 turn K2 12
 wait 3500
 turn K3 1
-wait 52000
+wait 66000
 shot stress-auto.png
 expect page STRESS
 demo 1

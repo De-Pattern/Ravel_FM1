@@ -33,7 +33,7 @@
 
 extern void fm1_c1_entry(void);
 extern uint32_t _c1_ustack[], _c1_sstack_top[];
-#define FM1_C1_STACK_WORDS (4096u / 4u)    /* fm1_cpu1.S */
+#define FM1_C1_STACK_WORDS (6144u / 4u)    /* fm1_cpu1.S */
 #define FM1_C1_MARK 0x43314D4Bu                  /* "C1MK": how deep core 1's stack has gone */
 typedef struct {
     volatile uint32_t job, arg;                 /* core 0: job + 1 hands fn(arg) over */
@@ -154,6 +154,9 @@ static int fm1_cpu1_start(void)
     fm1_c1_on = 1;
     return 0;
 }
+
+/* both cores' writes seen before what follows (a flag between them inside a job) */
+static inline void fm1_cpu1_sync(void) { FM1_C1_SYNC(); }
 
 /* hand core 1 a job: 1 = it took it (fm1_cpu1_wait before touching what it works on) */
 static inline int fm1_cpu1_run(void (*fn)(uint32_t), uint32_t arg)

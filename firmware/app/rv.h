@@ -360,6 +360,8 @@ typedef struct {
     uint8_t cores2;                        /* GLO > CPU, CORES: the second core takes half the synth voices */
     uint8_t c2_fail;                       /* it failed (or would not take work): one core since */
     uint8_t c2_used;                       /* it took part in the last render */
+    float c2_load;                         /* its work (the buses, its synth voices), % of the time it has (smoothed) */
+    float c2_wait;                         /* this core waiting for it, % of the time (smoothed) */
     uint8_t fetch_on;                      /* GLO > CPU, FLASH WAIT: counting the code fetch's waits */
     float fetch_pct;                       /* the render's time spent waiting for its code (smoothed) */
     uint32_t tick;
@@ -446,7 +448,7 @@ void rv_bank_settle(void);
 void rv_bank_reload(int slot);
 void rv_demo(int which);
 /* rv_stress.c: the stress test (GLO > CPU) */
-#define RV_STRESS_N 13
+#define RV_STRESS_N 17
 void rv_stress(int step, int engine);          /* 0: stop; else build the project for that step and play it */
 const char *rv_stress_name(int step);
 

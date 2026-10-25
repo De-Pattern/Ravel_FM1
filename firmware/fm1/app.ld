@@ -2,8 +2,9 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Felucca memory map (Ravel: the pool takes the instrument's state).
  * Code + constants execute in place from XIP (app.bin offset 0 = 0x02000120).
- * 0x01C00000..0x01C06000 holds .ram_text (code that must run while the flash
- * is busy: the flash driver); 0x01C06000..0x01C08000 stays for RAM-run debug.
+ * 0x01C00000..0x01C08000 holds .ram_text (code that must run while the flash
+ * is busy: the flash driver), core 1's loop and Ravel's .fast_text (the render's
+ * busiest code). (Felucca kept 0x01C06000.. for RAM-run debug; Ravel uses it.)
  * RAM  : .data/.bss (96 KiB)
  * POOL : big zero-initialised buffers, section .pool. Ravel: all of the instrument's and the Beads
  *        port's zero-initialised state goes here (rv_app.o, bd.o), the platform's stays in RAM.
@@ -12,7 +13,7 @@
 MEMORY
 {
     XIP    (rx)  : ORIGIN = 0x02000120, LENGTH = 0x8DFBC
-    RAMTEXT (rwx): ORIGIN = 0x01C00000, LENGTH = 0x6000
+    RAMTEXT (rwx): ORIGIN = 0x01C00000, LENGTH = 0x8000
     RAM    (rwx) : ORIGIN = 0x01C08000, LENGTH = 96K
     POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x54000
     NOINIT (rw)  : ORIGIN = 0x01C7C000, LENGTH = 0x3D50
