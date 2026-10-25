@@ -3697,6 +3697,13 @@ static void pic_cpu(void)
             b[0] = 0;
             sx_cat(b, "CORE 2 ");
             sx_int(b + 7, (int)(rv_live.c2_load + 0.5f));
+            sx_cat(b, "%, WAIT ");                  /* and this core waiting for it */
+            {
+                int l = 0;
+                while (b[l])
+                    l++;
+                sx_int(b + l, (int)(rv_live.c2_wait + 0.5f));
+            }
             sx_cat(b, "%");
             g_text_r(234, PIC_Y + 104, &FONT_T, b, rv_live.c2_load > 90.0f ? C_RED : C_TEAL);
         }

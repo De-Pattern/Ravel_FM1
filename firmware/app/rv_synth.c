@@ -1548,35 +1548,54 @@ static void organ_render(voice_t *v, const float *eff, float f, float *out, int 
     }
     tot = 0.55f / (tot > 1.0f ? fm_sqrtf(tot) : 1.0f) * org_gain[stop];   /* the bright stops' peaks sit higher: level them */
     svf_set(&o->ch, f * 3.0f < 9000.0f ? f * 3.0f : 9000.0f, 5.0f);
-    for (i = 0; i < n; i++) {
-        float y = 0.0f, ns = xs_bi(&o->ns), bp;
+    {   /* each rank over the whole step (its phase in a register, its tables chosen once), summed in
+         * rank order as ever; then the air, a sample at a time */
+        float yb[RV_SUB];
+        for (i = 0; i < n; i++)
+            yb[i] = 0.0f;
         for (k = 0; k < nr; k++) {
-            int r = idx[k], i0;
-            float x, fr, a, b;
-            o->ph[r] += inc[k];
-            if (o->ph[r] >= (float)ORG_N)
-                o->ph[r] -= (float)ORG_N;
-            x = o->ph[r];
-            i0 = (int)x;
-            fr = x - (float)i0;
-            {                                          /* share 0..1: full to plain, 1..2: plain to pure */
-                int lo = share[k] < 1.0f ? 0 : 1, i1 = (i0 + 1) & (ORG_N - 1);
-                float sh = share[k] - (float)lo;
-                const int8_t *ta = org_tab[stop][lo], *tb = org_tab[stop][lo + 1];
-                a = ta[i0] + (ta[i1] - ta[i0]) * fr;
-                if (sh > 0.001f) {
+            int r = idx[k], lo = share[k] < 1.0f ? 0 : 1;   /* share 0..1: full to plain, 1..2: plain to pure */
+            float sh = share[k] - (float)lo, ph = o->ph[r], dp = inc[k], lv = lvl[k];
+            const int8_t *ta = org_tab[stop][lo], *tb = org_tab[stop][lo + 1];
+            if (sh > 0.001f) {
+                for (i = 0; i < n; i++) {
+                    int i0, i1;
+                    float fr, a, b;
+                    ph += dp;
+                    if (ph >= (float)ORG_N)
+                        ph -= (float)ORG_N;
+                    i0 = (int)ph;
+                    fr = ph - (float)i0;
+                    i1 = (i0 + 1) & (ORG_N - 1);
+                    a = ta[i0] + (ta[i1] - ta[i0]) * fr;
                     b = tb[i0] + (tb[i1] - tb[i0]) * fr;
                     a += (b - a) * sh;
+                    yb[i] += a * lv;
+                }
+            } else {
+                for (i = 0; i < n; i++) {
+                    int i0, i1;
+                    float fr;
+                    ph += dp;
+                    if (ph >= (float)ORG_N)
+                        ph -= (float)ORG_N;
+                    i0 = (int)ph;
+                    fr = ph - (float)i0;
+                    i1 = (i0 + 1) & (ORG_N - 1);
+                    yb[i] += (ta[i0] + (ta[i1] - ta[i0]) * fr) * lv;
                 }
             }
-            y += a * lvl[k];
+            o->ph[r] = ph;
         }
-        y *= (1.0f / 127.0f);
-        svf_tick(&o->ch, ns, &bp, 0);                  /* the chiff: air through the pipe's mouth */
-        o->air_lp += (ns - o->air_lp) * 0.08f;
-        y += bp * chiff * o->chiff * 0.5f + o->air_lp * air * (0.3f + 0.7f * (nr ? onset / (float)nr : 0.0f));
-        out[i] = y * tot;
-        o->chiff *= 0.9992f;
+        for (i = 0; i < n; i++) {
+            float y = yb[i], ns = xs_bi(&o->ns), bp;
+            y *= (1.0f / 127.0f);
+            svf_tick(&o->ch, ns, &bp, 0);              /* the chiff: air through the pipe's mouth */
+            o->air_lp += (ns - o->air_lp) * 0.08f;
+            y += bp * chiff * o->chiff * 0.5f + o->air_lp * air * (0.3f + 0.7f * (nr ? onset / (float)nr : 0.0f));
+            out[i] = y * tot;
+            o->chiff *= 0.9992f;
+        }
     }
     o->t += dt;
 }
@@ -2133,11 +2152,13 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
                                float res, float cut, float velamt, float sem_m, int sem_bp)
 {
     int i;
-    float lvl;
+    float lvl, vf = 1.0f - velamt + velamt * v->vel, trim = eng_trim[eng];   /* (once a step) */
     lvl = 0.0f;
+    if (eng == ENG_PHYS)                              /* (PHYS takes the excitation itself) */
+        exc = 0;
     for (i = 0; i < n; i++) {
         float a = eng == ENG_CZ ? 1.0f : artic_tick(&v->a, &v->cfg), x = buf[i], bp, hp, y;   /* CZ: its DCA is the envelope */
-        if (eng != ENG_PHYS)
+        if (exc)
             x += exc[i] * 0.5f;
         if (v->a.tailv > 0.0005f)
             x += xs_bi(&v->rng) * v->a.tailv * 0.35f;
@@ -2184,9 +2205,9 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
         case FT_HP: svf_tick(&v->svf, x, 0, &hp); y = hp; break;
         default: y = svf_tick(&v->svf, x, 0, 0) * v->lpg; break;
         }
-        y *= a * (1.0f - velamt + velamt * v->vel);
+        y *= a * vf;
         y = 2.0f * sat(y * 0.5f);                     /* a resonant filter or body driven hard: rounded, not runaway */
-        out[i] += y * eng_trim[eng];
+        out[i] += y * trim;
         v->last = y;
         lvl = a;
     }
@@ -2250,7 +2271,7 @@ static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, floa
         svf_set(&v->svf, rv_cut_hz(cut), 0.5f + res * res * 18.0f);
     const float sem_m = clampf(eff[TP_FMODE] * (1.0f / 127.0f), 0.0f, 1.0f);   /* (locals: two cores may render voices at once) */
     const int sem_bp = eff[TP_FBP] > 0.5f;
-    lvl = RV_FAR(voice_post)(v, tr->exc, buf, out, n, eng, ft, res, cut, velamt, sem_m, sem_bp);
+    lvl = RV_FAR(voice_post)(v, tr->exc_on ? tr->exc : 0, buf, out, n, eng, ft, res, cut, velamt, sem_m, sem_bp);
     if (eng == ENG_CZ) {
         if (v->e.cz.done)
             v->on = 0;

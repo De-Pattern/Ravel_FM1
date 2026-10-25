@@ -226,6 +226,7 @@ typedef struct {
     uint16_t quiet;                 /* control steps its chain has had nothing in and nothing out */
     float prev[RV_SUB];             /* the last one: influence audio reads it */
     float exc[RV_SUB];              /* excitation coming in (influence, feedback return) */
+    uint8_t exc_on;                 /* any this step */
     float ring[RV_SUB];
     float ring_amt;
     float lead_env, lead_vel;       /* newest voice's articulation level, velocity */

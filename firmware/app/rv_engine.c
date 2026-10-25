@@ -1370,6 +1370,7 @@ static void render_sub(float *outl, float *outr, int n)
                 if (fm_fabsf(tr->exc[i]) > pk)
                     pk = fm_fabsf(tr->exc[i]);
             rv_live.exc_in[t] = pk > rv_live.exc_in[t] ? pk : rv_live.exc_in[t] * 0.995f;   /* held, falling slowly */
+            tr->exc_on = pk > 0.0f;                  /* (the voices skip adding none) */
         }
         for (i = 0; i < n; i++)
             tr->buf[i] = 0.0f;
