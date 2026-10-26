@@ -14,7 +14,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
   <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike and perc tracks feed the mixer and buses (feedback, the tape echo and grains, the space: a 12-bit reverb, the bed) and the master; an influence band connects every track to every other" width="760">
 </p>
 
-**Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
+**Status: runs on the FM-1 and in the browser emulator.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. It is young: copy your projects to a computer now and then (the emulator's **Get from FM-1**), and report anything odd on the repository's issues.
 
 <p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the tracks page, the WAVE wavetables, a perc machine lane, the kit sequencer, the step and graph sequencers, the filter envelope, the delay, the mixer and the influence grid" width="900"></p>
 <p align="center"><sub>More screens in <a href="docs/showcase/">docs/showcase</a>.</sub></p>
@@ -1294,7 +1294,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 
 ## Installing on the FM-1
 
-**Ravel has not been tested on FM-1 hardware yet. Installing it is at your own risk.**
+**Installing any custom firmware is at your own risk.** The installer never touches the FM-1's boot area, and M-VAVE's own firmware can always go back on (below).
 
 1. Open Ravel's site (the repository's GitHub Pages: the emulator) in Chrome or Edge on a computer, and press **Install on FM-1** at the top.
 2. Connect the FM-1, switched on, directly to the computer with a USB data cable.
