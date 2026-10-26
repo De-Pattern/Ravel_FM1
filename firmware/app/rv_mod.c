@@ -281,7 +281,7 @@ static void movement_tick(int n)
 /* ------------------------------------------------------------ the sum --- */
 static float midi_wheel;
 
-static float macro_curve(int c, float u)
+RV_INL float macro_curve(int c, float u)
 {
     switch (c) {
     case 1: return u * u;                            /* exp */
@@ -295,7 +295,7 @@ static float macro_curve(int c, float u)
 static uint32_t eff_moved[RV_TRACKS][(TP_N + 31) / 32], geff_moved[(GP_N + 31) / 32];
 #define EFF_MOVE(t, p) (eff_moved[t][(p) >> 5] |= 1u << ((p) & 31))
 
-static void eff_add(int pid, float amt_units)
+RV_INL void eff_add(int pid, float amt_units)
 {
     if (pid < 0)
         return;
@@ -311,14 +311,14 @@ static void eff_add(int pid, float amt_units)
     }
 }
 
-static float pid_range(int pid)
+RV_INL float pid_range(int pid)
 {
-    const rv_pinfo *pi = rv_pinfo_pid(pid);
+    const rv_pinfo *pi = RV_FAR(rv_pinfo_pid)(pid);
     return pi->name ? (float)(pi->max - pi->min) : 0.0f;
 }
 
 /* KEY: parameter units per semitone, so AMOUNT +63 follows the keyboard exactly */
-static float key_units(int pid)
+RV_INL float key_units(int pid)
 {
     int p;
     if (pid >= RV_GPID)
@@ -333,7 +333,7 @@ static float key_units(int pid)
     }
 }
 
-static void eff_compute(void)
+RV_HOT static void eff_compute(void)
 {
     int t, p, i, k;
     float src[MS_N];
@@ -431,23 +431,23 @@ static void eff_compute(void)
     for (t = 0; t < RV_TRACKS; t++) {
         float e = trk[t].lead_env;
         int d1 = rv.tp[t][TP_EDST1], d2 = rv.tp[t][TP_EDST2];
-        if (rv.tp[t][TP_EAMT1] && rv_is_moddest(d1))
+        if (rv.tp[t][TP_EAMT1] && RV_FAR(rv_is_moddest)(d1))
             eff_add(PID_T(t, d1), e * rv.tp[t][TP_EAMT1] * (1.0f / 64.0f) * pid_range(PID_T(t, d1)));
-        if (rv.tp[t][TP_EAMT2] && rv_is_moddest(d2))
+        if (rv.tp[t][TP_EAMT2] && RV_FAR(rv_is_moddest)(d2))
             eff_add(PID_T(t, d2), e * rv.tp[t][TP_EAMT2] * (1.0f / 64.0f) * pid_range(PID_T(t, d2)));
         {   /* the FILTER ENV's own destination: the newest voice's, as a per-track LFO when it loops */
             int df = rv.tp[t][TP_FDST];
-            if (rv.tp[t][TP_FAMT] && rv_is_moddest(df) && rv.tp[t][TP_KIND] == KIND_SYNTH)
+            if (rv.tp[t][TP_FAMT] && RV_FAR(rv_is_moddest)(df) && rv.tp[t][TP_KIND] == KIND_SYNTH)
                 eff_add(PID_T(t, df), rv_live.fenv[t] * trk[t].eff[TP_FAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, df)));
         }
         {   /* STEP ENV: the LIBRARY envelope the steps started */
             int ds = rv.tp[t][TP_SEDST];
-            if (rv.tp[t][TP_SEAMT] && rv_is_moddest(ds) && rv_tp_applies(t, TP_SEAMT))
+            if (rv.tp[t][TP_SEAMT] && RV_FAR(rv_is_moddest)(ds) && RV_FAR(rv_tp_applies)(t, TP_SEAMT))
                 eff_add(PID_T(t, ds), senv[t].lvl * rv.tp[t][TP_SEAMT] * (1.0f / 64.0f) * pid_range(PID_T(t, ds)));
         }
         for (k = 0; k < RV_TRACKS; k++) {
             const rv_route *r = &rv.infl[t][k];
-            if (r->type == RT_MOD && r->amt && rv_is_moddest(r->arg))
+            if (r->type == RT_MOD && r->amt && RV_FAR(rv_is_moddest)(r->arg))
                 eff_add(PID_T(k, r->arg), e * r->amt * (1.0f / 64.0f) * pid_range(PID_T(k, r->arg)));
         }
     }
@@ -465,7 +465,7 @@ static void eff_compute(void)
                     break;
                 if (p < TP_PITCH && !(p >= TP_S0 && p <= TP_S15))
                     continue;
-                pi = rv_pinfo_track(t, p);
+                pi = RV_FAR(rv_pinfo_track)(t, p);
                 if (pi->name)
                     trk[t].eff[p] = clampf(trk[t].eff[p], (float)pi->min, (float)pi->max);
             }
@@ -478,7 +478,7 @@ static void eff_compute(void)
             m &= m - 1u;
             if (i >= GP_N)
                 break;
-            pi = rv_pinfo_global(i);
+            pi = RV_FAR(rv_pinfo_global)(i);
             if (pi->name)
                 geff[i] = clampf(geff[i], (float)pi->min, (float)pi->max);
         }

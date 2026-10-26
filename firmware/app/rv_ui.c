@@ -3679,6 +3679,13 @@ static void pic_cpu(void)
     sx_int(b + 7, (int)(tot + 0.5f));
     sx_cat(b, "%");
     g_text(6, PIC_Y + 104, &FONT_B, b, tot > 90.0f ? C_RED : C_INK);
+    if (plat_cpu_peak()) {                          /* the busiest audio block lately, the whole interrupt */
+        b[0] = 0;
+        sx_cat(b, "PEAK ");
+        sx_int(b + 5, (int)plat_cpu_peak());
+        sx_cat(b, "%");
+        g_text_r(234, PIC_Y + 86, &FONT_T, b, plat_cpu_peak() > 95u ? C_RED : C_DIM);
+    }
     b[0] = 0;
     sx_cat(b, "XRUNS ");
     sx_int(b + 6, (int)plat_xruns());

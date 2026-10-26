@@ -326,7 +326,7 @@ static void samp_note_on(track_t *tr, int t, int note, float vel, int lane)
         v->order = (uint8_t)clampi((int)(tr->eff[TP_S11] + 0.5f), 0, 7);
         v->env = 1.0f;
         v->dk = 0.0f;
-        artic_cfg_track(&v->cfg, tr->eff);
+        RV_FAR(artic_cfg_track)(&v->cfg, tr->eff);
         artic_start(&v->a, &v->cfg);
     }
     v->inc = fm_exp2f((semis + v->hs.semi) * (1.0f / 12.0f)) * rate_base / tl;

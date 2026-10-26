@@ -273,8 +273,9 @@ void plat_midi_out(const uint8_t *msg, int n)
                    ((uint32_t)(n > 2 ? msg[2] : 0) << 24));
 }
 
-static volatile uint32_t audio_cpu_pct, audio_xruns;
+static volatile uint32_t audio_cpu_pct, audio_cpu_peak, audio_xruns;
 uint32_t plat_cpu_pct(void) { return audio_cpu_pct; }
+uint32_t plat_cpu_peak(void) { return audio_cpu_peak; }
 uint32_t plat_xruns(void) { return audio_xruns; }
 /* core 0's cycle counter (fm1_perf.h), if it moves; else TIMER4's 24 MHz ticks scaled to the 360 MHz clock */
 static int8_t perf_ok = -1;

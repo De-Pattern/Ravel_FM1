@@ -49,6 +49,10 @@ static void render_block(int32_t *o)
     }
     us = (fm1_ticks() - t0) / FM1_TICKS_PER_US;
     audio_cpu_pct = (audio_cpu_pct * 15u + us * 100u / budget) / 16u;
+    {   /* the busiest block lately: held, falling back slowly (about a second) */
+        uint32_t pct = us * 100u / budget;
+        audio_cpu_peak = pct > audio_cpu_peak ? pct : audio_cpu_peak - (audio_cpu_peak - pct + 63u) / 64u;
+    }
     in_audio = 0;
 }
 

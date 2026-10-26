@@ -148,7 +148,7 @@ static void fault(int where)
     rv_fault_count++;
     rv_fault_where = where;
 }
-static int buf_bad(const float *b, int n)
+RV_INL int buf_bad(const float *b, int n)
 {
     int i;
     for (i = 0; i < n; i++)
@@ -167,7 +167,7 @@ static int buf_fix(float *b, int n)
         }
     return bad;
 }
-static void zero_buf(float *b, int n)
+RV_INL void zero_buf(float *b, int n)
 {
     int i;
     for (i = 0; i < n; i++)
@@ -263,7 +263,7 @@ static void hs_move(int rmv, int kit)
 }
 
 /* a shaded voice's sound, rendered on its own, into the track */
-static void hs_mix(hitshade_t *h, const float *src, float *dst, int n)
+RV_INL void hs_mix(hitshade_t *h, const float *src, float *dst, int n)
 {
     int i;
     float e0 = h->env, e1 = h->env * (h->dk > 0.0f ? fm_expf(-(float)n * RV_DT * h->dk) : 1.0f), de = (e1 - e0) / (float)n;
@@ -278,7 +278,7 @@ static void guard_note(void);
 static int guard_wants(int t);
 /* the voices' decaying state, flushed once a block before it reaches the denormals (fm_flush_n):
  * filters, envelopes and above all the ringing modes of TINE, PHYS, the strikes and the drums */
-static void synth_flush(voice_t *v)
+RV_INL void synth_flush(voice_t *v)
 {
     fm_flush_n(v->lad.s, 4);
     fm_flush_n(&v->svf.ic1, 2);
@@ -307,7 +307,7 @@ static void synth_flush(voice_t *v)
         break;
     }
 }
-static void strike_flush(strike_t *v)
+RV_INL void strike_flush(strike_t *v)
 {
     fm_flush_n(v->md_y1, 8);
     fm_flush_n(v->md_y2, 8);
@@ -316,7 +316,7 @@ static void strike_flush(strike_t *v)
     fm_flush_n(&v->lp1, 2);
     fm_flush_n(&v->hs.lps, 1);
 }
-static void perc_flush(perc_t *v)
+RV_INL void perc_flush(perc_t *v)
 {
     fm_flush_n(v->my1, 8);
     fm_flush_n(v->my2, 8);
@@ -406,7 +406,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         vo->age = ++age_ctr;
         synth_voice_note_on(vo, note, v, legato, clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1));
         hs_take(&vo->hs, 0.0f, &eng_rng);
-        artic_cfg_track(&vo->cfg, tr->eff);
+        RV_FAR(artic_cfg_track)(&vo->cfg, tr->eff);
         if (!legato) {
             artic_start(&vo->a, &vo->cfg);
             fenv_start(&vo->fe);
@@ -463,7 +463,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         sv->age = ++age_ctr;
         sv->rng = xs32(&eng_rng) | 1u;
         sv->gate = 1;
-        artic_cfg_track(&sv->cfg, tr->eff);
+        RV_FAR(artic_cfg_track)(&sv->cfg, tr->eff);
         if (!sv->on)
             sv->a.p = sv->a.s = sv->a.v = 0.0f;
         strike_note_on(sv, note, v, tr->eff);
@@ -504,7 +504,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         hs_take(&ps[pick].hs, grain, &eng_rng);
     } else {
         tapetrk_t *tt = &tr->tape;
-        artic_cfg_track(&tt->cfg, tr->eff);
+        RV_FAR(artic_cfg_track)(&tt->cfg, tr->eff);
         tape_track_note(tr, note, v);
     }
     hs_clear(&hs_pend);
@@ -875,8 +875,14 @@ static int vl_track(int e)
     return (vl_kind[e] == VK_SYNTH ? vs[k].track : vl_kind[e] == VK_STRIKE ? ss[k].track : ps[k].track) & 7;
 }
 
+static int vl_sortkey(int e)
+{
+    int k = vl_idx[e];
+    return vl_kind[e] == VK_SYNTH ? vs[k].e_eng * 16 + k : vl_kind[e] == VK_PERC ? ps[k].mach * 16 + k : k;
+}
+
 /* one voice of the list, added into out; its level and whether it went bad are kept for the count */
-static void voice_one(int e, float *out, int n)
+RV_HOT static void voice_one(int e, float *out, int n)
 {
     int k = vl_idx[e];
     float lv, tmp[RV_SUB];
@@ -886,10 +892,10 @@ static void voice_one(int e, float *out, int n)
         track_t *tr = &trk[v->track];
         if (v->hs.on) {                              /* a shaded hit: on its own, then into the track */
             zero_buf(tmp, n);
-            lv = synth_voice_render(v, tr, tmp, n, 0.0f);
+            lv = RV_FAR(synth_voice_render)(v, tr, tmp, n, 0.0f);
             hs_mix(&v->hs, tmp, out, n);
         } else
-            lv = synth_voice_render(v, tr, out, n, 0.0f);
+            lv = RV_FAR(synth_voice_render)(v, tr, out, n, 0.0f);
         vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
         if (!vl_bad[e])
             synth_flush(v);
@@ -900,10 +906,10 @@ static void voice_one(int e, float *out, int n)
         track_t *tr = &trk[v->track];
         if (v->hs.on) {
             zero_buf(tmp, n);
-            lv = strike_render(v, tr, tmp, n);
+            lv = RV_FAR(strike_render)(v, tr, tmp, n);
             hs_mix(&v->hs, tmp, out, n);
         } else
-            lv = strike_render(v, tr, out, n);
+            lv = RV_FAR(strike_render)(v, tr, out, n);
         vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
         if (!vl_bad[e])
             strike_flush(v);
@@ -914,10 +920,10 @@ static void voice_one(int e, float *out, int n)
         track_t *tr = &trk[v->track];
         if (v->hs.on) {
             zero_buf(tmp, n);
-            lv = perc_render(v, tr, tmp, n);
+            lv = RV_FAR(perc_render)(v, tr, tmp, n);
             hs_mix(&v->hs, tmp, out, n);
         } else
-            lv = perc_render(v, tr, out, n);
+            lv = RV_FAR(perc_render)(v, tr, out, n);
         vl_bad[e] = (uint8_t)(buf_bad(out, n) || !(lv == lv));
         if (!vl_bad[e])
             perc_flush(v);
@@ -936,7 +942,7 @@ static void c2_voices(void)
     uint32_t c = plat_par_cycles(), c1;
     for (e = 0; e < vl_n; e++)
         if (vl_c2[e]) {
-            voice_one(e, c2_buf[vl_track(e)], par_n);
+            RV_FAR(voice_one)(e, c2_buf[vl_track(e)], par_n);
             c1 = plat_par_cycles();
             c2_vcyc[vl_kind[e]] += c1 - c;
             c = c1;
@@ -1104,15 +1110,16 @@ static int par_voices_wait(void)
 /* ------------------------------------------------------- overload guard --- */
 /* When the render takes most of the time the audio has, the FM-1 falls behind and its output breaks
  * up into loud noise. The guard watches the render's own time and, past GUARD_HI, fades out the
- * oldest voice (released ones first) over a few milliseconds, and holds the voice count there: a new
- * note past the limit fades out the oldest to make room. Once there is room for another voice and
- * some (GUARD_LO, a voice's cost counted, for four blocks running) the limit comes back up by one. Where there is no clock (the browser)
+ * voice that matters least (released ones first, then a note of the busiest track, then the oldest) over
+ * about 3 ms, more than one when far over, and holds the voice count there: a new
+ * note past the limit fades out the least needed to make room. Once the reading is clear of the edge
+ * (under GUARD_LO for eight blocks running) the limit comes back up by one, and again. Where there is no clock (the browser)
  * it never acts. A voice being faded is marked by its shading's decay, SHED_DK */
 #define GUARD_HI 0.80f                  /* (the interface needs the rest of the time) */
-#define GUARD_LO 0.72f                  /* (with a voice's cost added) */
-#define SHED_DK 150.0f                  /* about 7 ms */
+#define GUARD_LO 0.76f                  /* (below it, the limit rises a voice at a time) */
+#define SHED_DK 300.0f                  /* about 3 ms (the Deluge's soft cull) */
 #define GUARD_WIN 512u                  /* frames read at a time */
-static float guard_load, guard_vc = 0.05f;
+static float guard_load, guard_vc = 0.05f, guard_x, guard_last;   /* guard_x, guard_last: this window's reading, the one before */
 static uint32_t guard_acc, guard_vacc, guard_n;
 static uint16_t guard_cool, guard_calm;
 static uint8_t guard_cap = 255;
@@ -1144,25 +1151,39 @@ static int voices_sounding(void)
     return c;
 }
 
-/* the oldest sounding voice, a released one if there is one, starts fading out (1: one did) */
+/* the voice to fade out first starts fading (1: one did). Its order, after Synthstrom's Deluge: a
+ * released voice before a held one; then one of the track that has the most voices sounding (a
+ * chord loses a note before a lone line goes silent); then the oldest */
 static int shed_one(void)
 {
     hitshade_t *pick = 0;
-    uint32_t best = 0xFFFFFFFFu;
-    int k, pass;
-    for (pass = 0; pass < 2 && !pick; pass++) {     /* pass 0: released voices; pass 1: any */
+    uint32_t best_age = 0;
+    int k, best_rel = -1, best_cnt = -1, cnt[RV_TRACKS] = {0};
+#define SHED_COUNT(v) \
+    if ((v).on && !shedding(&(v).hs)) cnt[(v).track & 7]++;
+    for (k = 0; k < RV_SYNTH_VOICES; k++)
+        SHED_COUNT(vs[k])
+    for (k = 0; k < RV_STRIKE_VOICES; k++)
+        SHED_COUNT(ss[k])
+    for (k = 0; k < RV_PERC_VOICES; k++)
+        SHED_COUNT(ps[k])
+    for (k = 0; k < RV_SAMP_VOICES; k++)
+        SHED_COUNT(sv[k])
+#undef SHED_COUNT
 #define SHED_CAND(v, held) \
-        if ((v).on && !shedding(&(v).hs) && (pass || !(held)) && (v).age < best) { best = (v).age; pick = &(v).hs; }
-        for (k = 0; k < RV_SYNTH_VOICES; k++)
-            SHED_CAND(vs[k], vs[k].a.gate)
-        for (k = 0; k < RV_STRIKE_VOICES; k++)
-            SHED_CAND(ss[k], ss[k].gate)
-        for (k = 0; k < RV_PERC_VOICES; k++)
-            SHED_CAND(ps[k], ps[k].gate)
-        for (k = 0; k < RV_SAMP_VOICES; k++)
-            SHED_CAND(sv[k], sv[k].gate)
+    if ((v).on && !shedding(&(v).hs)) { \
+        int rel_ = !(held), c_ = cnt[(v).track & 7]; \
+        if (rel_ > best_rel || (rel_ == best_rel && (c_ > best_cnt || (c_ == best_cnt && (v).age < best_age)))) { \
+            best_rel = rel_; best_cnt = c_; best_age = (v).age; pick = &(v).hs; } }
+    for (k = 0; k < RV_SYNTH_VOICES; k++)
+        SHED_CAND(vs[k], vs[k].a.gate)
+    for (k = 0; k < RV_STRIKE_VOICES; k++)
+        SHED_CAND(ss[k], ss[k].gate)
+    for (k = 0; k < RV_PERC_VOICES; k++)
+        SHED_CAND(ps[k], ps[k].gate)
+    for (k = 0; k < RV_SAMP_VOICES; k++)
+        SHED_CAND(sv[k], sv[k].gate)
 #undef SHED_CAND
-    }
     if (!pick)
         return 0;
     shed_start(pick);
@@ -1226,12 +1247,16 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     x = (float)guard_acc / (hz / (float)RV_FS * (float)guard_n);
     vx = (float)guard_vacc / (hz / (float)RV_FS * (float)guard_n);
     guard_acc = guard_vacc = guard_n = 0;
+    guard_last = guard_x;
+    guard_x = x;
     {
         int s = voices_sounding();                  /* what a voice costs, about */
         if (s > 0)
             guard_vc += (vx / (float)s - guard_vc) * 0.3f;
     }
-    guard_load += (x - guard_load) * 0.5f;
+    /* the reading rises at once and falls slowly (the Deluge's way): a sudden load, a chord on top of
+     * the last one's releases, is met in the block it comes, not after the average catches up */
+    guard_load = x > guard_load ? x : guard_load + (x - guard_load) * 0.25f;
     rv_live.load = guard_load * 100.0f;
     if (guard_cool)
         guard_cool--;
@@ -1239,17 +1264,20 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
         guard_cap = 255;
     } else if (guard_load > GUARD_HI) {
         guard_calm = 0;
-        if (!guard_cool && vx > 0.08f) {            /* (when the voices are what costs: fewer of them helps) */
-            int s = voices_sounding();
+        if ((!guard_cool || x > guard_last) && vx > 0.08f) {   /* (when the voices are what costs: fewer of them
+                                                               * helps; again at once while it still rises) */
+            int s = voices_sounding(), m = 1 + (int)((x - GUARD_HI) * 12.5f), shed = 0;   /* one more for each 8 % over */
             if (s > guard_cap)
                 s = guard_cap;
-            if (shed_one()) {
-                guard_cap = (uint8_t)(s > 2 ? s - 1 : 2);
+            while (m-- > 0 && shed_one())
+                shed++;
+            if (shed) {
+                guard_cap = (uint8_t)(s - shed > 2 ? s - shed : 2);
                 guard_cool = 4;                     /* (let the fade show in the reading first: 46 ms) */
             }
         }
-    } else if (guard_load + guard_vc * 1.2f < GUARD_LO) {   /* room for another voice, and some */
-        if (guard_cap != 255 && ++guard_calm >= 4) {          /* (46 ms of it) */
+    } else if (guard_load < GUARD_LO) {             /* clear of the edge: the limit comes back up */
+        if (guard_cap != 255 && ++guard_calm >= 8) {          /* (93 ms of it) */
             guard_calm = 0;
             if (++guard_cap >= RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES + RV_SAMP_VOICES)
                 guard_cap = 255;
@@ -1317,7 +1345,7 @@ static void render_sub(float *outl, float *outr, int n)
     uint32_t tape_cyc = 0, cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
     prof_t = cyc0 = plat_cycles();
     movement_tick(n);
-    eff_compute();
+    RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
     np = clock_tick(n, offs, 8);
     for (i = 0; i < np; i++)
@@ -1390,7 +1418,7 @@ static void render_sub(float *outl, float *outr, int n)
                 v->on = 0;
                 continue;
             }
-            artic_cfg_track(&v->cfg, trk[v->track].eff);
+            RV_FAR(artic_cfg_track)(&v->cfg, trk[v->track].eff);
             vl_kind[vl_n] = VK_SYNTH;
             vl_idx[vl_n++] = (uint8_t)k;
         }
@@ -1402,7 +1430,7 @@ static void render_sub(float *outl, float *outr, int n)
                 v->on = 0;
                 continue;
             }
-            artic_cfg_track(&v->cfg, trk[v->track].eff);
+            RV_FAR(artic_cfg_track)(&v->cfg, trk[v->track].eff);
             vl_kind[vl_n] = VK_STRIKE;
             vl_idx[vl_n++] = (uint8_t)k;
         }
@@ -1416,6 +1444,16 @@ static void render_sub(float *outl, float *outr, int n)
             }
             vl_kind[vl_n] = VK_PERC;
             vl_idx[vl_n++] = (uint8_t)k;
+        }
+        {   /* the same code back to back: the synth voices by engine, the drums by machine (the cache holds
+             * one engine's code while its voices play, as Mutable's and the Deluge's renders do) */
+            int a, b;
+            for (a = 1; a < vl_n; a++)
+                for (b = a; b > 0 && vl_kind[b - 1] == vl_kind[b] && vl_sortkey(b - 1) > vl_sortkey(b); b--) {
+                    uint8_t ti = vl_idx[b];
+                    vl_idx[b] = vl_idx[b - 1];
+                    vl_idx[b - 1] = ti;
+                }
         }
         c2_trk = 0;
         for (e = 0; e < vl_n; e++) {                 /* every other voice, up to its limit */
@@ -1447,7 +1485,7 @@ static void render_sub(float *outl, float *outr, int n)
         c = plat_cycles();
         for (e = 0; e < vl_n; e++)                   /* this core's */
             if (!vl_c2[e]) {
-                voice_one(e, trk[vl_track(e)].buf, n);
+                RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n);
                 c1 = plat_cycles();
                 prof_acc[PF_SYNTH + vl_kind[e]] += c1 - c;
                 c = c1;
@@ -1463,7 +1501,7 @@ static void render_sub(float *outl, float *outr, int n)
                 for (e = 0; e < vl_n; e++)
                     if (vl_c2[e]) {
                         vl_c2[e] = 0;
-                        voice_one(e, trk[vl_track(e)].buf, n);
+                        RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n);
                     }
             } else {
                 for (t = 0; t < RV_TRACKS; t++)
@@ -1495,7 +1533,7 @@ static void render_sub(float *outl, float *outr, int n)
             muted = 1;
         if (kind == KIND_TAPE) {
             if (!tr->tape.a.gate && tr->tape.a.stage == AS_OFF)
-                artic_cfg_track(&tr->tape.cfg, eff);
+                RV_FAR(artic_cfg_track)(&tr->tape.cfg, eff);
             uint32_t c0 = plat_cycles();
             tr->lead_env = tape_track_render(tr, t, tr->buf, n);
             tape_cyc += plat_cycles() - c0;
@@ -1792,5 +1830,5 @@ void rv_engine_init(void)
     for (i = 0; i < RV_STRIKE_VOICES; i++)
         ss[i].on = 0;
     cq_r = cq_w = 0;
-    eff_compute();
+    RV_FAR(eff_compute)();
 }

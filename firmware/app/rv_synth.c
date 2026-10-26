@@ -4,7 +4,7 @@
 #include "rv_int.h"
 
 /* ----------------------------------------------------------- articulation --- */
-static void artic_cfg_track(artic_cfg_t *c, const float *eff)
+RV_HOT static void artic_cfg_track(artic_cfg_t *c, const float *eff)
 {
     c->atk = rv_time_f(eff[TP_ATK]);
     c->dec = rv_time_f(eff[TP_DEC]);

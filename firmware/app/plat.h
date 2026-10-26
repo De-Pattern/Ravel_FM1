@@ -51,6 +51,7 @@ int plat_midi_in(uint8_t msg[3]);       /* 1 = got one */
 void plat_midi_out(const uint8_t *msg, int n);
 
 uint32_t plat_cpu_pct(void);            /* audio render load, % */
+uint32_t plat_cpu_peak(void);           /* the busiest audio block lately, % of its time (0: not measured) */
 uint32_t plat_cycles(void);             /* a free-running count of the processor's cycles (0: none to read) */
 uint32_t plat_cycles_hz(void);          /* how many of them a second */
 uint32_t plat_xruns(void);

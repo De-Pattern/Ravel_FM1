@@ -167,7 +167,7 @@ static inline float dcb_tick(dcb_t *d, float x)
 
 /* time parameter (0..127) to seconds: 0.5 ms .. 8 s, exponential */
 float rv_time_s(int v);
-static inline float rv_time_f(float v) { return 0.0005f * fm_exp2f(v * (13.97f / 127.0f)); }
+RV_INL float rv_time_f(float v) { return 0.0005f * fm_exp2f(v * (13.97f / 127.0f)); }
 /* cutoff parameter (0..127) to Hz: 20 Hz .. 20 kHz */
 float rv_cut_hz(float v);
 
