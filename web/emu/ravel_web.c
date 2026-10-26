@@ -162,10 +162,7 @@ EXPORT(web_master_l) float web_master_l(void) { return rv_live.master_l; }
 EXPORT(web_master_r) float web_master_r(void) { return rv_live.master_r; }
 EXPORT(web_playing) int web_playing(void) { return rv_live.playing; }
 EXPORT(web_armed) int web_armed(void) { return ui_armed(); }
-EXPORT(web_frozen) int web_frozen(void) { return rv_tape_frozen(); }
 EXPORT(web_transport) void web_transport(int run) { rv_transport(run); }
-EXPORT(web_catch) void web_catch(void) { rv_catch(); }
-EXPORT(web_resample) void web_resample(void) { rv_resample(); }
 EXPORT(web_all_off) void web_all_off(void) { rv_all_off(); }
 int rv_save(int slot);
 int rv_load(int slot);
@@ -183,7 +180,6 @@ EXPORT(web_beat) int web_beat(void) { return rv_live.beat; }
 EXPORT(web_step) int web_step(int t) { return rv_live.step[t & 7][0]; }
 EXPORT(web_mute) int web_mute(void) { return rv.mute; }
 EXPORT(web_set_mute) void web_set_mute(int m) { rv.mute = (uint8_t)m; }
-EXPORT(web_tape_seconds) float web_tape_seconds(void) { return rv_tape_seconds(); }
 EXPORT(web_kind_name) const char *web_kind_name(int k) { return rv_kind_names[k % KIND_N]; }
 EXPORT(web_engine_name) const char *web_engine_name(int e) { return rv_engine_names[e % ENG_N]; }
 EXPORT(web_sound_name) const char *web_sound_name(int t)
@@ -231,8 +227,6 @@ EXPORT(web_head_step) int web_head_step(int t, int h) { return rv_live.step[t & 
 EXPORT(web_fg_rate) float web_fg_rate(int t, int h) { return rv_live.fg_rate[t & 7][h & 1]; }
 EXPORT(web_gp) int web_gp(int g) { return g >= 0 && g < GP_N ? rv.gp[g] : 0; }
 EXPORT(web_gp_set) void web_gp_set(int g, int v) { rv_pid_set(PID_G(g), v); }
-EXPORT(web_gp_tapesrc) int web_gp_tapesrc(void) { return GP_TAPESRC; }
-EXPORT(web_gp_tapemon) int web_gp_tapemon(void) { return GP_TAPEMON; }
 EXPORT(web_gp_tempo) int web_gp_tempo(void) { return GP_TEMPO; }
 
 EXPORT(web_mat_set) void web_mat_set(int i, int src, int dst, int amt) { rv_mslot *m = &rv.mat[i & 7]; m->src = (uint8_t)src; m->dst = (uint16_t)dst; m->amt = (int8_t)amt; }   /* (tests) */
@@ -267,8 +261,6 @@ EXPORT(web_step_byte) void web_step_byte(int t, int s, int field, int v)   /* (t
     else if (field == 4) p->len = (uint8_t)v;
     else p->vel = (uint8_t)v;
 }
-EXPORT(web_tape_kit) void web_tape_kit(int t) { rv.tp[t & 7][TP_ENGINE] = 1; rv_tape_kit_init(t); }
-EXPORT(web_tape_voices) int web_tape_voices(int t) { return rv_tape_voices(t); }
 EXPORT(web_punch) void web_punch(int fx, int on) { rv_punch(fx, on); }
 EXPORT(web_route_set) void web_route_set(int a, int b, int type, int amt) { rv.infl[a & 7][b & 7].type = (uint8_t)type; rv.infl[a & 7][b & 7].amt = (int8_t)amt; }
 EXPORT(web_scene_store) void web_scene_store(int s) { rv_scene_store(s); }

@@ -42,11 +42,8 @@ CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-fu
 # the AC79's single-precision FPU (the SDK's own flags); no fused multiply-add, so the host
 # build (-ffp-contract=off) computes the same samples
 FPU = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off"]
-# the instrument and the Beads port: separate units at -O2, with the emulator's options
-# (rv_app.o and bd.o: app.ld puts their state in the RAM pool)
-BD = ["-DBD_NUM_GRAINS=16", "-DBD_NO_DELAY", "-DBD_READER_ONLY"]
-O2_UNITS = [(APP / "ravel_app.c", "rv_app.o"), (SRC / "core" / "beads" / "bd.c", "bd.o"),
-            (SRC / "core" / "beads" / "bd_tables.c", "bd_tables.o")]
+# the instrument: its own unit at -O2, with the emulator's options (app.ld puts its state in the RAM pool)
+O2_UNITS = [(APP / "ravel_app.c", "rv_app.o")]
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
 # SDK files of AC79NN_SDK_V1.2.1_2023-12-13 (the tested version)
@@ -212,7 +209,7 @@ def build_app():
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     flags.append("-DRV_NO_AUDIO_IN")    # the FM-1 build has no audio input: its controls are hidden
     flags.append("-DRV_FM1")            # RV_RAMBSS: state placed in plain RAM, outside the pool
-    o2 = [f if f != "-Os" else "-O2" for f in flags] + BD + ["-Wno-unused-variable"]
+    o2 = [f if f != "-Os" else "-O2" for f in flags] + ["-Wno-unused-variable"]
     OUT.mkdir(parents=True, exist_ok=True)
     units = [("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
              ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),

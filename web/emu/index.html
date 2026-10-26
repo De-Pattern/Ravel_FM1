@@ -205,7 +205,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
       <div>
         <h3>Sound</h3>
         <div class="row2">
-          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="2">Tape</option><option value="3">Perc</option></select>
+          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="3">Perc</option></select>
           <select id="engine" aria-label="Engine"></select>
         </div>
         <select id="preset" aria-label="Preset" style="margin-top:6px"></select>
@@ -231,19 +231,9 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="row2" id="gotos"></div>
       </div>
       <div>
-        <h3>Tape</h3>
-        <div class="row2">
-          <button class="hbtn warn" id="catch" title="Keep what the tape holds (REC + OCT-)">Catch</button>
-          <button class="hbtn" id="resample" title="Record the next bars into row 1 (REC + OCT+)">Resample</button>
-        </div>
-        <p class="note" id="tapestate">Listening</p>
-      </div>
-      <div>
         <h3>Audio in</h3>
         <input type="file" id="infile" accept="audio/*" aria-label="Audio file to play into the input">
-        <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="intape"> Record it onto the tape</label>
-        <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inmon" checked> Hear it</label>
-        <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can try the tape's INPUT source and ring a strike body with the EXT exciter.</p>
+        <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can ring a strike body with the EXT exciter.</p>
       </div>
       <div>
         <h3>Projects &amp; sounds</h3>
@@ -313,7 +303,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
     <section class="card" aria-label="Eight tracks">
       <h2>Eight tracks</h2>
       <div class="tlist" id="tlist"></div>
-      <p class="note" style="margin-top:10px">Click a track to work on it. T1–T4 synthesize, T5–T6 strike, T7–T8 play the tape. Any track can be any kind, PERC drum machines included.</p>
+      <p class="note" style="margin-top:10px">Click a track to work on it. T1–T4 synthesize, T5–T6 strike, T7–T8 drum. Any track can be any kind, PERC drum machines included.</p>
     </section>
   </div>
   </div>
@@ -326,7 +316,7 @@ const WASM_B64 = "__RAVEL_WASM__";
 const MANUAL_B64 = "__RAVEL_MANUAL__";          /* the manual page, from README.md (web/emu/bundle.py) */
 /* buttons in Ravel's order (plat.h) */
 const BTN = ["OCT-","OCT+","FX","SCL","ENV","LFO","EDIT","GLO","HOME","SAVE","ARP","SEQ","PLAY","REC"];
-const BTN_FN = {FX:"buses",SCL:"scale",ENV:"articulate",LFO:"mod",EDIT:"voice",GLO:"song",HOME:"tracks",SAVE:"save",ARP:"tape",SEQ:"steps",PLAY:"start",REC:"record"};
+const BTN_FN = {FX:"buses",SCL:"scale",ENV:"articulate",LFO:"mod",EDIT:"voice",GLO:"song",HOME:"tracks",SAVE:"save",ARP:"",SEQ:"steps",PLAY:"start",REC:"record"};
 const ROW1 = ["FX","SCL","ENV","LFO","EDIT","GLO"], ROW2 = ["HOME","SAVE","ARP","SEQ","PLAY","REC"];
 const ENC = ["SELECT","ALGORITHM","KNOB 1","KNOB 2","KNOB 3","KNOB 4","PRESETS"];
 const ENC_FN = {SELECT:"page",ALGORITHM:"track",PRESETS:"sounds"};
@@ -334,7 +324,7 @@ const NOTE = ["F","F#","G","G#","A","A#","B","C","C#","D","D#","E"];
 const WHITE = [0,2,4,6,7,9,11,12,14,16,18,19,21,23,24,26], BLACK = [1,3,5,8,10,13,15,17,20,22,25];
 const KIND_CLS = ["k-synth","k-strike","k-tape","k-perc"];
 const ENGINES = ["VA","CZ","FM","PHYS","FORMANT","PARTICLE","CHIP","WAVE","LOGIC","ORGAN","MONO","RESIN","TINE"];
-const SEC = {HOME:0,VOICE:1,ARTIC:2,MOD:3,BUS:4,SCALE:5,TAPE:6,SEQ:7,SONG:8,SAVE:9};
+const SEC = {HOME:0,VOICE:1,ARTIC:2,MOD:3,BUS:4,SCALE:5,SEQ:6,SONG:7,SAVE:8};
 const $ = id => document.getElementById(id);
 const later = (t0, fn) => { const left = 50 - (performance.now() - t0); if (left > 0) setTimeout(fn, left); else fn(); };
 
@@ -449,9 +439,7 @@ function keyLabels() {
   else if (has("SAVE")) { w = Array.from({length:16}, (_, i) => "ST" + (i + 1)); }
   else if (has("SCL")) { w = WHITE.map(k => "ROOT " + NOTE[k % 12]); }
   else if (has("SEQ") || sec === SEC.SEQ) { w = Array.from({length:16}, (_, i) => String(i + 1)); b = kind === 3 && rv.web_engine(t) === 1 ? ["PAT A","PAT B","LANE 1","LANE 2","LANE 3","LANE 4","LANE 5","LANE 6","COPY","PASTE","CLEAR"] : ["PAT A","PAT B","","","","","","","COPY","PASTE","CLEAR"]; }
-  else if (sec === SEC.TAPE) {
-    if (kind === 2 && rv.web_src0(t) === 0) { w = Array.from({length:16}, (_, i) => "POS " + (i + 1)); b = ["ROW 1","ROW 2","ROW 3","ROW 4","REV","1/2","X2","HOLD","CATCH","RESMP",""]; }
-    else b = ["","","","","","","","","CATCH","RESMP",""];
+  else if (false) {
   } else if (sec === SEC.SONG && rv.web_page_title && cstr(rv.web_page_title()) === "SCENES") { w = Array.from({length:16}, (_, i) => "SC " + (i + 1)); b = ["PAT A","PAT B"]; }
   for (let k = 0; k < 27; k++) {
     const wi = WHITE.indexOf(k), bi = BLACK.indexOf(k), sp = keyEls[k].firstChild;
@@ -501,12 +489,12 @@ function fillEngines() {
   const sel = $("engine"), t = rv.web_track(), kind = rv.web_kind(t);
   sel.innerHTML = "";
   if (kind === 0) ENGINES.forEach((n, i) => sel.add(new Option(n, i)));
-  else sel.add(new Option(kind === 1 ? "Exciter → body" : kind === 3 ? "Drum machine (SOURCE 1)" : "Tape playback", 0));
+  else sel.add(new Option(kind === 1 ? "Exciter → body" : "Drum machine (SOURCE 1)", 0));
   sel.disabled = kind !== 0;
   if (kind === 0) sel.value = rv.web_engine(t);
 }
 /* your sounds (the bank, SAVE › SOUNDS): every kind, labelled; one of another kind turns the track into it */
-const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", TAPE: "Tape", PERC: "Perc", KIT: "Kit" };
+const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", PERC: "Perc", KIT: "Kit" };
 /* banks A..D of 32; a sound is addressed as its place in all of them (A1 = 0, B1 = 32) and named like "B5" */
 const BN = () => rv.web_bank_n(), BANKS = () => rv.web_bank_banks();
 const slotName = g => "ABCD"[Math.floor(g / BN())] + (g % BN() + 1);
@@ -628,12 +616,10 @@ $("pnext").addEventListener("click", () => presetStep(1));
 $("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
 $("rec").addEventListener("click", () => tapBtn("REC"));
 $("panic").addEventListener("click", () => { if (!rv) return; rv.web_transport(0); rv.web_all_off(); });
-$("catch").addEventListener("click", () => rv && rv.web_catch());
-$("resample").addEventListener("click", () => { if (!rv) return; rv.web_resample(); if (!rv.web_playing()) rv.web_transport(1); });
 $("loaddemo").addEventListener("click", () => { rv.web_demo(+$("demo").value); sideSync(); });
 {
   const g = $("gotos");
-  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Tape",6,0],["Steps",7,0],["Mod",3,0],["Buses",4,0],["Song",8,2],["Save",9,0]].forEach(([n, s, p]) => {
+  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Steps",6,0],["Mod",3,0],["Buses",4,0],["Song",7,2],["Save",8,0]].forEach(([n, s, p]) => {
     const b = document.createElement("button"); b.className = "hbtn"; b.textContent = n;
     b.addEventListener("click", () => rv && rv.web_goto(s, p)); g.appendChild(b);
   });
@@ -665,7 +651,7 @@ $("manualbtn2").addEventListener("click", () => openManual());
 
 /* ------------------------------------------------------------- the guide */
 const GUIDE = {
-  "Start": `<p>Ravel starts on a <b>blank project</b>: play the keys to hear T1. To hear what it can do, choose <b>Demo: Ravel</b> on the left, press <b>Load</b>, then <b>Play</b>: the demo synthesizes for two bars, <b>resamples them onto the tape</b>, and then T7 and T8 rebuild them: T7's playhead jumps when T5 strikes, T8 grains the tape.</p>
+  "Start": `<p>Ravel starts on a <b>blank project</b>: play the keys to hear T1. To hear what it can do, choose <b>Demo: Ravel</b> on the left, press <b>Load</b>, then <b>Play</b>: T1–T4 synthesize, T5–T6 strike (the wood's hits also shake T7), T8 holds a phasing pad under it all.</p>
 <ul><li><b>ALGORITHM</b> picks the track, T1–T8. The keys play it.</li>
 <li>Each button opens its section; <b>SELECT</b> (or tapping the button again) walks its pages.</li>
 <li><b>KNOB 1–4</b> set the four values at the top of the screen.</li>
@@ -678,42 +664,23 @@ const GUIDE = {
 <tr><td>LFO</td><td>Mod: matrix (a row can also move another row's amount), the LFOs and their shaping, dust, macros</td></tr>
 <tr><td>FX</td><td>Buses: delay, space, BED, feedback, master. Tap FX again for the next bus. Each bus page shows the current track's <b>SEND</b> into it.</td></tr>
 <tr><td>SCL</td><td>Scale, root, transpose and the track's note interval</td></tr>
-<tr><td>ARP</td><td>Tape: capture, rows, and the tape track's playback (MLR, keys, slices, stretch, shards)</td></tr>
 <tr><td>SEQ</td><td>Steps, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
 <tr><td>GLO</td><td>Song: mixers, scenes, arrangement, density arcs, clock</td></tr>
 <tr><td>SAVE</td><td>Projects (name them with KNOB 2 and 3) and sound banks: choose an action with KNOB 1, press SAVE twice to do it. The <b>Projects &amp; sounds</b> panel moves them as a file or to an FM-1.</td></tr>
-<tr><td>PLAY · REC</td><td>Start/stop · arm recording on the track (keys, knob moves and tape jumps; with REC armed the keys play notes even on SEQ pages, hold SEQ for steps)</td></tr>
+<tr><td>PLAY · REC</td><td>Start/stop · arm recording on the track (keys and knob moves; with REC armed the keys play notes even on SEQ pages, hold SEQ for steps)</td></tr>
 <tr><td>OCT− · OCT+</td><td>The keyboard's octave; on SEQ, the step page. On pages with more settings than knobs (a kit's LANE pages, the CZ's DCO/DCW/DCA envelopes, LFO SHAPE) they move the knobs to the next row: the screen numbers the knobs and the footer says what's next.</td></tr></table>`,
   "Hold": `<p>Hold a button (right-click or shift-click here to keep it held) for its layer:</p><table>
 <tr><td>SEQ</td><td>The white keys are steps on any page. Hold a step and turn a knob: a <b>parameter lock</b>.</td></tr>
 <tr><td>LFO</td><td>KNOB 1–4 are the four macros.</td></tr>
 <tr><td>FX</td><td>White keys 1–8: loop, reverse, stutter, delay freeze, low pass, high pass, throw, fill.</td></tr>
-<tr><td>ARP</td><td>The keys jump the tape track's playhead from any page.</td></tr>
 <tr><td>GLO</td><td>White keys mute (1–8) and solo (9–16); the first black key taps the tempo.</td></tr>
 <tr><td>SAVE</td><td>A white key stores the current state as that scene.</td></tr>
 <tr><td>SCL</td><td>A key sets the root.</td></tr>
-<tr><td>REC</td><td>OCT− catches the tape, OCT+ resamples on the next bar.</td></tr>
 <tr><td>ENV</td><td>With a step held, KNOB 1 picks its shape from the library.</td></tr></table>`,
-  "Tape": `<p><b>The tape</b> is one short loop of audio (1.4 s clean, up to 5.5 s DIRTY) that every tape track plays from. It always listens to its source (the master by default: ARP › CAPTURE, KNOB 2). Two ways to keep something on it:</p>
-<ul><li><b>Catch</b> (hold REC, press OCT−): freeze what it holds right now.</li>
-<li><b>Resample</b> (hold REC, press OCT+): at the next bar it records one bar (CAPTURE › BARS) into row 1, then freezes.</li></ul>
-<p>The tape is split into four <b>rows</b> (ARP › ROWS sets where each starts and ends). T7 and T8 are tape tracks; ARP opens the TAPE section on one of them.</p>
-<p><b>MLR</b> (a tape track's MODE): the row is laid across the 16 white keys.</p>
-<ul><li>Tap a key: the playhead jumps to that sixteenth of the row and plays on from there (on the step, beat or bar: PLAYBACK › JUMP).</li>
-<li>Hold two keys: it loops between them. Release to play on.</li>
-<li>Black keys 1–4 switch row; 5–8 reverse, half speed, double speed, hold; 9 catches, 10 resamples.</li>
-<li>From any other page, hold ARP and press white keys to jump.</li>
-<li>Steps on a tape track jump too: a step's note picks the position, so a pattern can cut the loop up.</li></ul>
-<li>In <b>Keys</b>: the row from START to END played across the keys, up to four at once; PLAY loops it, ping-pongs it or reverses it. An LFO on END makes a loop breathe.</li>
-<li>In <b>Stretch</b>: the same, with SPEED apart from the pitch. In <b>Shards</b>: the span in 2–16 pieces played one at a time in an ORDER, with a GAP after each.</li>
-<li>A tape track in MODE KIT (EDIT › SOUND) is six lanes, each its own span of the tape, sequenced on SEQ › DRUM.</li>
-<li>In <b>Slice</b>: the row is cut at its onsets (SENS 0: an even grid) and the keys and steps play the slices.</li>
-<li><b>Audio in</b>: play a file into the input and pick INPUT as the tape's source to catch it.</li></ul>`,
   "Influence": `<p>HOME › INFLUENCE: the current track is the row (source), PRESETS picks the column (target), KNOB 1 the route:</p><table>
 <tr><td>MOD</td><td>the source's envelope moves one of the target's knobs</td></tr>
 <tr><td>TRIG</td><td>a hit plays the target, after a delay in steps, with an optional chance</td></tr>
 <tr><td>EXCITE</td><td>the source's audio rings the target's body or string</td></tr>
-<tr><td>TAPE</td><td>a hit jumps the target's tape playhead (or catches the tape)</td></tr>
 <tr><td>CLOCK</td><td>the source's hits clock the target's sequencer, René-style</td></tr>
 <tr><td>RING</td><td>ring modulates the target with the source</td></tr></table>`,
   "Graph": `<p>SEQ › TRACK › <b>MODE</b> switches a track between the step sequencer and the <b>graph</b>. In graph mode the steps sit in a circle and cords say where a playhead goes next. It plays <b>the same steps</b>: notes, velocity and locks are set on the STEPS pages in either mode; the graph only changes the order they are visited.</p>
@@ -729,6 +696,7 @@ const GUIDE = {
 <tr><td>MASTER</td><td>drive and the microcuts</td></tr></table>
 <p>Hold FX for punch-ins on the white keys: loop, reverse, stutter, delay freeze, low pass, high pass, throw (everything into delay and space), fill.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
+<p>The page after STEPS is <b>TEMPO</b>: the master tempo and swing (the same values as GLO › CLOCK, so turning either moves both), with the track's LENGTH and RATE.</p>
 <p>TRACK sets the MODE (steps or graph), length, rate and the clock (master, LFOs, dust); DIRECTION plays forward, reverse, ping-pong or snake. PRESETS or the first two black keys switch patterns A and B.</p>`,
 };
 {
@@ -846,17 +814,9 @@ $("infile").addEventListener("change", async e => {
     const L = r.getChannelData(0), R = r.numberOfChannels > 1 ? r.getChannelData(1) : L, inter = new Float32Array(len * 2);
     for (let i = 0; i < len; i++) { inter[2 * i] = L[i]; inter[2 * i + 1] = R[i]; }
     inData = inter; inPos = 0; rv.web_in_clear();
-    applyInputRouting();
     setStatus(`Playing ${f.name} into the input`);
   } catch (err) { setStatus("That file could not be read as audio."); }
 });
-function applyInputRouting() {
-  if (!rv) return;
-  rv.web_gp_set(rv.web_gp_tapesrc(), $("intape").checked ? 10 : 0);
-  rv.web_gp_set(rv.web_gp_tapemon(), $("inmon").checked ? 100 : 0);
-}
-$("intape").addEventListener("change", applyInputRouting);
-$("inmon").addEventListener("change", applyInputRouting);
 function feedInput(frames) {
   if (!inData) return;
   const space = rv.web_in_space(), ring = rv.web_in_ring(), mem = new Float32Array(rv.memory.buffer, rv.web_in_ptr(), ring * 2);
@@ -957,10 +917,6 @@ function slowUpdate() {
   $("rec").classList.toggle("on", !!rv.web_armed());
   $("sdot").classList.toggle("on", !!playing);
   $("pos").textContent = playing ? `Bar ${rv.web_bar() + 1} · beat ${rv.web_beat() + 1} · ${rv.web_gp(rv.web_gp_tempo())} BPM · ${cstr(rv.web_page_title())}` : `Stopped · ${cstr(rv.web_page_title())}`;
-  const frozen = rv.web_frozen();
-  $("catch").classList.toggle("on", !!frozen);
-  $("catch").textContent = frozen ? "Caught" : "Catch";
-  $("tapestate").textContent = (frozen ? "Caught: " : "Listening: ") + rv.web_tape_seconds().toFixed(1) + " s of tape";
   $("outm").style.width = Math.min(100, Math.sqrt(Math.max(rv.web_master_l(), rv.web_master_r())) * 100) + "%";
   let kinds = "";
   for (let i = 0; i < 8; i++) {
@@ -970,7 +926,7 @@ function slowUpdate() {
     b.lastChild.textContent = ["SYN","STK","TAP"][k];
     b.lastChild.className = KIND_CLS[k];
     c.classList.toggle("cur", i === t);
-    c.querySelector(".ts").textContent = ["Synth","Strike","Tape","Perc"][k] + " · " + cstr(rv.web_sound_name(i));
+    c.querySelector(".ts").textContent = ["Synth","Strike","",  "Perc"][k] + " · " + cstr(rv.web_sound_name(i));
     c.querySelector(".tn span").className = KIND_CLS[k];
     c.querySelector(".mute").classList.toggle("on", !!(rv.web_mute() & (1 << i)));
     c.querySelector(".meter i").style.width = Math.min(100, Math.sqrt(rv.web_meter(i)) * 100) + "%";

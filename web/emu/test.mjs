@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Smoke test for the browser emulator: boot, play the demo, play a note, edit a step, catch the
-// tape, save a project. node web/emu/test.mjs
+// Smoke test for the browser emulator: boot, play the demo, play a note, edit a step, save a
+// project. node web/emu/test.mjs
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const XF = createRequire(import.meta.url)('./xfer.js');
@@ -31,18 +31,17 @@ tap('PLAY');
 run(6000);
 check(rv.web_playing() === 1, 'PLAY starts the demo');
 check(peak > 0.05, `the demo makes sound (peak ${(20 * Math.log10(peak)).toFixed(1)} dB)`);
-check(rv.web_frozen() === 1, 'the demo resampled its first bars onto the tape');
 check(Math.abs(frames - 44100 * 6.4) < 4000, `time runs at 44.1 kHz (${frames} frames)`);
 tap('PLAY');
 run(800);
 check(rv.web_playing() === 0, 'PLAY stops');
 peak = 0; rv.rv_set_keys(1 << 12); run(400); rv.rv_set_keys(0); run(200);
 check(peak > 0.02, 'a key plays T1');
-rv.web_goto(7, 0); run(50);                                 // SEQ › STEPS
+rv.web_goto(6, 0); run(50);                                 // SEQ › STEPS
 const before = rv.web_step(0);
 rv.rv_set_keys(1 << 2); run(120); rv.rv_enc(2, 5); run(60); rv.rv_set_keys(0); run(60);  // hold step 2, turn K1: its note
 check(true, 'held a step and turned KNOB 1');
-rv.web_goto(9, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
+rv.web_goto(8, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
 check(rv.rv_store_len(0) > 20000, `saved a project (${rv.rv_store_len(0)} bytes)`);
 {                                                           // the sound bank: keep T1's sound, load it on T2 as a perc kit
   rv.web_set_kind(2, 3, 0); run(20);
@@ -55,8 +54,6 @@ check(rv.rv_store_len(0) > 20000, `saved a project (${rv.rv_store_len(0)} bytes)
   rv.web_bank_select(1); rv.web_bank_store(0, 5); rv.web_bank_select(0);
   check(rv.rv_store_len(10) > 10000 && rv.web_bank_used(5) === 0, 'bank B keeps its own sounds');
 }
-rv.rv_set_buttons(bit('REC') | bit('OCT-')); run(80); rv.rv_set_buttons(0); run(60);
-check(rv.web_frozen() === 0, 'REC + OCT- releases the catch');
 const fb = new Uint16Array(rv.memory.buffer, rv.rv_fb(), 240 * 240);
 check(new Set(fb).size > 8, 'the screen is drawn');
 {                                                           // the first bank's old place (version 1) moves to bank A
@@ -332,27 +329,6 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   for (let k = 0; k < 600; k++) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) bad = true; pk = Math.max(pk, Math.abs(a[i])); } }
   rv.web_punch(2, 0); rv.web_transport(0);
   check(!bad && pk > 0.01 && pk < 1.5 && rv.web_fault_count() === 0, `cut shapes, BOUNCE and R MOVE ratchets, GRAIN: finite, no faults (peak ${pk.toFixed(2)})`);
-}
-{                                                           // TAPE: KEYS plays a caught sample across the keys (a chord: three voices); SHARDS, STRETCH, a tape kit; all finite
-  rv.rv_boot(); rv.rv_run(250); rv.web_demo(0); rv.web_transport(1); rv.rv_run(1500);
-  rv.web_resample(); for (let k = 0; k < 600; k++) rv.rv_run(10);
-  rv.web_transport(0); for (let k = 0; k < 150; k++) rv.rv_run(10);
-  rv.web_set_mute(0x7F); rv.web_set_track(7);
-  const play = (keys, ms) => { let pk = 0, bad = false; rv.rv_set_keys(keys); for (let t = 0; t < ms; t += 10) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) bad = true; pk = Math.max(pk, Math.abs(a[i])); } } rv.rv_set_keys(0); for (let k = 0; k < 80; k++) rv.rv_run(10); return [pk, bad]; };
-  rv.web_tp_set(7, 0, 2); rv.web_tp_set(7, 1, 0); rv.web_tp_set(7, 2, 1); rv.web_tp_set(7, 21, 3); rv.web_tp_set(7, 51, 110);
-  const [kp, kb] = play((1 << 12) | (1 << 16) | (1 << 19), 600);
-  let voices = 0; rv.rv_set_keys((1 << 12) | (1 << 16) | (1 << 19)); rv.rv_run(100); voices = rv.web_tape_voices(7); rv.rv_set_keys(0); for (let k = 0; k < 80; k++) rv.rv_run(10);
-  rv.web_tp_set(7, 2, 4); rv.web_tp_set(7, 10, 1); rv.web_tp_set(7, 13, 5); rv.web_tp_set(7, 14, 60);
-  const [sp, sb] = play(1 << 12, 800);
-  rv.web_tp_set(7, 2, 3); rv.web_tp_set(7, 11, 40);
-  const [tp, tb] = play(1 << 14, 800);
-  rv.web_tape_kit(7); for (let st = 0; st < 64; st++) rv.web_step_set(7, st, 0, 0); for (let st = 0; st < 16; st++) rv.web_kit_hit(7, st, st % 6);
-  rv.web_transport(1); let kitpk = 0, kitbad = false;
-  for (let k = 0; k < 300; k++) { const n = rv.rv_run(10), a = new Float32Array(rv.memory.buffer, rv.rv_audio(), n * 2); for (let i = 0; i < n * 2; i++) { if (!(a[i] === a[i])) kitbad = true; kitpk = Math.max(kitpk, Math.abs(a[i])); } }
-  rv.web_transport(0);
-  check(kp > 0.02 && voices === 3 && !kb, `TAPE KEYS: a chord from the tape, ${voices} voices (peak ${kp.toFixed(2)})`);
-  check(sp > 0.02 && tp > 0.02 && !sb && !tb, `SHARDS and STRETCH sound (peaks ${sp.toFixed(2)}, ${tp.toFixed(2)})`);
-  check(kitpk > 0.02 && !kitbad && rv.web_fault_count() === 0, `a tape kit plays its lanes (peak ${kitpk.toFixed(2)}), no faults`);
 }
 {                                                           // the tape delay at its extremes: grains, full feedback, saturation, age, double: bounded and finite
   rv.rv_boot(); rv.rv_run(250);

@@ -132,6 +132,7 @@ static uint32_t age_ctr;
 static uint32_t eng_rng = 0x13579BDFu;
 static float in_buf[RV_SUB * 2];
 static uint8_t punch[8];
+static hitshade_t hs_pend;                         /* the next hit's shading (R MOVE, GRAIN), taken by its voice */
 static svf_t punch_f[2];
 static float lim_gain = 1.0f;
 static dcb_t master_dc[2];
@@ -178,7 +179,7 @@ static float master_drive_comp = 1.0f;
 uint32_t rv_rng(void) { return xs32(&eng_rng); }
 
 /* ------------------------------------------------------- command queue --- */
-enum { C_NOTE, C_LIVE, C_TRANSPORT, C_CATCH, C_RESAMPLE, C_JUMP, C_ROW, C_RATE, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF };
+enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF };
 typedef struct { uint8_t op, a; int16_t b, c; } cmd_t;
 static cmd_t cq[128];
 static volatile uint32_t cq_w, cq_r;
@@ -199,11 +200,6 @@ static void cmd(uint8_t op, int a, int b, int c)
 void rv_note(int t, int note, int vel) { cmd(C_NOTE, t, note, vel); }
 void rv_live_note(int t, int note, int vel) { cmd(C_LIVE, t, note, vel); }
 void rv_transport(int run) { cmd(C_TRANSPORT, 0, run, 0); }
-void rv_catch(void) { cmd(C_CATCH, 0, 0, 0); }
-void rv_resample(void) { cmd(C_RESAMPLE, 0, 0, 0); }
-void rv_tape_jump(int t, int pos, int loop_to) { cmd(C_JUMP, t, pos, loop_to); }
-void rv_tape_row(int t, int row) { cmd(C_ROW, t, row, 0); }
-void rv_tape_rate(int t, int how) { cmd(C_RATE, t, how, 0); }
 void rv_punch(int fx, int on) { cmd(C_PUNCH, fx, on, 0); }
 void rv_cut(int action) { cmd(C_CUT, 0, action, 0); }
 void rv_scene_launch(int s) { cmd(C_SCENE, 0, s, 0); }
@@ -340,7 +336,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         guard_note();
     if (vel > 0 && !spark)
         lfo_note_trig = 1;
-    if (vel > 0 && !spark && !((kind == KIND_PERC || kind == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
+    if (vel > 0 && !spark && !(kind == KIND_PERC && rv.tp[t][TP_ENGINE] == 1)) {   /* STEP ENV: the step's envelope, else the note's (a kit's env bits are accents) */
         int e = env > 0 ? env : rv.tp[t][TP_SEDEF];
         if (e > 0)
             senv_trigger(t, e - 1);
@@ -502,10 +498,6 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         ps[pick].age = ++age_ctr;
         perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u, kit ? rv.kit[t].mach[lane] : -1, lane);
         hs_take(&ps[pick].hs, grain, &eng_rng);
-    } else {
-        tapetrk_t *tt = &tr->tape;
-        RV_FAR(artic_cfg_track)(&tt->cfg, tr->eff);
-        tape_track_note(tr, note, v);
     }
     hs_clear(&hs_pend);
     if (spark)                                       /* a tap on the body: not a note the track played */
@@ -536,8 +528,6 @@ static void note_off_internal(int t, int note)
         for (i = 0; i < RV_PERC_VOICES; i++)          /* drums play out; the gate only matters to HOLD */
             if (ps[i].on && ps[i].track == t && ps[i].note == note)
                 ps[i].gate = 0;
-    } else {
-        tape_track_note(&trk[t], note, 0.0f);
     }
 }
 
@@ -556,19 +546,6 @@ static void all_off_now(void)
         }
     for (i = 0; i < RV_PERC_VOICES; i++)
         ps[i].gate = 0;
-    for (i = 0; i < RV_TRACKS; i++)                 /* the tape tracks too, MLR loops included: a key starts them again */
-        if (rv.tp[i][TP_KIND] == KIND_TAPE) {
-            artic_release(&trk[i].tape.a, &trk[i].tape.cfg);
-            trk[i].tape.pend_pos = -1;
-        }
-    for (i = 0; i < RV_SAMP_VOICES; i++)           /* the sample voices: held notes let go, lanes stop */
-        if (sv[i].on) {
-            sv[i].gate = 0;
-            if (sv[i].lane >= 0)
-                sv[i].dk = fm_maxf(sv[i].dk, 40.0f);
-            else
-                artic_release(&sv[i].a, &sv[i].cfg);
-        }
 }
 
 static void cmd_drain(void)
@@ -598,22 +575,6 @@ static void cmd_drain(void)
                 __builtin_memset(senv, 0, sizeof senv);   /* STEP ENV: stopped, every parameter back where its knob is */
             }
             rv_live.playing = playing;
-            break;
-        case C_CATCH:
-            catch_now();
-            break;
-        case C_RESAMPLE:
-            resample_now();
-            break;
-        case C_JUMP:
-            tape_track_jump(&trk[c.a & 7], c.b, c.c, 0);
-            record_jump(c.a & 7, c.b);
-            break;
-        case C_ROW:
-            tape_row_now(c.a & 7, c.b);
-            break;
-        case C_RATE:
-            tape_rate_now(c.a & 7, c.b);
             break;
         case C_PUNCH:
             punch[c.a & 7] = (uint8_t)c.b;
@@ -824,7 +785,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
 /* ------------------------------------------------------------ profile --- */
 /* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
-enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_TAPE, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_N };   /* (GLO > CPU names them in this order) */
+enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_N };   /* (GLO > CPU names them in this order) */
 static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
 static uint32_t c2_acc, c2_wacc;                          /* the second core's work, and this one's waiting for it (cycles) */
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
@@ -1146,8 +1107,6 @@ static int voices_sounding(void)
         c += ss[k].on && !shedding(&ss[k].hs);
     for (k = 0; k < RV_PERC_VOICES; k++)
         c += ps[k].on && !shedding(&ps[k].hs);
-    for (k = 0; k < RV_SAMP_VOICES; k++)
-        c += sv[k].on && !shedding(&sv[k].hs);
     return c;
 }
 
@@ -1167,8 +1126,6 @@ static int shed_one(void)
         SHED_COUNT(ss[k])
     for (k = 0; k < RV_PERC_VOICES; k++)
         SHED_COUNT(ps[k])
-    for (k = 0; k < RV_SAMP_VOICES; k++)
-        SHED_COUNT(sv[k])
 #undef SHED_COUNT
 #define SHED_CAND(v, held) \
     if ((v).on && !shedding(&(v).hs)) { \
@@ -1181,8 +1138,6 @@ static int shed_one(void)
         SHED_CAND(ss[k], ss[k].gate)
     for (k = 0; k < RV_PERC_VOICES; k++)
         SHED_CAND(ps[k], ps[k].gate)
-    for (k = 0; k < RV_SAMP_VOICES; k++)
-        SHED_CAND(sv[k], sv[k].gate)
 #undef SHED_CAND
     if (!pick)
         return 0;
@@ -1199,9 +1154,6 @@ static int guard_wants(int t)
     int kind = rv.tp[t][TP_KIND];
     if (kind == KIND_SYNTH)
         return rv.tp[t][TP_POLY] > 0;
-    if (kind == KIND_TAPE)
-        return rv.tp[t][TP_ENGINE] == 1 || rv.tp[t][TP_S0] == TAPE_KEYS || rv.tp[t][TP_S0] == TAPE_STRETCH ||
-               rv.tp[t][TP_S0] == TAPE_SHARDS;
     if (kind == KIND_PERC)
         return rv.tp[t][TP_ENGINE] != 1 && rv.tp[t][TP_POLY] > 0;
     return 1;
@@ -1226,15 +1178,6 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     for (k = 0; k < RV_PERC_VOICES; k++)
         if (ps[k].on && shedding(&ps[k].hs) && ps[k].hs.env < 0.001f)
             ps[k].on = 0;
-    for (k = 0; k < RV_SAMP_VOICES; k++) {
-        int t = sv[k].track & 7;
-        if (sv[k].on && shedding(&sv[k].hs) && sv[k].hs.env < 0.001f)
-            sv[k].on = 0;
-        if (sv[k].on && (rv.tp[t][TP_KIND] != KIND_TAPE ||   /* left behind: its track no longer plays samples */
-                         (rv.tp[t][TP_ENGINE] != 1 && sv[k].lane < 0 && rv.tp[t][TP_S0] != TAPE_KEYS &&
-                          rv.tp[t][TP_S0] != TAPE_STRETCH && rv.tp[t][TP_S0] != TAPE_SHARDS)))
-            sv[k].on = 0;
-    }
     if (!cyc || hz <= 0.0f || n <= 0)
         return;                                     /* no clock here */
     /* read over the FM-1's audio block (512 frames, 11.6 ms), as it falls behind or not: one step
@@ -1279,7 +1222,7 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     } else if (guard_load < GUARD_LO) {             /* clear of the edge: the limit comes back up */
         if (guard_cap != 255 && ++guard_calm >= 8) {          /* (93 ms of it) */
             guard_calm = 0;
-            if (++guard_cap >= RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES + RV_SAMP_VOICES)
+            if (++guard_cap >= RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES)
                 guard_cap = 255;
         }
     } else {
@@ -1334,7 +1277,6 @@ static void render_sub(float *outl, float *outr, int n)
 {
     static float fb_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB];
     static float fb_out[RV_SUB];                    /* kept: the feedback return reads the last step's */
-    static float tape_src[RV_SUB], bus_mono[RV_SUB], tape_fb[RV_SUB];
     int offs[8], np, i, t, k;
     static uint32_t lead_age[RV_TRACKS];
     float solo_on = rv.solo ? 1.0f : 0.0f;
@@ -1342,7 +1284,7 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
-    uint32_t tape_cyc = 0, cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
+    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
     prof_t = cyc0 = plat_cycles();
     movement_tick(n);
     RV_FAR(eff_compute)();
@@ -1358,7 +1300,7 @@ static void render_sub(float *outl, float *outr, int n)
 
     for (i = 0; i < n; i++) {
         outl[i] = outr[i] = 0.0f;
-        fb_in[i] = dly_in[i] = rev_in[i] = tape_fb[i] = 0.0f;
+        fb_in[i] = dly_in[i] = rev_in[i] = 0.0f;
     }
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
@@ -1531,25 +1473,6 @@ static void render_sub(float *outl, float *outr, int n)
         uint8_t muted = (rv.mute >> t) & 1u;
         if (rv.solo && !((rv.solo >> t) & 1u))
             muted = 1;
-        if (kind == KIND_TAPE) {
-            if (!tr->tape.a.gate && tr->tape.a.stage == AS_OFF)
-                RV_FAR(artic_cfg_track)(&tr->tape.cfg, eff);
-            uint32_t c0 = plat_cycles();
-            tr->lead_env = tape_track_render(tr, t, tr->buf, n);
-            tape_cyc += plat_cycles() - c0;
-            if (buf_fix(tr->buf, n) || !(tr->lead_env == tr->lead_env)) {
-                fault(300 + rv.tp[t][TP_S0]);
-                tr->lead_env = 0.0f;
-                __builtin_memset(&tr->tape.a, 0, sizeof(tr->tape.a));
-                for (i = 0; i < RV_SAMP_VOICES; i++)
-                    if (sv[i].track == t)
-                        sv[i].on = 0;
-            }
-            rv_live.stage[t] = tr->tape.a.stage;
-            rv_live.stage_pos[t] = tr->tape.a.u;
-        } else if (kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_PERC) {
-            /* a track with no voice still lets its incoming excitation through (influence) */
-        }
         drive = eff[TP_DRIVE] * (1.0f / 127.0f);
         fld = eff[TP_FOLD] * (1.0f / 127.0f);
         bits = (int)(eff[TP_BITS] + 0.5f);
@@ -1637,10 +1560,9 @@ static void render_sub(float *outl, float *outr, int n)
         tr->lead_env *= fm_expf(-0.005013f * (float)n * (1.0f / 32.0f));   /* (0.995 a 32-frame step) */
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
-    {   /* the chains: all the tracks' loop, but for the tape tracks' own playing */
+    {   /* the chains: all the tracks' loop */
         uint32_t c = plat_cycles();
-        prof_acc[PF_TAPE] += tape_cyc;
-        prof_acc[PF_CHAIN] += c - prof_t - tape_cyc;
+        prof_acc[PF_CHAIN] += c - prof_t;
         prof_t = c;
     }
     /* the buses: this step's sends go into the ring (they play next step); what they made of the
@@ -1693,37 +1615,9 @@ static void render_sub(float *outl, float *outr, int n)
             buses_reset();
         }
         for (i = 0; i < n; i++) {
-            fb_out[i] = bus_mono[i] = bo_fb[i];      /* (the feedback return next step; the tape's BUS source) */
+            fb_out[i] = bo_fb[i];                    /* (the feedback return next step) */
             outl[i] += bo_l[i];
             outr[i] += bo_r[i];
-        }
-    }
-
-    /* the tape's input */
-    {
-        int src = clampi(rv.gp[GP_TAPESRC], 0, 10);
-        for (i = 0; i < n; i++) {
-            float x;
-            if (src == 0)
-                x = (outl[i] + outr[i]) * 0.5f;
-            else if (src <= 8)
-                x = trk[src - 1].buf[i] * (rv.tp[src - 1][TP_LEVEL] * (1.0f / 127.0f));
-            else if (src == 9)
-                x = bus_mono[i];
-            else
-                x = (in_buf[2 * i] + in_buf[2 * i + 1]) * 0.5f * ingain;
-            tape_src[i] = x + tape_fb[i];
-        }
-        if (buf_fix(tape_src, n))
-            fault(1000);
-        tape_capture(tape_src, n, 0, (mpulse & 15) == 0 && playing ? 1 : !playing);
-    }
-    /* input monitor */
-    if (rv.gp[GP_TAPEMON] > 0) {
-        float g = rv.gp[GP_TAPEMON] * (1.0f / 127.0f) * ingain;
-        for (i = 0; i < n; i++) {
-            outl[i] += in_buf[2 * i] * g;
-            outr[i] += in_buf[2 * i + 1] * g;
         }
     }
 
@@ -1798,7 +1692,7 @@ static void render_sub(float *outl, float *outr, int n)
         prof_rcyc += prof_t - cyc0;
     }
     prof_end(n);
-    guard_tick(prof_t - cyc0, vcyc + tape_cyc, n);
+    guard_tick(prof_t - cyc0, vcyc, n);
 }
 
 void rv_render(int32_t *out, int frames)
@@ -1824,7 +1718,6 @@ void rv_engine_init(void)
     synth_tables();
     seq_init();
     buses_init();
-    tape_init();
     for (i = 0; i < RV_SYNTH_VOICES; i++)
         vs[i].on = 0;
     for (i = 0; i < RV_STRIKE_VOICES; i++)

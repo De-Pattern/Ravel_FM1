@@ -4,14 +4,14 @@ demo 3
 tap SEQ
 turn SELECT -20
 wait 100
-turn SELECT 4
+turn SELECT 5
 wait 150
 expect page TRACK
 turn K2 16
 wait 200
 turn SELECT -20
 wait 100
-turn SELECT 5
+turn SELECT 6
 wait 150
 expect page GRAPH
 tap OCT+

@@ -242,6 +242,29 @@ int rv_load(int slot)
             }
         }
     }
+    if (f <= 21) {                                   /* (22) the tape left: a tape track loads as a blank VA synth (its
+                                                      * steps were places on the tape: cleared), a route that jumped
+                                                      * a playhead is off, a scene no longer resamples */
+        int t, a, pt;
+        for (t = 0; t < RV_TRACKS; t++) {
+            if (rv.tp[t][TP_KIND] == KIND_TAPE) {
+                rv_track_defaults(t, KIND_SYNTH, ENG_VA);
+                pt = rv.pat_cur[t];
+                for (rv.pat_cur[t] = 0; rv.pat_cur[t] < RV_PATTERNS; rv.pat_cur[t]++)
+                    rv_pattern_clear(t);
+                rv.pat_cur[t] = (uint8_t)pt;
+            }
+            for (a = 0; a < RV_TRACKS; a++)
+                if (rv.infl[t][a].type == RT_TAPE)
+                    rv.infl[t][a].type = RT_OFF;
+        }
+        for (t = 0; t < RV_SCENES; t++) {
+            rv.scene[t].resample = 0;
+            for (a = 0; a < RV_TRACKS * RV_TRACKS; a++)
+                if (rv.scene[t].infl[a / RV_TRACKS][a % RV_TRACKS].type == RT_TAPE)
+                    rv.scene[t].infl[a / RV_TRACKS][a % RV_TRACKS].type = RT_OFF;
+        }
+    }
     rv.format = RV_FORMAT;
     return 0;
 }

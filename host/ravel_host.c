@@ -19,7 +19,6 @@
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect gp NAME VALUE          a global parameter
- *   expect frozen 0|1             the tape is caught (1) or listening (0)
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
@@ -345,9 +344,6 @@ int main(int argc, char **argv)
                 }
                 got = rv.gp[g];
                 want = atoi(w2);
-            } else if (!strcmp(b, "frozen")) {
-                got = rv_tape_frozen();
-                want = atoi(w1);
             } else if (!strcmp(b, "page")) {
                 char title[64];
                 sscanf(line, "%*s %*s %63[^\n]", title);

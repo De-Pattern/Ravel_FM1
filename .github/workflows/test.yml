@@ -5,30 +5,6 @@ on:
   pull_request:
 
 jobs:
-  beads:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Python packages
-        run: pip install numpy
-      - name: Fetch the original Beads source (for the reference)
-        working-directory: tests/beads
-        run: make fetch
-      - name: Compare the port against the original
-        working-directory: tests/beads
-        run: make test
-      - name: Build for a 32-bit embedded target (no C library)
-        run: |
-          sudo apt-get install -y clang
-          clang --target=armv7m-none-eabi -mcpu=cortex-m4 -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -c core/beads/bd.c -o /tmp/bd.o
-          clang --target=riscv32-unknown-elf -march=rv32imc -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -c core/beads/bd.c -o /tmp/bd_rv.o
-          clang --target=armv7m-none-eabi -mcpu=cortex-m4 -O2 -std=c99 -Wall -Wextra -Werror -ffreestanding -DBD_NO_DELAY -DBD_READER_ONLY -c core/beads/bd.c -o /tmp/bd_slim.o
-      - name: Keep the renders for listening
-        uses: actions/upload-artifact@v4
-        with:
-          name: beads-renders
-          path: tests/beads/out/*.wav
-
   simulator:
     runs-on: ubuntu-latest
     steps:

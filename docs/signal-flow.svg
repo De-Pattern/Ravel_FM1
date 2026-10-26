@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 576" width="800" height="576" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" role="img" aria-label="Tracks feed the tape, and the tape feeds the tracks">
-  <title>Tracks feed the tape, and the tape feeds the tracks</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 384" width="800" height="384" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" role="img" aria-label="Tracks feed the mixer and buses, and every track can act on every other">
+  <title>Tracks feed the mixer and buses, and every track can act on every other</title>
   <defs>
     <marker id="sf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#8a8f98"/>
@@ -10,26 +10,24 @@
   </defs>
 
   <!-- own background so the drawing reads on GitHub's light and dark themes -->
-  <rect x="0" y="0" width="800" height="576" rx="12" fill="#0f1311"/>
+  <rect x="0" y="0" width="800" height="384" rx="12" fill="#0f1311"/>
 
-  <text x="24" y="38" font-size="16" font-weight="600" fill="#dde5de">Tracks feed the tape, and the tape feeds the tracks</text>
-  <text x="24" y="60" font-size="12" fill="#8c998f">Synthesize, catch, reshape. Every track can act on every other, and any track can be any kind.</text>
+  <text x="24" y="38" font-size="16" font-weight="600" fill="#dde5de">Eight tracks, and every one can act on every other</text>
+  <text x="24" y="60" font-size="12" fill="#8c998f">Synthesize, strike, drum. Any track can be any kind.</text>
 
   <!-- influence band -->
-  <rect x="24" y="92" width="40" height="344" rx="8" fill="#689280" fill-opacity="0.18" stroke="#689280" stroke-width="2"/>
-  <text x="44" y="264" transform="rotate(-90 44 264)" text-anchor="middle" font-weight="600" fill="#dde5de">Influence</text>
+  <rect x="24" y="92" width="40" height="254" rx="8" fill="#689280" fill-opacity="0.18" stroke="#689280" stroke-width="2"/>
+  <text x="44" y="219" transform="rotate(-90 44 219)" text-anchor="middle" font-weight="600" fill="#dde5de">Influence</text>
   <g fill="none" stroke="#4f7466" stroke-width="1.5">
     <path d="M64 136H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
     <path d="M64 230H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
     <path d="M64 314H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
-    <path d="M64 398H96" marker-end="url(#sf-arrow-teal)" marker-start="url(#sf-arrow-teal)"/>
   </g>
 
   <!-- tracks -->
   <g fill="#171d1a" stroke="#4a564f" stroke-width="1.25">
     <rect x="96" y="92" width="300" height="98" rx="8"/>
     <rect x="96" y="198" width="300" height="64" rx="8"/>
-    <rect x="96" y="366" width="300" height="64" rx="8"/>
   </g>
   <rect x="96" y="282" width="300" height="64" rx="8" fill="#831c29" fill-opacity="0.28" stroke="#9a2a37" stroke-width="1.5"/>
   <text x="112" y="117" font-weight="600" fill="#dde5de">Synth  T1 to T4 · thirteen engines</text>
@@ -38,16 +36,14 @@
   <text x="112" y="176" font-size="12" fill="#8c998f">RESIN, TINE</text>
   <text x="112" y="223" font-weight="600" fill="#dde5de">Strike  T5, T6</text>
   <text x="112" y="245" font-size="12" fill="#8c998f">exciter into modes, strings, pings</text>
-  <text x="112" y="307" font-weight="600" fill="#dde5de">Perc  any track</text>
+  <text x="112" y="307" font-weight="600" fill="#dde5de">Perc  T7, T8, or any track</text>
   <text x="112" y="329" font-size="12" fill="#c9a2a7">33 drum machines; a kit of six lanes on one track</text>
-  <text x="112" y="391" font-weight="600" fill="#dde5de">Tape  T7, T8</text>
-  <text x="112" y="413" font-size="12" fill="#8c998f">sampler: MLR, keys, shards, stretch, kits</text>
 
   <!-- buses -->
-  <rect x="440" y="92" width="200" height="338" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
+  <rect x="440" y="92" width="200" height="254" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
   <text x="456" y="117" font-weight="600" fill="#dde5de">Mixer and buses</text>
   <text x="456" y="150" font-size="12" fill="#8c998f">Feedback bus, band in the loop</text>
-  <text x="456" y="176" font-size="12" fill="#8c998f">Delay: granular tape</text>
+  <text x="456" y="176" font-size="12" fill="#8c998f">Delay: tape echo and grains</text>
   <text x="456" y="202" font-size="12" fill="#8c998f">Space: 12-bit</text>
   <text x="456" y="228" font-size="12" fill="#8c998f">Bed: dust, wood to metal</text>
   <text x="456" y="254" font-size="12" fill="#8c998f">Master drive, cuts, punch-ins</text>
@@ -56,21 +52,11 @@
   <rect x="664" y="237" width="112" height="48" rx="8" fill="#171d1a" stroke="#4a564f" stroke-width="1.25"/>
   <text x="720" y="265" text-anchor="middle" font-weight="600" fill="#dde5de">Master out</text>
 
-  <!-- tape -->
-  <rect x="440" y="476" width="200" height="64" rx="8" fill="#ded2b8" fill-opacity="0.12" stroke="#ded2b8" stroke-width="2"/>
-  <text x="456" y="501" font-weight="600" fill="#dde5de">Capture tape</text>
-  <text x="456" y="523" font-size="12" fill="#cfc4a8">120 KB, 4 rows, 1.4 to 5.5 s</text>
-
   <!-- connections -->
   <g fill="none" stroke="#8a8f98" stroke-width="1.25">
     <path d="M396 136H440" marker-end="url(#sf-arrow)"/>
     <path d="M396 230H440" marker-end="url(#sf-arrow)"/>
     <path d="M396 314H440" marker-end="url(#sf-arrow)"/>
-    <path d="M396 398H440" marker-end="url(#sf-arrow)"/>
     <path d="M640 261H664" marker-end="url(#sf-arrow)"/>
-    <path d="M540 430V476" marker-end="url(#sf-arrow)"/>
-    <path d="M440 508H246V430" marker-end="url(#sf-arrow)"/>
   </g>
-  <text x="552" y="458" font-size="12" fill="#8c998f">catch, resample</text>
-  <text x="343" y="500" text-anchor="middle" font-size="12" fill="#8c998f">playback and grains</text>
 </svg>

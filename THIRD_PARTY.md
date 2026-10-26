@@ -2,7 +2,6 @@
 
 | What | Where | Licence |
 | --- | --- | --- |
-| Mutable Instruments Beads (grain engine), rewritten in fixed point | `core/beads/` | MIT, `core/beads/LICENSE-beads` |
 | Felucca's FM-1 hardware layer: start-up, interrupts, guards, input matrix, LCD, audio codec, flash, USB, second-core hold | `firmware/fm1/hal/`, `firmware/fm1/crt0.S`, `firmware/fm1/app.ld`, `firmware/fm1/src/lcd.c`, `libc.c` | GPL-3.0, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, by way of X0X (charlesvestal/fm1-x0x) |
 | Felucca's USB device (MIDI, USB audio to the computer), TRS MIDI, storage, the M-UPGRADE update entry and the update loader | `firmware/fm1/src/usb.c`, `midi_uart.c`, `storage.c`, `ota.c`, `firmware/fm1/loader/` | GPL-3.0, Felucca, by way of X0X |
 | Boot, audio interrupt and main loop, panel map and calibration (adapted) | `firmware/fm1/src/main_fm1.c`, `panel.c` | GPL-3.0, Felucca and X0X |

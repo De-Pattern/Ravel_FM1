@@ -257,15 +257,6 @@ static const kit_preset_t kit_presets[] = {
     {"MD MIX KIT", {PM_TRX_BD, PM_PI_SD, PM_EFM_HH, PM_TRX_OH, PM_TRX_CP, PM_PI_ML}},
 };
 
-/* ----------------------------------------------------------------- tape --- */
-static const int8_t t_mlr[] = {TP_S0, TAPE_MLR, TP_S1, 0, TP_S2, 6, TP_S4, 1, TP_LEVEL, 100, END};
-static const int8_t t_keys[] = {TP_S0, TAPE_KEYS, TP_S1, 0, TP_S8, TPLAY_FWD, TP_POLY, 3, TP_ATK, 0, TP_SUS, 127, TP_REL, 30, TP_LEVEL, 100, END};
-static const int8_t t_loopkeys[] = {TP_S0, TAPE_KEYS, TP_S1, 0, TP_S6, 0, TP_S7, 63, TP_S8, TPLAY_LOOP, TP_POLY, 3, TP_ATK, 10, TP_SUS, 127, TP_REL, 50, TP_LEVEL, 96, TP_REVS, 40, END};
-static const int8_t t_shards[] = {TP_S0, TAPE_SHARDS, TP_S1, 0, TP_S8, TPLAY_LOOP, TP_S10, 8, TP_S11, 5, TP_S12, 40, TP_POLY, 0, TP_SUS, 127, TP_REL, 20, TP_LEVEL, 100, END};
-static const int8_t t_stretch[] = {TP_S0, TAPE_STRETCH, TP_S1, 0, TP_S8, TPLAY_LOOP, TP_S9, 50, TP_POLY, 1, TP_ATK, 20, TP_SUS, 127, TP_REL, 60, TP_LEVEL, 96, TP_REVS, 50, END};
-static const int8_t t_slices[] = {TP_S0, TAPE_SLICE, TP_S1, 0, TP_S14, 16, TP_S15, 70, TP_ATK, 2, TP_DEC, 50, TP_SUS, 90, TP_REL, 30, TP_LEVEL, 100, END};
-static const int8_t t_half[] = {TP_S0, TAPE_MLR, TP_S1, 1, TP_S2, 5, TP_S3, 4, TP_S4, 2, TP_LEVEL, 90, TP_DLYS, 40, END};
-
 static const rv_preset presets[] = {
     {"GLASS PAD", KIND_SYNTH, ENG_VA, p_glass, 0}, {"SUB BASS", KIND_SYNTH, ENG_VA, p_sub, 0}, {"PLUCK", KIND_SYNTH, ENG_VA, p_pluck, 0},
     {"LOW GATE", KIND_SYNTH, ENG_VA, p_lpg, 0}, {"CZ BELL", KIND_SYNTH, ENG_CZ, p_czbell, &cz_bell}, {"CZ BRASS", KIND_SYNTH, ENG_CZ, p_czbrass, &cz_brass},
@@ -317,9 +308,6 @@ static const rv_preset presets[] = {
     {"EFM BELL", KIND_PERC, 0, d_efmbell, 0}, {"PI KICK", KIND_PERC, 0, d_pikick, 0}, {"PI SNARE", KIND_PERC, 0, d_pisnare, 0},
     {"PI TOM", KIND_PERC, 0, d_pitom, 0}, {"PI RIDE", KIND_PERC, 0, d_piride, 0}, {"PI SHAKER", KIND_PERC, 0, d_pishaker, 0},
     {"METALLICA", KIND_PERC, 0, d_metal, 0}, {"GND SUB", KIND_PERC, 0, d_gndsub, 0}, {"IMPULSE", KIND_PERC, 0, d_blip, 0},
-    {"MLR LOOP", KIND_TAPE, 0, t_mlr, 0}, {"SAMPLE KEYS", KIND_TAPE, 0, t_keys, 0}, {"LOOP KEYS", KIND_TAPE, 0, t_loopkeys, 0},
-    {"SHARDS", KIND_TAPE, 0, t_shards, 0}, {"SLOW STRETCH", KIND_TAPE, 0, t_stretch, 0},
-    {"SLICES", KIND_TAPE, 0, t_slices, 0}, {"HALF SPEED", KIND_TAPE, 0, t_half, 0},
 };
 #define NPRESETS ((int)(sizeof(presets) / sizeof(presets[0])))
 
@@ -468,8 +456,7 @@ static void demo_body(int which)
     int s;
     rv_project_init();
     if (which == 0) {
-        /* RAVEL: synthesize, catch, rebuild. Scene 1 resamples its first bar into row 1, and the
-         * tape tracks play it back: T7 jumps around it (the wood hits move its playhead), T8 grains it. */
+        /* RAVEL: synthesize and rebuild: the wood hits shake T7, T8 holds a phasing pad under it all. */
         name_set("RAVEL");
         rv.gp[GP_TEMPO] = 104;
         rv_preset_apply(0, find_preset("GLASS PAD"));
@@ -478,8 +465,8 @@ static void demo_body(int which)
         rv_preset_apply(3, find_preset("STRING"));
         rv_preset_apply(4, find_preset("WOOD"));
         rv_preset_apply(5, find_preset("METAL"));
-        rv_preset_apply(6, find_preset("MLR LOOP"));
-        rv_preset_apply(7, find_preset("SHARDS"));
+        rv_preset_apply(6, find_preset("PI SHAKER"));   /* (the tape tracks were here) */
+        rv_preset_apply(7, find_preset("PHASE PAD"));
         rv.tp[0][TP_LEN] = 32;
         on(0, 0, 57, 80, 60);
         on(0, 16, 53, 80, 60);
@@ -514,20 +501,15 @@ static void demo_body(int which)
         rv.tp[7][TP_LEN] = 16;
         on(7, 0, 60, 100, 32);
         on(7, 8, 67, 90, 32);
-        /* influence: wood excites the metal, moves the tape's playhead; the bass opens the pad */
+        /* influence: wood excites the metal and shakes the shaker; the bass opens the pad */
         route(4, 5, RT_EXCITE, 40, 0);
-        route(4, 6, RT_TAPE, 0, 4);
+        route(4, 6, RT_TRIG, 0, 0);
         route(1, 0, RT_MOD, 30, TP_CUT);
         route(3, 7, RT_TRIG, 0, 0);
         rv.gp[GP_DLYTIME] = 92;
         rv.gp[GP_DLYFB] = 60;
         rv.gp[GP_REVSIZE] = 90;
-        rv.gp[GP_TAPESRC] = 0;
-        rv.gp[GP_RESBARS] = 1;
-        rv.gp[GP_ROW2S] = 64;
-        rv.gp[GP_ROW2E] = 128;
         rv.scene[0].used = 1;
-        rv.scene[0].resample = 1;
         for (s = 0; s < RV_TRACKS; s++) {
             int b;
             rv.scene[0].level[s] = (uint8_t)rv.tp[s][TP_LEVEL];
@@ -537,7 +519,7 @@ static void demo_body(int which)
         rv.arr_len = 1;
         rv.arr[0].scene = 0;
         rv.arr[0].bars = 8;
-        rv.gp[GP_SONGMODE] = 1;                    /* SONG: the scene re-catches the tape every 8 bars */
+        rv.gp[GP_SONGMODE] = 1;                    /* SONG: the scene comes round every 8 bars */
     } else if (which == 1) {
         /* DUST: lowercase. Clicks, droplets through the vocoder, a struck disc rung by dust,
          * a membrane and the feedback bus returning into the strings. */
@@ -549,8 +531,8 @@ static void demo_body(int which)
         rv_preset_apply(3, find_preset("LOW GATE"));
         rv_preset_apply(4, find_preset("CLOCKWORK"));
         rv_preset_apply(5, find_preset("STRINGS"));
-        rv_preset_apply(6, find_preset("SLICES"));
-        rv_preset_apply(7, find_preset("LOOP KEYS"));
+        rv_preset_apply(6, find_preset("NAIL KALIMBA"));   /* (the tape tracks were here) */
+        rv_preset_apply(7, find_preset("DUST BELL"));
         rv.tp[0][TP_LEVEL] = 60;
         rv.tp[0][TP_LEN] = 32;
         on(0, 0, 60, 70, 120);
@@ -586,7 +568,6 @@ static void demo_body(int which)
         rv.gp[GP_REVSIZE] = 110;
         rv.gp[GP_REVLEVEL] = 100;
         rv.scene[0].used = 1;
-        rv.scene[0].resample = 1;
         for (s = 0; s < RV_TRACKS; s++) {
             int b;
             rv.scene[0].level[s] = (uint8_t)rv.tp[s][TP_LEVEL];

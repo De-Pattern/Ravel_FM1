@@ -117,27 +117,6 @@ tap SCL
 wait 400
 shot 36_SCL_0.png
 turn SELECT 1
-tap ARP
-wait 400
-shot 37_ARP_0.png
-turn SELECT 1
-wait 400
-shot 38_ARP_1.png
-turn SELECT 1
-wait 400
-shot 39_ARP_2.png
-turn SELECT 1
-wait 400
-shot 40_ARP_3.png
-turn SELECT 1
-wait 400
-shot 41_ARP_4.png
-turn SELECT 1
-wait 400
-shot 42_ARP_5.png
-turn SELECT 1
-wait 400
-shot 43_ARP_6.png
 turn SELECT 1
 tap SEQ
 wait 400

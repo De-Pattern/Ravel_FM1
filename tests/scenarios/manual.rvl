@@ -159,45 +159,6 @@ wait 150
 expect page SCALE
 wait 600
 shot scale.png
-turn ALGO -8
-turn ALGO 6
-tap ARP
-turn SELECT -20
-turn SELECT 0
-wait 150
-expect page CAPTURE
-wait 600
-shot tape-capture.png
-tap ARP
-turn SELECT -20
-turn SELECT 1
-wait 150
-expect page ROWS
-wait 600
-shot tape-rows.png
-tap ARP
-turn SELECT -20
-turn SELECT 3
-wait 150
-expect page MLR
-wait 600
-shot tape-mlr.png
-turn ALGO -8
-turn ALGO 7
-tap ARP
-turn SELECT -20
-turn SELECT 3
-wait 150
-expect page SAMPLE
-wait 600
-shot tape-sample.png
-turn SELECT 1
-wait 150
-expect page SHARDS
-wait 600
-shot tape-shards.png
-turn ALGO -8
-turn ALGO 0
 tap SEQ
 turn SELECT -20
 turn SELECT 0
@@ -209,12 +170,19 @@ tap SEQ
 turn SELECT -20
 turn SELECT 1
 wait 150
+expect page TEMPO
+wait 600
+shot seq-tempo.png
+tap SEQ
+turn SELECT -20
+turn SELECT 2
+wait 150
 expect page STEP TIMING
 wait 600
 shot seq-timing.png
 tap SEQ
 turn SELECT -20
-turn SELECT 4
+turn SELECT 5
 wait 150
 expect page TRACK
 wait 600
@@ -328,14 +296,14 @@ turn ALGO -8
 turn ALGO 0
 tap SEQ
 turn SELECT -20
-turn SELECT 5
+turn SELECT 6
 wait 150
 expect page GRAPH
 wait 600
 shot seq-graph.png
 tap SEQ
 turn SELECT -20
-turn SELECT 7
+turn SELECT 8
 wait 150
 expect page HEAD 1 MOTION
 turn K1 1

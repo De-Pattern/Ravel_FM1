@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel engine internals: the running state of voices, tracks, the tape, the buses and the
+/* Ravel engine internals: the running state of voices, tracks, the buses and the
  * sequencer. Only the engine's modules include this (they build as one unit, ravel_app.c). */
 #pragma once
 #include "rv.h"
 #include "rv_dsp.h"
-#include "../../core/beads/bd.h"
 
 #ifndef RV_BIG
 #define RV_BIG                              /* the device may place big buffers in a section of its own */
@@ -175,48 +174,6 @@ typedef struct {
     hitshade_t hs;
 } strike_t;
 
-/* ---------------------------------------------------------------- tape --- */
-typedef struct {
-    float x;                        /* position within the row, 0..1 */
-    float rate;
-    uint8_t active;
-    float old_x, fade;              /* the jump crossfade: where it was, how much remains */
-} mlr_head_t;
-typedef struct {
-    mlr_head_t h[2];
-    uint8_t running, rev, held_rate;
-    float loop_a, loop_b;           /* loop span within the row (0..1), a >= b means the whole row */
-    int8_t pend_pos, pend_loop;     /* a quantized jump waiting for its boundary */
-    float rate_mul;
-    /* slices */
-    float slice[33];                /* slice starts within the row, 0..1 */
-    uint8_t nslices, slices_valid;
-    float sl_x, sl_end, sl_rate, sl_gain;
-    uint8_t sl_on;
-    float sl_old_x, sl_old_fade;
-    artic_t a;
-    artic_cfg_t cfg;
-    float note_ofs;
-} tapetrk_t;
-
-/* a sample voice: plays a span of the tape, as KEYS (a sample across the keys), STRETCH (its
- * speed apart from its pitch) or SHARDS (the span broken in pieces, one at a time, in an order) */
-typedef struct {
-    uint8_t on, track, gate, mode, play, order, n_sh;
-    int8_t lane, note, dir;
-    float vel, gain;
-    float s, e;                     /* a kit lane's span, in tape time (a track reads its own, live) */
-    float pos, inc;                 /* where it reads (tape time) and its step per sample (the pitch) */
-    float base, gph;                /* STRETCH: the window's place and its phase */
-    float sh_u, gap;                /* SHARDS: how far into the current shard; a kit lane's GAP */
-    uint8_t sh_k;                   /* SHARDS: which shard of the order */
-    float env, dk;                  /* a kit lane's decay (a track's notes use the articulation) */
-    uint32_t age;
-    artic_t a;
-    artic_cfg_t cfg;
-    hitshade_t hs;
-} samp_t;
-
 /* --------------------------------------------------------------- track --- */
 typedef struct {
     float eff[TP_N];                /* parameters after locks and modulation */
@@ -244,8 +201,6 @@ typedef struct {
     float sh_ph, sh_z, hilb_i[16], hilb_q[16];
     float crush_hold;
     int32_t crush_n;
-    /* tape */
-    tapetrk_t tape;
     /* pan */
     float pan_l, pan_r;
     float scope_acc;

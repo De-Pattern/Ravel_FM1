@@ -3,8 +3,8 @@
  * the section's pages, ALGORITHM picks the track, PRESETS browses what the page holds (sounds,
  * patterns, scenes, slots, rows...), KNOB 1-4 set the four values in the knob row. Holding a
  * button gives its layer: SEQ makes the keys steps on any page (hold a step and turn a knob:
- * a lock), LFO puts the macros on the knobs, FX puts punch-in effects on the keys, ARP the tape,
- * GLO mutes and solos, SAVE stores scenes, SCL sets the root, REC catches and resamples.
+ * a lock), LFO puts the macros on the knobs, FX puts punch-in effects on the keys,
+ * GLO mutes and solos, SAVE stores scenes, SCL sets the root, REC arms recording.
  *
  * Every page: a top strip (track, sound, page), the knob row, a live picture, a footer that
  * says what the controls do right now. */
@@ -23,12 +23,12 @@ float rv_time_s(int v);
 float rv_cut_hz(float v);
 
 /* ---------------------------------------------------------- sections --- */
-enum { SEC_HOME, SEC_VOICE, SEC_ARTIC, SEC_MOD, SEC_BUS, SEC_SCALE, SEC_TAPE, SEC_SEQ, SEC_SONG, SEC_SAVE, NSEC };
-static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MOD", "BUSES", "SCALE", "TAPE", "SEQ", "SONG", "SAVE"};
-static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
+enum { SEC_HOME, SEC_VOICE, SEC_ARTIC, SEC_MOD, SEC_BUS, SEC_SCALE, SEC_SEQ, SEC_SONG, SEC_SAVE, NSEC };
+static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MOD", "BUSES", "SCALE", "SEQ", "SONG", "SAVE"};
+static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_SEQ, B_GLO, B_SAVE};   /* (ARP: free since the tape left) */
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ROW, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS };   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS };   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -43,13 +43,13 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
-       PIC_TAPE, PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
+       PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
 /* when a page shows */
-enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_TAPE, V_MLR, V_TSAMP, V_STRETCH, V_SHARDS, V_SLICE, V_NOTTAPE, V_PKIT,
+enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
 /* what PRESETS does on the page */
-enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_ROW, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
+enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK };
 
 typedef struct {
@@ -138,24 +138,11 @@ static const page_t pages[] = {
 
     {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_INTERVAL)}},
 
-    {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "CAPTURE", {GP(GP_TAPEQUAL), GP(GP_TAPESRC), GP(GP_RESBARS), GP(GP_ERODE)}},
-#ifdef RV_NO_AUDIO_IN
-    {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "ROWS", {{K_ROW, 0}, {K_ROW, 1}, NO, NO}},   /* no audio input */
-#else
-    {SEC_TAPE, V_ALL, PIC_TAPE, PR_ROW, "ROWS", {{K_ROW, 0}, {K_ROW, 1}, GP(GP_INPUTLEVEL), GP(GP_TAPEMON)}},
-#endif
-    /* a tape track: MODE (MLR, KEYS, SLICE, STRETCH, SHARDS), its row, and START and END within it */
-    {SEC_TAPE, V_TAPE, PIC_TAPE, PR_SOUND, "PLAYBACK", {TP(TP_S0), TP(TP_S1), TP(TP_S6), TP(TP_S7)}},
-    {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR", {TP(TP_S4), TP(TP_S5), TP(TP_S2), TP(TP_S3)}},
-    {SEC_TAPE, V_MLR, PIC_TAPE, PR_SOUND, "MLR 2", {TP(TP_PITCH), TP(TP_LEVEL), NO, NO}},
-    {SEC_TAPE, V_TSAMP, PIC_TAPE, PR_SOUND, "SAMPLE", {TP(TP_S8), TP(TP_PITCH), TP(TP_POLY), TP(TP_LEVEL)}},
-    {SEC_TAPE, V_STRETCH, PIC_TAPE, PR_SOUND, "STRETCH", {TP(TP_S9), NO, NO, NO}},
-    {SEC_TAPE, V_SHARDS, PIC_TAPE, PR_SOUND, "SHARDS", {TP(TP_S10), TP(TP_S11), TP(TP_S12), NO}},
-    {SEC_TAPE, V_SLICE, PIC_TAPE, PR_SOUND, "SLICES", {TP(TP_S14), TP(TP_S15), TP(TP_PITCH), TP(TP_LEVEL)}},
-
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},   /* (the same TEMPO and SWING as GLO > CLOCK) */
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), SF(SF_RMOVE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
@@ -206,7 +193,7 @@ static struct {
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
     uint8_t key_trk[NKEYS];                  /* the track a key's note went to, + 1 (0: the key plays no note) */
-    uint8_t cur_route, cur_mat, cur_macro, cur_row, cur_arr, cur_arc, cur_scene, cur_slot, save_action, proj_cursor;
+    uint8_t cur_route, cur_mat, cur_macro, cur_arr, cur_arc, cur_scene, cur_slot, save_action, proj_cursor;
     uint16_t cur_lib;
     int16_t preset_idx[RV_TRACKS];
     char msg[24];
@@ -218,7 +205,6 @@ static struct {
     uint32_t bank_edit_ms;                   /* a name edited: kept in flash once the naming pauses */
     char slot_names[PLAT_SLOTS][13];
     uint8_t slot_used[PLAT_SLOTS];
-    uint32_t mlr_held;                       /* white keys held on the tape page */
     int8_t euc_rot[RV_TRACKS][RV_LANES];     /* EUCLID: the last ROTATE turned to (a track's in [0], a kit's per lane) */
     uint32_t frame;
     uint8_t dust_hist[60];
@@ -350,12 +336,11 @@ static int lane_field(int id)
 
 static void lane_msg(int t);
 static void lane_open(int t, int l);
-static int is_kit_ui(int t) { return (rv.tp[t][TP_KIND] == KIND_PERC || rv.tp[t][TP_KIND] == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1; }
-static int is_tkit(int t) { return rv.tp[t][TP_KIND] == KIND_TAPE && rv.tp[t][TP_ENGINE] == 1; }   /* a TAPE kit: lanes of the tape */
-/* a kit lane's "machine": a drum machine, or (a tape kit) the row it reads */
-static const char *lane_mname(int t, int l) { return is_tkit(t) ? rv_tape_row_names[rv.kit[t].mach[l] & 3] : perc_mnames[rv.kit[t].mach[l] % PM_N]; }
-static const rv_pinfo *lane_pinfo(int t, int l, int f) { return is_tkit(t) ? &tape_lane_pi[f & 7] : &perc_pi[rv.kit[t].mach[l] % PM_N][f & 7]; }
-static uint16_t lane_col(int t) { return is_tkit(t) ? C_TAPE : C_PERC; }
+static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
+/* a kit lane's machine */
+static const char *lane_mname(int t, int l) { return perc_mnames[rv.kit[t].mach[l] % PM_N]; }
+static const rv_pinfo *lane_pinfo(int t, int l, int f) { return &perc_pi[rv.kit[t].mach[l] % PM_N][f & 7]; }
+static uint16_t lane_col(int t) { (void)t; return C_PERC; }
 
 static int src_page_visible(int t, int pg)
 {
@@ -428,26 +413,20 @@ static kb_t page_knob(const page_t *pg, int i)
 
 static int page_visible(int i)
 {
-    int t = ui.track, kind = rv.tp[t][TP_KIND], mode = rv.tp[t][TP_S0];
+    int t = ui.track, kind = rv.tp[t][TP_KIND];
     if ((pages[i].sec == SEC_ARTIC || pages[i].pic == PIC_FILTER) && page_all_dead(i, t))
         return 0;
     if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
         return 0;
     switch (pages[i].vis) {
-    case V_SRC0: return kind != KIND_TAPE && src_page_visible(t, 0);
-    case V_SRC1: return kind != KIND_TAPE && src_page_visible(t, 1);
-    case V_SRC2: return kind != KIND_TAPE && !is_kit_ui(t) && src_page_visible(t, 2);
-    case V_SRC3: return kind != KIND_TAPE && !is_kit_ui(t) && src_page_visible(t, 3);
+    case V_SRC0: return src_page_visible(t, 0);
+    case V_SRC1: return src_page_visible(t, 1);
+    case V_SRC2: return !is_kit_ui(t) && src_page_visible(t, 2);
+    case V_SRC3: return !is_kit_ui(t) && src_page_visible(t, 3);
     case V_SYNTH: return kind == KIND_SYNTH;
     case V_STRIKE: return kind == KIND_STRIKE;
-    case V_TAPE: return kind == KIND_TAPE && !is_kit_ui(t);
-    case V_MLR: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_MLR;
-    case V_TSAMP: return kind == KIND_TAPE && !is_kit_ui(t) && (mode == TAPE_KEYS || mode == TAPE_STRETCH || mode == TAPE_SHARDS);
-    case V_STRETCH: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_STRETCH;
-    case V_SHARDS: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_SHARDS;
-    case V_SLICE: return kind == KIND_TAPE && !is_kit_ui(t) && mode == TAPE_SLICE;
     case V_PKIT: return kind == KIND_PERC && is_kit_ui(t);
-    case V_NOTTAPE: return kind != KIND_TAPE;
+    case V_NOTTAPE: return 1;
     case V_STEPSMODE: return !is_kit_ui(t) && rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH;
     case V_GRAPH: return !is_kit_ui(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH);
     case V_GRAPH2: return !is_kit_ui(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH) && rv.tp[t][TP_H2ROLE] != ROLE_OFF;
@@ -664,8 +643,8 @@ static kinfo_t kb_info(kb_t k)
             r.max = 63;
             r.fmt = PF_BI;
         } else if (k.id == RF_ARG) {
-            r.max = ro->type == RT_MOD ? TP_N - 1 : ro->type == RT_TAPE ? 16 : ro->type == RT_TRIG ? 16 : 0;
-            r.name = ro->type == RT_MOD ? "PARAM" : ro->type == RT_TAPE ? "JUMP TO" : ro->type == RT_TRIG ? "DELAY" : "-";
+            r.max = ro->type == RT_MOD ? TP_N - 1 : ro->type == RT_TRIG ? 16 : 0;
+            r.name = ro->type == RT_MOD ? "PARAM" : ro->type == RT_TRIG ? "DELAY" : "-";
         } else {
             r.max = 100;
             r.name = ro->type == RT_TRIG ? "CHANCE" : "-";
@@ -707,11 +686,6 @@ static kinfo_t kb_info(kb_t k)
             r.max = 100;
         break;
     }
-    case K_ROW:
-        r.name = k.id ? "END" : "START";
-        r.min = k.id ? 1 : 0;
-        r.max = k.id ? 128 : 127;
-        break;
     case K_ARR: {
         static const char *const nm[] = {"SCENE", "BARS", "ROWS", "PLAYS", "S TEMPO"};
         static char sn[10] = "S1 TEMPO";
@@ -800,11 +774,7 @@ static kinfo_t kb_info(kb_t k)
         case LF_NONE: break;
         case LF_SEL: r.name = "LANE"; r.max = RV_LANES - 1; r.fmt = PF_ENUM; r.names = lanes; break;
         case LF_MACH:
-            if (is_tkit(ui.track)) {
-                r.name = "ROW"; r.max = 3; r.fmt = PF_ENUM; r.names = rv_tape_row_names;
-            } else {
-                r.name = "MACHINE"; r.max = PM_N - 1; r.fmt = PF_ENUM; r.names = perc_mnames;
-            }
+            r.name = "MACHINE"; r.max = PM_N - 1; r.fmt = PF_ENUM; r.names = perc_mnames;
             break;
         case LF_LEVEL: r.name = "LEVEL"; r.max = 127; break;
         case LF_LEN: {                       /* 0: the track's */
@@ -816,10 +786,10 @@ static kinfo_t kb_info(kb_t k)
         default: {
             const rv_pinfo *pi = lane_pinfo(ui.track, l, lane_field(k.id) - LF_P0);
             r.name = pi->name;
-            r.min = is_tkit(ui.track) ? pi->min : 0;
-            r.max = is_tkit(ui.track) ? pi->max : 127;
-            r.fmt = is_tkit(ui.track) ? pi->fmt : PF_NUM;
-            r.names = is_tkit(ui.track) ? pi->names : 0;
+            r.min = 0;
+            r.max = 127;
+            r.fmt = PF_NUM;
+            r.names = 0;
             break;
         }
         }
@@ -929,7 +899,6 @@ static int kb_get(kb_t k)
         default: return d->hi;
         }
     }
-    case K_ROW: return rv.gp[GP_ROW1S + 2 * ui.cur_row + k.id];
     case K_ARR:
         if (k.id == AF_SCENE)
             return rv.arr[ui.cur_arr].scene + 1;
@@ -1041,19 +1010,6 @@ static void kb_set(kb_t k, int v)
                 rv_cz_init(ui.track);
             if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE)
                 rv_engine_track_defaults(ui.track, v);
-            return;
-        }
-        if (k.id == TP_ENGINE && rv.tp[ui.track][TP_KIND] == KIND_TAPE && v != rv.tp[ui.track][TP_ENGINE]) {
-            int pt = rv.pat_cur[ui.track];               /* a tape kit's steps are lanes, a tape track's notes: start clean */
-            if (track_has_steps(ui.track) && !confirmed(CONF_MODE, "TURN AGAIN: CLEARS STEPS"))
-                return;
-            rv.tp[ui.track][TP_ENGINE] = (int16_t)v;
-            if (v)
-                rv_tape_kit_init(ui.track);
-            for (rv.pat_cur[ui.track] = 0; rv.pat_cur[ui.track] < RV_PATTERNS; rv.pat_cur[ui.track]++)
-                rv_pattern_clear(ui.track);
-            rv.pat_cur[ui.track] = (uint8_t)pt;
-            msg(v ? "TAPE KIT: STEPS CLEARED" : "SINGLE: STEPS CLEARED");
             return;
         }
         if (k.id == TP_ENGINE && rv.tp[ui.track][TP_KIND] == KIND_PERC && v != rv.tp[ui.track][TP_ENGINE]) {
@@ -1202,9 +1158,6 @@ static void kb_set(kb_t k, int v)
         }
         break;
     }
-    case K_ROW:
-        rv.gp[GP_ROW1S + 2 * ui.cur_row + k.id] = (int16_t)v;
-        break;
     case K_ARR:
         if (k.id == AF_SCENE)
             rv.arr[ui.cur_arr].scene = (uint8_t)(v - 1);
@@ -1480,14 +1433,7 @@ static void kb_format(kb_t k, int v, char *o)
         const rv_route *r = &rv.infl[ui.track][ui.cur_route];
         if (r->type == RT_MOD)
             rv_param_format(PID_T(ui.cur_route, TP_EDST1), r->arg, o, 12);
-        else if (r->type == RT_TAPE) {
-            if (v >= 16)
-                sx_cat(o, "CATCH");
-            else {
-                sx_cat(o, "POS ");
-                sx_int(o + 4, v + 1);
-            }
-        } else if (r->type == RT_TRIG) {
+        else if (r->type == RT_TRIG) {
             if (!v)
                 sx_cat(o, "NOW");
             else {
@@ -1679,8 +1625,11 @@ static void knob_turn(int i, int d)
     if (k.kind == K_STEP && held >= 0)
         ui.step_turned = 1;
     {
-        int gp = (int)(cur_page() - pages);
-        kb_set(k, kb_get(k) + d);
+        int gp = (int)(cur_page() - pages), nv = kb_get(k) + d;
+        /* (the tape is gone: KIND and a route's TYPE step over its old values, kept for old projects) */
+        if (((k.kind == K_TP && k.id == TP_KIND && nv == KIND_TAPE) || (k.kind == K_ROUTE && k.id == RF_TYPE && nv == RT_TAPE)))
+            nv += d > 0 ? 1 : -1;
+        kb_set(k, nv);
         page_follow(gp);
     }
     ui.turned_ms[i] = plat_ms();
@@ -1732,7 +1681,7 @@ static void bank_do(void)
                 sx_cat(b, rv_preset_name(ui.preset_idx[t]));
             else {
                 sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[e % 12] : kind == KIND_STRIKE ? "STRIKE"
-                          : kind == KIND_TAPE ? "TAPE" : e == 1 ? "KIT" : "PERC");
+                          : e == 1 ? "KIT" : "PERC");
                 sx_cat(b, " ");
                 sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), i + 1);
             }
@@ -1777,12 +1726,10 @@ static void preset_turn(int d)
         msg(rv_preset_name(cur));
         break;
     }
-    case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines (a tape kit: the rows) */
+    case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines */
         rv_kit *kt = &rv.kit[t];
-        int l = ui.lane[t] % RV_LANES, m = clampi(kt->mach[l] + d, 0, is_tkit(t) ? 3 : PM_N - 1), j;
-        if (is_tkit(t)) {
-            kt->mach[l] = (uint8_t)m;
-        } else if (m != kt->mach[l]) {
+        int l = ui.lane[t] % RV_LANES, m = clampi(kt->mach[l] + d, 0, PM_N - 1), j;
+        if (m != kt->mach[l]) {
             kt->mach[l] = (uint8_t)m;
             for (j = 0; j < 8; j++)
                 kt->p[l][j] = (uint8_t)(perc_pi[m][j].name ? perc_pi[m][j].def : 0);
@@ -1793,7 +1740,6 @@ static void preset_turn(int d)
     case PR_ROUTE: ui.cur_route = (uint8_t)clampi(ui.cur_route + d, 0, 7); break;
     case PR_MAT: ui.cur_mat = (uint8_t)clampi(ui.cur_mat + d, 0, RV_MATRIX - 1); break;
     case PR_MACRO: ui.cur_macro = (uint8_t)clampi(ui.cur_macro + d, 0, RV_MACROS * RV_MACRO_DESTS - 1); break;
-    case PR_ROW: ui.cur_row = (uint8_t)clampi(ui.cur_row + d, 0, 3); break;
     case PR_PATTERN: {
         int p = clampi(rv.pat_cur[t] + d, 0, RV_PATTERNS - 1);
         rv_pattern_launch(t, p);
@@ -1881,19 +1827,6 @@ static void section_open(int s)
     }
     if (s == SEC_SAVE)
         slots_refresh();
-    if (s == SEC_TAPE && rv.tp[ui.track][TP_KIND] != KIND_TAPE) {   /* TAPE plays a tape track */
-        int t;
-        for (t = 0; t < RV_TRACKS; t++)
-            if (rv.tp[t][TP_KIND] == KIND_TAPE) {
-                char b[24] = "T";
-                b[1] = (char)('1' + t);
-                b[2] = 0;
-                sx_cat(b, ": THE TAPE TRACK");
-                ui.track = (uint8_t)t;
-                msg(b);
-                break;
-            }
-    }
 }
 
 /* open a kit lane's EDIT page */
@@ -1928,24 +1861,14 @@ static void lane_msg(int t)
     msg(b);
 }
 
-static int tape_track(void)
-{
-    int t;
-    if (rv.tp[ui.track][TP_KIND] == KIND_TAPE)
-        return ui.track;
-    for (t = 0; t < RV_TRACKS; t++)
-        if (rv.tp[t][TP_KIND] == KIND_TAPE)
-            return t;
-    return -1;
-}
 
 /* a key went down (on) or up */
-/* on a SEQ page the keys are the steps, except while recording on a synth, strike or tape track:
+/* on a SEQ page the keys are the steps, except while recording on a synth or strike track:
  * then they play (and record) notes, and holding SEQ makes them steps again */
 static int seq_keys_play(int t)
 {
     int kind = rv.tp[t][TP_KIND];
-    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_TAPE);
+    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (kind == KIND_SYNTH || kind == KIND_STRIKE);
 }
 
 static void key_event(int k, int on)
@@ -1962,7 +1885,6 @@ static void key_event(int k, int on)
             return;
         }
         if (wi >= 0) {
-            ui.mlr_held &= ~(1u << wi);
             if (ui.step_key_held & (1u << wi)) {   /* a step key: a tap toggles the step */
                 ui.step_key_held &= ~(1u << wi);
                 if (!ui.step_turned) {
@@ -2048,13 +1970,6 @@ static void key_event(int k, int on)
         ui.layer_used[B_REC] = 1;
         return;
     }
-    if ((btn & (1u << B_ARP)) && ui.sec != SEC_TAPE) {
-        int tt = tape_track();
-        ui.layer_used[B_ARP] = 1;
-        if (tt >= 0 && on && wi >= 0)
-            rv_tape_jump(tt, wi, -1);
-        return;
-    }
     /* --- steps: the SEQ section, or SEQ held on any page --- */
     if ((ui.sec == SEC_SEQ || (btn & (1u << B_SEQ))) && !seq_keys_play(t)) {
         if (btn & (1u << B_SEQ))
@@ -2098,49 +2013,6 @@ static void key_event(int k, int on)
                 rv_pattern_clear(t);
                 msg("PATTERN CLEARED");
             }
-        }
-        return;
-    }
-    /* --- the tape page: positions, rows and moves --- */
-    if (ui.sec == SEC_TAPE && rv.tp[t][TP_KIND] == KIND_TAPE && rv.tp[t][TP_S0] == TAPE_MLR) {
-        if (wi >= 0) {
-            if (on) {
-                int other = -1, i;
-                for (i = 0; i < 16; i++)
-                    if ((ui.mlr_held & (1u << i)) && i != wi)
-                        other = i;
-                ui.mlr_held |= 1u << wi;
-                if (other >= 0)
-                    rv_tape_jump(t, other < wi ? other : wi, other < wi ? wi : other);   /* two keys: loop the span */
-                else
-                    rv_tape_jump(t, wi, -1);
-            }
-            return;                             /* (let go: above) */
-        }
-        if (bi >= 0 && on) {
-            if (bi < 4) {
-                rv_tape_row(t, bi);
-                msg(bi == 0 ? "ROW 1" : bi == 1 ? "ROW 2" : bi == 2 ? "ROW 3" : "ROW 4");
-            } else if (bi < 8) {
-                rv_tape_rate(t, bi - 4);
-                msg(bi == 4 ? "REVERSE" : bi == 5 ? "HALF SPEED" : bi == 6 ? "DOUBLE SPEED" : "HOLD / RELEASE");
-            } else if (bi == 8) {
-                rv_catch();
-                msg(rv_tape_frozen() ? "LISTENING" : "CAUGHT");
-            } else if (bi == 9) {
-                rv_resample();
-                msg("RESAMPLE ON THE BAR");
-            }
-        }
-        return;
-    }
-    if (ui.sec == SEC_TAPE && bi >= 8 && on) {
-        if (bi == 8) {
-            rv_catch();
-            msg(rv_tape_frozen() ? "LISTENING" : "CAUGHT");
-        } else if (bi == 9) {
-            rv_resample();
-            msg("RESAMPLE ON THE BAR");
         }
         return;
     }
@@ -2188,19 +2060,6 @@ static void buttons(uint32_t now_btn)
             ui.btn_down_ms[b] = ms;
             ui.layer_used[b] = 0;
         }
-    }
-    /* REC held: OCT- catches, OCT+ resamples */
-    if ((now_btn & (1u << B_REC)) && (down & (1u << B_OCTDN))) {
-        rv_catch();
-        msg(rv_tape_frozen() ? "LISTENING" : "CAUGHT");
-        ui.layer_used[B_REC] = 1;
-        down &= ~(1u << B_OCTDN);
-    }
-    if ((now_btn & (1u << B_REC)) && (down & (1u << B_OCTUP))) {
-        rv_resample();
-        msg("RESAMPLE ON THE BAR");
-        ui.layer_used[B_REC] = 1;
-        down &= ~(1u << B_OCTUP);
     }
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
@@ -2495,7 +2354,6 @@ static void draw_footer(void)
     case PR_ROUTE: hint = "PRESETS: TARGET  ALGO: SOURCE"; break;
     case PR_MAT: hint = "PRESETS: SLOT"; break;
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
-    case PR_ROW: hint = "REC+OCT- CATCH  REC+OCT+ RESAMPLE"; break;
     case PR_PATTERN:
         hint = seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
                : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
@@ -2546,11 +2404,7 @@ static void draw_footer(void)
     case PR_LFOROW: hint = ui.lfo_row ? "LFO 2 ON THE KNOBS  OCT: LFO 1" : "LFO 1 ON THE KNOBS  OCT: LFO 2"; break;
     case PR_LANE: hint = held_step() >= 0 ? "TURN A KNOB: LOCK IT FOR THIS STEP" : "PRESETS: MACHINE  OCT: KNOB ROW"; break;
     default:
-        if (ui.sec == SEC_TAPE)
-            hint = rv.tp[ui.track][TP_KIND] != KIND_TAPE ? "BLACK 9 CATCH  10 RESAMPLE"
-                   : rv.tp[ui.track][TP_S0] == TAPE_MLR ? "TAP: JUMP  HOLD 2: LOOP  BLACK 1-4: ROW"
-                   : "KEYS PLAY THE TAPE TRACK";
-        else if (ui.sec == SEC_HOME && pg->pic == PIC_TRACKS)
+        if (ui.sec == SEC_HOME && pg->pic == PIC_TRACKS)
             hint = "ALGO: TRACK  PRESETS: SOUND";
         else if (pg->pic == PIC_MOTION)
             hint = "SHAPE MOVES THE HEAD'S SPEED";
@@ -2573,10 +2427,6 @@ static void draw_footer(void)
         hint = "1-8 MUTE  9-16 SOLO  BLK1 TAP";
     else if (btn & (1u << B_SAVE))
         hint = "WHITE KEY: STORE THE SCENE";
-    else if (btn & (1u << B_REC))
-        hint = "OCT- CATCH   OCT+ RESAMPLE";
-    else if (btn & (1u << B_ARP))
-        hint = "KEYS JUMP THE TAPE TRACK";
     else if (btn & (1u << B_SCL))
         hint = "KEY: ROOT";
     x = 237 - n * 5;
@@ -2735,12 +2585,13 @@ static void pic_infl(void)
     }
     /* legend */
     for (a = 1; a < RT_N; a++) {
-        int y = PIC_Y + 8 + (a - 1) * 15;
+        if (a == RT_TAPE) continue;                         /* the tape is gone; its number is kept */
+        int y = PIC_Y + 8 + (a - 1 - (a > RT_TAPE)) * 15;
         g_fill(150, y + 2, 8, 8, route_col(a));
         g_text(162, y, &FONT_T, rv_route_names[a], C_MID);
     }
     {
-        static const char *const what[] = {"", "MOVES A KNOB OF", "PLAYS", "RINGS THE BODY OF", "JUMPS THE TAPE OF", "CLOCKS", "RING MODULATES", "TAPS THE BODY OF"};
+        static const char *const what[] = {"", "MOVES A KNOB OF", "PLAYS", "RINGS THE BODY OF", "", "CLOCKS", "RING MODULATES", "TAPS THE BODY OF"};
         const rv_route *r = &rv.infl[ui.track][ui.cur_route];
         char ln[48] = "";
         if (r->type) {
@@ -2890,9 +2741,6 @@ static void pic_source(void)
         g_text(8, PIC_Y + 6, &FONT_B, perc_mnames[m], C_PERC);
         g_text(8, PIC_Y + 30, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_MID);
         pic_scope(t, PIC_Y + 44, 90, C_PERC);
-    } else if (kind == KIND_TAPE) {
-        g_text_c(120, PIC_Y + 10, &FONT_B, "A TAPE TRACK: SEE ARP / TAPE", C_TAPE);
-        pic_scope(t, PIC_Y + 34, 96, C_TAPE);
     } else {
         static const char *const desc[ENG_N] = {"SAW TO PULSE, SUPERSAW, SUB, TZFM", "CASIO CZ: 2 LINES, 8-STEP DCO DCW DCA",
                                                 "4 OPERATORS, 12 ALGORITHMS", "STRING, BOW, BREATH, MEMBRANE",
@@ -3656,26 +3504,28 @@ static void pic_stress(void)
  * platform's own reading and the blocks that came too late */
 static void pic_cpu(void)
 {
-    static const char *const nm[11] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TAPE", "TRACK FX", "BED", "FEEDBACK",
+    static const char *const nm[10] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TRACK FX", "BED", "FEEDBACK",
                                        "DELAY", "SPACE", "MASTER"};
     int k;
     float tot = 0.0f;
     char b[40];
-    for (k = 0; k < 11; k++)
+    for (k = 0; k < 10; k++)
         tot += rv_live.prof[k];
     if (tot <= 0.0f) {
         g_text_c(120, PIC_Y + 40, &FONT_B, "NO CLOCK HERE", C_DIM);
         g_text_c(120, PIC_Y + 64, &FONT_T, "THE FM-1 AND THE SIMULATOR MEASURE IT", C_DIM);
         return;
     }
-    for (k = 0; k < 11; k++) {
+    for (k = 0; k < 10; k++) {
         int x = k < 6 ? 6 : 122, y = PIC_Y + 2 + (k % 6) * 15, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
         g_text(x, y, &FONT_T, nm[k], rv_live.prof[k] > 5.0f ? C_INK : C_DIM);
         g_fill(x + 60, y + 3, 50, 3, C_LINE);
         g_fill(x + 60, y + 3, w > 0 ? w : (rv_live.prof[k] > 0.05f ? 1 : 0), 3, rv_live.prof[k] > 20.0f ? C_RED : C_TEAL);
     }
     b[0] = 0;
-    sx_cat(b, "RENDER ");
+    sx_cat(b, "RENDER ");                           /* the first core's (the guard's reading): the one that must keep up */
+    if (rv_live.load > 0.0f)
+        tot = rv_live.load;
     sx_int(b + 7, (int)(tot + 0.5f));
     sx_cat(b, "%");
     g_text(6, PIC_Y + 104, &FONT_B, b, tot > 90.0f ? C_RED : C_INK);
@@ -3764,104 +3614,6 @@ static void pic_scale(void)
         g_text(8, PIC_Y + 116, &FONT_T, "THE KEYS PLAY THE SCALE, FOLDED", C_TEAL);
 }
 
-static void pic_tape(void)
-{
-    static uint8_t pk[224];
-    int t = ui.track, istape = rv.tp[t][TP_KIND] == KIND_TAPE, row = istape ? rv.tp[t][TP_S1] : ui.cur_row, i, frozen = rv_tape_frozen();
-    float pos[32];
-    int n;
-    char b[40];
-    /* the whole tape, with the rows as spans */
-    rv_tape_overview(pk, 112, -1);
-    for (i = 0; i < 112; i++) {
-        int h = pk[i] * 10 / 255;
-        g_fill(8 + i * 2, PIC_Y + 12 - h / 2 - 1, 2, h + 1, frozen ? C_TAPE_D : C_LINE);
-    }
-    for (i = 0; i < 4; i++) {
-        int s = rv.gp[GP_ROW1S + 2 * i] * 224 / 128, e = rv.gp[GP_ROW1E + 2 * i] * 224 / 128;
-        g_hline(8 + s, PIC_Y + 20 + i * 2, e - s, i == row ? C_TEAL : C_LINE);
-    }
-    /* the row, large */
-    rv_tape_overview(pk, 224, row);
-    for (i = 0; i < 224; i++) {
-        int h = pk[i] * 70 / 255;
-        g_vline(8 + i, PIC_Y + 66 - h / 2, h + 1, frozen ? C_TAPE : C_TAPE_D);
-    }
-    for (i = 0; i <= 16; i++)
-        g_vline(8 + i * 14, PIC_Y + 104, i % 4 ? 3 : 6, C_DIM);
-    if (istape && is_tkit(t)) {                       /* a tape kit: each lane's span of its row, the chosen one lit */
-        int l;
-        for (l = 0; l < RV_LANES; l++) {
-            const rv_kit *kt = &rv.kit[t];
-            int a = kt->p[l][1] * 224 / 128, e = (kt->p[l][2] + 1) * 224 / 128, y = PIC_Y + 30 + l * 4;
-            g_fill(8 + a, y, e - a > 1 ? e - a : 1, 2, l == ui.lane[t] % RV_LANES ? C_WHITE : (kt->mach[l] & 3) == row ? C_TAPE : C_LINE);
-        }
-    } else if (istape) {
-        float a, e;
-        int xa, xe;
-        if (rv.tp[t][TP_S0] != TAPE_SLICE) {          /* START and END: the part it plays; the rest dimmed */
-            rv_tape_span(t, &a, &e);
-            xa = 8 + (int)(clampf(a, 0.0f, 1.0f) * 223.0f);
-            xe = 8 + (int)(clampf(e, 0.0f, 1.0f) * 223.0f);
-            g_fill(8, PIC_Y + 30, xa - 8, 70, C_BG);
-            g_fill(xe, PIC_Y + 30, 232 - xe, 70, C_BG);
-            g_vline(xa, PIC_Y + 28, 76, C_INK);
-            g_vline(xe, PIC_Y + 28, 76, C_INK);
-            if (rv.tp[t][TP_S0] == TAPE_SHARDS) {    /* the shards */
-                int k, ns = clampi((int)rv_param_eff(t, TP_S10), 2, 16);
-                for (k = 1; k < ns; k++)
-                    g_vline(xa + (xe - xa) * k / ns, PIC_Y + 30, 8, C_WHITE);
-            }
-        }
-        n = rv_tape_heads(t, pos, 6);
-        for (i = 0; i < n; i++)
-            g_vline(8 + (int)(clampf(pos[i], 0.0f, 1.0f) * 223.0f), PIC_Y + 28, 76, i ? C_TEAL_D : C_TEAL);
-        if (rv.tp[t][TP_S0] == TAPE_SLICE) {
-            n = rv_tape_slices(t, pos, 32);
-            for (i = 0; i < n; i++)
-                g_vline(8 + (int)(pos[i] * 223.0f), PIC_Y + 30, 6, C_WHITE);
-        }
-    }
-    b[0] = 0;
-    sx_cat(b, frozen ? "CAUGHT  " : "LISTENING  ");
-    {
-        int ds = (int)(rv_tape_seconds() * 10.0f + 0.5f);
-        sx_int(b + (frozen ? 8 : 11), ds / 10);
-        sx_cat(b, ".");
-        {
-            char d[4];
-            sx_int(d, ds % 10);
-            sx_cat(b, d);
-        }
-        sx_cat(b, "S");
-    }
-    g_text(8, PIC_Y + 112, &FONT_XS, b, frozen ? C_AMBER : C_MID);
-    {
-        char r[8] = "ROW ";
-        r[4] = (char)('1' + row);
-        r[5] = 0;
-        g_text_r(232, PIC_Y + 112, &FONT_XS, r, C_TEAL);
-    }
-    {
-        int loud = 0;
-        for (i = 0; i < 224; i++)
-            if (pk[i] > 8)
-                loud++;
-        if (loud < 6) {                              /* nothing on it yet: say how to fill it */
-            g_fill(16, PIC_Y + 40, 208, 40, C_BG);
-            g_frame(16, PIC_Y + 40, 208, 40, C_LINE);
-            g_text_c(120, PIC_Y + 46, &FONT_XS, "THE TAPE IS SILENT", C_INK);
-            g_text_c(120, PIC_Y + 62, &FONT_T, "PLAY, THEN HOLD REC AND PRESS OCT+", C_MID);
-        }
-    }
-    if (!istape)
-        g_text(8, PIC_Y + 126, &FONT_T, "PICK T7 OR T8 (ALGO) TO PLAY THE TAPE", C_DIM);
-    else if (is_tkit(t))
-        g_text(8, PIC_Y + 126, &FONT_T, "KIT: LANES ON EDIT > LANE, SEQ > DRUM", C_DIM);
-    else if (rv.tp[t][TP_S0] == TAPE_MLR)
-        g_text(8, PIC_Y + 126, &FONT_T, "16 WHITE KEYS = 16 SPOTS IN THE ROW", C_DIM);
-}
-
 /* a KIT: six lanes of the current sixteen steps; accents bright, the chosen lane lit, each lane's
  * playhead where that lane is (lanes with their own length run apart) */
 static void pic_drum(void)
@@ -3882,10 +3634,6 @@ static void pic_drum(void)
         nb[1] = ' ';
         nb[2] = mn[j] ? mn[j + 1] : mn[0];
         nb[3] = mn[j] && mn[j + 1] ? mn[j + 2] : 0;
-        if (is_tkit(t)) {                            /* a tape lane: its row */
-            nb[2] = 'R';
-            nb[3] = mn[4];
-        }
         nb[4] = 0;
         if (l == sel)
             g_fill(0, y - 2, 240, 19, C_O_PANEL);
@@ -3933,7 +3681,7 @@ static void pic_lane(void)
         g_text_c(x + 18, PIC_Y + 5, &FONT_XS, nb, i == l ? C_WHITE : C_O_DIM);
     }
     g_text(8, PIC_Y + 22, &FONT_B, lane_mname(t, l), lc);
-    g_text_r(234, PIC_Y + 26, &FONT_T, is_tkit(t) ? "A SPAN OF THE TAPE" : fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
+    g_text_r(234, PIC_Y + 26, &FONT_T, fam[m <= PM_TRX_XC ? 0 : m <= PM_EFM_CY ? 1 : m <= PM_PI_CC ? 2 : 3], C_O_DIM);
     for (i = 0; i < 12; i++) {                        /* A-H, then LEVEL, CHANCE, LENGTH, RATE */
         int row = i < 4 ? 0 : i < 8 ? 1 : 2, col = i % 2, x = 6 + col * 118, y = PIC_Y + 46 + (i / 2) * 13;
         int lit = row == ui.lane_row % 3, v, mx = 127;
@@ -3942,9 +3690,7 @@ static void pic_lane(void)
         if (i < 8) {
             nm = lane_pinfo(t, l, i)->name;
             v = kt->p[l][i];
-            mx = lane_pinfo(t, l, i)->max;
-            if (!is_tkit(t))
-                mx = 127;
+            mx = 127;
         } else {
             static const char *const extra[4] = {"LEVEL", "CHANCE", "LENGTH", "RATE"};
             nm = extra[i - 8];
@@ -3963,8 +3709,6 @@ static void pic_lane(void)
         vb[0] = 0;
         if (i == 10 && v == 0)
             sx_cat(vb, "TRK");
-        else if (i < 8 && lane_pinfo(t, l, i)->fmt == PF_ENUM && is_tkit(t))
-            sx_cat(vb, lane_pinfo(t, l, i)->names[clampi(v, 0, lane_pinfo(t, l, i)->max)]);
         else if (i == 11)
             sx_cat(vb, rv_lrate_names[v % 9]);
         else
@@ -4191,8 +3935,6 @@ static void pic_scenes(void)
         g_rbox(x, y, 24, 34, 5, s == rv.scene_cur ? C_TEAL : s == ui.cur_scene ? C_MID : C_LINE, 0);
         sx_int(b, s + 1);
         g_text_c(x + 12, y + 10, &FONT_XS, b, sc->used ? C_INK : C_DIM);
-        if (sc->resample)
-            g_rbox(x + 8, y + 26, 8, 3, 1, C_AMBER, 1);
     }
     g_text(10, PIC_Y + 92, &FONT_T, "WHITE KEYS LAUNCH ON THE BAR", C_DIM);
     g_text(10, PIC_Y + 104, &FONT_T, "HOLD SAVE + WHITE KEY TO STORE", C_DIM);
@@ -4317,7 +4059,7 @@ static void pic_bank(void)
             const char *nm = rv_bank_name(i);
             int kind = rv_bank_kind(i);
             uint16_t kc = rv_bank_is_kit(i) || kind == KIND_PERC ? C_PERC : kind == KIND_STRIKE ? C_STRIKE
-                          : kind == KIND_TAPE ? C_TAPE : C_SYNTH;
+                          : C_SYNTH;
             g_text(32, y, &FONT_XS, nm[0] ? nm : "-", C_INK);
             if (i == ui.cur_sound && ui.sec == SEC_SAVE) {   /* the name's cursor */
                 int k, x;
@@ -4361,7 +4103,6 @@ static void draw_picture(void)
     case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
     case PIC_SCALE: pic_scale(); break;
-    case PIC_TAPE: pic_tape(); break;
     case PIC_STEPS: pic_steps(); break;
     case PIC_GRAPH: pic_graph(); break;
     case PIC_MOTION: pic_motion(); break;
@@ -4404,13 +4145,6 @@ static void leds(void)
         if (kit) {
             lk |= 1u << black_keys[2 + l];
         }
-    } else if (ui.sec == SEC_TAPE && rv.tp[t][TP_KIND] == KIND_TAPE) {
-        float pos[2];
-        if (rv_tape_heads(t, pos, 1) > 0)
-            lk |= 1u << white_keys[clampi((int)(pos[0] * 16.0f), 0, 15)];
-        lk |= 1u << black_keys[clampi(rv.tp[t][TP_S1], 0, 3)];
-        if (rv_tape_frozen())
-            lk |= 1u << black_keys[8];
     } else {
         lk = plat_keys();
     }

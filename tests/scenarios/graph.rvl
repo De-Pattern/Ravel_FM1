@@ -3,7 +3,7 @@ wait 300
 tap PLAY
 wait 500
 tap SEQ
-turn SELECT 4
+turn SELECT 5
 wait 200
 expect page TRACK
 turn K1 1
@@ -48,6 +48,3 @@ shot f2_delay2.png
 turn SELECT 11
 wait 200
 shot f3_voc2.png
-tap ARP
-wait 400
-shot t1_tape.png

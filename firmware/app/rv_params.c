@@ -40,9 +40,6 @@ static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const cutshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
 static const char *const glide_names[] = {"JUMP", "1 BAR", "2 BARS", "3 BARS", "4 BARS", "5 BARS", "6 BARS", "7 BARS", "8 BARS"};
 static const char *const arcspan_names[] = {"1 BAR", "2 BARS", "4 BARS"};
-static const char *const qual_names[] = {"DIRTY", "TAPE", "CLEAN"};   /* = bd_res: 8, 12, 16 bit */
-static const char *const tapesrc_names[] = {"MASTER", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "BUSES", "INPUT"};
-static const char *const resbars_names[] = {"1 BAR", "2 BARS", "4 BARS", "1/2 BAR"};
 static const char *const songmode_names[] = {"PATTERN", "SONG"};
 static const char *const root_names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const polys[] = {"MONO", "2", "3", "4"};
@@ -76,13 +73,6 @@ static const char *const form_modes[] = {"FILTER", "FOF"};
 static const char *const part_tables[] = {"SINE", "GLASS", "REED", "VOICE", "BELL", "BITS", "NOISE", "DROP"};
 static const char *const exc_names[] = {"CLICK", "NOISE", "METAL", "FM", "DUST", "RAIN", "BOW", "BLOW", "EXT"};   /* EXT: only from outside (EXC_INPUT) */
 static const char *const body_names[] = {"PING", "MODAL", "DISC", "STRINGS"};
-static const char *const tape_modes[] = {"MLR", "KEYS", "SLICE", "STRETCH", "SHARDS"};
-static const char *const tape_play[] = {"FWD", "LOOP", "PINGPNG", "REV", "REV LOOP"};
-static const char *const shard_orders[] = {"FWD", "REV", "SKIP", "SWAP", "INWARD", "SHUF 1", "SHUF 2", "SHUF 3"};
-static const char *const tape_rows[] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
-static const char *const tape_rates[] = {"-2X", "-1X", "-1/2X", "-1/4X", "1/4X", "1/2X", "1X", "2X", "4X"};
-static const char *const tape_head2[] = {"OFF", "+1/4", "+1/2", "+3/4", "REV"};
-static const char *const tape_quant[] = {"NOW", "STEP", "BEAT", "BAR"};
 
 #define E(names) PF_ENUM, names
 #define N(a) (int16_t)(sizeof(a) / sizeof(a[0]) - 1)
@@ -161,13 +151,6 @@ static const rv_pinfo SRC_STRIKE[16] = {
     {"RATE", 0, 127, 40, PF_NUM, 0}, {"TRANS", 0, 127, 50, PF_NUM, 0}, {"T DECAY", 0, 127, 20, PF_NUM, 0},
     {"RING F", 0, 127, 60, PF_NUM, 0}, {"RING", 0, 127, 0, PF_NUM, 0}, {"P DROP", 0, 127, 20, PF_NUM, 0},
     {"SEED", 0, 127, 1, PF_NUM, 0}};
-static const rv_pinfo SRC_TAPE[16] = {
-    {"MODE", 0, N(tape_modes), 0, E(tape_modes)}, {"ROW", 0, 3, 0, E(tape_rows)}, {"RATE", 0, N(tape_rates), 6, E(tape_rates)},
-    {"HEAD 2", 0, N(tape_head2), 0, E(tape_head2)}, {"JUMP", 0, N(tape_quant), 1, E(tape_quant)}, {"XFADE", 0, 127, 20, PF_NUM, 0},
-    {"START", 0, 127, 0, PF_NUM, 0}, {"END", 0, 127, 127, PF_NUM, 0}, {"PLAY", 0, N(tape_play), 0, E(tape_play)},
-    {"SPEED", 0, 200, 100, PF_PCT, 0}, {"SHARDS", 2, 16, 8, PF_NUM, 0}, {"ORDER", 0, N(shard_orders), 0, E(shard_orders)},
-    {"GAP", 0, 127, 0, PF_NUM, 0}, {0, 0, 127, 0, PF_NUM, 0}, {"SLICES", 4, 32, 16, PF_NUM, 0},
-    {"SENS", 0, 127, 64, PF_NUM, 0}};   /* SENS 0: an even grid */
 /* CHIP: a SID-flavoured voice that arpeggiates through offsets (after the Syntakt's SY CHIP),
  * then a decompose stage: sample-rate reduction, bit crushing and fragments that break apart */
 static const rv_pinfo SRC_CHIP[16] = {
@@ -402,19 +385,15 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_CUTSIZE] = {"CUT SIZE", 0, 127, 50, PF_NUM, 0},
     [GP_CUTREP] = {"REPEATS", 1, 16, 4, PF_NUM, 0},
     [GP_CUTMIX] = {"CUT MIX", 0, 127, 127, PF_NUM, 0},
-    [GP_TAPEQUAL] = {"QUALITY", 0, 2, 2, E(qual_names)},
+    [GP_TAPEQUAL] = {0, 0, 2, 2, PF_NUM, 0},   /* (the tape: gone, its globals kept for old projects, hidden) */
 #ifdef RV_NO_AUDIO_IN
-    [GP_TAPESRC] = {"SOURCE", 0, N(tapesrc_names) - 1, 0, E(tapesrc_names)},   /* no INPUT on the FM-1 */
+    [GP_TAPESRC] = {0, 0, 10, 0, PF_NUM, 0},
 #else
-    [GP_TAPESRC] = {"SOURCE", 0, N(tapesrc_names), 0, E(tapesrc_names)},
+    [GP_TAPESRC] = {0, 0, 10, 0, PF_NUM, 0},
 #endif
-    [GP_TAPEMON] = {"INPUT", 0, 127, 0, PF_NUM, 0},
-    [GP_RESBARS] = {"RESAMPL", 0, N(resbars_names), 0, E(resbars_names)},
-    [GP_ERODE] = {"ERODE", 0, 127, 0, PF_NUM, 0},
-    [GP_ROW1S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW1E] = {"END", 1, 128, 128, PF_NUM, 0},
-    [GP_ROW2S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW2E] = {"END", 1, 128, 64, PF_NUM, 0},
-    [GP_ROW3S] = {"START", 0, 127, 64, PF_NUM, 0}, [GP_ROW3E] = {"END", 1, 128, 128, PF_NUM, 0},
-    [GP_ROW4S] = {"START", 0, 127, 0, PF_NUM, 0}, [GP_ROW4E] = {"END", 1, 128, 16, PF_NUM, 0},
+    [GP_TAPEMON] = {0, 0, 127, 0, PF_NUM, 0},
+    [GP_RESBARS] = {0, 0, 4, 0, PF_NUM, 0},
+    [GP_ERODE] = {0, 0, 127, 0, PF_NUM, 0},
     [GP_MACRO1] = {"MACRO 1", 0, 127, 0, PF_NUM, 0},
     [GP_MACRO2] = {"MACRO 2", 0, 127, 0, PF_NUM, 0},
     [GP_MACRO3] = {"MACRO 3", 0, 127, 0, PF_NUM, 0},
@@ -468,8 +447,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
                 return &NONE;
             return q->name ? q : &NONE;
         }
-        tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_TAPE ? SRC_TAPE
-                                                                                   : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
+        tab = kind == KIND_STRIKE ? SRC_STRIKE : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
         if (tab == SRC_RESIN && rv.tp[t & 7][TP_S0] == 1)
             tab = SRC_RESIN_HORN;                     /* the reed: its own names */
         if (tab == SRC_TINE && rv.tp[t & 7][TP_S0] >= 1)
@@ -487,7 +465,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
         static const rv_pinfo morph = {"MORPH", 0, 127, 90, PF_NUM, 0}, xform = {"XFORM", 0, 127, 20, PF_NUM, 0};
         return p == TP_CUT ? &morph : &xform;
     }
-    if (p == TP_ENGINE && (rv.tp[t & 7][TP_KIND] == KIND_PERC || rv.tp[t & 7][TP_KIND] == KIND_TAPE)) {   /* PERC, TAPE: one machine, or a kit of six */
+    if (p == TP_ENGINE && rv.tp[t & 7][TP_KIND] == KIND_PERC) {   /* PERC: one machine, or a kit of six */
         static const char *const pm[] = {"SINGLE", "KIT"};
         static const rv_pinfo mode = {"MODE", 0, 1, 0, PF_ENUM, pm};
         return &mode;
@@ -660,7 +638,7 @@ const char *rv_pid_label(int pid, char *buf, int max)
 int rv_tp_applies(int t, int p)
 {
     const int16_t *tp = rv.tp[t];
-    if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC && tp[TP_KIND] != KIND_TAPE)
+    if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
     if (p == TP_GRAIN)                                                 /* hits: strike and perc tracks */
         return tp[TP_KIND] == KIND_STRIKE || tp[TP_KIND] == KIND_PERC;
@@ -668,7 +646,7 @@ int rv_tp_applies(int t, int p)
         return 0;                                                      /* a KIT's steps keep their lanes' accents where a step envelope would go */
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_POLY || p == TP_SEQMODE || p == TP_DIR || p == TP_PITCH || p == TP_FINE))
         return 0;                                                      /* a KIT: a voice per lane, steps forward */
-    if (p == TP_VELO && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)   /* strike and tape take velocity as it comes */
+    if (p == TP_VELO && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)   /* a strike takes velocity as it comes */
         return 0;
     if (tp[TP_KIND] == KIND_PERC) {                                    /* the machines make their own envelopes */
         switch (p) {
@@ -678,23 +656,6 @@ int rv_tp_applies(int t, int p)
         default: break;
         }
     }                                                      /* take velocity as it comes */
-    if (tp[TP_KIND] == KIND_TAPE) {                                    /* each playing mode its own knobs */
-        int m = tp[TP_S0], kit = tp[TP_ENGINE] == 1, voice = !kit && (m == TAPE_KEYS || m == TAPE_STRETCH || m == TAPE_SHARDS);
-        if (p == TP_POLY)                                              /* the sample voices: up to four; MLR is one playhead */
-            return voice;
-        if (p == TP_GLIDE || (kit && (p == TP_PITCH || p == TP_FINE || p == TP_SEQMODE || p == TP_DIR)))
-            return 0;
-        switch (p) {
-        case TP_S0: case TP_S1: return !kit;
-        case TP_S2: case TP_S3: case TP_S4: case TP_S5: return !kit && m == TAPE_MLR;
-        case TP_S6: case TP_S7: return !kit && m != TAPE_SLICE;
-        case TP_S8: return voice;
-        case TP_S9: return voice && m == TAPE_STRETCH;
-        case TP_S10: case TP_S11: case TP_S12: return voice && m == TAPE_SHARDS;
-        case TP_S14: case TP_S15: return !kit && m == TAPE_SLICE;
-        default: break;
-        }
-    }
     if ((p == TP_FTYPE || p == TP_CUT || p == TP_RES || p == TP_KTRK || p == TP_EFILT || p == TP_FMODE || p == TP_FBP) && tp[TP_KIND] != KIND_SYNTH)
         return 0;                                                      /* only synth voices have the filter */
     if (p == TP_OSC1)                                                  /* the first oscillator's level, where there are several */
@@ -914,32 +875,6 @@ void rv_engine_track_defaults(int t, int engine)
     }
 }
 
-/* a tape KIT's lane settings: PITCH (64: as caught), START, END, PLAY, DECAY (127: none), SHARDS (below 2: off),
- * ORDER, GAP; the lane's "machine" is the row it reads */
-const rv_pinfo tape_lane_pi[8] = {
-    {"PITCH", 0, 127, 64, PF_NUM, 0}, {"START", 0, 127, 0, PF_NUM, 0}, {"END", 0, 127, 127, PF_NUM, 0}, {"PLAY", 0, N(tape_play), 0, E(tape_play)},
-    {"DECAY", 0, 127, 127, PF_NUM, 0}, {"SHARDS", 0, 16, 0, PF_NUM, 0}, {"ORDER", 0, N(shard_orders), 0, E(shard_orders)}, {"GAP", 0, 127, 0, PF_NUM, 0}};
-const char *const rv_tape_row_names[] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
-
-/* a tape kit: six lanes, each a sixth of row 1 played through */
-void rv_tape_kit_init(int t)
-{
-    rv_kit *k = &rv.kit[t & 7];
-    int l, i;
-    for (i = 0; i < RV_KITLOCKS; i++)
-        rv.kitlk[t & 7][i].what = 0xFF;
-    for (l = 0; l < RV_LANES; l++) {
-        k->mach[l] = 0;
-        for (i = 0; i < 8; i++)
-            k->p[l][i] = (uint8_t)tape_lane_pi[i].def;
-        k->p[l][1] = (uint8_t)(l * 21);
-        k->p[l][2] = (uint8_t)(l * 21 + 20);
-        k->level[l] = 100;
-        rv.kit_rate[t & 7][l] = 0;
-        k->len[l] = 0;
-        k->chance[l] = 100;
-    }
-}
 
 /* a kit: kick, snare, closed and open hats, clap, rim (TRX), each at its machine's defaults */
 void rv_kit_init(int t)
@@ -1000,18 +935,6 @@ void rv_track_defaults(int t, int kind, int engine)
         rv.tp[t][TP_FTYPE] = FT_LP;
         rv.tp[t][TP_KTRK] = 0;
         rv.tp[t][TP_DRIVE] = 0;
-    } else if (kind == KIND_TAPE) {
-        rv.tp[t][TP_POLY] = 3;                        /* (the sample voices: four; MLR is one playhead) */
-        rv.tp[t][TP_ATK] = 6;
-        rv.tp[t][TP_DEC] = 80;
-        rv.tp[t][TP_SUS] = 127;
-        rv.tp[t][TP_REL] = 50;
-        rv.tp[t][TP_CUT] = 127;
-        rv.tp[t][TP_RES] = 0;
-        rv.tp[t][TP_EFILT] = 0;
-        rv.tp[t][TP_FTYPE] = FT_LP;
-        rv.tp[t][TP_KTRK] = 0;
-        rv.tp[t][TP_DRIVE] = 0;
     }
 }
 
@@ -1031,7 +954,7 @@ void rv_project_init(void)
     put_str(rv.name, 0, 12, "INIT");
     for (t = 0; t < RV_TRACKS; t++) {
         rv_cz_init(t);                              /* every track has a CZ patch ready */
-        rv_track_defaults(t, t < 4 ? KIND_SYNTH : t < 6 ? KIND_STRIKE : KIND_TAPE, t < 4 ? t : 0);
+        rv_track_defaults(t, t < 4 ? KIND_SYNTH : t < 6 ? KIND_STRIKE : KIND_PERC, t < 4 ? t : t == 6 ? 1 : 0);   /* T7 a kit, T8 a drum */
     }
     for (g = 0; g < GP_N; g++)
         rv.gp[g] = GLOBAL[g].name ? GLOBAL[g].def : 0;

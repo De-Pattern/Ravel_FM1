@@ -32,14 +32,10 @@
 #define RV_SYNTH_VOICES 8
 #define RV_STRIKE_VOICES 4
 #define RV_PERC_VOICES 12
-#define RV_BEADS 2                  /* grain engines for tape tracks */
 #define RV_ROWS 4
 
 /* memory: sized for the FM-1, where the instrument's state lives in the 336 KB RAM pool
  * (firmware/fm1/app.ld). The emulator uses the same. */
-#ifndef RV_TAPE_BYTES
-#define RV_TAPE_BYTES (120u * 1024u)  /* 1.4 s clean, 1.8 s tape, 5.5 s dirty */
-#endif
 #define RV_DELAY_SAMPLES 12288u     /* int16, in the FM-1's cache RAM: 0.28 s */
 #define RV_FB_SAMPLES 6144u         /* int16: 0.14 s */
 #define RV_CUT_SAMPLES 8192u        /* microcut ring, int16 mono: 186 ms (a cut is at most half) */
@@ -129,7 +125,7 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define PID_G(g) (RV_GPID + (g))
 #define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
 
-enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum */
+enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept */
 enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
@@ -149,9 +145,7 @@ enum { SEQ_STEPS, SEQ_GRAPH };
 enum { ROLE_OFF, ROLE_NOTES, ROLE_GATE, ROLE_PITCH };   /* what a playhead does at a step */
 enum { FG_OFF, FG_RISE, FG_FALL, FG_ARCH, FG_DECAY, FG_SWELL, FG_LFO1, FG_LFO2, FG_DUST, FG_N };
 enum { COMB_SCALE, COMB_ADD };                   /* function generator against the clock: times, or plus */
-enum { TAPE_MLR, TAPE_KEYS, TAPE_SLICE, TAPE_STRETCH, TAPE_SHARDS, TAPE_MODES };   /* (KEYS was BEADS before format 18) */
-enum { TPLAY_FWD, TPLAY_LOOP, TPLAY_PING, TPLAY_REV, TPLAY_REVLOOP, TPLAY_N };     /* how a sample plays its START..END */
-#define RV_SAMP_VOICES 6                /* sample voices, shared by the tape tracks (KEYS, STRETCH, SHARDS, kit lanes) */
+enum { TAPE_MLR, TAPE_KEYS };   /* (only for loading projects from before format 18) */
 enum { EXC_CLICK, EXC_NOISE, EXC_METAL, EXC_FM, EXC_DUST, EXC_RAIN, EXC_BOW, EXC_BLOW, EXC_INPUT, EXC_N };
 enum { BODY_PING, BODY_MODAL, BODY_DISC, BODY_STRINGS, BODY_N };
 
@@ -166,7 +160,7 @@ typedef struct {
 } rv_pinfo;
 
 /* ----------------------------------------------------------------- pattern --- */
-enum { ST_ON = 1, ST_TIE = 2, ST_JUMP = 4 };   /* ST_JUMP: a tape jump; note = position (0..15) */
+enum { ST_ON = 1, ST_TIE = 2, ST_JUMP = 4 };   /* ST_JUMP: a tape jump (the tape is gone: such a step plays nothing) */
 typedef struct {
     uint8_t flags, note, vel, len;  /* len in eighths of a step, 8 = one step */
     uint8_t chance;                 /* 0..100, 100 = always */
@@ -207,11 +201,11 @@ static inline void senv_set_crv(rv_senv *e, int i, int v)
 }
 
 /* --------------------------------------------------------------- influence --- */
-enum { RT_OFF, RT_MOD, RT_TRIG, RT_EXCITE, RT_TAPE, RT_CLOCK, RT_RING, RT_SPARK, RT_N };
+enum { RT_OFF, RT_MOD, RT_TRIG, RT_EXCITE, RT_TAPE, RT_CLOCK, RT_RING, RT_SPARK, RT_N };   /* RT_TAPE: gone (format 22), its number kept */
 typedef struct {
     uint8_t type;
     int8_t amt;                     /* -64..63 */
-    uint8_t arg;                    /* MOD: target local parameter; TRIG: delay steps; TAPE: position (16 = catch) */
+    uint8_t arg;                    /* MOD: target local parameter; TRIG: delay steps */
     uint8_t chance;                 /* TRIG: 0..100 */
 } rv_route;
 
@@ -232,7 +226,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 21                /* 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 22                /* 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -387,15 +381,10 @@ extern const char *const rv_scale_names[];
 #define RV_NCOND 14
 void rv_track_defaults(int t, int kind, int engine);
 void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
-void rv_cz_init(int t);
-void rv_engine_track_defaults(int t, int engine);
-void rv_kit_init(int t);
+void rv_cz_init(int t);                         /* a plain CZ patch on track t */
+void rv_engine_track_defaults(int t, int engine);   /* ORGAN, MONO: the filter and envelope they want */
+void rv_kit_init(int t);                        /* a PERC kit's six lanes at their defaults */
 int rv_is_moddest_g(int g);                     /* a global the matrix and macros can move */
-void rv_tape_kit_init(int t);                    /* a TAPE kit: six lanes, each a sixth of row 1 */
-extern const rv_pinfo tape_lane_pi[8];
-extern const char *const rv_tape_row_names[];
-void rv_tape_span(int t, float *a, float *b);
-int rv_tape_voices(int t);                         /* a PERC kit's six lanes at their defaults */   /* ORGAN, MONO: the filter and envelope they want */                         /* a plain CZ patch on track t */
 void rv_project_init(void);
 int rv_up21_engine(int e);                      /* (format 21) an old engine or filter number, as it is now */
 int rv_up21_ftype(int f);
@@ -406,23 +395,12 @@ void rv_render(int32_t *out, int frames);       /* interleaved stereo, Q23 */
 void rv_note(int t, int note, int vel);         /* vel 0 = off; from the control side */
 void rv_all_off(void);
 void rv_transport(int run);                     /* start/stop */
-void rv_catch(void);                            /* toggle the tape's catch */
-void rv_resample(void);
-void rv_tape_jump(int t, int pos, int loop_to);  /* tape track: to one of 16 positions; loop_to >= 0 loops the span */
-void rv_tape_row(int t, int row);
-void rv_tape_rate(int t, int how);              /* 0 reverse, 1 halve, 2 double, 3 hold/release */
 void rv_punch(int fx, int on);                  /* punch-in effects */
 void rv_cut(int action);                        /* microcut now */
 void rv_scene_launch(int s);
 void rv_scene_store(int s);
 void rv_pattern_launch(int t, int p);
 void rv_tap_tempo(void);
-int rv_tape_frozen(void);
-int rv_tape_overview(uint8_t *peaks, int n, int row);   /* row < 0: the whole tape */
-int rv_tape_heads(int t, float *pos, int max);  /* positions 0..1 within the track's row */
-int rv_tape_grains(int t, float *pos, float *lvl, int max);
-float rv_tape_seconds(void);
-int rv_tape_slices(int t, float *pos, int max);
 void rv_record_arm(int t, int on);
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */
 void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed, records */

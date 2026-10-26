@@ -258,6 +258,8 @@ int rv_bank_apply(int t, int i)
     if (!rv_bank_used(i))
         return -1;
     s = &bank.s[i];
+    if (s->kind == KIND_TAPE)                        /* (a tape sound, saved before the tape left: nothing to load) */
+        return -1;
     rv_all_off();
     for (p = 0; p < TP_N; p++)
         if (bank_sound_param(p))

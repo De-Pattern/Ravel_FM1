@@ -8,15 +8,15 @@
 
 # Ravel
 
-Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, catch what they play onto a shared tape, cut it up & rebuild it with tracks that can play, excite, and reshape one another
+Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, strike and drum, and that play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike, perc and tape (sampler) tracks feed the mixer and buses (the space: a 12-bit reverb); the mixer feeds the capture tape, which plays back into the tape tracks; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (thirteen engines), strike and perc tracks feed the mixer and buses (feedback, the tape echo and grains, the space: a 12-bit reverb, the bed) and the master; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: playable in the emulator; the FM-1 firmware builds, but has not been run on an FM-1 yet.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. Until it has been tried on hardware, treat it as experimental.
 
-<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the tracks page, the WAVE wavetables, a perc machine lane, the kit sequencer, the step and graph sequencers, the tape MLR and capture pages, the filter envelope, the delay, the mixer and the influence grid" width="900"></p>
+<p align="center"><img src="docs/showcase/ravel-showcase.png" alt="Twelve Ravel screens: the tracks page, the WAVE wavetables, a perc machine lane, the kit sequencer, the step and graph sequencers, the filter envelope, the delay, the mixer and the influence grid" width="900"></p>
 <p align="center"><sub>More screens in <a href="docs/showcase/">docs/showcase</a>.</sub></p>
 
 ## What it is
@@ -24,9 +24,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
-- **Tape tracks** (T7, T8): the sampler, playing the shared 120 KB capture tape (filled by resampling Ravel itself): **MLR** playheads (four rows, jumps on the keys, rates from -2× to 4×), **KEYS** (a span across the keys, up to four voices), **STRETCH** (speed apart from pitch), **SHARDS** (the span in pieces, one at a time, in an order, with gaps), **slices**, or a **kit** of six lanes, each its own span. START and END can be moved by LFOs, so loops breathe.
-- **Capture tape:** records the master, one track, the buses or the audio input. **Catch** keeps what is on it, **resample** records a bar (or 2 or 4) onto row 1 on the downbeat, erosion and "dirty" half-rate µ-law for more time.
-- **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, jump the tape of, clock, or spark (tap the body of) any other.
+- **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
@@ -49,15 +47,14 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 8. [LFO: modulation and macros](#8-lfo-modulation-and-macros)
 9. [FX: the buses](#9-fx-the-buses)
 10. [SCL: scale](#10-scl-scale)
-11. [ARP: the tape](#11-arp-the-tape)
-12. [SEQ: steps and the graph](#12-seq-steps-and-the-graph)
-13. [GLO: song, scenes and clock](#13-glo-song-scenes-and-clock)
-14. [SAVE: projects and sounds](#14-save-projects-and-sounds)
-15. [Hold layers (every button held)](#15-hold-layers)
-16. [Recording](#16-recording)
-17. [Recipes, step by step](#17-recipes-step-by-step)
-18. [Quick reference](#18-quick-reference)
-19. [Questions people ask](#19-questions-people-ask)
+11. [SEQ: steps and the graph](#11-seq-steps-and-the-graph)
+12. [GLO: song, scenes and clock](#12-glo-song-scenes-and-clock)
+13. [SAVE: projects and sounds](#13-save-projects-and-sounds)
+14. [Hold layers (every button held)](#14-hold-layers)
+15. [Recording](#15-recording)
+16. [Recipes, step by step](#16-recipes-step-by-step)
+17. [Quick reference](#17-quick-reference)
+18. [Questions people ask](#18-questions-people-ask)
 
 **On the FM-1:** [Installing](#installing-on-the-fm-1) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
 
@@ -82,7 +79,6 @@ The emulator page has three parts:
   - **Sound** chooses the track's kind, engine and a preset;
   - **Page ← Back / Forward →** steps through the section's pages (the same as turning SELECT, or the ← → keys);
   - **Go to** jumps straight to a section;
-  - **Catch** and **Resample** for the tape;
   - **Audio in** plays a file into the input;
   - **Output** has a level meter and the volume.
 - **The FM-1 in the middle** is the instrument itself. Everything in this manual is done there.
@@ -109,7 +105,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 **On the FM-1.** Install it with the web installer (see [Installing on the FM-1](#installing-on-the-fm-1)). Everything works the same as in the emulator, with these differences:
 
 - **MASTER** is the output volume (the emulator's Volume slider).
-- **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. So the FM-1 hides the input's controls: the tape has no INPUT source, and the ROWS page has no IN GAIN or INPUT knob. The EXT exciter still works there, from other tracks.
+- **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. The EXT exciter takes its sound from other tracks.
 - **Saving pauses the sound for a moment**, because the code runs from the same flash the project is written to.
 - **No Bluetooth.**
 
@@ -122,15 +118,15 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | **MASTER** | Output volume |
 | **SELECT** | Moves to the next page (turn right) or back to the previous one (turn left) in the section you are in |
 | **ALGORITHM** | Picks the track you are working on, **T1 to T8**. The keys play this track. |
-| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE (projects or sounds), rows on TAPE, steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
+| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE (projects or sounds), steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
 | **KNOB 1–4** | Change the four values in the row at the top of the screen, left to right |
 | **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). On pages with more settings than knobs they move the knobs to the next row instead; those pages show the rows on screen, number the knobs, and the footer says what OCT brings next: a kit's **LANE** pages (machine parameters, then LEVEL, CHANCE, LENGTH), the CZ's **DCO, DCW and DCA** envelopes (two stages at a time, then SUS and END), and **LFO SHAPE** (LFO 1 or LFO 2). |
 | **10 section buttons** | Each one opens a section (a group of pages). Tap it again for the section's next page. |
 | **PLAY** | Starts and stops the sequencer |
-| **REC** | Tap to arm recording on the current track; hold it for catch and resample |
-| **Keys** | Play the current track, or act as steps, tape positions, scenes or switches depending on the page and on what you hold |
+| **REC** | Tap to arm recording on the current track |
+| **Keys** | Play the current track, or act as steps, scenes or switches depending on the page and on what you hold |
 
-The ten sections:
+The section buttons:
 
 | Button | Section | What lives there |
 | --- | --- | --- |
@@ -140,22 +136,22 @@ The ten sections:
 | **LFO** | Mod | Mod matrix, the two LFOs, dust, macros |
 | **FX** | Buses | Delay, space, BED, feedback, master |
 | **SCL** | Scale | Root, scale, transpose, interval |
-| **ARP** | Tape | Capture, rows, and how a tape track plays the tape |
-| **SEQ** | Steps | Steps, step timing and shape, track settings, direction, graph and playheads |
+| **ARP** | – | Not used (it was the tape's; the tape is gone) |
+| **SEQ** | Steps | Steps, tempo, step timing and shape, track settings, direction, graph and playheads |
 | **GLO** | Song | Mixers, scenes, arrangement, density arcs, clock |
 | **SAVE** | Projects and sounds | Save, load, demos, new project; your own sound bank |
 
-> **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#15-hold-layers).
+> **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#14-hold-layers).
 
 ### Reading the screen
 
 <p align="center"><img src="docs/manual/voice-source.png" alt="The SOURCE 1 page of a VA synth track" width="320"></p>
 
 - **Top bar:**
-  - **left:** the track (T1–T8, its badge coloured by kind: white synth, slate strike, verdigris tape, maroon perc), its kind and engine;
+  - **left:** the track (T1–T8, its badge coloured by kind: white synth, slate strike, maroon perc), its kind and engine;
   - **right:** the page title, and on the FM-1 the audio load (**CPU 43%** with a thin bar, held a moment at its peak; amber from 75%, red from 90%). The emulator doesn't measure it, so it doesn't show there.
 - **Value row:** a strip divided into four cells, one for each physical knob, always KNOB 1, 2, 3 and 4 in that order. Each cell has a small dial, the name and the value, and a bar showing where it sits in its range; bipolar values have a centre mark. An empty cell keeps its dividers, so you can see which knobs do something on the page. A greyed name and value means that knob does nothing with the track set as it is.
-- **Picture:** what the page does, drawn live (a waveform, a filter curve, the step grid, the graph, the tape). Tracks keep their kind's colour in the pictures (their meters, waves and steps); what belongs to no one track (the buses, the graph's two heads, the two WAVE tables) is drawn in white and greys with bone and verdigris.
+- **Picture:** what the page does, drawn live (a waveform, a filter curve, the step grid, the graph). Tracks keep their kind's colour in the pictures (their meters, waves and steps); what belongs to no one track (the buses, the graph's two heads, the two WAVE tables) is drawn in white and greys with bone and verdigris.
 - **Footer:**
   - **left:** what the controls do *right now*. It changes when you hold a button, so read it whenever you are unsure.
   - **right:** small dots, one per page in the section, with the current one lit.
@@ -178,34 +174,31 @@ Knobs speed up when you turn them quickly, so a fast turn crosses a whole range 
 **Pages appear and disappear.** A section only shows the pages that apply to the current track:
 
 - a VA synth has three SOURCE pages, FM has four;
-- a tape track has no SOURCE pages but gets PLAYBACK, then MLR, SAMPLE, STRETCH, SHARDS or SLICES depending on its mode;
 - the graph's HEAD pages only appear when the track is in GRAPH mode, and HEAD 2's pages only when head 2 is on.
 
 So if a page seems to be "skipped", it is hidden because it does not apply to this track. Change the track or the setting and it comes back.
 
-**Greyed-out knobs.** When a knob does nothing with the track set as it is, its name and value turn grey. For example, on a strike track with the PING body, DAMP, INHARM, GEOMTRY and MODES are grey, because a ping filter has none of those. The value is kept, so it is ready if you change the setup. So are ENGINE and VELO on strike and tape tracks (engines are for synth tracks; strike and tape take velocity as it comes), VOICES on a tape track (one playhead; a strike track offers MONO or 2), T DECAY until TRANS is up, RING F until RING is up, ORDER, RATE and SEED except with the DUST or RAIN exciter, and on PHYS, POSITN for BLOWN and MEMBRAN.
+**Greyed-out knobs.** When a knob does nothing with the track set as it is, its name and value turn grey. For example, on a strike track with the PING body, DAMP, INHARM, GEOMTRY and MODES are grey, because a ping filter has none of those. The value is kept, so it is ready if you change the setup. So are ENGINE and VELO on strike tracks (engines are for synth tracks; strike takes velocity as it comes), T DECAY until TRANS is up, RING F until RING is up, ORDER, RATE and SEED except with the DUST or RAIN exciter, and on PHYS, POSITN for BLOWN and MEMBRAN.
 
 ## 4. How the parts connect
 
 <p align="center"><img src="docs/signal-flow.svg" alt="Signal flow" width="760"></p>
 
-Ravel has **8 tracks**. Each track is one of four kinds, and any track can be any kind (HOME › TRACKS › KIND):
+Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND):
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
 | **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
-| **TAPE** | The sampler. It plays the shared capture tape: MLR playheads, across the keys (up to 4 voices), stretched, as shards, as slices, or as a kit of six lanes. | T7–T8 |
-| **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | – (choose PERC on any track) |
+| **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 
 How the sound flows:
 
 1. **Each track** makes sound. On synth, strike and perc tracks the sound goes: source → filter → skin (drive, fold, bits) → insert effect → articulation (the amplitude envelope) → level and pan.
 2. **The mixer** adds the tracks together. Each track also **sends** some of its sound to the three **buses** (delay or grains, space, feedback), and the buses return into the mix.
 3. **The master** applies drive and microcuts, then a safety limiter, then goes to the output.
-4. **The capture tape** is always listening. By default it hears the master, but it can hear one track, the buses or the audio input instead (ARP › CAPTURE › SOURCE). When you **catch** or **resample**, what it heard is kept, and the **tape tracks** play it back. That is the loop at the heart of Ravel: *synthesize → catch → rebuild*.
-5. **Influence** connects tracks to each other. One track's notes or audio can trigger, modulate, excite, ring, clock or jump the tape of another (HOME › INFLUENCE).
-6. **The sequencer** plays every track from its own pattern. The **modulation** (LFOs, dust, matrix, macros) moves parameters over time. **Scenes** and the **arrangement** switch patterns and states.
+4. **Influence** connects tracks to each other. One track's notes or audio can trigger, modulate, excite, ring or clock another (HOME › INFLUENCE).
+5. **The sequencer** plays every track from its own pattern. The **modulation** (LFOs, dust, matrix, macros) moves parameters over time. **Scenes** and the **arrangement** switch patterns and states.
 
 ## 5. HOME: tracks and influence
 
@@ -226,7 +219,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE, TAPE or PERC. **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC. **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
@@ -247,7 +240,6 @@ An 8 × 8 grid: rows are **sources**, columns are **targets**. Each filled cell 
 | **MOD** | The source's envelope moves one of the target's parameters, every time the source plays | AMOUNT (±) | PARAM: which of the target's parameters | – |
 | **TRIG** | Each note on the source also plays the target, with the same pitch | AMOUNT (below 0 plays the target softer) | DELAY: 0–16 steps later | CHANCE: 0–100 % |
 | **EXCITE** | The source's audio feeds into the target's body or string (best into a strike or PHYS track) | AMOUNT | – | – |
-| **TAPE** | Each source note jumps the target tape track's playhead | AMOUNT | JUMP TO: a position 0–15, or 16 = catch the tape | – |
 | **CLOCK** | Each source note moves the target's sequencer one step (René-style: rhythm drives rhythm) | AMOUNT | – | – |
 | **RING** | Ring modulates the target with the source's audio | AMOUNT | – | – |
 | **SPARK** | Each source hit taps the target's body: a strike track rings at its last note, with no exciter and no attack of its own, and plays no note (so it starts no chain of its own). Only strike tracks can be sparked | AMOUNT: how hard the tap | – | – |
@@ -296,7 +288,7 @@ Try the TALK BOX, PHASE PAD, Z VOX and Z SWEEP presets. The Z filters are on syn
 
 **The XT filters** are digital filters in the manner of the Waldorf Microwave II/XT's: **XT LP24** is a clean four-pole lowpass whose resonance rings sharp and glassy, **XT BP24** a four-pole bandpass, **XT NOTCH** cuts a hole at CUTOFF (RESO widens and deepens it), **XT S&H** samples and holds the sound at a rate CUTOFF sets (a sample-rate reducer that follows the keys with VCF KEY; RESO keeps more of the raw steps) and **XT SHAPE** is a wave shaper, CUTOFF driving it and RESO folding it further. They suit the WAVE engine but work on every synth engine.
 
-The filter belongs to synth voices. On strike and tape tracks the FILTER page's knobs are greyed out.
+The filter belongs to synth voices. On strike tracks the FILTER page's knobs are greyed out.
 
 **LPG** is a low-pass gate: the filter closes as the note fades, so sounds get darker as they die away (good for plucks and Buchla-style bongos).
 
@@ -809,86 +801,7 @@ The effects last while the key is held. Letting go of FX releases them all.
 - **INTERVAL** (per track): a track with interval N only plays notes that are a multiple of N semitones from the root; other notes are skipped. INTERVAL 1 plays everything, 12 only the roots, 7 the root and the notes a fifth apart (stacked fifths: the fifth, the ninth…), 2 every other semitone. Give two tracks the same notes with different intervals and they split them between them.
 - **Set the root from the keys:** hold **SCL** and press a key.
 
-## 11. ARP: the tape
-
-The tape is Ravel's memory: one short loop of audio that every tape track plays from.
-
-- It is always **listening** to its source, a rolling recording of the last moment.
-- When you **catch**, it stops listening and keeps what it heard. Now the tape tracks have something to play.
-- **ARP** opens the TAPE section. If the current track is not a tape track, it jumps to the first tape track ("T7: THE TAPE TRACK").
-
-**How long is the tape?** About 1.4 s in CLEAN quality, more in TAPE (12-bit), and about 5.5 s in DIRTY (8-bit µ-law at half rate). Choose on the CAPTURE page.
-
-### Getting sound onto the tape
-
-| To | Do this |
-| --- | --- |
-| **Catch** (keep what the tape just heard) | Hold **REC**, press **OCT−**. Or on any tape page, black key **9**. Do it again to let the tape listen again ("LISTENING"). |
-| **Resample** (record the next bars cleanly) | Hold **REC**, press **OCT+**. Or black key **10**. On the next bar it records 1, 2, 4 or ½ bar (CAPTURE › RESAMPL) into **row 1**, then catches. |
-| Catch from a pattern | An influence **TAPE** route with JUMP TO = 16 catches when the source track plays |
-
-<p align="center"><img src="docs/manual/tape-capture.png" alt="CAPTURE" width="240"> <img src="docs/manual/tape-rows.png" alt="ROWS" width="240"> <img src="docs/manual/tape-mlr.png" alt="MLR" width="240"></p>
-
-| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | PRESETS |
-| --- | --- | --- | --- | --- | --- |
-| **CAPTURE** | QUALITY: DIRTY, TAPE, CLEAN | SOURCE: MASTER, T1–T8, BUSES, INPUT | RESAMPL: 1 BAR, 2 BARS, 4 BARS, 1/2 BAR | ERODE: the tape wears a little each pass | row |
-| **ROWS** | START of the row (0–127, in 128ths of the tape) | END of the row | IN GAIN: audio input level | INPUT: hear the input through the output | row 1–4 |
-| **PLAYBACK** (tape tracks) | MODE: MLR, KEYS, SLICE, STRETCH, SHARDS | ROW it plays | START: where in the row it begins (0–127) | END: where it ends | sounds |
-| **MLR** | JUMP: when a jump lands: NOW, STEP, BEAT, BAR | XFADE: smoothing at jumps | RATE: −2× to 4× | HEAD 2: a second playhead (+¼, +½, +¾ of the row, or REV) | sounds |
-| **MLR 2** | PITCH | LEVEL | – | – | sounds |
-| **SAMPLE** (KEYS, STRETCH, SHARDS) | PLAY: FWD, LOOP, PINGPNG, REV, REV LOOP | PITCH | VOICES: 1–4 | LEVEL | sounds |
-| **STRETCH** | SPEED: 0–200 % of the sample's own time, its pitch apart | – | – | – | sounds |
-| **SHARDS** | SHARDS: 2–16 pieces | ORDER: FWD, REV, SKIP, SWAP, INWARD, SHUF 1–3 | GAP: silence after each piece | – | sounds |
-| **SLICES** | SLICES: 4–32 | SENS: how easily a hit counts as a slice (0: an even grid) | PITCH | LEVEL | sounds |
-
-**Rows.** The tape is divided into four **rows**, which are windows onto the tape. By default row 1 is the whole tape, rows 2 and 3 are its first and second halves, and row 4 is its first eighth. A tape track plays one row at a time.
-
-### The five ways a tape track plays
-
-A tape track is Ravel's sampler. It plays its **row** of the tape between **START** and **END** (PLAYBACK). START and END are ordinary parameters: the matrix, the macros, the LFOs and influence can move them, so a loop can shrink, stretch and wander while it plays. The picture dims what lies outside them.
-
-**MLR** (named after the monome app). The current row is laid across the **16 white keys**.
-
-| Key | Action |
-| --- | --- |
-| Tap a white key | The playhead jumps to that sixteenth of the row and plays on (while the sequencer runs, on the next step, beat or bar, set by JUMP; stopped, at once) |
-| Hold two white keys | Loops the span between them. Let go to play on. |
-| Black keys **1–4** | Switch to row 1, 2, 3 or 4 |
-| Black key **5** | Reverse on/off |
-| Black key **6** | Half speed (press again to slow further, down to ¼) |
-| Black key **7** | Double speed (up to 4×) |
-| Black key **8** | Hold / release: stop and start the playhead |
-| **PLAY** (stopping) | Stops the loops too; tap a key to start one again |
-| Black keys **9 / 10** | Catch / resample |
-| From any other page | Hold **ARP** and press white keys to jump |
-
-The picture shows the whole tape, the four rows (the current one bright), the playhead(s) and "CAUGHT 1.4S" or "LISTENING".
-
-<p align="center"><img src="docs/manual/tape-sample.png" alt="SAMPLE: a tape track playing its loop across the keys" width="240"> <img src="docs/manual/tape-shards.png" alt="SHARDS: the span marked into pieces" width="240"></p>
-
-**KEYS:** the row (START to END) played across the keys, like an early sampling keyboard. C4 plays it as it was caught; each key up or down is a semitone. Up to four at once (VOICES), each with the track's envelope. **PLAY** says what happens at the ends: **FWD** plays once, **LOOP** goes round while the key is held, **PINGPNG** goes back and forth, **REV** and **REV LOOP** run backwards. With LOOP on and an LFO on END, the loop breathes.
-
-**STRETCH:** as KEYS, with its **SPEED** apart from its pitch. At 100 % it keeps the sample's own time; at 50 % it takes twice as long at the same pitch; at 0 it stands still on one moment and hums it. Two short windows read the tape, so it smears a little: lofi on purpose.
-
-**SHARDS:** the span broken into **SHARDS** pieces (2–16), played one at a time, never overlapping, in an **ORDER**: forward, reversed, SKIP (the odd pieces, then the even), SWAP (each pair changed round), INWARD (the ends toward the middle) or one of three fixed shuffles. **GAP** leaves a silence after each piece, from none to most of it, so a phrase falls apart into clicks and fragments. Each piece fades in and out quickly, so there are no clicks except the ones you want. PLAY LOOP goes round; REV plays each piece backwards. The picture marks the pieces.
-
-**SLICE:** the row is cut where it hits (onsets).
-
-- Keys play slices from left to right, and so do steps.
-- SENS sets how many hits count; SLICES sets the maximum. **SENS 0** cuts an even grid of SLICES instead.
-
-**A tape KIT** (EDIT › SOUND, MODE = KIT): six lanes, each its own span of the tape, sequenced on SEQ › DRUM like a perc kit, with each lane's own length, rate, chance, ratchets, R MOVE and EUCLID. A new tape kit cuts row 1 into six. Each lane (EDIT › LANE 1–6) has its **ROW** (PRESETS walks them) and **PITCH** (64: as caught, ±24 semitones), **START**, **END**, **PLAY**, **DECAY** (127: plays to its end), **SHARDS** (below 2: off; 2–16 plays it as shards), **ORDER** and **GAP**. A lane plays one hit at a time; outside SEQ the white keys play the lanes. Parameter locks work as on a perc kit.
-
-**Steps on a tape track** in MLR jump the playhead: the step's note picks the position. A pattern on T7 can therefore cut the loop up rhythmically, and recorded MLR jumps become these steps (see [Recording](#16-recording)). In KEYS, STRETCH and SHARDS steps play notes, through the scale like a synth's; in SLICE a step's note picks the slice.
-
-**Samples are kept in RAM:** what is on the tape is gone when the FM-1 is switched off. Resample it again from the project.
-
-**Audio in.**
-
-- In the emulator, choose a file under **Audio in**; "Record it onto the tape" sets the tape's source to INPUT. The FM-1 has no audio input in Ravel.
-- Set SOURCE to INPUT to catch it, or ring a strike body with it (EXCITER = EXT).
-
-## 12. SEQ: steps and the graph
+## 11. SEQ: steps and the graph
 
 Every track has its own sequencer, with **two patterns (A and B)** of up to **64 steps**.
 
@@ -910,11 +823,12 @@ While you are on any SEQ page, or while you **hold SEQ** on any other page, the 
 
 Editing a held empty step switches it on.
 
-<p align="center"><img src="docs/manual/seq-steps.png" alt="STEPS" width="240"> <img src="docs/manual/seq-timing.png" alt="STEP TIMING" width="240"> <img src="docs/manual/seq-track.png" alt="TRACK" width="240"></p>
+<p align="center"><img src="docs/manual/seq-steps.png" alt="STEPS" width="240"> <img src="docs/manual/seq-tempo.png" alt="TEMPO" width="240"> <img src="docs/manual/seq-timing.png" alt="STEP TIMING" width="240"> <img src="docs/manual/seq-track.png" alt="TRACK" width="240"></p>
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **STEPS** | NOTE | VELO | LENGTH: how long the note holds, in eighths of a step to 16 steps ("7 1/2"), then in half steps up to 64 steps | CHANCE: 0–100 % that it plays |
+| **TEMPO** (right after STEPS; on a kit, after DRUM) | TEMPO (30–240): the master clock's, the same value as GLO › CLOCK, so turning either moves both | SWING (shared with GLO › CLOCK too) | LENGTH: the track's (as on TRACK) | RATE: the track's (as on TRACK) |
 | **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER, BOUNCE (see below); "-F" versions fade out | CONDITN, see below |
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
@@ -1018,7 +932,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
   - **+ CLOCK** adds to the clock's rate (from slowing to a near halt up to racing).
 - The MOTION picture draws the shape, where the head is on it, and its current speed in steps per pulse.
 
-## 13. GLO: song, scenes and clock
+## 12. GLO: song, scenes and clock
 
 <p align="center"><img src="docs/manual/song-mixer.png" alt="MIXER" width="240"> <img src="docs/manual/song-scenes.png" alt="SCENES" width="240"> <img src="docs/manual/song-arrange.png" alt="ARRANGE" width="240"></p>
 
@@ -1038,11 +952,11 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 <p align="center"><img src="docs/manual/song-cpu.png" alt="CPU" width="240"> <img src="docs/manual/song-stress.png" alt="STRESS" width="240"></p>
 <p align="center"><sub>(Taken on the desktop simulator, a far faster machine: the same project reads many times higher on the FM-1.)</sub></p>
 
-**CPU: where the audio's time goes.** The bars show how much of the time the audio has each part of the render takes: CONTROL (the sequencer, modulation, the knobs), SYNTH, STRIKE, PERC, TAPE (the sample voices), TRACK FX, BED, FEEDBACK, DELAY, SPACE and MASTER. A bar's full length is 50 %. RENDER is the total on the first core (the one that must keep up); past about 90 % the FM-1 falls behind. PEAK is the busiest single audio block lately (all of it, the screen's share included): when it nears 100 %, that block was nearly late. CORE 2 is the second core's share: the effects and the voices it plays (a part's bar counts its time on whichever core runs it); WAIT is how much of the first core's time went on waiting for it. **XRUNS** counts the blocks that came too late: each one is a crackle, and a steady stream of them is the loud noise an overloaded FM-1 makes. Measured on the FM-1 and the desktop simulator; the browser has no clock for it.
+**CPU: where the audio's time goes.** The bars show how much of the time the audio has each part of the render takes: CONTROL (the sequencer, modulation, the knobs), SYNTH, STRIKE, PERC, TRACK FX, BED, FEEDBACK, DELAY, SPACE and MASTER. A bar's full length is 50 %. RENDER is the total on the first core (the one that must keep up); past about 90 % the FM-1 falls behind. PEAK is the busiest single audio block lately (all of it, the screen's share included): when it nears 100 %, that block was nearly late. CORE 2 is the second core's share: the effects and the voices it plays (a part's bar counts its time on whichever core runs it); WAIT is how much of the first core's time went on waiting for it. **XRUNS** counts the blocks that came too late: each one is a crackle, and a steady stream of them is the loud noise an overloaded FM-1 makes. Measured on the FM-1 and the desktop simulator; the browser has no clock for it.
 
 **The overload guard.** When the render takes more than 80 % of the time it has, the guard fades out a voice over about 3 ms: a released one first, then a note of the track with the most voices sounding (a chord loses a note before a lone line goes quiet), then the oldest; more than one at once when the load is far over. Its reading rises at once and falls slowly, so a chord landing on the last one's release is met in the block it comes. It then holds the voice count there (a new note past the limit makes room the same way) until the load has stayed under 76 % for a moment, and lets it back up a voice at a time. The CPU page shows it (GUARD: 6 VOICES, and how many it has faded). It only acts when the voices are what costs; if the effects alone are too much, turn some sends down. It never acts in the browser.
 
-**Two cores.** The FM-1's chip has two cores, and Ravel starts the second at power-on. It runs the effect buses (the BED, FEEDBACK, DELAY and SPACE), and it takes every other sounding voice, synth, strike or drum, while the first core plays the rest, the tape tracks and every track's chain. It takes only as many voices as keep it from holding the first core up: when the effects are heavy it takes fewer, and the CPU page shows its share (CORE 2 40 %). For this the buses play one control step behind the tracks: the effects come about 3 ms after the dry sound, with one core or two, so the sound is the same either way. On some units the second core misreads memory, so it is watched: if it ever reads a wrong job or doesn't finish one in time, the first core takes the work back at once (CORE 2 FAILED on the CPU page), and after any restart with it running (a crash, a hang, an update) it stays off until the FM-1 is switched off and on. CORES 1 turns it off by hand.
+**Two cores.** The FM-1's chip has two cores, and Ravel starts the second at power-on. It runs the effect buses (the BED, FEEDBACK, DELAY and SPACE), and it takes every other sounding voice, synth, strike or drum, while the first core plays the rest and every track's chain. It takes only as many voices as keep it from holding the first core up: when the effects are heavy it takes fewer, and the CPU page shows its share (CORE 2 40 %). For this the buses play one control step behind the tracks: the effects come about 3 ms after the dry sound, with one core or two, so the sound is the same either way. On some units the second core misreads memory, so it is watched: if it ever reads a wrong job or doesn't finish one in time, the first core takes the work back at once (CORE 2 FAILED on the CPU page), and after any restart with it running (a crash, a hang, an update) it stays off until the FM-1 is switched off and on. CORES 1 turns it off by hand.
 
 **FLASH WAIT.** The FM-1 runs Ravel's code straight from its flash memory, through a cache. When the code the render needs is not in the cache, the core waits for the flash. FLASH WT ON counts those waits and shows them as a share of the render (FLASH WAIT 30 %). The busiest audio code already runs from the chip's RAM (the delay, the space, the feedback loop, the BED, every synth voice's filter and amplifier, the VA oscillator, the master's limiter, the modulation step, the voices' envelopes and their hand-off between the cores); a high number says more of it should. The counters are not verified on hardware yet, so it is off by default.
 
@@ -1101,7 +1015,7 @@ Without an END row the song loops back to row 1. Give the last row the scene END
 - **Tap tempo:** hold **GLO** and tap black key **1**.
 - **Mute and solo:** hold **GLO** and press white keys **1–8** to mute tracks 1–8, or **9–16** to solo tracks 1–8.
 
-## 14. SAVE: projects and sounds
+## 13. SAVE: projects and sounds
 
 SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sound at a time). Turn **SELECT** to go from one to the other.
 
@@ -1130,13 +1044,13 @@ Ravel starts on a blank project every time it is switched on (or the emulator is
 
 There are seven project slots. (Before v0.5.0 there were eight; the eighth's room now holds the sound banks, so a project saved in slot 8 is gone after updating. Load it and save it to slots 1–7 first.)
 
-A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the LIBRARY of step envelopes. **It does not hold the tape audio.** Catch or resample again after loading.
+A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the LIBRARY of step envelopes. A project saved before the tape was removed still loads: its tape tracks come back as blank VA synths with empty patterns, and influence TAPE routes are switched off.
 
 ### Sounds: your own bank
 
 <p align="center"><img src="docs/manual/save-sounds.png" alt="SAVE › SOUNDS" width="320"></p>
 
-Four banks (**A–D**) of 32 slots for your own sounds, 128 in all, of any kind: a synth on any engine, a strike, a perc machine, a whole kit, or a tape track's settings. Each has a name, and its kind is shown on the right of the list (**SYNTH**, **STRIKE**, **PERC**, **KIT**, **TAPE**; a synth also shows its engine). The banks are shared by every project and stay when you load another project or switch off.
+Four banks (**A–D**) of 32 slots for your own sounds, 128 in all, of any kind: a synth on any engine, a strike, a perc machine or a whole kit. Each has a name, and its kind is shown on the right of the list (**SYNTH**, **STRIKE**, **PERC**, **KIT**; a synth also shows its engine). The banks are shared by every project and stay when you load another project or switch off.
 
 A sound is the track's voice: its kind and engine, every sound setting (source, filter, skin, envelopes, insert, sends, the CZ patch, a kit's lanes). It is not the track's steps, sequencer settings or pan.
 
@@ -1176,9 +1090,9 @@ Everything you have saved, the projects in slots 1–7 and the sound banks A–D
     python3 tools/fm1_data.py backup fm1-work.ravel     # the FM-1's, into a file
     python3 tools/fm1_data.py restore my-work.ravel --only project3,bankB
 
-Each project and bank goes to the same slot it came from (project 3 to project 3, bank B to bank B) and replaces what was there; slots not in the file are left as they are. Every piece is checked as it arrives (a CRC over the whole slot), and a slot only becomes valid on the FM-1 once all of it has arrived intact; the screen says RECEIVED PROJECT 3 or RECEIVED BANK B as each one lands. Load a project afterwards with SAVE › PROJECT › LOAD. The tape's audio is not part of a project, so it doesn't travel.
+Each project and bank goes to the same slot it came from (project 3 to project 3, bank B to bank B) and replaces what was there; slots not in the file are left as they are. Every piece is checked as it arrives (a CRC over the whole slot), and a slot only becomes valid on the FM-1 once all of it has arrived intact; the screen says RECEIVED PROJECT 3 or RECEIVED BANK B as each one lands. Load a project afterwards with SAVE › PROJECT › LOAD.
 
-## 15. Hold layers
+## 14. Hold layers
 
 Hold a button (in the emulator: right-click or shift-click to latch it) and the keys or knobs do something else. The footer always shows the layer's hint.
 
@@ -1188,15 +1102,13 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 | **SEQ + ENV** | hold a step, turn KNOB 1 | The step's LIBRARY envelope |
 | **LFO** | KNOB 1–4 | Macros 1–4 |
 | **FX** | white keys 1–8 | Punch-ins: loop, reverse, stutter, freeze, low pass, high pass, throw, fill |
-| **ARP** | white keys | Jump the tape track's playhead from any page |
 | **GLO** | white keys 1–8 / 9–16, black 1 | Mute / solo, tap tempo |
 | **SAVE** | white key | Store scene 1–16 |
 | **SCL** | any key | Set the root |
-| **REC** | OCT− / OCT+ | Catch / resample |
 
 <p align="center"><img src="docs/manual/hold-seq.png" alt="SEQ held: steps on any page" width="240"> <img src="docs/manual/hold-fx.png" alt="FX held: the punch-ins" width="240"></p>
 
-## 16. Recording
+## 15. Recording
 
 1. Choose the track with **ALGORITHM**.
 2. **Tap REC.** "RECORDING ARMED" flashes and a red dot appears in the footer.
@@ -1204,16 +1116,15 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 4. Now, while it plays:
    - **notes you play** are written into the steps, with their timing kept as microtiming; **chords** too: keys pressed together land on one step as a chord of up to four notes (the step's note and up to three more), and play back together. A note played on a step while none of its keys is still down replaces what was there;
    - **knobs you turn** are written as parameter locks on the playing step;
-   - on a tape track in MLR, **jumps you make** are written as jump steps.
 5. **Tap REC** again to stop recording.
 
 Turning ALGORITHM while armed moves recording to the new track.
 
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
-**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth, strike or tape track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth or strike track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
 
-## 17. Recipes, step by step
+## 16. Recipes, step by step
 
 **Make a first sound**
 
@@ -1233,27 +1144,6 @@ Turning ALGORITHM while armed moves recording to the new track.
    1. Press **EDIT**, SELECT to SOURCE 1.
    2. Hold **SEQ**, hold key **5**, turn **KNOB 4 (TONE)**.
    3. Let go. Only step 5 is brighter.
-
-**Catch and cut up a loop (MLR)**
-
-1. Get something playing (load DEMO 1, press PLAY).
-2. Hold **REC**, press **OCT+** (resample). At the next bar, a bar is recorded into row 1.
-3. Press **ARP**, which jumps to T7, a tape track. SELECT to PLAYBACK and set **MODE** to MLR.
-4. Tap white keys to jump around the loop. Hold two keys to loop between them.
-5. Press black **5** for reverse, **6** for half speed.
-6. Tap **REC**, then jump around while it plays. Your jumps become a pattern.
-
-**Play the tape across the keys**
-
-1. With something caught, ALGORITHM to T8. Press **ARP**, SELECT to PLAYBACK, **MODE** = KEYS.
-2. SELECT to SAMPLE: **PLAY** = LOOP. Back on PLAYBACK, turn **END** down for a shorter loop.
-3. Play chords. For a loop that breathes: LFO › MATRIX, SOURCE LFO1, TRACK T8, PARAM END.
-
-**Break a phrase into shards**
-
-1. On T8, **MODE** = SHARDS, PLAY = LOOP.
-2. SELECT to SHARDS: **SHARDS** 8, **ORDER** SHUF 1, **GAP** 50.
-3. Hold a key. Turn ORDER and GAP while it plays.
 
 **Two-headed graph melody**
 
@@ -1288,7 +1178,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 3. Name it with **KNOB 2** (position) and **KNOB 3** (letter).
 4. ALGORITHM to another track, **KNOB 1** = LOAD, press **SAVE**. The track becomes the sound's kind if it wasn't already.
 
-## 18. Quick reference
+## 17. Quick reference
 
 | I want to… | Press / turn |
 | --- | --- |
@@ -1300,11 +1190,9 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Edit one step | Hold its key, turn knobs |
 | Lock a value on a step | Hold SEQ + step, turn a knob on any page |
 | Pattern A / B | Black key 1 / 2 on SEQ, or PRESETS |
-| Catch the tape | Hold REC + OCT− |
-| Resample a bar | Hold REC + OCT+ |
-| Jump the tape from anywhere | Hold ARP + white key |
 | Mute / solo | Hold GLO + white 1–8 / 9–16 |
 | Tap tempo | Hold GLO + black 1 |
+| Change the tempo | SEQ › TEMPO (or GLO › CLOCK), KNOB 1 |
 | Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
@@ -1330,27 +1218,18 @@ Turning ALGORITHM while armed moves recording to the new track.
 | A long reverb | FX › SPACE: DECAY near the top |
 | A worn tape echo | FX › DELAY, then TAPE WEAR: WOW, FLUTTER, SATURAT, AGE |
 | Grains in the delay | FX › GRAINS: GRAINS up |
-| A sample across the keys | ARP › PLAYBACK: MODE KEYS (T7/T8, with something caught) |
-| A loop whose end breathes | Matrix: LFO1 → T8 END |
-| A tape kit | EDIT › SOUND on a tape track: MODE KIT |
 | A crunchier reverb | FX › SPACE 2: CRUNCH up (fewer bits) |
 
-## 19. Questions people ask
+## 18. Questions people ask
 
 **A page I saw before is gone.**
 
-- It only shows when it applies. SOURCE 3 and 4 depend on the engine. MLR, SAMPLE, STRETCH, SHARDS and SLICES depend on the tape mode. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on.
+- It only shows when it applies. SOURCE 3 and 4 depend on the engine. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on.
 - Holding LFO does not change pages: it puts the macros on the knobs.
 
 **The FX page changes a value for every track.**
 
 - Only the knob named **T_ SEND** is per track. Everything else on a bus page is the shared effect.
-
-**The tape track is silent.**
-
-- The tape has to hold something: catch (REC + OCT−) or resample (REC + OCT+).
-- In MLR, tap a white key on the TAPE page to start the playhead (black 8 starts and stops it).
-- Check its LEVEL and that the row is not tiny (ROWS page).
 
 **The graph doesn't seem to do anything.**
 
@@ -1394,12 +1273,10 @@ The installer works from M-VAVE's own firmware, from Ravel, and from the other c
 
 | Path | What |
 | --- | --- |
-| `firmware/app/` | Ravel: the engine (`rv_engine.c`), synth engines (`rv_synth.c`), strike (`rv_strike.c`), tape (`rv_tape.c`), buses (`rv_bus.c`), sequencer (`rv_seq.c`), modulation and clock (`rv_mod.c`), parameters, presets, projects, and the interface (`rv_ui.c`, `rv_gfx.c`). Portable C99, single-precision float, no C library. |
+| `firmware/app/` | Ravel: the engine (`rv_engine.c`), synth engines (`rv_synth.c`), strike (`rv_strike.c`), buses (`rv_bus.c`), sequencer (`rv_seq.c`), modulation and clock (`rv_mod.c`), parameters, presets, projects, and the interface (`rv_ui.c`, `rv_gfx.c`). Portable C99, single-precision float, no C library. |
 | `firmware/fm1/` | The FM-1 side, bare metal: Felucca's hardware layer (`hal/`), start-up and memory map, the update loader (`loader/`), and in `src/`: USB, LCD, storage, the update entry, the panel map, Ravel's platform (`plat_fm1.c`) and the boot, audio interrupt and main loop (`main_fm1.c`) |
-| `core/beads/` | Beads' grain engine rewritten in integer C (MIT, see `core/beads/LICENSE-beads`); Ravel keeps its tape store for the capture tape |
 | `host/` | The simulator: the whole app on a desktop, driven by scripts, writing screenshots and WAV files |
 | `web/emu/` | The browser emulator: the same code compiled to WebAssembly, on a drawn FM-1 panel |
-| `tests/beads/` | Renders 13 scenarios through the original Beads and the port, and compares them |
 | `tests/scenarios/` | Simulator scripts that play the firmware and check it (`tour.rvl` visits every page; `manual.rvl` takes the manual's screenshots) |
 | `docs/` | The signal-flow diagram, and `docs/manual/`: the panel drawing and the screenshots used in this manual |
 | `tools/` | The FM-1 build (`build_fm1.py`, `fm1pkg_make.py`), the installer and rescue tools, the site assembler (`make_site.py`), toolchain and SDK-file downloads, font and table generators |
@@ -1431,31 +1308,22 @@ sh tools/get_ac79_files.sh ~/ac79                      # three files of JieLi's 
 JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/ac79 python3 tools/build_fm1.py [--release 0.3]
 ```
 
-`build_fm1.py` builds Felucca's update loader and the app (the platform at `-Os`, the instrument and Beads at `-O2`), checks the image (entry point, no calls from RAM code into flash, no ROM references, no double-precision code, register access only in `hal/`, the RAM and pool budgets) and packages `build/fm1/Ravel-FM1.fwsc`. A release build's identity is `FM-1_82` and the version as two digits each (`0.4.1` is `FM-1_82000401`); a build without a version is `FM-1_82`. 82 ("R") is Ravel's own: no other firmware uses an identity starting with it. (0.4.0 and earlier were `FM-1_96…`.)
+`build_fm1.py` builds Felucca's update loader and the app (the platform at `-Os`, the instrument at `-O2`), checks the image (entry point, no calls from RAM code into flash, no ROM references, no double-precision code, register access only in `hal/`, the RAM and pool budgets) and packages `build/fm1/Ravel-FM1.fwsc`. A release build's identity is `FM-1_82` and the version as two digits each (`0.4.1` is `FM-1_82000401`); a build without a version is `FM-1_82`. 82 ("R") is Ravel's own: no other firmware uses an identity starting with it. (0.4.0 and earlier were `FM-1_96…`.)
 
 The site (what the Pages workflow publishes): `python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc VERSION`.
 
 Publishing: every push to `main` rebuilds the site (enable it once under Settings → Pages → Source: GitHub Actions); pushing a tag such as `v0.3` also makes a release with the firmware and the emulator.
-
-The Beads comparison:
-
-```
-cd tests/beads
-make fetch    # clones the original Beads and stmlib for the reference
-make test
-```
 
 ## The FM-1 build
 
 Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer that Felucca wrote and X0X carried on: no vendor SDK, no RTOS. A 10 kHz timer scans the keys, encoders and LEDs and runs USB; the codec's DMA interrupt asks Ravel for 512 frames at a time (two calls of 256), and the main loop draws the interface about 30 times a second.
 
 - **Flash:** the app is about 200 KB of the 568 KB app slot.
-- **RAM:** the platform uses about 45 KB of the 96 KB main RAM; the instrument's state (the 120 KB tape, voices, buses) about 280 KB of the 336 KB pool.
+- **RAM:** the platform uses about 45 KB of the 96 KB main RAM; the instrument's state (voices, buses; the 120 KB the tape used is free) about 280 KB of the 336 KB pool.
 - **Storage:** eight project slots of 32 KB in the flash's data area; the panel calibration beside them.
 - **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too. Ravel does not act on incoming MIDI yet.
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
-- **Not in this version:** Bluetooth, audio input, tape punch-in.
-- **Beads:** the capture tape keeps Beads' tape formats (16-bit, 12-bit, µ-law); the grains themselves are now the delay's GRAINS, Ravel's own lofi take.
+- **Not in this version:** Bluetooth, audio input.
 
 ## Ravel Software
 
@@ -1463,11 +1331,11 @@ The FM-1 has to fit everything into a small chip, so this firmware keeps only wh
 
 ## Licence
 
-GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and tools are Felucca's and X0X's (GPL-3.0). The Beads port keeps Mutable Instruments' MIT licence. A firmware package also contains three files of JieLi's AC79 SDK (Apache-2.0). The CZ engine is a port of MAME's uPD933 emulation (BSD-3-Clause). Third-party code is listed in `THIRD_PARTY.md`.
+GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and tools are Felucca's and X0X's (GPL-3.0). A firmware package also contains three files of JieLi's AC79 SDK (Apache-2.0). The CZ engine is a port of MAME's uPD933 emulation (BSD-3-Clause). Third-party code is listed in `THIRD_PARTY.md`.
 
 ## Credits
 
-- Mutable Instruments (Émilie Gillet) for Beads, whose tape formats the capture tape keeps and whose grains the delay's GRAINS follows (Ravel Software also follows Clouds' reverb in its CLOUDS mode).
+- Mutable Instruments (Émilie Gillet) for Beads, whose grains the delay's GRAINS follows (Ravel Software also follows Clouds' reverb in its CLOUDS mode).
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.

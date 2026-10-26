@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Ravel: the stress test (GLO > CPU). A project built to load the audio a step at a time, each step
- * adding to the last: voices of one engine, then strikes, a drum kit, sample voices, then each effect
+ * adding to the last: voices of one engine, then strikes, two drum kits, then each effect
  * (the delay, its grains and its tape wear, the space, the feedback and its processor, the BED).
  * Held notes and a busy pattern keep the load steady, so the CPU page's reading at each step is what
  * that step costs on this machine. The overload guard stays off while it runs, so the step where the
@@ -8,7 +8,7 @@
 
 static const char *const stress_names[RV_STRESS_N] = {
     "OFF", "IDLE", "1 VOICE", "2 VOICES", "4 VOICES", "8 VOICES", "+2 STRIKES", "+DRUM KIT",
-    "+3 SAMPLES", "+DELAY", "+GRAINS", "+TAPE WEAR", "+SPACE", "+FEEDBACK", "+FB PROCESS", "+BED",
+    "+2ND KIT", "+DELAY", "+GRAINS", "+TAPE WEAR", "+SPACE", "+FEEDBACK", "+FB PROCESS", "+BED",
     "+MASTER DRIVE"};
 
 const char *rv_stress_name(int step)
@@ -72,12 +72,14 @@ void rv_stress(int step, int engine)
         for (s = 0; s < 16; s += 2)
             stress_hit(4, s, s & 2 ? 67 : 60);
     }
-    /* T7: three sample voices across the keys, held */
+    /* T7: a second drum kit, the other lanes, a hit on every step */
     if (step >= 8) {
-        rv_track_defaults(6, KIND_TAPE, 0);
-        rv.tp[6][TP_S0] = TAPE_KEYS;
-        rv_track_src_defaults(6);
-        rv.tp[6][TP_SUS] = 127;
+        rv_track_defaults(6, KIND_PERC, 1);
+        rv.tp[6][TP_LEVEL] = 50;
+        for (s = 0; s < 16; s++) {
+            stress_hit(6, s, 0);
+            rv.pat[6][0].s[s].note = (uint8_t)(1u << (4 + (s & 1)));
+        }
     }
     /* the effects, one at a time: every track sends into each bus */
     for (t = 0; t < RV_TRACKS; t++) {

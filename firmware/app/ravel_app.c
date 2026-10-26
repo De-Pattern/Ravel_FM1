@@ -6,7 +6,6 @@
 #include "rv_strike.c"
 #include "rv_perc.c"
 #include "rv_mod.c"
-#include "rv_tape.c"
 #include "rv_bus.c"
 #include "rv_seq.c"
 #include "rv_engine.c"

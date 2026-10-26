@@ -211,11 +211,25 @@ static void fm1_input_scan(void)
 
 static void fm1__frame(void)
 {
-    uint32_t p, r, e;
+    uint32_t p, r, e, bmask = 0;
+    static uint32_t bmask_last;
+    static uint8_t enc_hush;
     for (p = 0; p < FM1_NCOL; p++)
         for (r = 1; r < 5u; r++)
-            if (FM1_KEYMAP[r][p] >= 0)
-                fm1__key((uint32_t)FM1_KEYMAP[r][p], (fm1_in.raw[p] >> r) & 1u);
+            if (FM1_KEYMAP[r][p] >= 0) {
+                uint32_t id = (uint32_t)FM1_KEYMAP[r][p], c = (fm1_in.raw[p] >> r) & 1u;
+                fm1__key(id, c);
+                if (id < 14u && c)
+                    bmask |= 1u << id;
+            }
+    /* Ravel: a button pressed or let go can show through the matrix as both of a knob's lines
+     * changing at once (no diodes), which the decoder took for a fast turn: the knob a page had on
+     * it stepped (LENGTH, after HOME or PLAY). For a few scans after any button changes, the
+     * knobs follow their lines without counting */
+    if (bmask != bmask_last) {
+        bmask_last = bmask;
+        enc_hush = 4;                              /* (about 4 ms) */
+    }
     for (e = 0; e < FM1_NENC; e++) {               /* quadrature decoder + detents */
         const uint8_t *m = FM1_ENC[e];
         uint32_t cur = ((fm1_in.raw[m[0]] >> m[1]) & 1u) << 1 | ((fm1_in.raw[m[2]] >> m[3]) & 1u);
@@ -255,6 +269,11 @@ static void fm1__frame(void)
         }
         if (cur == fm1_in.enc_prev[e])
             continue;
+        if (enc_hush) {                            /* (a button's ghost: follow, don't count) */
+            fm1_in.enc_prev[e] = (uint8_t)cur;
+            *sub = 0;
+            continue;
+        }
         idx = (uint32_t)fm1_in.enc_prev[e] << 2 | cur;
         if ((0x4182u >> idx) & 1u) {
             (*sub)++;
@@ -274,6 +293,8 @@ static void fm1__frame(void)
             *sub = 0;
         }
     }
+    if (enc_hush)
+        enc_hush--;
     fm1_in.frames++;
 }
 

@@ -42,7 +42,7 @@ static void click_at(uint32_t when, int down, int countin)
 
 
 /* ------------------------------------------------- graph mode and heads --- */
-static int is_kit(int t) { return (rv.tp[t][TP_KIND] == KIND_PERC || rv.tp[t][TP_KIND] == KIND_TAPE) && rv.tp[t][TP_ENGINE] == 1; }   /* a PERC or TAPE kit */
+static int is_kit(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }   /* a PERC kit */
 static int is_graph(int t) { return !is_kit(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH); }
 /* HEAD 2 picks the pair: OFF or NOTES (head 1 plays notes too), MELODY (head 2 sets the pitch,
  * head 1 plays it: ROLE_PITCH) or RHYTHM (head 2 plays head 1's pitches: ROLE_GATE). Head 1's role
@@ -414,7 +414,6 @@ static void step_fire(int t, int h, int si, uint32_t when)
                 trk[t].lockv[p] = (int16_t)(pi->min + s->lv[k]);
             }
         rv_live.step[t][0] = (int16_t)si;
-        tape_boundary(&trk[t], 1);
     } else {
         rv_live.step[t][1] = (int16_t)si;
     }
@@ -447,19 +446,15 @@ static void step_fire(int t, int h, int si, uint32_t when)
         e.note = s->cut;
         ev_push(&e);
     }
-    if ((s->flags & ST_JUMP) && role != ROLE_PITCH) {
-        e.type = EV_JUMP;
-        e.note = s->note;
-        ev_push(&e);
+    if (s->flags & ST_JUMP)                          /* (a tape jump, from before the tape left: nothing now) */
         return;
-    }
     {   /* the step's note, then its chord's (each through the transposition and the scale) */
     int ci, nch = 1 + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
     for (ci = 0; ci < 4; ci++) {
     if (ci && !s->chord[ci - 1])
         continue;
     note = s->note + (ci ? s->chord[ci - 1] : 0);
-    if (rv.tp[tt][TP_KIND] != KIND_TAPE || (rv.tp[tt][TP_S0] != TAPE_MLR && rv.tp[tt][TP_S0] != TAPE_SLICE)) {   /* (MLR and SLICE: the note is a place) */
+    {
         int ivl = clampi(rv.tp[t][TP_INTERVAL], 1, 12);
         if (is_graph(t))
             note += rv.tp[t][h ? TP_H2TRANS : TP_H1TRANS];
@@ -474,8 +469,6 @@ static void step_fire(int t, int h, int si, uint32_t when)
             note = sq[t].pitch_reg + (ci ? s->chord[ci - 1] : 0);
         } else if (ivl > 1 && ((note - rv.gp[GP_ROOT]) % ivl + ivl) % ivl)
             continue;                               /* INTERVAL: only notes a multiple of N semitones from the root */
-    } else if (role == ROLE_PITCH) {
-        return;
     }
     (void)nch;
     cnt = (s->ratchet & 7) + 1;
@@ -664,8 +657,6 @@ static void apply_pending(void)
                     for (b = 0; b < RV_TRACKS; b++)
                         rv.infl[a][b] = sc->infl[a][b];
             }
-            if (sc->resample)
-                resample_now();
         }
         rv.scene_cur = (uint8_t)(pend_scene & 15);
         pend_scene = -1;
@@ -729,10 +720,6 @@ static void seq_pulse(int off)
         seqtrk_t *s = &sq[t];
         static const float rates[9] = {0.25f, 0.3333f, 0.5f, 0.6667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
         float r = rates[clampi(rv.tp[t][TP_RATE], 0, 8)];
-        if ((mpulse & 3) == 0)
-            tape_boundary(&trk[t], 2);
-        if ((mpulse & 15) == 0)
-            tape_boundary(&trk[t], 3);
         if (!master_clocked(t))
             continue;
         {
@@ -865,9 +852,6 @@ static void seq_events(int n)
         case EV_OFF:
             note_off_internal(e.track, e.note);
             break;
-        case EV_JUMP:
-            tape_track_jump(&trk[e.track], e.note & 15, -1, 0);
-            break;
         case EV_CUT:
             cut_now(e.note, step_seconds(e.track));
             break;
@@ -919,15 +903,6 @@ static void infl_fire(int a, int note, int vel, uint16_t chain, uint32_t when)
             e.chain = (uint16_t)(chain | (1u << b));
             e.when = when + (uint32_t)((float)r->arg * step_seconds(a) * RV_FS);
             ev_push(&e);
-            rv_live.route_fire[a][b] = 255;
-            break;
-        case RT_TAPE:
-            if (r->arg >= 16) {
-                if (!rv_tape_frozen())
-                    catch_now();
-            } else {
-                tape_track_jump(&trk[b], r->arg, -1, 1);
-            }
             rv_live.route_fire[a][b] = 255;
             break;
         case RT_CLOCK:
@@ -1237,19 +1212,6 @@ static void motion_now(int pid, int v)
     pi = rv_pinfo_track(t, p);
     s->lp[slot] = (uint8_t)(p + 1);
     s->lv[slot] = (uint8_t)clampi(v - pi->min, 0, 255);
-}
-
-static void record_jump(int t, int pos)
-{
-    int micro, si;
-    rv_step *s;
-    if (!playing || !rv_live.recording || rv_live.rec_track != t)
-        return;
-    si = live_step_pos(t, &micro);
-    s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
-    s->flags = ST_ON | ST_JUMP;
-    s->note = (uint8_t)pos;
-    s->micro = (int8_t)micro;
 }
 
 static void seq_init(void)
