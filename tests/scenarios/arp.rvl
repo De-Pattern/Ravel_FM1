@@ -1,0 +1,47 @@
+# The arpeggiator: hold a chord on T1, ARP UP plays it a note at a time on the clock; letting go stops
+# it; LATCH keeps it until a new chord comes; OFF lets it go. A kit has no arp.
+wait 300
+tap ARP
+wait 150
+expect page ARP
+turn K1 1
+wait 100
+expect tp 1 ARP 1
+key 12 down
+key 16 down
+key 19 down
+wait 120
+expect arpn 1 3
+wait 1100
+expect arphits_min 1 6
+expect peak_db_min -40
+shot arp.png
+key 12 up
+key 16 up
+key 19 up
+wait 200
+expect arpn 1 0
+turn SELECT 1
+wait 100
+expect page ARP 2
+turn K1 1
+wait 100
+expect tp 1 LATCH 1
+key 12 down
+key 19 down
+wait 100
+key 12 up
+key 19 up
+wait 600
+expect arpn 1 2
+key 14 down
+wait 60
+key 14 up
+wait 300
+expect arpn 1 1
+turn SELECT -1
+wait 100
+turn K1 -8
+wait 120
+expect tp 1 ARP 0
+expect arpn 1 0

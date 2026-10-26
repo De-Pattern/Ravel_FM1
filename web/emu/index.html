@@ -205,7 +205,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
       <div>
         <h3>Sound</h3>
         <div class="row2">
-          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="3">Perc</option></select>
+          <select id="kind" aria-label="Kind"><option value="0">Synth</option><option value="1">Strike</option><option value="3">Perc</option><option value="4">Comp (T8)</option></select>
           <select id="engine" aria-label="Engine"></select>
         </div>
         <select id="preset" aria-label="Preset" style="margin-top:6px"></select>
@@ -316,15 +316,15 @@ const WASM_B64 = "__RAVEL_WASM__";
 const MANUAL_B64 = "__RAVEL_MANUAL__";          /* the manual page, from README.md (web/emu/bundle.py) */
 /* buttons in Ravel's order (plat.h) */
 const BTN = ["OCT-","OCT+","FX","SCL","ENV","LFO","EDIT","GLO","HOME","SAVE","ARP","SEQ","PLAY","REC"];
-const BTN_FN = {FX:"buses",SCL:"scale",ENV:"articulate",LFO:"mod",EDIT:"voice",GLO:"song",HOME:"tracks",SAVE:"save",ARP:"",SEQ:"steps",PLAY:"start",REC:"record"};
+const BTN_FN = {FX:"buses",SCL:"scale",ENV:"articulate",LFO:"mod",EDIT:"voice",GLO:"song",HOME:"tracks",SAVE:"save",ARP:"arpeggio",SEQ:"steps",PLAY:"start",REC:"record"};
 const ROW1 = ["FX","SCL","ENV","LFO","EDIT","GLO"], ROW2 = ["HOME","SAVE","ARP","SEQ","PLAY","REC"];
 const ENC = ["SELECT","ALGORITHM","KNOB 1","KNOB 2","KNOB 3","KNOB 4","PRESETS"];
 const ENC_FN = {SELECT:"page",ALGORITHM:"track",PRESETS:"sounds"};
 const NOTE = ["F","F#","G","G#","A","A#","B","C","C#","D","D#","E"];
 const WHITE = [0,2,4,6,7,9,11,12,14,16,18,19,21,23,24,26], BLACK = [1,3,5,8,10,13,15,17,20,22,25];
-const KIND_CLS = ["k-synth","k-strike","k-tape","k-perc"];
+const KIND_CLS = ["k-synth","k-strike","k-tape","k-perc","k-tape"];
 const ENGINES = ["VA","CZ","FM","PHYS","FORMANT","PARTICLE","CHIP","WAVE","LOGIC","ORGAN","MONO","RESIN","TINE"];
-const SEC = {HOME:0,VOICE:1,ARTIC:2,MOD:3,BUS:4,SCALE:5,SEQ:6,SONG:7,SAVE:8};
+const SEC = {HOME:0,VOICE:1,ARTIC:2,MOD:3,BUS:4,SCALE:5,ARP:6,SEQ:7,SONG:8,SAVE:9};
 const $ = id => document.getElementById(id);
 const later = (t0, fn) => { const left = 50 - (performance.now() - t0); if (left > 0) setTimeout(fn, left); else fn(); };
 
@@ -494,7 +494,7 @@ function fillEngines() {
   if (kind === 0) sel.value = rv.web_engine(t);
 }
 /* your sounds (the bank, SAVE › SOUNDS): every kind, labelled; one of another kind turns the track into it */
-const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", PERC: "Perc", KIT: "Kit" };
+const BANK_KIND = { SYNTH: "Synth", STRIKE: "Strike", PERC: "Perc", KIT: "Kit", COMP: "Comp" };
 /* banks A..D of 32; a sound is addressed as its place in all of them (A1 = 0, B1 = 32) and named like "B5" */
 const BN = () => rv.web_bank_n(), BANKS = () => rv.web_bank_banks();
 const slotName = g => "ABCD"[Math.floor(g / BN())] + (g % BN() + 1);
@@ -574,6 +574,7 @@ $("bclear").addEventListener("click", () => {
 function sideSync() {
   const t = rv.web_track();
   $("kind").value = rv.web_kind(t);
+  $("kind").querySelector('option[value="4"]').disabled = t !== 7;   /* COMP: T8 only */
   fillEngines(); fillPresets();
 }
 function tracksUi() {
@@ -619,7 +620,7 @@ $("panic").addEventListener("click", () => { if (!rv) return; rv.web_transport(0
 $("loaddemo").addEventListener("click", () => { rv.web_demo(+$("demo").value); sideSync(); });
 {
   const g = $("gotos");
-  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Steps",6,0],["Mod",3,0],["Buses",4,0],["Song",7,2],["Save",8,0]].forEach(([n, s, p]) => {
+  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Arp",6,0],["Steps",7,0],["Mod",3,0],["Buses",4,0],["Song",8,2],["Save",9,0]].forEach(([n, s, p]) => {
     const b = document.createElement("button"); b.className = "hbtn"; b.textContent = n;
     b.addEventListener("click", () => rv && rv.web_goto(s, p)); g.appendChild(b);
   });
@@ -664,7 +665,8 @@ const GUIDE = {
 <tr><td>LFO</td><td>Mod: matrix (a row can also move another row's amount), the LFOs and their shaping, dust, macros</td></tr>
 <tr><td>FX</td><td>Buses: delay, space, BED, feedback, master. Tap FX again for the next bus. Each bus page shows the current track's <b>SEND</b> into it.</td></tr>
 <tr><td>SCL</td><td>Scale, root, transpose and the track's note interval</td></tr>
-<tr><td>SEQ</td><td>Steps, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
+<tr><td>ARP</td><td>The arpeggiator: hold notes (or play steps) and it plays them one at a time on the clock</td></tr>
+<tr><td>SEQ</td><td>Steps, tempo, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
 <tr><td>GLO</td><td>Song: mixers, scenes, arrangement, density arcs, clock</td></tr>
 <tr><td>SAVE</td><td>Projects (name them with KNOB 2 and 3) and sound banks: choose an action with KNOB 1, press SAVE twice to do it. The <b>Projects &amp; sounds</b> panel moves them as a file or to an FM-1.</td></tr>
 <tr><td>PLAY · REC</td><td>Start/stop · arm recording on the track (keys and knob moves; with REC armed the keys play notes even on SEQ pages, hold SEQ for steps)</td></tr>
@@ -695,6 +697,21 @@ const GUIDE = {
 <tr><td>FEEDBACK</td><td>a delay loop with a process inside (filter, comb, smear, shift, fold, crush), returned to the master or into a track · BASE and WIDTH, a band filter in the loop</td></tr>
 <tr><td>MASTER</td><td>drive and the microcuts</td></tr></table>
 <p>Hold FX for punch-ins on the white keys: loop, reverse, stutter, delay freeze, low pass, high pass, throw (everything into delay and space), fill.</p>`,
+  "Arp": `<p><b>ARP</b> opens the arpeggiator of the current track. Turn <b>ARP</b> (KNOB 1) from OFF and the notes the track gets (keys you hold, its own steps, an influence's triggers) are held and played one at a time on the master clock, whether the transport runs or not.</p><table>
+<tr><td>ARP</td><td>UP, DOWN, UP-DN, DN-UP (turning at the ends), PLAYED (the order the keys came), RANDOM</td></tr>
+<tr><td>RATE</td><td>1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32 of the master clock</td></tr>
+<tr><td>OCTAVES</td><td>1–4: the notes again an octave up each time round</td></tr>
+<tr><td>GATE</td><td>how long each note holds, % of its step (100: each runs into the next, legato)</td></tr>
+<tr><td>LATCH</td><td>ARP 2: the notes stay after you let go, until a new chord</td></tr>
+<tr><td>REPEAT · CHANCE</td><td>each note 1–4 times · the chance a step plays</td></tr></table>
+<p>The picture shows the held notes and the pattern they make, the step it just played lit. A kit has no arp (its keys are lanes).</p>`,
+  "Comp": `<p><b>T8</b> can be the <b>COMP</b>: a glue compressor on the main mix, after the SSL G-series bus compressor. It is off until you choose it: HOME › TRACKS (or EDIT › SOUND) on T8, <b>KIND</b> = COMP. T8 then plays nothing itself; EDIT shows its two pages.</p><table>
+<tr><td>THRESH</td><td>−30 to 0 dB: where it starts to squeeze</td></tr>
+<tr><td>RATIO</td><td>2:1, 4:1, 10:1</td></tr>
+<tr><td>ATTACK</td><td>0.1, 0.3, 1, 3, 10, 30 ms</td></tr>
+<tr><td>RELEASE</td><td>0.1, 0.3, 0.6, 1.2 s, or AUTO (quick after a short peak, slow out of a long squeeze)</td></tr>
+<tr><td>MAKEUP · MIX</td><td>COMP 2: 0–15 dB back · below 100 %, the dry mix under it</td></tr></table>
+<p>The meter shows the gain reduction. KIND back to anything else switches it off.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
 <p>The page after STEPS is <b>TEMPO</b>: the master tempo and swing (the same values as GLO › CLOCK, so turning either moves both), with the track's LENGTH and RATE.</p>
 <p>TRACK sets the MODE (steps or graph), length, rate and the clock (master, LFOs, dust); DIRECTION plays forward, reverse, ping-pong or snake. PRESETS or the first two black keys switch patterns A and B.</p>`,
@@ -926,7 +943,7 @@ function slowUpdate() {
     b.lastChild.textContent = ["SYN","STK","TAP"][k];
     b.lastChild.className = KIND_CLS[k];
     c.classList.toggle("cur", i === t);
-    c.querySelector(".ts").textContent = ["Synth","Strike","",  "Perc"][k] + " · " + cstr(rv.web_sound_name(i));
+    c.querySelector(".ts").textContent = ["Synth","Strike","","Perc","Comp"][k] + " · " + cstr(rv.web_sound_name(i));
     c.querySelector(".tn span").className = KIND_CLS[k];
     c.querySelector(".mute").classList.toggle("on", !!(rv.web_mute() & (1 << i)));
     c.querySelector(".meter i").style.width = Math.min(100, Math.sqrt(rv.web_meter(i)) * 100) + "%";

@@ -212,7 +212,7 @@ typedef struct {
 } track_t;
 
 /* ---------------------------------------------------------- sequencer --- */
-enum { EV_ON, EV_OFF, EV_ADV, EV_JUMP, EV_CUT, EV_CATCH, EV_TRIG, EV_SPARK };
+enum { EV_ON, EV_OFF, EV_ADV, EV_ARP, EV_CUT, EV_AOFF, EV_TRIG, EV_SPARK };   /* EV_ARP, EV_AOFF: an arpeggiator's step, and its note's end */
 typedef struct {
     uint32_t when;                  /* sample clock */
     uint8_t type, track, note, vel;

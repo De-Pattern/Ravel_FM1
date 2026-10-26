@@ -6,7 +6,7 @@
 #include "rv_organ.h"
 
 /* ------------------------------------------------------------------ names --- */
-const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY"};
@@ -26,6 +26,12 @@ const char *const rv_lrate_names[] = {"X1/4", "X1/3", "X1/2", "X2/3", "TRK", "X3
 static const char *const clksrc_names[] = {"MASTER", "LFO1", "LFO2", "DUST"};
 static const char *const branch_names[] = {"CHANCE", "TURNS", "LFO1", "LFO2", "MOTION"};
 static const char *const onoff_names[] = {"OFF", "ON"};
+static const char *const arpmode_names[] = {"OFF", "UP", "DOWN", "UP-DN", "DN-UP", "PLAYED", "RANDOM"};
+static const char *const arprate_names[] = {"1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"};
+/* COMP: the stepped settings of an SSL G-series bus compressor */
+static const char *const cratio_names[] = {"2:1", "4:1", "10:1"};
+static const char *const catk_names[] = {"0.1MS", "0.3MS", "1MS", "3MS", "10MS", "30MS"};
+static const char *const crel_names[] = {"0.1S", "0.3S", "0.6S", "1.2S", "AUTO"};
 static const char *const clkmode_names[] = {"STEADY", "RATE", "SHAPE", "PHASE", "SUM", "AND", "OR", "XOR"};
 static const char *const lock_names[] = {"LOCKED", "FREE"};
 static const char *const lfo_names[] = {"SINE", "TRI", "RAMP", "SAW", "SQUARE", "S&H", "DRIFT"};
@@ -339,6 +345,13 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_GRAIN] = {"GRAIN", 0, 127, 0, PF_NUM, 0},     /* each hit a little different: pitch, length, how hard and bright */
     [TP_SEAMT] = {"SE DEPTH", -64, 63, 0, PF_BI, 0},
     [TP_SEDEF] = {"SE NOTE", 0, RV_SENV, 0, PF_ENUM, senv_names},  /* what every note starts when its step names none */
+    [TP_ARPMODE] = {"ARP", 0, ARP_N - 1, ARP_OFF, E(arpmode_names)},
+    [TP_ARPRATE] = {"RATE", 0, N(arprate_names), 3, E(arprate_names)},
+    [TP_ARPOCT] = {"OCTAVES", 1, 4, 1, PF_NUM, 0},
+    [TP_ARPGATE] = {"GATE", 5, 100, 50, PF_NUM, 0},      /* % of its step; 100: each note runs into the next (legato) */
+    [TP_ARPLATCH] = {"LATCH", 0, 1, 0, PF_ONOFF, 0},       /* the notes stay when the keys let go, until new ones come */
+    [TP_ARPREP] = {"REPEAT", 1, 4, 1, PF_NUM, 0},          /* each note this many times */
+    [TP_ARPCHNC] = {"CHANCE", 0, 100, 100, PF_NUM, 0},     /* % that a step plays (else a rest) */
 };
 
 static const rv_pinfo GLOBAL[GP_N] = {
@@ -436,6 +449,16 @@ static const rv_pinfo GLOBAL[GP_N] = {
 
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
 
+/* COMP (T8): a glue compressor on the main mix, after the SSL G-series bus compressor */
+static const rv_pinfo SRC_COMP[16] = {
+    {"THRESH", -30, 0, -10, PF_BI, 0},               /* dB */
+    {"RATIO", 0, 2, 0, E(cratio_names)},
+    {"ATTACK", 0, 5, 4, E(catk_names)},
+    {"RELEASE", 0, 4, 4, E(crel_names)},
+    {"MAKEUP", 0, 15, 0, PF_NUM, 0},                 /* dB */
+    {"MIX", 0, 100, 100, PF_NUM, 0},                 /* %: below 100, the dry mix under it (parallel) */
+};
+
 const rv_pinfo *rv_pinfo_track(int t, int p)
 {
     if (p >= TP_S0 && p <= TP_S15) {
@@ -447,7 +470,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
                 return &NONE;
             return q->name ? q : &NONE;
         }
-        tab = kind == KIND_STRIKE ? SRC_STRIKE : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
+        tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_COMP ? SRC_COMP : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
         if (tab == SRC_RESIN && rv.tp[t & 7][TP_S0] == 1)
             tab = SRC_RESIN_HORN;                     /* the reed: its own names */
         if (tab == SRC_TINE && rv.tp[t & 7][TP_S0] >= 1)
@@ -640,6 +663,10 @@ int rv_tp_applies(int t, int p)
     const int16_t *tp = rv.tp[t];
     if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
+    if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
+        return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
+    if (p >= TP_ARPMODE && p <= TP_ARPCHNC)                            /* ARP: note tracks (a kit's lanes are not notes) */
+        return !(tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1) && (p == TP_ARPMODE || tp[TP_ARPMODE] != ARP_OFF);
     if (p == TP_GRAIN)                                                 /* hits: strike and perc tracks */
         return tp[TP_KIND] == KIND_STRIKE || tp[TP_KIND] == KIND_PERC;
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_SEDST || p == TP_SEAMT || p == TP_SEDEF))
@@ -1034,4 +1061,43 @@ void rv_senv_factory(void)
             senv_set_crv(e, k, f[i].c[k]);
         }
     }
+}
+
+/* ARP: the pattern its held notes make. UP and DOWN go by pitch, PLAYED as the keys came; each
+ * octave above the first repeats them 12 higher; UP-DN and DN-UP turn at the ends without playing
+ * the end twice. RANDOM has no pattern (the engine picks). */
+int rv_arp_len(int n, int mode, int oct)
+{
+    int l = n * (oct < 1 ? 1 : oct > 4 ? 4 : oct);
+    if (n <= 0)
+        return 0;
+    return (mode == ARP_UPDN || mode == ARP_DNUP) && l > 1 ? 2 * l - 2 : l;
+}
+int rv_arp_note(const uint8_t *played, int n, int mode, int oct, int k)
+{
+    uint8_t srt[RV_ARP_HELD];
+    int i, j, l, len, idx;
+    if (n <= 0 || mode == ARP_RANDOM)
+        return -1;
+    if (n > RV_ARP_HELD)
+        n = RV_ARP_HELD;
+    oct = oct < 1 ? 1 : oct > 4 ? 4 : oct;
+    for (i = 0; i < n; i++)
+        srt[i] = played[i];
+    if (mode != ARP_PLAYED)
+        for (i = 1; i < n; i++)                   /* (insertion sort: at most eight) */
+            for (j = i; j > 0 && srt[j - 1] > srt[j]; j--) {
+                uint8_t x = srt[j];
+                srt[j] = srt[j - 1];
+                srt[j - 1] = x;
+            }
+    l = n * oct;
+    len = rv_arp_len(n, mode, oct);
+    k %= len;
+    if (k < 0)
+        k += len;
+    idx = k < l ? k : 2 * l - 2 - k;              /* the way back */
+    if (mode == ARP_DOWN || mode == ARP_DNUP)
+        idx = l - 1 - idx;
+    return srt[idx % n] + 12 * (idx / n);
 }

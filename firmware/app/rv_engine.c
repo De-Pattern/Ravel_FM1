@@ -331,6 +331,13 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     track_t *tr = &trk[t];
     int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;
     float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
+    if (kind == KIND_COMP)                          /* COMP plays no notes */
+        return;
+    if (!arp_out && !spark && vel > 0 && arp_on(t)) {   /* ARP: the arpeggiator holds it and plays it in its turn */
+        arp_key(t, note, vel, 1);
+        hs_clear(&hs_pend);
+        return;
+    }
     spark_pend = 0;
     if (vel > 0 && !spark && guard_wants(t))     /* (only a note that takes a voice of its own) */
         guard_note();
@@ -512,6 +519,10 @@ static void note_off_internal(int t, int note)
 {
     int i;
     int kind = rv.tp[t][TP_KIND];
+    if (!arp_out && arp_on(t) && arp_holds(t, note)) {
+        arp_key(t, note, 0, 0);
+        return;
+    }
     if (kind == KIND_SYNTH) {
         for (i = 0; i < RV_SYNTH_VOICES; i++)
             if (vs[i].on && vs[i].track == t && vs[i].note == note && vs[i].a.gate) {
@@ -561,10 +572,12 @@ static void cmd_drain(void)
                 note_off_internal(c.a & 7, c.b);
             break;
         case C_LIVE:
+            arp_live_in = 1;
             if (c.c > 0)
                 note_on_internal(c.a & 7, c.b, c.c, 0, (uint16_t)(1u << (c.a & 7)));
             else
                 note_off_internal(c.a & 7, c.b);
+            arp_live_in = 0;
             record_note(c.a & 7, c.b, c.c);
             break;
         case C_TRANSPORT:
@@ -607,6 +620,7 @@ static void cmd_drain(void)
             break;
         case C_ALLOFF:
             all_off_now();
+            arp_reset();
             break;
         default:
             break;
@@ -1272,6 +1286,76 @@ RV_HOT static void master_tail(float *outl, float *outr, int n)
     }
 }
 
+
+/* ------------------------------------------------- COMP: the bus compressor --- */
+/* T8 as COMP: a glue compressor on the main mix (the tracks and the buses' returns, before the
+ * master's drive), after the SSL G-series bus compressor: stereo-linked, feed-forward, a hard knee,
+ * its stepped ratios, attacks and releases; AUTO releases in two stages (quickly after a short peak,
+ * slowly out of a held squeeze). Cheap: the level is the peak of each 16 frames, the gain is worked
+ * out in dB once per 16 and swept across them, a multiply a sample per side */
+#define COMP_SUB 16
+typedef struct { float thr, slope, aa, ar, aas, ars, mk, mix; int autor; } comp_cfg_t;
+static float comp_gr, comp_grs, comp_g = 1.0f, comp_db = -120.0f;   /* reduction (dB: fast, AUTO's slow), the gain now */
+
+RV_HOT static void comp_run(float *l, float *r, int n, const comp_cfg_t *c)
+{
+    int i, j;
+    for (i = 0; i < n; i += COMP_SUB) {
+        float pk = 0.0f, db, tgt, gr, g1, dg;
+        int m = n - i < COMP_SUB ? n - i : COMP_SUB;
+        for (j = 0; j < m; j++)
+            pk = fm_maxf(pk, fm_maxf(fm_fabsf(l[i + j]), fm_fabsf(r[i + j])));
+        db = 6.0206f * fm_log2f(pk + 1e-6f);
+        tgt = db > c->thr ? (db - c->thr) * c->slope : 0.0f;
+        comp_gr += (tgt - comp_gr) * (tgt > comp_gr ? c->aa : c->ar);
+        gr = comp_gr;
+        if (c->autor) {
+            comp_grs += (tgt - comp_grs) * (tgt > comp_grs ? c->aas : c->ars);
+            gr = fm_maxf(gr, comp_grs);
+        }
+        g1 = fm_exp2f((c->mk - gr) * 0.16609640f);   /* (dB to a gain: 2^(dB / 6.02)) */
+        g1 = 1.0f - c->mix + c->mix * g1;
+        dg = (g1 - comp_g) / (float)m;
+        for (j = 0; j < m; j++) {
+            comp_g += dg;
+            l[i + j] *= comp_g;
+            r[i + j] *= comp_g;
+        }
+        comp_db = db;
+    }
+}
+
+static void comp_tick(float *l, float *r, int n)
+{
+    static const float ratio_slope[3] = {0.5f, 0.75f, 0.9f};
+    static const float atk_s[6] = {0.0001f, 0.0003f, 0.001f, 0.003f, 0.01f, 0.03f};
+    static const float rel_s[5] = {0.1f, 0.3f, 0.6f, 1.2f, 0.12f};   /* (AUTO: its fast stage) */
+    const float *ef = trk[7].eff;
+    comp_cfg_t c;
+    int rel;
+    if (rv.tp[7][TP_KIND] != KIND_COMP) {
+        comp_gr = comp_grs = 0.0f;
+        comp_g = 1.0f;
+        rv_live.comp_gr = 0.0f;
+        return;
+    }
+    rel = clampi((int)(ef[TP_S3] + 0.5f), 0, 4);
+    c.thr = clampf(ef[TP_S0], -30.0f, 0.0f);
+    c.slope = ratio_slope[clampi((int)(ef[TP_S1] + 0.5f), 0, 2)];
+    c.aa = 1.0f - fm_expf(-(float)COMP_SUB / (atk_s[clampi((int)(ef[TP_S2] + 0.5f), 0, 5)] * RV_FS));
+    c.ar = 1.0f - fm_expf(-(float)COMP_SUB / (rel_s[rel] * RV_FS));
+    c.autor = rel == 4;
+    c.aas = 1.0f - fm_expf(-(float)COMP_SUB / (0.6f * RV_FS));
+    c.ars = 1.0f - fm_expf(-(float)COMP_SUB / (1.5f * RV_FS));
+    if (!c.autor)
+        comp_grs = 0.0f;
+    c.mk = clampf(ef[TP_S4], 0.0f, 15.0f);
+    c.mix = clampf(ef[TP_S5], 0.0f, 100.0f) * 0.01f;
+    RV_FAR(comp_run)(l, r, n, &c);
+    rv_live.comp_gr = fm_maxf(comp_gr, comp_grs);
+    rv_live.comp_in = comp_db;
+}
+
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
@@ -1290,8 +1374,11 @@ static void render_sub(float *outl, float *outr, int n)
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
     np = clock_tick(n, offs, 8);
-    for (i = 0; i < np; i++)
+    arp_control();
+    for (i = 0; i < np; i++) {
         seq_pulse(offs[i]);
+        arp_pulse(offs[i]);
+    }
     seq_other_clocks();
     seq_events(n);
     glide_tick(n);
@@ -1621,6 +1708,7 @@ static void render_sub(float *outl, float *outr, int n)
         }
     }
 
+    comp_tick(outl, outr, n);                       /* COMP (T8): the glue on the mix */
     /* master: drive, microcuts, punch filters, a gentle limiter */
     {
         float md = geff[GP_MDRIVE] * (1.0f / 127.0f), pre = 1.0f + md * 3.0f;

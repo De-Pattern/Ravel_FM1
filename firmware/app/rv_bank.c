@@ -55,8 +55,8 @@ static int bank_sound_param(int p)
     case TP_LEN: case TP_RATE: case TP_DIR: case TP_INTERVAL: case TP_CLKSRC: case TP_BRANCH:
     case TP_H2ROLE: case TP_H2RATE: case TP_H2START: case TP_SEQMODE:
         return 0;
-    default:
-        return !(p >= TP_H1ROLE && p <= TP_H2TRANS);
+    default:                                       /* (the arpeggiator is the track's, as its steps are) */
+        return !(p >= TP_H1ROLE && p <= TP_H2TRANS) && !(p >= TP_ARPMODE && p <= TP_ARPCHNC);
     }
 }
 
@@ -215,12 +215,12 @@ int rv_bank_is_kit(int i) { return rv_bank_used(i) && bank_is_kit(bank.s[i].kind
 /* a sound's kind, for lists: SYNTH, STRIKE, TAPE, PERC or KIT */
 const char *rv_bank_kind_label(int i)
 {
-    static const char *const k[4] = {"SYNTH", "STRIKE", "TAPE", "PERC"};
+    static const char *const k[KIND_N] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP"};
     if (!rv_bank_used(i))
         return "";
     if (rv_bank_is_kit(i))
         return "KIT";
-    return k[bank.s[i].kind & 3];
+    return k[bank.s[i].kind % KIND_N];
 }
 
 /* keep track t's sound in slot i, named name (0: a name from the track's sound) */
@@ -259,6 +259,8 @@ int rv_bank_apply(int t, int i)
         return -1;
     s = &bank.s[i];
     if (s->kind == KIND_TAPE)                        /* (a tape sound, saved before the tape left: nothing to load) */
+        return -1;
+    if (s->kind == KIND_COMP && (t & 7) != 7)        /* the compressor lives on T8 */
         return -1;
     rv_all_off();
     for (p = 0; p < TP_N; p++)

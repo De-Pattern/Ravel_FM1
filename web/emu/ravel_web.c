@@ -149,7 +149,10 @@ EXPORT(web_page_title) const char *web_page_title(void) { return ui_page_title()
 EXPORT(web_kind) int web_kind(int t) { return rv.tp[t & 7][TP_KIND]; }
 EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
 EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
-EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }
+EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_TAPE || (kind == KIND_COMP && (t & 7) != 7)) return; if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }   /* (COMP: T8 only) */
+EXPORT(web_comp_gr) float web_comp_gr(void) { return rv_live.comp_gr; }
+EXPORT(web_arp_n) int web_arp_n(int t) { return rv_live.arp_n[t & 7]; }
+EXPORT(web_arp_hits) int web_arp_hits(int t) { return rv_live.arp_hit[t & 7]; }
 EXPORT(web_meter) float web_meter(int t) { return rv_live.meter[t & 7]; }
 EXPORT(web_fenv) float web_fenv(int t) { return rv_live.fenv[t & 7]; }   /* the FILTER ENV of the newest voice */
 float rv_senv_level(int t, int *env);

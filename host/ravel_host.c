@@ -381,6 +381,27 @@ int main(int argc, char **argv)
             } else if (!strcmp(b, "voices")) {               /* synth and strike voices sounding */
                 got = rv_live.voices_synth + rv_live.voices_strike;
                 want = atoi(w1);
+            } else if (!strcmp(b, "arpn")) {                 /* notes track T's (1..8) arpeggiator holds */
+                got = rv_live.arp_n[(atoi(w1) - 1) & 7];
+                want = atoi(w2);
+            } else if (!strcmp(b, "arphits_min")) {          /* notes it has played (mod 256), at least */
+                if (rv_live.arp_hit[(atoi(w1) - 1) & 7] < atoi(w2)) {
+                    printf("FAIL line %d: arp played %d, expected at least %s\n", lineno, rv_live.arp_hit[(atoi(w1) - 1) & 7], w2);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "comp_gr_min")) {          /* COMP: reduction now, dB, at least */
+                if (rv_live.comp_gr < atof(c)) {
+                    printf("FAIL line %d: COMP reduces %.1f dB, expected at least %s\n", lineno, rv_live.comp_gr, c);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "comp_gr_max")) {
+                if (rv_live.comp_gr > atof(c)) {
+                    printf("FAIL line %d: COMP reduces %.1f dB, expected at most %s\n", lineno, rv_live.comp_gr, c);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "peak_db_min")) {
                 float db = 20.0f * log10f(peak_out + 1e-9f);
                 if (db < atof(c)) {

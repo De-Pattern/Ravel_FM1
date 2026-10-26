@@ -24,6 +24,8 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
+- **Arpeggiator** on any note track (ARP): up, down, up-down, down-up, as played or random, 1/4 to 1/32 of the clock, over up to four octaves, with gate, latch, repeats and chance; it plays held keys, the track's own steps and influence triggers alike.
+- **COMP** (T8, off until you choose it): a glue compressor on the main mix after the SSL G-series bus compressor, with its stepped ratios, attacks and releases (and AUTO), threshold, makeup and a dry mix.
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
@@ -47,14 +49,15 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 8. [LFO: modulation and macros](#8-lfo-modulation-and-macros)
 9. [FX: the buses](#9-fx-the-buses)
 10. [SCL: scale](#10-scl-scale)
-11. [SEQ: steps and the graph](#11-seq-steps-and-the-graph)
-12. [GLO: song, scenes and clock](#12-glo-song-scenes-and-clock)
-13. [SAVE: projects and sounds](#13-save-projects-and-sounds)
-14. [Hold layers (every button held)](#14-hold-layers)
-15. [Recording](#15-recording)
-16. [Recipes, step by step](#16-recipes-step-by-step)
-17. [Quick reference](#17-quick-reference)
-18. [Questions people ask](#18-questions-people-ask)
+11. [ARP: the arpeggiator](#11-arp-the-arpeggiator)
+12. [SEQ: steps and the graph](#12-seq-steps-and-the-graph)
+13. [GLO: song, scenes and clock](#13-glo-song-scenes-and-clock)
+14. [SAVE: projects and sounds](#14-save-projects-and-sounds)
+15. [Hold layers (every button held)](#15-hold-layers)
+16. [Recording](#16-recording)
+17. [Recipes, step by step](#17-recipes-step-by-step)
+18. [Quick reference](#18-quick-reference)
+19. [Questions people ask](#19-questions-people-ask)
 
 **On the FM-1:** [Installing](#installing-on-the-fm-1) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
 
@@ -136,12 +139,12 @@ The section buttons:
 | **LFO** | Mod | Mod matrix, the two LFOs, dust, macros |
 | **FX** | Buses | Delay, space, BED, feedback, master |
 | **SCL** | Scale | Root, scale, transpose, interval |
-| **ARP** | – | Not used (it was the tape's; the tape is gone) |
+| **ARP** | Arp | The current track's arpeggiator: mode, rate, octaves, gate; latch, repeat, chance |
 | **SEQ** | Steps | Steps, tempo, step timing and shape, track settings, direction, graph and playheads |
 | **GLO** | Song | Mixers, scenes, arrangement, density arcs, clock |
 | **SAVE** | Projects and sounds | Save, load, demos, new project; your own sound bank |
 
-> **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#14-hold-layers).
+> **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#15-hold-layers).
 
 ### Reading the screen
 
@@ -184,19 +187,20 @@ So if a page seems to be "skipped", it is hidden because it does not apply to th
 
 <p align="center"><img src="docs/signal-flow.svg" alt="Signal flow" width="760"></p>
 
-Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND):
+Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND); T8 can also be the COMP, the mix's compressor:
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
 | **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
+| **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
 
 How the sound flows:
 
 1. **Each track** makes sound. On synth, strike and perc tracks the sound goes: source → filter → skin (drive, fold, bits) → insert effect → articulation (the amplitude envelope) → level and pan.
 2. **The mixer** adds the tracks together. Each track also **sends** some of its sound to the three **buses** (delay or grains, space, feedback), and the buses return into the mix.
-3. **The master** applies drive and microcuts, then a safety limiter, then goes to the output.
+3. **The COMP** (when T8 is one) squeezes the mix. **The master** applies drive and microcuts, then a safety limiter, then goes to the output.
 4. **Influence** connects tracks to each other. One track's notes or audio can trigger, modulate, excite, ring or clock another (HOME › INFLUENCE).
 5. **The sequencer** plays every track from its own pattern. The **modulation** (LFOs, dust, matrix, macros) moves parameters over time. **Scenes** and the **arrangement** switch patterns and states.
 
@@ -219,10 +223,25 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or PERC. **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP). **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
+
+### T8 as COMP: the bus compressor
+
+<p align="center"><img src="docs/manual/comp.png" alt="COMP: the gain reduction and the curve" width="320"></p>
+
+T8 can be a glue compressor for the whole mix, after the SSL G-series bus compressor. It is off by default (T8 is a drum). To turn it on, choose T8 with ALGORITHM, and on HOME › TRACKS (or EDIT › SOUND) turn **KIND** to **COMP**. T8 then plays nothing itself: EDIT shows the compressor's two pages, and it squeezes the mix (the tracks and the buses' returns) before the master's drive and limiter. To turn it off, turn KIND back (it is also KNOB 3 on COMP 2).
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **COMP** | THRESH: −30 to 0 dB | RATIO: 2:1, 4:1, 10:1 | ATTACK: 0.1, 0.3, 1, 3, 10, 30 ms | RELEASE: 0.1, 0.3, 0.6, 1.2 s, or AUTO |
+| **COMP 2** | MAKEUP: 0–15 dB | MIX: 0–100 % (below 100, the dry mix under it: parallel compression) | KIND | – |
+
+The meter falls from the top as it squeezes (0 to 20 dB of gain reduction); beside it, the curve it squeezes by, with the mix's level now as a dot. **AUTO** releases in two stages, as the SSL's does: quickly after a short peak, slowly out of a long squeeze. For glue, start at 2:1 or 4:1, ATTACK 10 or 30 ms, RELEASE AUTO, and lower THRESH until the meter moves 2 to 4 dB on the loudest hits. It costs almost nothing: the level is read once per 16 samples.
+
+The matrix and macros can move its knobs like any track's (THRESH on an LFO pumps). A scene or a sound loaded onto T8 can change its kind like any track's.
 
 ### INFLUENCE
 
@@ -801,7 +820,24 @@ The effects last while the key is held. Letting go of FX releases them all.
 - **INTERVAL** (per track): a track with interval N only plays notes that are a multiple of N semitones from the root; other notes are skipped. INTERVAL 1 plays everything, 12 only the roots, 7 the root and the notes a fifth apart (stacked fifths: the fifth, the ninth…), 2 every other semitone. Give two tracks the same notes with different intervals and they split them between them.
 - **Set the root from the keys:** hold **SCL** and press a key.
 
-## 11. SEQ: steps and the graph
+## 11. ARP: the arpeggiator
+
+<p align="center"><img src="docs/manual/arp.png" alt="ARP: the held notes and the pattern they make" width="320"></p>
+
+**ARP** opens the arpeggiator of the current track. Each track has its own, off until you turn **ARP** (KNOB 1) away from OFF. Then every note the track gets (the keys you hold, its own steps, an influence's TRIG) is held instead of played, and the arpeggiator plays the held notes one at a time on the master clock, whether the transport runs or not. Let go of the keys and it stops.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **ARP** | ARP: OFF, UP, DOWN, UP-DN, DN-UP (both turn at the ends without playing the end twice), PLAYED (the order the keys came), RANDOM | RATE: 1/4 (a beat), 1/8, 1/8T (triplets), 1/16 (a step), 1/16T, 1/32 | OCTAVES: 1–4, the notes again an octave up each round | GATE: 5–100 % of its step (100: each note runs into the next, legato, so a mono synth with GLIDE slides) |
+| **ARP 2** | LATCH: the notes stay after the keys let go, until you play a new chord | REPEAT: each note 1–4 times | CHANCE: 0–100 % that a step plays (else a rest) | – |
+
+The picture shows the notes it holds, in the order they came, and one round of the pattern they make: a column a step, as high as its note, the step it just played lit.
+
+- **With the sequencer:** a step's chord (X2 to X4) or overlapping notes arpeggiate for as long as they last; when the transport starts, the arpeggiator lines up with the bar.
+- **Recording:** with REC armed, what you play is recorded as you play it (the chord, not the arpeggio), so the arpeggio comes back the same on playback.
+- A **kit** has no arpeggiator (its keys are lanes); a single PERC drum does.
+
+## 12. SEQ: steps and the graph
 
 Every track has its own sequencer, with **two patterns (A and B)** of up to **64 steps**.
 
@@ -932,7 +968,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
   - **+ CLOCK** adds to the clock's rate (from slowing to a near halt up to racing).
 - The MOTION picture draws the shape, where the head is on it, and its current speed in steps per pulse.
 
-## 12. GLO: song, scenes and clock
+## 13. GLO: song, scenes and clock
 
 <p align="center"><img src="docs/manual/song-mixer.png" alt="MIXER" width="240"> <img src="docs/manual/song-scenes.png" alt="SCENES" width="240"> <img src="docs/manual/song-arrange.png" alt="ARRANGE" width="240"></p>
 
@@ -971,7 +1007,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | 5 | 8 voices | 13 | the FEEDBACK bus |
 | 6 | 2 strike voices, hit on every other step | 14 | the feedback's PROCESS (a frequency shift) and its band |
 | 7 | a drum kit, a hit on every step | 15 | the BED, with SHIMMER and a send to the space |
-| 8 | 3 sample voices, held | 16 | MASTER DRIVE |
+| 8 | a second drum kit, a hit on every step | 16 | MASTER DRIVE |
 
 Each step is measured from its first second to its third; the table shows the RENDER % for each step (and the second core's after a /, when it works), red with a ! where XRUNS started. Each effect step's rise over the one before is what that effect costs. AUTO RUN walks all sixteen in under a minute and leaves the table on screen: a photo of it says exactly what this FM-1 can do. Change ENGINE to compare engines (STEP 5 is 8 voices of it). Turn STEP to OFF to stop. Loading any project or demo ends the test.
 
@@ -1015,7 +1051,7 @@ Without an END row the song loops back to row 1. Give the last row the scene END
 - **Tap tempo:** hold **GLO** and tap black key **1**.
 - **Mute and solo:** hold **GLO** and press white keys **1–8** to mute tracks 1–8, or **9–16** to solo tracks 1–8.
 
-## 13. SAVE: projects and sounds
+## 14. SAVE: projects and sounds
 
 SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sound at a time). Turn **SELECT** to go from one to the other.
 
@@ -1092,7 +1128,7 @@ Everything you have saved, the projects in slots 1–7 and the sound banks A–D
 
 Each project and bank goes to the same slot it came from (project 3 to project 3, bank B to bank B) and replaces what was there; slots not in the file are left as they are. Every piece is checked as it arrives (a CRC over the whole slot), and a slot only becomes valid on the FM-1 once all of it has arrived intact; the screen says RECEIVED PROJECT 3 or RECEIVED BANK B as each one lands. Load a project afterwards with SAVE › PROJECT › LOAD.
 
-## 14. Hold layers
+## 15. Hold layers
 
 Hold a button (in the emulator: right-click or shift-click to latch it) and the keys or knobs do something else. The footer always shows the layer's hint.
 
@@ -1108,7 +1144,7 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 
 <p align="center"><img src="docs/manual/hold-seq.png" alt="SEQ held: steps on any page" width="240"> <img src="docs/manual/hold-fx.png" alt="FX held: the punch-ins" width="240"></p>
 
-## 15. Recording
+## 16. Recording
 
 1. Choose the track with **ALGORITHM**.
 2. **Tap REC.** "RECORDING ARMED" flashes and a red dot appears in the footer.
@@ -1124,7 +1160,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 
 **Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth or strike track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
 
-## 16. Recipes, step by step
+## 17. Recipes, step by step
 
 **Make a first sound**
 
@@ -1178,7 +1214,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 3. Name it with **KNOB 2** (position) and **KNOB 3** (letter).
 4. ALGORITHM to another track, **KNOB 1** = LOAD, press **SAVE**. The track becomes the sound's kind if it wasn't already.
 
-## 17. Quick reference
+## 18. Quick reference
 
 | I want to… | Press / turn |
 | --- | --- |
@@ -1193,6 +1229,8 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Mute / solo | Hold GLO + white 1–8 / 9–16 |
 | Tap tempo | Hold GLO + black 1 |
 | Change the tempo | SEQ › TEMPO (or GLO › CLOCK), KNOB 1 |
+| Arpeggiate a chord | ARP, KNOB 1 to UP (or another mode), hold the keys |
+| Glue the whole mix | T8: HOME › TRACKS, KIND = COMP; EDIT › COMP |
 | Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
@@ -1220,7 +1258,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | Grains in the delay | FX › GRAINS: GRAINS up |
 | A crunchier reverb | FX › SPACE 2: CRUNCH up (fewer bits) |
 
-## 18. Questions people ask
+## 19. Questions people ask
 
 **A page I saw before is gone.**
 

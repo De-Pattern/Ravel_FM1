@@ -23,9 +23,9 @@ float rv_time_s(int v);
 float rv_cut_hz(float v);
 
 /* ---------------------------------------------------------- sections --- */
-enum { SEC_HOME, SEC_VOICE, SEC_ARTIC, SEC_MOD, SEC_BUS, SEC_SCALE, SEC_SEQ, SEC_SONG, SEC_SAVE, NSEC };
-static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MOD", "BUSES", "SCALE", "SEQ", "SONG", "SAVE"};
-static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_SEQ, B_GLO, B_SAVE};   /* (ARP: free since the tape left) */
+enum { SEC_HOME, SEC_VOICE, SEC_ARTIC, SEC_MOD, SEC_BUS, SEC_SCALE, SEC_ARP, SEC_SEQ, SEC_SONG, SEC_SAVE, NSEC };
+static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MOD", "BUSES", "SCALE", "ARP", "SEQ", "SONG", "SAVE"};
+static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
 enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS };   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
@@ -44,10 +44,10 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK };
@@ -74,6 +74,9 @@ static const page_t pages[] = {
     {SEC_HOME, V_ALL, PIC_INFL, PR_ROUTE, "INFLUENCE", {RF(RF_TYPE), RF(RF_AMT), RF(RF_ARG), RF(RF_CHANCE)}},
 
     {SEC_VOICE, V_ALL, PIC_SOURCE, PR_SOUND, "SOUND", {TP(TP_KIND), TP(TP_ENGINE), TP(TP_POLY), TP(TP_VELO)}},
+    /* COMP (T8): the bus compressor on the main mix; a COMP track shows these and nothing else of a voice */
+    {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
+    {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP 2", {TP(TP_S4), TP(TP_S5), TP(TP_KIND), NO}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
@@ -138,6 +141,11 @@ static const page_t pages[] = {
 
     {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_INTERVAL)}},
 
+    /* ARP: the held notes, one at a time on the clock */
+    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP", {TP(TP_ARPMODE), TP(TP_ARPRATE), TP(TP_ARPOCT), TP(TP_ARPGATE)}},
+    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP 2", {TP(TP_ARPLATCH), TP(TP_ARPREP), TP(TP_ARPCHNC), NO}},
+
+    {SEC_SEQ, V_COMP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), NO, NO}},   /* (a COMP track has no steps) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
@@ -417,6 +425,10 @@ static int page_visible(int i)
     if ((pages[i].sec == SEC_ARTIC || pages[i].pic == PIC_FILTER) && page_all_dead(i, t))
         return 0;
     if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
+        return 0;
+    if (kind == KIND_COMP)                            /* COMP: its own pages where a voice's would be */
+        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_COMP : pages[i].vis != V_COMP;
+    if (pages[i].vis == V_COMP)
         return 0;
     switch (pages[i].vis) {
     case V_SRC0: return src_page_visible(t, 0);
@@ -1626,9 +1638,12 @@ static void knob_turn(int i, int d)
         ui.step_turned = 1;
     {
         int gp = (int)(cur_page() - pages), nv = kb_get(k) + d;
-        /* (the tape is gone: KIND and a route's TYPE step over its old values, kept for old projects) */
+        /* (the tape is gone: KIND and a route's TYPE step over its old values, kept for old projects;
+         * COMP is T8's alone) */
         if (((k.kind == K_TP && k.id == TP_KIND && nv == KIND_TAPE) || (k.kind == K_ROUTE && k.id == RF_TYPE && nv == RT_TAPE)))
             nv += d > 0 ? 1 : -1;
+        if (k.kind == K_TP && k.id == TP_KIND && nv >= KIND_COMP && ui.track != 7)
+            nv = KIND_PERC;
         kb_set(k, nv);
         page_follow(gp);
     }
@@ -2201,7 +2216,7 @@ static const char *sound_name(int t)
     }
     {
         const rv_pinfo *m = rv_pinfo_track(t, TP_S0);
-        return m->names ? m->names[clampi(rv.tp[t][TP_S0], 0, m->max)] : "TAPE";
+        return k == KIND_COMP ? "GLUE" : m->names ? m->names[clampi(rv.tp[t][TP_S0], 0, m->max)] : "";
     }
 }
 
@@ -2410,6 +2425,10 @@ static void draw_footer(void)
             hint = "SHAPE MOVES THE HEAD'S SPEED";
         else if (ui.sec == SEC_BUS)
             hint = "SEND: THIS TRACK INTO IT";
+        else if (pg->pic == PIC_ARP)
+            hint = "KEYS: HOLD NOTES TO ARPEGGIATE";
+        else if (pg->pic == PIC_COMP)
+            hint = "T8 SQUEEZES THE MAIN MIX";
         break;
     }
     if (rv_live.countin) {
@@ -2500,7 +2519,7 @@ static void pic_tracks(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
-        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : "TAP", muted ? C_DIM : kc);
+        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : "CMP", muted ? C_DIM : kc);
         /* the level, in the track's colour, and beside it the articulation (its envelope) */
         meter_bar(x + 6, PIC_Y + 32, 11, 66, fm_sqrtf(rv_live.meter[t]), C_LINE, muted ? C_DIM : kc);
         meter_bar(x + 19, PIC_Y + 32, 6, 66, rv_live.env[t], C_LINE, muted ? C_DIM : g_mix(kc, C_INK, 0.55f));
@@ -3586,6 +3605,113 @@ static void pic_cpu(void)
     g_text(6, PIC_Y + 125, &FONT_T, b, rv_live.cap == 255 && !rv_live.guard_off ? C_DIM : C_RED);
 }
 
+/* ARP: the held notes as they came, then one round of the pattern they make: a column a step, as
+ * high as its note, the step just played lit */
+static void pic_arp(void)
+{
+    int t = ui.track, n = rv_live.arp_n[t], mode = rv.tp[t][TP_ARPMODE], oct = clampi(rv.tp[t][TP_ARPOCT], 1, 4), i;
+    char b[24];
+    uint8_t held[RV_ARP_HELD];
+    if (is_kit_ui(t)) {
+        g_text_c(120, PIC_Y + 46, &FONT_B, "NOT ON A KIT", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "THE ARP PLAYS NOTES; A KIT'S KEYS ARE LANES", C_DIM);
+        return;
+    }
+    if (n > RV_ARP_HELD)
+        n = RV_ARP_HELD;
+    for (i = 0; i < n; i++)
+        held[i] = rv_live.arp_note[t][i];
+    if (mode == ARP_OFF) {
+        g_text_c(120, PIC_Y + 46, &FONT_B, "ARP OFF", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "KNOB 1: UP, DOWN, UP-DN, DN-UP, PLAYED, RANDOM", C_DIM);
+        return;
+    }
+    for (i = 0; i < n; i++) {                       /* the notes it holds */
+        sx_note(b, held[i]);
+        g_text_c(15 + i * 30, PIC_Y + 2, &FONT_T, b, C_INK);
+    }
+    if (!n) {
+        g_text_c(120, PIC_Y + 46, &FONT_B, "HOLD SOME KEYS", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "OR PLAY STEPS: THEIR NOTES ARPEGGIATE", C_DIM);
+    } else {
+        int len = mode == ARP_RANDOM ? n * oct : rv_arp_len(n, mode, oct), lo = 127, hi = 0, show = len > 32 ? 32 : len;
+        int pos = rv_live.arp_pos[t], first = len > 32 ? (pos / 32) * 32 : 0, w = 224 / (show > 0 ? show : 1), x0;
+        int nt[32];
+        for (i = 0; i < show; i++) {
+            int k = first + i;
+            if (mode == ARP_RANDOM) {               /* (no pattern: the notes it picks from, low to high) */
+                uint8_t up[RV_ARP_HELD];
+                int j, q;
+                for (j = 0; j < n; j++)
+                    up[j] = held[j];
+                q = rv_arp_note(up, n, ARP_UP, oct, k);
+                nt[i] = q;
+            } else {
+                nt[i] = rv_arp_note(held, n, mode, oct, k % len);
+            }
+            lo = nt[i] < lo ? nt[i] : lo;
+            hi = nt[i] > hi ? nt[i] : hi;
+        }
+        if (w > 28)
+            w = 28;
+        x0 = 120 - show * w / 2;
+        for (i = 0; i < show; i++) {
+            int h = 10 + (hi > lo ? (nt[i] - lo) * 70 / (hi - lo) : 35), x = x0 + i * w;
+            int lit = mode != ARP_RANDOM && (first + i) == pos % len;
+            g_fill(x, PIC_Y + 104 - h, w > 3 ? w - 2 : 1, h, lit ? C_TEAL : C_AMBER_D);
+        }
+        b[0] = 0;
+        sx_cat(b, mode == ARP_RANDOM ? "RANDOM FROM " : "");
+        sx_int(b + (mode == ARP_RANDOM ? 12 : 0), mode == ARP_RANDOM ? n * oct : len);
+        sx_cat(b, mode == ARP_RANDOM ? " NOTES" : " STEPS");
+        g_text(8, PIC_Y + 110, &FONT_T, b, C_DIM);
+    }
+    if (rv.tp[t][TP_ARPLATCH])
+        g_text_r(232, PIC_Y + 110, &FONT_T, "LATCHED", C_AMBER);
+    g_text(8, PIC_Y + 124, &FONT_T, rv.tp[t][TP_KIND] == KIND_COMP ? "" : "ON THE MASTER CLOCK, PLAYING OR NOT", C_DIM);
+}
+
+/* COMP: the gain reduction as a meter falling from the top (0 to 20 dB), and the curve it squeezes
+ * the level by, with where the mix sits on it now */
+static void pic_comp(void)
+{
+    float gr = rv_live.comp_gr, in = rv_live.comp_in, thr = clampf((float)rv.tp[7][TP_S0], -30.0f, 0.0f);
+    static const float slope[3] = {0.5f, 0.75f, 0.9f};
+    float sl = slope[clampi(rv.tp[7][TP_S1], 0, 2)];
+    int i, h = (int)(clampf(gr / 20.0f, 0.0f, 1.0f) * 104.0f + 0.5f), x0 = 104, y0 = PIC_Y + 6, sz = 104;
+    char b[16];
+    g_rbox(20, PIC_Y + 6, 24, 104, 6, C_PANEL, 1);
+    if (h > 0)
+        g_fill(22, PIC_Y + 6, 20, h, gr > 10.0f ? C_RED : C_TEAL);
+    for (i = 0; i <= 20; i += 4) {
+        int y = PIC_Y + 6 + i * 104 / 20;
+        g_fill(46, y, 4, 1, C_DIM);
+        sx_int(b, i);
+        g_text(52, y - 4, &FONT_T, b, C_DIM);
+    }
+    b[0] = '-';
+    i = sx_int(b + 1, (int)(gr * 10.0f + 0.5f) / 10);
+    b[1 + i] = '.';
+    sx_int(b + 2 + i, (int)(gr * 10.0f + 0.5f) % 10);
+    sx_cat(b, "DB");
+    g_text_c(32, PIC_Y + 114, &FONT_T, gr > 0.05f ? b : "0DB", C_INK);
+    /* the curve: in, -40..0 dB across; out down */
+    g_frame(x0, y0, sz, sz, C_LINE);
+    {
+        int px = x0 + (int)((thr + 40.0f) * (float)sz / 40.0f);
+        g_line(x0, y0 + sz, px, y0 + sz - (px - x0), C_DIM);
+        g_line(px, y0 + sz - (px - x0), x0 + sz, y0 + sz - (px - x0) - (int)((float)(x0 + sz - px) * (1.0f - sl)), C_TEAL);
+        if (in > -40.0f && rv.tp[7][TP_KIND] == KIND_COMP) {
+            float o = in > thr ? thr + (in - thr) * (1.0f - sl) : in;
+            int dx = x0 + (int)((fm_minf(in, 0.0f) + 40.0f) * (float)sz / 40.0f), dy = y0 + sz - (int)((o + 40.0f) * (float)sz / 40.0f);
+            g_fill(dx - 2, dy - 2, 5, 5, C_AMBER);
+        }
+    }
+    g_text(x0, y0 + sz + 4, &FONT_T, "IN", C_DIM);
+    g_text_r(x0 + sz, y0 + sz + 4, &FONT_T, "THE MAIN MIX", C_DIM);
+    g_text(216, y0 + 2, &FONT_T, "OUT", C_DIM);
+}
+
 static void pic_master(void)
 {
     float l = fm_sqrtf(rv_live.master_l), r = fm_sqrtf(rv_live.master_r);
@@ -4119,6 +4245,8 @@ static void draw_picture(void)
     case PIC_BANK: pic_bank(); break;
     case PIC_FENV: pic_fenv(); break;
     case PIC_SENV: pic_senv(); break;
+    case PIC_ARP: pic_arp(); break;
+    case PIC_COMP: pic_comp(); break;
     default: break;
     }
 }

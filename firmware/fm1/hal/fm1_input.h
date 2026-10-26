@@ -224,8 +224,9 @@ static void fm1__frame(void)
             }
     /* Ravel: a button pressed or let go can show through the matrix as both of a knob's lines
      * changing at once (no diodes), which the decoder took for a fast turn: the knob a page had on
-     * it stepped (LENGTH, after HOME or PLAY). For a few scans after any button changes, the
-     * knobs follow their lines without counting */
+     * it stepped (LENGTH, after HOME or PLAY). For a few scans after a button changes, only that
+     * double jump is ignored: a knob turned meanwhile moves one line at a time and still counts,
+     * so the knobs never stop answering */
     if (bmask != bmask_last) {
         bmask_last = bmask;
         enc_hush = 4;                              /* (about 4 ms) */
@@ -269,9 +270,8 @@ static void fm1__frame(void)
         }
         if (cur == fm1_in.enc_prev[e])
             continue;
-        if (enc_hush) {                            /* (a button's ghost: follow, don't count) */
+        if (enc_hush && (cur ^ fm1_in.enc_prev[e]) == 3u) {   /* a button's ghost: follow it, don't count */
             fm1_in.enc_prev[e] = (uint8_t)cur;
-            *sub = 0;
             continue;
         }
         idx = (uint32_t)fm1_in.enc_prev[e] << 2 | cur;

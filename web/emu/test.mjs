@@ -37,11 +37,11 @@ run(800);
 check(rv.web_playing() === 0, 'PLAY stops');
 peak = 0; rv.rv_set_keys(1 << 12); run(400); rv.rv_set_keys(0); run(200);
 check(peak > 0.02, 'a key plays T1');
-rv.web_goto(6, 0); run(50);                                 // SEQ › STEPS
+rv.web_goto(7, 0); run(50);                                 // SEQ › STEPS
 const before = rv.web_step(0);
 rv.rv_set_keys(1 << 2); run(120); rv.rv_enc(2, 5); run(60); rv.rv_set_keys(0); run(60);  // hold step 2, turn K1: its note
 check(true, 'held a step and turned KNOB 1');
-rv.web_goto(8, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
+rv.web_goto(9, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
 check(rv.rv_store_len(0) > 20000, `saved a project (${rv.rv_store_len(0)} bytes)`);
 {                                                           // the sound bank: keep T1's sound, load it on T2 as a perc kit
   rv.web_set_kind(2, 3, 0); run(20);

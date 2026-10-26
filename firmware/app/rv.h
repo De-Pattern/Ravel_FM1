@@ -33,6 +33,8 @@
 #define RV_STRIKE_VOICES 4
 #define RV_PERC_VOICES 12
 #define RV_ROWS 4
+#define RV_ARP_HELD 8               /* notes an arpeggiator holds */
+enum { ARP_OFF, ARP_UP, ARP_DOWN, ARP_UPDN, ARP_DNUP, ARP_PLAYED, ARP_RANDOM, ARP_N };
 
 /* memory: sized for the FM-1, where the instrument's state lives in the 336 KB RAM pool
  * (firmware/fm1/app.ld). The emulator uses the same. */
@@ -78,6 +80,9 @@ enum {
     TP_SEDST, TP_SEAMT, TP_SEDEF,   /* (format 13) STEP ENV: where the step envelopes go, how far, the one a note starts */
     TP_FDST, TP_FAMT,               /* (format 15) the FILTER ENV into a second destination, any of the track's */
     TP_GRAIN,                       /* a strike or perc hit's own small differences, each time (0: none; old projects load 0) */
+    /* (format 23) the arpeggiator (ARP): what it plays the held notes in, how fast, over how many
+     * octaves, how long each note, latch, each note's repeats, the chance a step plays */
+    TP_ARPMODE, TP_ARPRATE, TP_ARPOCT, TP_ARPGATE, TP_ARPLATCH, TP_ARPREP, TP_ARPCHNC,
     TP_N
 };
 #define RV_TP 112                   /* room for more track parameters without moving pids (format 15: was 96; format 6: was 80) */
@@ -125,7 +130,8 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define PID_G(g) (RV_GPID + (g))
 #define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
 
-enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_N };   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept */
+enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_N };   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
+                                                                              * COMP (T8 only): the bus compressor on the main mix, not a voice */
 enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
@@ -226,7 +232,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 22                /* 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 23                /* 23: the arpeggiator (its settings at their defaults), COMP on T8; 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -358,6 +364,11 @@ typedef struct {
     float c2_wait;                         /* this core waiting for it, % of the time (smoothed) */
     uint8_t fetch_on;                      /* GLO > CPU, FLASH WAIT: counting the code fetch's waits */
     float fetch_pct;                       /* the render's time spent waiting for its code (smoothed) */
+    uint8_t arp_n[RV_TRACKS];              /* ARP: how many notes each track's arpeggiator holds */
+    uint8_t arp_note[RV_TRACKS][8];        /* them, as they were played */
+    uint8_t arp_pos[RV_TRACKS];            /* where in its pattern it is (the step it played last) */
+    uint8_t arp_hit[RV_TRACKS];            /* counts up on each note it plays */
+    float comp_gr, comp_in;                /* COMP: gain reduction now (dB, >= 0), the level it hears (dB) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;
@@ -388,6 +399,8 @@ int rv_is_moddest_g(int g);                     /* a global the matrix and macro
 void rv_project_init(void);
 int rv_up21_engine(int e);                      /* (format 21) an old engine or filter number, as it is now */
 int rv_up21_ftype(int f);
+int rv_arp_len(int n, int mode, int oct);       /* ARP: steps in one round of its pattern */
+int rv_arp_note(const uint8_t *played, int n, int mode, int oct, int k);   /* the note of step k (RANDOM: -1) */
 
 /* rv_engine.c: the audio side */
 void rv_engine_init(void);

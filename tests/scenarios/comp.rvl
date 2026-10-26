@@ -1,0 +1,42 @@
+# COMP on T8: off by default (T8 is a drum); KIND COMP squeezes the main mix, the threshold down
+# squeezes harder, KIND back lets go. Only T8 can be COMP.
+wait 300
+key 12 down
+key 16 down
+key 19 down
+wait 300
+turn ALGO 7
+wait 100
+tap HOME
+turn SELECT -20
+wait 100
+expect page TRACKS
+expect tp 8 KIND 3
+expect comp_gr_max 0
+turn K3 1
+wait 200
+expect tp 8 KIND 4
+tap EDIT
+turn SELECT -20
+wait 100
+expect page COMP
+turn K1 -20
+wait 2000
+expect comp_gr_min 3
+shot comp.png
+turn SELECT 1
+wait 100
+expect page COMP 2
+turn K3 -1
+wait 300
+expect tp 8 KIND 3
+expect comp_gr_max 0
+turn ALGO -7
+tap HOME
+turn SELECT -20
+wait 100
+turn K3 1
+wait 100
+turn K3 1
+wait 100
+expect tp 1 KIND 3

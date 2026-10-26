@@ -689,6 +689,222 @@ static void bar_boundary(void)
     apply_pending();
 }
 
+/* ------------------------------------------------------- the arpeggiator --- */
+/* ARP: a note track's notes, from the keys, its own steps or an influence, are held instead of
+ * played, and the arpeggiator plays them one at a time on the master clock (whether the transport
+ * runs or not), in the order its MODE gives, over OCTAVES, each for GATE of its step. LATCH keeps
+ * them after the keys let go, until a new chord comes. */
+typedef struct {
+    uint8_t n, note[RV_ARP_HELD], vel[RV_ARP_HELD], live[RV_ARP_HELD];
+    uint8_t down;                                   /* of them, held now */
+    uint8_t rep;                                    /* REPEAT: times the step has played its note */
+    int16_t sounding;                               /* the note it plays now, -1: none */
+    uint16_t serial;                                /* its notes, counted: a note's end ends only its own */
+    uint16_t gen;                                   /* its starts: a step queued before it stopped is dropped */
+    uint32_t pos;                                   /* steps since it started */
+    float next;                                     /* its next step, in master pulses */
+} arp_t;
+static arp_t arp[RV_TRACKS];
+static float arp_pf;                                /* master pulses so far (counted when stopped too) */
+static uint8_t arp_out, arp_live_in;                /* the arpeggiator itself is playing; the note is a key's */
+static uint32_t arp_rng = 0xA5A5F00Du;
+static const float arp_rates[6] = {4.0f, 2.0f, 1.3333333f, 1.0f, 0.6666667f, 0.5f};   /* in steps: 1/4 .. 1/32 */
+
+static int arp_on(int t)
+{
+    int k = rv.tp[t][TP_KIND];
+    return rv.tp[t][TP_ARPMODE] != ARP_OFF && (k == KIND_SYNTH || k == KIND_STRIKE || (k == KIND_PERC && rv.tp[t][TP_ENGINE] != 1));
+}
+static float arp_rate(int t) { return arp_rates[clampi(rv.tp[t][TP_ARPRATE], 0, 5)]; }
+static void arp_silence(int t)
+{
+    arp_t *a = &arp[t];
+    if (a->sounding >= 0) {
+        arp_out = 1;
+        note_off_internal(t, a->sounding);
+        arp_out = 0;
+        a->sounding = -1;
+    }
+}
+static int arp_find(const arp_t *a, int note)
+{
+    int i;
+    for (i = 0; i < a->n; i++)
+        if (a->note[i] == note)
+            return i;
+    return -1;
+}
+static void arp_drop(arp_t *a, int i)
+{
+    for (; i + 1 < a->n; i++) {
+        a->note[i] = a->note[i + 1];
+        a->vel[i] = a->vel[i + 1];
+        a->live[i] = a->live[i + 1];
+    }
+    a->n--;
+}
+
+/* a step: the last note ends, the next begins */
+static void arp_step(int t, uint32_t when)
+{
+    arp_t *a = &arp[t];
+    int mode = rv.tp[t][TP_ARPMODE], oct = clampi(rv.tp[t][TP_ARPOCT], 1, 4), reps = clampi(rv.tp[t][TP_ARPREP], 1, 4);
+    int chance = clampi(rv.tp[t][TP_ARPCHNC], 0, 100), note, i, vel = 100;
+    uint32_t k = a->pos;
+    arp_silence(t);
+    if (!a->n || !arp_on(t))
+        return;
+    if (mode == ARP_RANDOM) {
+        int r = (int)(xs32(&arp_rng) % (uint32_t)(a->n * oct));
+        note = a->note[r % a->n] + 12 * (r / a->n);
+    } else {
+        note = rv_arp_note(a->note, a->n, mode, oct, (int)(k % (uint32_t)rv_arp_len(a->n, mode, oct)));
+    }
+    if (++a->rep >= reps) {
+        a->rep = 0;
+        a->pos++;
+    }
+    rv_live.arp_pos[t] = (uint8_t)k;
+    if (chance < 100 && xs_uni(&arp_rng) * 100.0f >= (float)chance)
+        return;                                     /* a rest */
+    for (i = 0; i < a->n; i++)                      /* the velocity its key came with */
+        if ((note - a->note[i]) % 12 == 0 && note >= a->note[i])
+            vel = a->vel[i];
+    if (note > 127)
+        return;
+    arp_out = 1;
+    note_on_internal(t, note, vel, 0, (uint16_t)(1u << t));
+    arp_out = 0;
+    a->sounding = (int16_t)note;
+    a->serial++;
+    rv_live.arp_hit[t]++;
+    if (rv.tp[t][TP_ARPGATE] < 100) {               /* (at 100 each note runs into the next) */
+        event_t e;
+        __builtin_memset(&e, 0, sizeof e);
+        e.type = EV_AOFF;
+        e.track = (uint8_t)t;
+        e.note = (uint8_t)note;
+        e.chain = a->serial;
+        e.when = when + (uint32_t)(arp_rate(t) * clk_period * (float)rv.tp[t][TP_ARPGATE] * 0.01f * RV_FS);
+        ev_push(&e);
+    }
+}
+
+/* a note comes to (on) or leaves (off) a track whose arpeggiator is on */
+static void arp_key(int t, int note, int vel, int on)
+{
+    arp_t *a = &arp[t];
+    int i = arp_find(a, note), latch = rv.tp[t][TP_ARPLATCH] != 0;
+    if (on) {
+        int was;
+        if (latch && !a->down)                      /* LATCH: a new chord replaces the last */
+            a->n = 0;
+        was = a->n;
+        i = arp_find(a, note);
+        if (i < 0 && a->n < RV_ARP_HELD) {
+            i = a->n++;
+            a->note[i] = (uint8_t)note;
+            a->live[i] = 0;
+        }
+        if (i >= 0) {
+            a->vel[i] = (uint8_t)vel;
+            a->live[i] |= arp_live_in;
+        }
+        if (a->down < 255)
+            a->down++;
+        if (!was && a->n) {                         /* the first note: it starts now, then on its grid */
+            float r = arp_rate(t);
+            a->pos = 0;
+            a->rep = 0;
+            a->gen++;
+            a->next = (float)(int)(arp_pf / r + 0.999f) * r;
+            if (a->next < arp_pf)
+                a->next += r;
+            arp_step(t, now_s);
+        }
+    } else {
+        if (a->down)
+            a->down--;
+        if (!latch && i >= 0)
+            arp_drop(a, i);
+        if (!a->n)
+            arp_silence(t);
+    }
+}
+/* does the arpeggiator take this note's end (it holds the note)? */
+static int arp_holds(int t, int note) { return arp_find(&arp[t], note) >= 0; }
+
+/* each master pulse: the steps that fall before the next */
+static void arp_pulse(int off)
+{
+    int t;
+    uint32_t base = now_s + (uint32_t)off;
+    for (t = 0; t < RV_TRACKS; t++) {
+        arp_t *a = &arp[t];
+        float r;
+        int guard = 8;
+        if (!a->n || !arp_on(t))
+            continue;
+        r = arp_rate(t);
+        while (a->next < arp_pf + 1.0f && guard--) {
+            event_t e;
+            float d = (a->next - arp_pf) * clk_period;
+            __builtin_memset(&e, 0, sizeof e);
+            e.type = EV_ARP;
+            e.track = (uint8_t)t;
+            e.chain = a->gen;
+            e.when = base + (uint32_t)(d > 0.0f ? d * RV_FS : 0.0f);
+            ev_push(&e);
+            a->next += r;
+        }
+        if (a->next < arp_pf)
+            a->next = arp_pf + r;
+    }
+    arp_pf += 1.0f;
+}
+
+/* each control step: an arpeggiator switched off (or its track changed kind) lets its notes go;
+ * the screen's copy of what each holds */
+static void arp_control(void)
+{
+    int t, i;
+    for (t = 0; t < RV_TRACKS; t++) {
+        arp_t *a = &arp[t];
+        if (a->n && !arp_on(t)) {
+            arp_silence(t);
+            a->n = 0;
+            a->down = 0;
+        }
+        rv_live.arp_n[t] = a->n;
+        for (i = 0; i < a->n; i++)
+            rv_live.arp_note[t][i] = a->note[i];
+    }
+}
+
+/* the transport stopped: the steps' notes go (the keys' stay) */
+static void arp_stop(void)
+{
+    int t, i;
+    for (t = 0; t < RV_TRACKS; t++) {
+        arp_t *a = &arp[t];
+        a->sounding = -1;                           /* (all_off_now let it go) */
+        for (i = a->n - 1; i >= 0; i--)
+            if (!a->live[i])
+                arp_drop(a, i);
+        if (a->down > a->n)
+            a->down = a->n;
+    }
+}
+static void arp_reset(void)
+{
+    int t;
+    for (t = 0; t < RV_TRACKS; t++) {
+        arp[t].n = arp[t].down = 0;
+        arp[t].sounding = -1;
+    }
+}
+
+
 /* a master pulse at sample offset off in this control step */
 static void seq_pulse(int off)
 {
@@ -782,6 +998,9 @@ static void seq_start(void)
     }
     if (pend_scene >= 0)                              /* row 1's scene now, without counting a bar */
         apply_pending();
+    arp_pf = 0.0f;                                    /* the arpeggiators on the bar's grid */
+    for (t = 0; t < RV_TRACKS; t++)
+        arp[t].next = 0.0f;
     countin_left = rv_live.recording && rv.gp[GP_COUNTIN] > 0 ? 16 * rv.gp[GP_COUNTIN] : 0;   /* recording: count in first */
     rv_live.countin = (uint8_t)((countin_left + 3) / 4);
     playing = 1;
@@ -804,7 +1023,9 @@ static void seq_stop(void)
         sq[t].tied = 0;
     }
     all_off_now();
+    arp_stop();
 }
+
 
 /* events due in this control step */
 /* in the order they fall (a note-off before a note-on at the same moment): a step is long enough
@@ -851,6 +1072,14 @@ static void seq_events(int n)
         }
         case EV_OFF:
             note_off_internal(e.track, e.note);
+            break;
+        case EV_ARP:
+            if (e.chain == arp[e.track & 7].gen)
+                arp_step(e.track & 7, e.when);
+            break;
+        case EV_AOFF:
+            if (e.chain == arp[e.track & 7].serial)
+                arp_silence(e.track & 7);
             break;
         case EV_CUT:
             cut_now(e.note, step_seconds(e.track));

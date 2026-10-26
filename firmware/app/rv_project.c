@@ -265,6 +265,12 @@ int rv_load(int slot)
                     rv.scene[t].infl[a / RV_TRACKS][a % RV_TRACKS].type = RT_OFF;
         }
     }
+    if (f <= 22) {                                   /* (23) the arpeggiator: off, its settings at their defaults */
+        int t, p;
+        for (t = 0; t < RV_TRACKS; t++)
+            for (p = TP_ARPMODE; p <= TP_ARPCHNC; p++)
+                rv.tp[t][p] = (int16_t)rv_pinfo_track(t, p)->def;
+    }
     rv.format = RV_FORMAT;
     return 0;
 }
