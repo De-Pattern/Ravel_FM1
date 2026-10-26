@@ -23,15 +23,18 @@
  * nothing in the flash, its helpers forced inline (RV_INL). RAVEL_FAST=0 builds it all in the flash */
 #if defined(RV_FM1) && (!defined(RAVEL_FAST) || RAVEL_FAST)
 #define RV_HOT __attribute__((section(".fast_text"), noinline))
+#define RV_HOT2 __attribute__((section(".pool_text"), noinline))   /* the same, in the pool (more room) */
 #define RV_INL static inline __attribute__((always_inline))
 /* (read through a volatile pointer: the compiler cannot turn it back into a direct call) */
 #define RV_FAR(fn) ({ static __typeof__(&fn) const volatile rv_far_ = fn; rv_far_; })
 #elif defined(RV_PROF_HOT)                   /* (the simulator's profile: RV_HOT kept apart, so it can be counted) */
 #define RV_HOT __attribute__((noinline))
+#define RV_HOT2 __attribute__((noinline))
 #define RV_INL static inline __attribute__((always_inline))
 #define RV_FAR(fn) fn
 #else
 #define RV_HOT
+#define RV_HOT2
 #define RV_INL static inline
 #define RV_FAR(fn) fn
 #endif
@@ -88,7 +91,7 @@ RV_INL float fm_exp2f(float x)
 /* a cutoff knob (0..127) in Hz: 20 Hz to 20 kHz (rv_params.c's rv_cut_hz; this one inlines into the RAM code) */
 RV_INL float rv_cut_hz_i(float v) { return 20.0f * fm_exp2f(v * (10.0f / 127.0f)); }
 
-static inline float fm_expf(float x) { return fm_exp2f(x * FM_LOG2E); }
+RV_INL float fm_expf(float x) { return fm_exp2f(x * FM_LOG2E); }
 
 /* log2 for x > 0: the exponent, plus log2 of the mantissa m in [0.707, 1.414) through
  * atanh: log2 m = 2/ln2 (t + t^3/3 + t^5/5 + t^7/7 + t^9/9), t = (m - 1) / (m + 1) */
@@ -117,7 +120,7 @@ RV_INL float fm_log2f(float x)
     return (float)e + s * t * 2.88539008f;   /* 2 / ln 2 */
 }
 
-static inline float fm_powf(float x, float y) { return x > 0.0f ? fm_exp2f(y * fm_log2f(x)) : 0.0f; }
+RV_INL float fm_powf(float x, float y) { return x > 0.0f ? fm_exp2f(y * fm_log2f(x)) : 0.0f; }
 
 /* sin on [-pi/2, pi/2]: odd Taylor series to x^11 */
 static float fm_sin_half(float x)
@@ -151,7 +154,7 @@ RV_INL float fm_sinf(float x)
     return fm_sin_r(r * 0.159154943f);
 }
 
-static inline float fm_cosf(float x) { return fm_sinf(x + 1.57079633f); }
+RV_INL float fm_cosf(float x) { return fm_sinf(x + 1.57079633f); }
 
 RV_INL float fm_tanf(float x)
 {

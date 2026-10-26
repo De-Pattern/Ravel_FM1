@@ -705,6 +705,10 @@ typedef struct {
     float next;                                     /* its next step, in master pulses */
 } arp_t;
 static arp_t arp[RV_TRACKS];
+/* HOLD with the arp off: the keys' notes sound on after they let go, until the next chord (the first
+ * key down after all were up) lets them go, or HOLD goes off */
+typedef struct { uint8_t n, note[RV_ARP_HELD], down; } hold_t;
+static hold_t hold[RV_TRACKS];
 static float arp_pf;                                /* master pulses so far (counted when stopped too) */
 static uint8_t arp_out, arp_live_in;                /* the arpeggiator itself is playing; the note is a key's */
 static uint32_t arp_rng = 0xA5A5F00Du;
@@ -831,6 +835,41 @@ static void arp_key(int t, int note, int vel, int on)
             arp_silence(t);
     }
 }
+static int hold_on(int t)
+{
+    int k = rv.tp[t][TP_KIND];
+    return rv.tp[t][TP_ARPLATCH] && !arp_on(t) && (k == KIND_SYNTH || k == KIND_STRIKE || (k == KIND_PERC && rv.tp[t][TP_ENGINE] != 1));
+}
+static void hold_release(int t)
+{
+    hold_t *h = &hold[t];
+    int i;
+    arp_out = 1;
+    for (i = 0; i < h->n; i++)
+        note_off_internal(t, h->note[i]);
+    arp_out = 0;
+    h->n = 0;
+}
+static int hold_has(int t, int note)
+{
+    int i;
+    for (i = 0; i < hold[t].n; i++)
+        if (hold[t].note[i] == note)
+            return 1;
+    return 0;
+}
+/* a key goes down on a HOLD track (it plays as ever) */
+static void hold_key_on(int t, int note)
+{
+    hold_t *h = &hold[t];
+    if (!h->down)
+        hold_release(t);                            /* a new chord: the last one goes */
+    if (!hold_has(t, note) && h->n < RV_ARP_HELD)
+        h->note[h->n++] = (uint8_t)note;
+    if (h->down < 255)
+        h->down++;
+}
+
 /* does the arpeggiator take this note's end (it holds the note)? */
 static int arp_holds(int t, int note) { return arp_find(&arp[t], note) >= 0; }
 
@@ -875,9 +914,13 @@ static void arp_control(void)
             a->n = 0;
             a->down = 0;
         }
-        rv_live.arp_n[t] = a->n;
-        for (i = 0; i < a->n; i++)
-            rv_live.arp_note[t][i] = a->note[i];
+        if (hold[t].n && !hold_on(t))              /* HOLD off (or the arp on): what it held goes */
+            hold_release(t);
+        if (!hold_on(t))
+            hold[t].down = 0;
+        rv_live.arp_n[t] = a->n ? a->n : hold[t].n;
+        for (i = 0; i < rv_live.arp_n[t]; i++)
+            rv_live.arp_note[t][i] = a->n ? a->note[i] : hold[t].note[i];
     }
 }
 
@@ -893,6 +936,7 @@ static void arp_stop(void)
                 arp_drop(a, i);
         if (a->down > a->n)
             a->down = a->n;
+        hold[t].n = 0;                              /* (all_off_now let them go) */
     }
 }
 static void arp_reset(void)
@@ -901,6 +945,7 @@ static void arp_reset(void)
     for (t = 0; t < RV_TRACKS; t++) {
         arp[t].n = arp[t].down = 0;
         arp[t].sounding = -1;
+        hold[t].n = hold[t].down = 0;
     }
 }
 

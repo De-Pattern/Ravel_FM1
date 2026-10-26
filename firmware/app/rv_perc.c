@@ -13,13 +13,13 @@
  * GND: a sine, noise, and an impulse. */
 
 /* ---------------------------------------------------------------- helpers --- */
-static inline float pk_dec(float x, float lo, float hi) { return lo * fm_exp2f(x * fm_log2f(hi / lo)); }   /* x 0..1 */
-static inline float pk_coef(float sec) { return fm_expf(-RV_DT / (sec > 0.0005f ? sec : 0.0005f)); }
-static inline float pk_sin(float ph) { return fm_sin_turns(ph - fm_floorf(ph)); }
-static inline float pk_noise(perc_t *v) { return xs_bi(&v->rng); }
+RV_INL float pk_dec(float x, float lo, float hi) { return lo * fm_exp2f(x * fm_log2f(hi / lo)); }   /* x 0..1 */
+RV_INL float pk_coef(float sec) { return fm_expf(-RV_DT / (sec > 0.0005f ? sec : 0.0005f)); }
+RV_INL float pk_sin(float ph) { return fm_sin_turns(ph - fm_floorf(ph)); }
+RV_INL float pk_noise(perc_t *v) { return xs_bi(&v->rng); }
 
 /* a modal resonator: hz, decay in seconds, gain at the peak */
-static inline void pk_mode(perc_t *v, int k, float hz, float dec, float g)
+RV_INL void pk_mode(perc_t *v, int k, float hz, float dec, float g)
 {
     float w, r;
     hz = clampf(hz, 20.0f, RV_NYQ * 0.92f);
@@ -29,7 +29,7 @@ static inline void pk_mode(perc_t *v, int k, float hz, float dec, float g)
     v->mb2[k] = -r * r;
     v->mg[k] = g * fm_sinf(w);
 }
-static inline float pk_modes(perc_t *v, int n, float x)
+RV_INL float pk_modes(perc_t *v, int n, float x)
 {
     float s = 0.0f;
     int k;
@@ -115,7 +115,7 @@ static void perc_note_on(perc_t *v, int note, float vel, const float *eff, uint3
 }
 
 /* one block of the machine, mono, into out (overwrites); p: the eight parameters 0..1 */
-static void perc_machine(perc_t *v, const float *p, float semi, float *out, int n)
+RV_HOT2 static void perc_machine(perc_t *v, const float *p, float semi, float *out, int n)
 {
     int i, k;
     float tr = fm_exp2f(semi * (1.0f / 12.0f));       /* the key transposes every pitched machine */
@@ -544,7 +544,7 @@ static void perc_machine(perc_t *v, const float *p, float semi, float *out, int 
 static const float perc_trim[PM_N] = {1.000f, 0.785f, 0.822f, 0.851f, 1.334f, 1.175f, 1.429f, 2.512f, 1.462f, 1.995f, 1.135f, 1.122f, 0.794f, 1.245f, 1.622f, 1.000f, 1.288f, 1.216f, 1.000f, 0.851f, 0.813f, 1.000f, 0.692f, 0.759f, 0.684f, 0.684f, 1.585f, 0.716f, 0.589f, 0.589f, 0.785f, 1.274f, 2.512f};
 
 /* the voice: machine, then the track effects (AM, EQ, the band filter), into out; returns its level */
-static float perc_render(perc_t *v, track_t *tr, float *out, int n)
+RV_HOT2 static float perc_render(perc_t *v, track_t *tr, float *out, int n)
 {
     const float *eff = tr->eff;
     float buf[RV_SUB], p[8], amd, amf, eqf, eqg, flo, fhi, fq, peak = 0.0f, velamt, g;

@@ -5,6 +5,7 @@
  * (ALNK0), USB; then the main loop: the interface about 30 frames a second, input polled between. */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[], _c1_start[], _c1_end[], _c1_load[];
+extern uint32_t _pt_start[], _pt_end[], _pt_load[];
 extern uint32_t _fast_start[], _fast_end[], _fast_load[];
 
 /* --------------------------------------------------------------- audio --- */
@@ -213,13 +214,17 @@ static void fm1_main(void)
         uint32_t f = irq_save();
         fm1_vdc14_raise(7);                         /* M-VAVE's own supplies before anything loads them */
         fm1_sysvdd_raise(15);
-        flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;   /* the expected 1 MiB part, else RAM only */
+        flash_jedec = FL_FAR(fl_jedec_ram)();
+        flash_ok = flash_jedec == 0x856014u;           /* the expected 1 MiB part, else RAM only */
+        flash_sr = FL_FAR(fl_status_ram)();            /* (read only: what the FLASH page shows) */
+        flash_con = fl_sfc_con();
+        flash_baud = fl_sfc_baud();
         irq_restore(f);
         if (flash_ok)
             ota_boot_cleanup();
     }
     lcd_init();
-    ui_notice("RAVEL", "SYNTHESIZE  CATCH  REBUILD", 0, 0, 0);
+    ui_notice("RAVEL", "SYNTHESIZE  STRIKE  INFLUENCE", 0, 0, 0);
     if (safe_mode)
         safe_main();                                /* never returns */
     if (fm1_crash.magic == FM1_CRASH_MAGIC) {     /* a crash since power-on: say so, once */
@@ -342,6 +347,8 @@ void fm1_cstart(void)
     for (s = _c1_load, d = _c1_start; d < _c1_end; s++, d++)
         *d = *s;
     for (s = _fast_load, d = _fast_start; d < _fast_end; s++, d++)   /* the render's RAM code (RV_HOT) */
+        *d = *s;
+    for (s = _pt_load, d = _pt_start; d < _pt_end; s++, d++)   /* more of it, in the pool (RV_HOT2) */
         *d = *s;
     fm1_mailbox_clear();
     fm1_guard_enable(FM1_GUARD_STACK | FM1_GUARD_WRITE | FM1_GUARD_BUS | FM1_GUARD_PC);

@@ -62,7 +62,7 @@ static float fe_bend(float u, float k)
     return (fm_expf(k * u) - 1.0f) / (fm_expf(k) - 1.0f);
 }
 /* dt seconds on (a block); returns the level 0..1 */
-static float fenv_tick(fenv_t *e, const float *eff, float dt)
+RV_INL float fenv_tick(fenv_t *e, const float *eff, float dt)
 {
     float sc = fm_exp2f(-eff[TP_FRATE] * (1.0f / 16.0f)), sus = clampf(eff[TP_FSUS] * (1.0f / 127.0f), 0.0f, 1.0f), t;
     float ka = eff[TP_FACRV] * (6.0f / 64.0f), kd = -eff[TP_FDCRV] * (6.0f / 64.0f);
@@ -439,7 +439,7 @@ static void cz_env_tick(czenv_t *e, const rv_czenv *p, int which, float kf, int 
 static int cz_chip_wave(int w) { static const uint8_t m[9] = {0, 0, 1, 2, 4, 5, 6, 6, 6}; return m[clampi(w, 0, 8)]; }
 
 /* one line's sample: pos 0..4096 (two cycles), dcw 0..1023, window 0..3; 0..1 before the DCA */
-static inline float cz_line_sample(int w0, int w1, int win, float pos, float dcw)
+RV_INL float cz_line_sample(int w0, int w1, int win, float pos, float dcw)
 {
     float p = pos >= 2048.0f ? pos - 2048.0f : pos, ph = 0.0f, pv = 1024.0f - dcw, wv = 0.0f, s;
     int w = pos >= 2048.0f ? w1 : w0;
@@ -486,7 +486,7 @@ static void cz_note(voice_t *v, const float *eff, int t)
         c->ns = v->rng | 1u;
 }
 
-static void cz_render(voice_t *v, const float *eff, float f, float *out, int n, int t)
+RV_INL void cz_render(voice_t *v, const float *eff, float f, float *out, int n, int t)
 {
     cz_t *c = &v->e.cz;
     const rv_cz *pz = &rv.cz[t & 7];
@@ -633,7 +633,7 @@ static inline float fm_wave(int w, float ph)
     }
 }
 
-static void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     fm_t *s = &v->e.fm;
     int alg = clampi((int)(eff[TP_S0] + 0.5f), 0, 11), i, k;
@@ -733,7 +733,7 @@ static void phys_strike(voice_t *v, const float *eff)
     s->w = len;                                       /* the read point (w - len) lands on the burst */
 }
 
-static void phys_render(voice_t *v, const float *eff, float f, const float *exc_in, float *out, int n)
+RV_INL void phys_render(voice_t *v, const float *eff, float f, const float *exc_in, float *out, int n)
 {
     phys_t *s = &v->e.ph;
     int model = clampi((int)(eff[TP_S0] + 0.5f), 0, 3), i, k;
@@ -863,7 +863,7 @@ static void phys_render(voice_t *v, const float *eff, float f, const float *exc_
 static const float vowels[5][3] = {{730, 1090, 2440}, {530, 1840, 2480}, {270, 2290, 3010}, {570, 840, 2410}, {300, 870, 2240}};
 static const float vowel_gain[3] = {1.0f, 0.55f, 0.3f};
 
-static void form_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void form_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     form_t *s = &v->e.fo;
     float vw = eff[TP_S0] * (4.0f / 127.0f), sh = fm_exp2f(eff[TP_S1] * (1.0f / 64.0f));
@@ -927,7 +927,7 @@ static void form_render(voice_t *v, const float *eff, float f, float *out, int n
 /* Silt's pulsar emitters: each emitter fires a short wavelet (a pulsaret) once per period;
  * coupling pulls the emitters' phases together (Kuramoto), mask leaves pulses out by a fixed
  * rule, scatter (optional) jitters them. */
-static void part_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void part_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     part_t *s = &v->e.pa;
     const int16_t *tab = wt[clampi((int)(eff[TP_S0] + 0.5f), 0, 7)];
@@ -1031,7 +1031,7 @@ static inline float chip_wave(chip_t *c, int w, float ph, float pw)
     }
 }
 
-static void chip_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void chip_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     chip_t *c = &v->e.ch;
     int w = clampi((int)(eff[TP_S0] + 0.5f), 0, CW_N - 1), mode = clampi((int)(eff[TP_S3] + 0.5f), 0, 4);
@@ -1196,7 +1196,7 @@ static void wave_note(voice_t *v, const float *eff)
 }
 
 /* one osc's sample: table t, key position kp (0..7), phase p (0..1); lvl 0 full, 1 limited, or a mix */
-static inline float wtab_read(int t, float kp, float p, float lim, int raw)
+RV_INL float wtab_read(int t, float kp, float p, float lim, int raw)
 {
     int k0 = (int)kp, k1, i0, i1;
     float kf = kp - (float)k0, x = p * (float)WT_N, fr, a, b;
@@ -1243,7 +1243,7 @@ static inline float wtab_warp(int warp, float a, float p)
 }
 
 /* one oscillator through its warp: REMAP and FLIP work on the output */
-static inline float wtab_osc(int t, float kp, float p, int warp, float wa, float lim, int raw)
+RV_INL float wtab_osc(int t, float kp, float p, int warp, float wa, float lim, int raw)
 {
     float y;
     if (warp == WW_REMAP2 || warp == WW_REMAP4) {      /* the cycle read 2 or 4 times a period, blended in */
@@ -1257,7 +1257,7 @@ static inline float wtab_osc(int t, float kp, float p, int warp, float wa, float
     return y;
 }
 
-static void wave_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void wave_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     wave_t *w = &v->e.wv;
     int t1 = clampi((int)(eff[TP_S0] + 0.5f), 0, WT_TABLES - 1), t2 = clampi((int)(eff[TP_S2] + 0.5f), 0, WT_TABLES - 1);
@@ -1353,7 +1353,7 @@ static inline float lg_src(int wv, float ph, float pw, uint32_t *ns)
     }
 }
 
-static inline float lg_op(int op, float x, float y, int bits, int wa, float pw, uint32_t *ns)
+RV_INL float lg_op(int op, float x, float y, int bits, int wa, float pw, uint32_t *ns)
 {
     float top = (float)((1 << bits) - 1);
     int ux, uy;
@@ -1397,7 +1397,7 @@ static void logic_note(voice_t *v, const float *eff)
         l->ns = v->rng | 1u;
 }
 
-static void logic_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void logic_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     logic_t *l = &v->e.lg;
     int wa = clampi((int)(eff[TP_S0] + 0.5f), 0, LW_N - 1), wb = clampi((int)(eff[TP_S2] + 0.5f), 0, LW_N - 1);
@@ -1509,7 +1509,7 @@ static void organ_note(voice_t *v, const float *eff)
     }
 }
 
-static void organ_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void organ_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     organ_t *o = &v->e.og;
     int stop = clampi((int)(eff[TP_S0] + 0.5f), 0, ORG_STOPS - 1), i, k, nr = 0;
@@ -1619,7 +1619,7 @@ static void mono_note(voice_t *v, const float *eff, int legato)
     }
 }
 
-static void mono_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void mono_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     mono_t *m = &v->e.mo;
     int sub_mode = clampi((int)(eff[TP_S3] + 0.5f), 0, 2), i;
@@ -1668,7 +1668,7 @@ static void mono_render(voice_t *v, const float *eff, float f, float *out, int n
     }
 }
 
-static void voice_engine_reset(voice_t *v, int eng)
+RV_INL void voice_engine_reset(voice_t *v, int eng)
 {
     __builtin_memset(&v->e, 0, sizeof(v->e));
     switch (eng) {
@@ -1752,7 +1752,7 @@ static inline float rs_read(const int16_t *b, int len, int w, float d)
     return (b[r0] + (b[r1] - b[r0]) * fr) * (1.0f / 16000.0f);
 }
 
-static void resin_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void resin_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     resin_t *s = &v->e.rs;
     int horn = (int)(eff[TP_S0] + 0.5f) == 1, i, k;
@@ -1986,7 +1986,7 @@ static void tine_note(voice_t *v, const float *eff)
     tine_strike(s, eff, vel, 1.0f);
 }
 
-static void tine_render(voice_t *v, const float *eff, float f, float *out, int n)
+RV_INL void tine_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     tine_t *s = &v->e.tn;
     int model = clampi((int)(eff[TP_S0] + 0.5f), 0, 2), i, k, nm = s->nm > TN_M ? TN_M : s->nm;
@@ -2214,7 +2214,7 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
     return lvl;
 }
 
-static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
+RV_HOT2 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int n, float bend)
 {
     const float *eff = tr->eff;
     float buf[RV_SUB], f, lvl0, fl, cut, res, ktrk, env_amt, lvl;

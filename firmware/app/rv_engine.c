@@ -338,6 +338,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         hs_clear(&hs_pend);
         return;
     }
+    if (!arp_out && arp_live_in && !spark && vel > 0 && hold_on(t))   /* HOLD: the key's note plays, and stays */
+        hold_key_on(t, note);
     spark_pend = 0;
     if (vel > 0 && !spark && guard_wants(t))     /* (only a note that takes a voice of its own) */
         guard_note();
@@ -521,6 +523,11 @@ static void note_off_internal(int t, int note)
     int kind = rv.tp[t][TP_KIND];
     if (!arp_out && arp_on(t) && arp_holds(t, note)) {
         arp_key(t, note, 0, 0);
+        return;
+    }
+    if (!arp_out && arp_live_in && hold_on(t) && hold_has(t, note)) {   /* HOLD: the key let go, the note sounds on */
+        if (hold[t].down)
+            hold[t].down--;
         return;
     }
     if (kind == KIND_SYNTH) {

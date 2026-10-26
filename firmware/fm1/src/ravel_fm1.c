@@ -60,6 +60,7 @@ void rv_xfer_msg(const uint8_t *m, uint32_t d);   /* projects and sounds over Sy
 enum { OBJ_SET, OBJ_SOUND, OBJ_PAT0, OBJ_PAT1, OBJ_PANEL, OBJ_SONG, OBJ_MOTION, OBJ_NOBJ };
 
 static uint8_t flash_ok;          /* JEDEC id matched at boot */
+static uint32_t flash_jedec, flash_sr, flash_con, flash_baud;   /* read at boot, for the FLASH page */
 static void audio_silence(void);
 static int st_read(uint32_t off, void *dst, uint32_t n)   /* 256-byte IRQ-off windows: audio keeps up */
 {

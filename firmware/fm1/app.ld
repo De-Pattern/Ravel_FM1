@@ -33,6 +33,12 @@ SECTIONS
     _data_load = LOADADDR(.data);
     .bss (NOLOAD) : { _bss_start = .; *(.rv_ram_bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .bss*) *(EXCLUDE_FILE(*rv_app.o *bd.o) .sbss*)
                      *(EXCLUDE_FILE(*rv_app.o *bd.o) COMMON) . = ALIGN(4); _bss_end = .; } > RAM
+    /* more render code (RV_HOT2: the voices' engines, the drum machines), at the pool's start: the
+     * tape's 120 KB, gone, made room. Copied at start like .fast_text; the guard's RAM code window
+     * reaches to its end (_xram_end) */
+    .pool_text : { _pt_start = .; KEEP(*(.pool_text*)) . = ALIGN(4); _pt_end = .; } > POOL AT > XIP
+    _pt_load = LOADADDR(.pool_text);
+    _xram_end = _pt_end > _pt_start ? _pt_end : _rt_end;
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) *rv_app.o(.bss* .sbss* COMMON) *bd.o(.bss* .sbss* COMMON)
                        . = ALIGN(4); _pool_end = .; } > POOL
     .noinit (NOLOAD) : { *(.noinit*) } > NOINIT

@@ -349,7 +349,8 @@ static const rv_pinfo TRACK[TP_N] = {
     [TP_ARPRATE] = {"RATE", 0, N(arprate_names), 3, E(arprate_names)},
     [TP_ARPOCT] = {"OCTAVES", 1, 4, 1, PF_NUM, 0},
     [TP_ARPGATE] = {"GATE", 5, 100, 50, PF_NUM, 0},      /* % of its step; 100: each note runs into the next (legato) */
-    [TP_ARPLATCH] = {"LATCH", 0, 1, 0, PF_ONOFF, 0},       /* the notes stay when the keys let go, until new ones come */
+    [TP_ARPLATCH] = {"HOLD", 0, 1, 0, PF_ONOFF, 0},        /* the notes stay when the keys let go, until new ones come (the arp's,
+                                                            * or with the arp off the keys' own notes, sounding on) */
     [TP_ARPREP] = {"REPEAT", 1, 4, 1, PF_NUM, 0},          /* each note this many times */
     [TP_ARPCHNC] = {"CHANCE", 0, 100, 100, PF_NUM, 0},     /* % that a step plays (else a rest) */
 };
@@ -666,7 +667,7 @@ int rv_tp_applies(int t, int p)
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
         return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
     if (p >= TP_ARPMODE && p <= TP_ARPCHNC)                            /* ARP: note tracks (a kit's lanes are not notes) */
-        return !(tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1) && (p == TP_ARPMODE || tp[TP_ARPMODE] != ARP_OFF);
+        return !(tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1) && (p == TP_ARPMODE || p == TP_ARPLATCH || tp[TP_ARPMODE] != ARP_OFF);
     if (p == TP_GRAIN)                                                 /* hits: strike and perc tracks */
         return tp[TP_KIND] == KIND_STRIKE || tp[TP_KIND] == KIND_PERC;
     if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1 && (p == TP_SEDST || p == TP_SEAMT || p == TP_SEDEF))

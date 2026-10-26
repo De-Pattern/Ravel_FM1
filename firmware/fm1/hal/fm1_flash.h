@@ -141,6 +141,11 @@ RAMINL int fl_wait_ready(uint32_t max_us, uint32_t *took_us)
     }
 }
 
+/* the serial flash controller's setup, read only (Ravel's FLASH page): its control word (bits 8-11 the
+ * read mode the boot chose) and its clock divider (the SDK's JL_SFC->BAUD, the word after) */
+static inline uint32_t fl_sfc_con(void) { return SFC_CON; }
+static inline uint32_t fl_sfc_baud(void) { return REG32(0x40204u); }
+
 /* ---- entry points: IRQs OFF, args/buffers in RAM ---- */
 
 static RAMFN uint32_t fl_jedec_ram(void)                 /* expect 0x856014 */

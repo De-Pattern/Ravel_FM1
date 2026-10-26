@@ -44,7 +44,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
@@ -142,8 +142,8 @@ static const page_t pages[] = {
     {SEC_SCALE, V_ALL, PIC_SCALE, PR_NONE, "SCALE", {GP(GP_ROOT), GP(GP_SCALE), GP(GP_TRANSPOSE), TP(TP_INTERVAL)}},
 
     /* ARP: the held notes, one at a time on the clock */
-    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP", {TP(TP_ARPMODE), TP(TP_ARPRATE), TP(TP_ARPOCT), TP(TP_ARPGATE)}},
-    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP 2", {TP(TP_ARPLATCH), TP(TP_ARPREP), TP(TP_ARPCHNC), NO}},
+    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP", {TP(TP_ARPMODE), TP(TP_ARPRATE), TP(TP_ARPOCT), TP(TP_ARPLATCH)}},   /* HOLD: works with the arp off too */
+    {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP 2", {TP(TP_ARPGATE), TP(TP_ARPREP), TP(TP_ARPCHNC), NO}},
 
     {SEC_SEQ, V_COMP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), NO, NO}},   /* (a COMP track has no steps) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
@@ -178,6 +178,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
     {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, NO, NO}},   /* where the audio's time goes; CORES */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
+    {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
@@ -3622,8 +3623,19 @@ static void pic_arp(void)
     for (i = 0; i < n; i++)
         held[i] = rv_live.arp_note[t][i];
     if (mode == ARP_OFF) {
+        if (rv.tp[t][TP_ARPLATCH]) {                /* HOLD alone: the keys' notes sound on */
+            for (i = 0; i < n; i++) {
+                sx_note(b, held[i]);
+                g_text_c(15 + i * 30, PIC_Y + 2, &FONT_T, b, C_INK);
+            }
+            g_text_c(120, PIC_Y + 46, &FONT_B, n ? "HOLDING" : "HOLD ON", C_AMBER);
+            g_text_c(120, PIC_Y + 68, &FONT_T, n ? "THE NEXT CHORD REPLACES THESE" : "THE NOTES YOU PLAY SOUND ON", C_DIM);
+            g_text_c(120, PIC_Y + 82, &FONT_T, "HOLD OFF LETS THEM GO", C_DIM);
+            return;
+        }
         g_text_c(120, PIC_Y + 46, &FONT_B, "ARP OFF", C_DIM);
         g_text_c(120, PIC_Y + 68, &FONT_T, "KNOB 1: UP, DOWN, UP-DN, DN-UP, PLAYED, RANDOM", C_DIM);
+        g_text_c(120, PIC_Y + 82, &FONT_T, "KNOB 4, HOLD: THE KEYS' NOTES SOUND ON", C_DIM);
         return;
     }
     for (i = 0; i < n; i++) {                       /* the notes it holds */
@@ -3667,7 +3679,7 @@ static void pic_arp(void)
         g_text(8, PIC_Y + 110, &FONT_T, b, C_DIM);
     }
     if (rv.tp[t][TP_ARPLATCH])
-        g_text_r(232, PIC_Y + 110, &FONT_T, "LATCHED", C_AMBER);
+        g_text_r(232, PIC_Y + 110, &FONT_T, "HOLD", C_AMBER);
     g_text(8, PIC_Y + 124, &FONT_T, rv.tp[t][TP_KIND] == KIND_COMP ? "" : "ON THE MASTER CLOCK, PLAYING OR NOT", C_DIM);
 }
 
@@ -3710,6 +3722,55 @@ static void pic_comp(void)
     g_text(x0, y0 + sz + 4, &FONT_T, "IN", C_DIM);
     g_text_r(x0 + sz, y0 + sz + 4, &FONT_T, "THE MAIN MIX", C_DIM);
     g_text(216, y0 + 2, &FONT_T, "OUT", C_DIM);
+}
+
+/* FLASH: how the boot set the flash up, read once at start and never written: the chip, its status
+ * (QE: its four-wire mode allowed), the controller's read mode and clock divider. A photo of it
+ * says whether a faster read is possible on this unit */
+static void sx_hex(char *o, uint32_t v, int digits)
+{
+    int i;
+    for (i = 0; i < digits; i++)
+        o[i] = "0123456789ABCDEF"[(v >> (4 * (digits - 1 - i))) & 15u];
+    o[digits] = 0;
+}
+static void pic_flash(void)
+{
+    uint32_t v[4];
+    char b[40];
+    int y = PIC_Y + 4;
+    if (plat_flash_info(v) < 0) {
+        g_text_c(120, PIC_Y + 46, &FONT_B, "NO FLASH HERE", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "THE FM-1 SHOWS ITS FLASH'S SETUP ON THIS PAGE", C_DIM);
+        return;
+    }
+    b[0] = 0;
+    sx_cat(b, "CHIP ");
+    sx_hex(b + 5, v[0], 6);
+    sx_cat(b, v[0] == 0x856014u ? "  PUYA 1 MB" : "  (NOT THE USUAL)");
+    g_text(8, y, &FONT_T, b, C_INK);
+    b[0] = 0;
+    sx_cat(b, "STATUS ");
+    sx_hex(b + 7, v[1] & 0xFFu, 2);
+    sx_cat(b, " ");
+    sx_hex(b + 10, (v[1] >> 8) & 0xFFu, 2);
+    sx_cat(b, (v[1] >> 9) & 1u ? "   QE ON" : "   QE OFF");
+    g_text(8, y + 16, &FONT_T, b, C_INK);
+    b[0] = 0;
+    sx_cat(b, "READ MODE ");
+    sx_int(b + 10, (int)((v[2] >> 8) & 15u));
+    sx_cat(b, "   CON ");
+    sx_hex(b + sx_cat(b, ""), v[2], 8);
+    g_text(8, y + 32, &FONT_T, b, C_INK);
+    b[0] = 0;
+    sx_cat(b, "CLOCK DIVIDER ");
+    sx_int(b + 14, (int)(v[3] & 0xFFFFu));
+    sx_cat(b, "   WORD ");
+    sx_hex(b + sx_cat(b, ""), v[3], 8);
+    g_text(8, y + 48, &FONT_T, b, C_INK);
+    g_text(8, y + 74, &FONT_T, "READ AT START. NOTHING HERE", C_DIM);
+    g_text(8, y + 88, &FONT_T, "WRITES THE FLASH OR CHANGES IT.", C_DIM);
+    g_text(8, y + 108, &FONT_T, "A PHOTO OF THIS PAGE, PLEASE", C_AMBER);
 }
 
 static void pic_master(void)
@@ -4247,6 +4308,7 @@ static void draw_picture(void)
     case PIC_SENV: pic_senv(); break;
     case PIC_ARP: pic_arp(); break;
     case PIC_COMP: pic_comp(); break;
+    case PIC_FLASH: pic_flash(); break;
     default: break;
     }
 }

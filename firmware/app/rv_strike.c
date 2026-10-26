@@ -49,7 +49,7 @@ static void strike_note_on(strike_t *v, int note, float vel, const float *eff)
 }
 
 /* the excitation for one sample */
-static inline float strike_exciter(strike_t *v, int exc, const float *eff, float f, float ext)
+RV_INL float strike_exciter(strike_t *v, int exc, const float *eff, float f, float ext)
 {
     float x = 0.0f, tone = eff[TP_S3] * (1.0f / 127.0f), rate = eff[TP_S9] * (1.0f / 127.0f);
     float order = eff[TP_S8] * (1.0f / 127.0f);
@@ -126,7 +126,7 @@ static inline float strike_exciter(strike_t *v, int exc, const float *eff, float
     return x * v->vel + ext;
 }
 
-static float strike_render(strike_t *v, track_t *tr, float *out, int n)
+RV_HOT2 static float strike_render(strike_t *v, track_t *tr, float *out, int n)
 {
     const float *eff = tr->eff;
     int exc = clampi((int)(eff[TP_S0] + 0.5f), 0, EXC_N - 1), body = clampi((int)(eff[TP_S1] + 0.5f), 0, BODY_N - 1);

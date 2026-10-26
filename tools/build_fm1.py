@@ -225,13 +225,14 @@ def build_app():
     # unreferenced functions (each in its own section: -ffunction-sections) are dropped: the DSP keeps
     # mono reference paths for the host tests that the firmware no longer calls
     tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", FW / "app.ld", *objs, "-o", elf)
-    for sect in ("text.bin", "data.bin", "ramtext.bin", "c1text.bin", "fasttext.bin"):
+    for sect in ("text.bin", "data.bin", "ramtext.bin", "c1text.bin", "fasttext.bin", "pooltext.bin"):
         (OUT / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, OUT / "text.bin"),
                                ("common/bin/objcopy", "-O", "binary", "-j", ".data", elf, OUT / "data.bin"),
                                ("common/bin/objcopy", "-O", "binary", "-j", ".ram_text", elf, OUT / "ramtext.bin"),
                                ("common/bin/objcopy", "-O", "binary", "-j", ".c1_text", elf, OUT / "c1text.bin"),
                                ("common/bin/objcopy", "-O", "binary", "-j", ".fast_text", elf, OUT / "fasttext.bin"),
+                               ("common/bin/objcopy", "-O", "binary", "-j", ".pool_text", elf, OUT / "pooltext.bin"),
                                ("common/bin/objdump", "-t", elf),
                                ("common/bin/objdump", "-d", elf),
                                ("common/bin/objdump", "-d", "-j", ".ram_text", elf))
@@ -243,7 +244,7 @@ def build_app():
     # .ram_text, .c1_text (the second core's loop), .fast_text (the render's RAM code) and .data follow
     # .text at their load addresses, in that order; the start-up copies them by words
     for sect, lname in (("ramtext.bin", "_rt_load"), ("c1text.bin", "_c1_load"), ("fasttext.bin", "_fast_load"),
-                        ("data.bin", "_data_load")):
+                        ("data.bin", "_data_load"), ("pooltext.bin", "_pt_load")):
         load = symv(lname)
         if load % 4:
             raise SystemExit(f"{lname} {load:#x} is not word aligned")
@@ -291,10 +292,12 @@ def check(img, syms, dis, rt):
         mm = re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M)
         return int(mm.group(1), 16) if mm else 0
     bss = sym("_bss_end") - 0x01C08000
-    pool = sym("_pool_end") - sym("_pool_start")
+    pool = sym("_pool_end") - 0x01C20000                 # (with the pool's RAM code, .pool_text, at its start)
+    pt = sym("_pt_end") - sym("_pt_start")
     ft = OUT / "fasttext.bin"
     room = 0x01C08000 - sym("_fast_start")             # (RAMTEXT ends at 0x01C08000)
     notes.append(f".fast_text (the render's RAM code): {ft.stat().st_size if ft.exists() else 0} B of {room}")
+    notes.append(f".pool_text (more of it, in the pool): {pt} B")
     notes.append(f"image {len(img)} B; RAM .data+.bss {bss} B of 98304; pool {pool} B of {0x54000}")
     if bss > 96 * 1024:
         errors.append("RAM region overflow")

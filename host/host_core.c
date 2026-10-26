@@ -147,6 +147,7 @@ void plat_sysex_out(const uint8_t *p, uint32_t n)
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
 uint32_t plat_cpu_peak(void) { return 0; }
+int plat_flash_info(uint32_t v[4]) { v[0] = v[1] = v[2] = v[3] = 0; return -1; }
 #ifdef __wasm__
 uint32_t plat_cycles(void) { return 0; }        /* (the browser gives no clock to read here) */
 uint32_t plat_cycles_hz(void) { return 1000000000u; }

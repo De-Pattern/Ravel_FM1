@@ -12,7 +12,7 @@ RV_INL float lerpf(float a, float b, float t) { return a + (b - a) * t; }
 RV_INL int clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 
 /* note number to Hz */
-static inline float note_hz(float n) { return 440.0f * fm_exp2f((n - 69.0f) * (1.0f / 12.0f)); }
+RV_INL float note_hz(float n) { return 440.0f * fm_exp2f((n - 69.0f) * (1.0f / 12.0f)); }
 
 /* soft saturation with no exp: x(27+x^2)/(27+9x^2), exact at |x| = 3 */
 RV_INL float sat(float x)
@@ -35,7 +35,7 @@ static inline float fold(float x, float amt)
 }
 
 /* xorshift32: noise and seeded scatter */
-static inline uint32_t xs32(uint32_t *s)
+RV_INL uint32_t xs32(uint32_t *s)
 {
     uint32_t x = *s ? *s : 0x2545F491u;
     x ^= x << 13;
@@ -78,7 +78,7 @@ RV_INL float svf_tick(svf_t *f, float x, float *bp, float *hp)
 
 /* a 4-pole ladder with saturating stages (one tanh at the input, soft stages), g = tan(pi f / fs) */
 typedef struct { float s[4], g, res; } ladder_t;
-static inline void ladder_set(ladder_t *l, float hz, float res)
+RV_INL void ladder_set(ladder_t *l, float hz, float res)
 {
     hz = clampf(hz, 10.0f, RV_NYQ * 0.85f);
     l->g = fm_tanf(3.14159265f * hz * RV_DT);
