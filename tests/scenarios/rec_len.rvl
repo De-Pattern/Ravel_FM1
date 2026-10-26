@@ -1,0 +1,19 @@
+# Recording never changes LENGTH: arm on an empty pattern, record a long take (past 64 steps), stop
+wait 300
+tap SEQ
+wait 100
+tap REC
+tap PLAY
+wait 2500
+key 12 down
+wait 100
+key 12 up
+wait 9000
+tap REC
+wait 200
+expect tp 1 LENGTH 16
+tap PLAY
+tap REC
+wait 300
+tap REC
+expect tp 1 LENGTH 16

@@ -1359,13 +1359,11 @@ static void record_arm_now(int t, int on)
     if (on) {
         rv_live.recording = 1;
         rv_live.rec_track = (uint8_t)(t & 7);
-        s->first_take = (uint8_t)pattern_empty(t & 7);
+        s->first_take = 0;                          /* (a first take on an empty pattern used to set LENGTH to the
+                                                     * steps it ran: a long take, or one left armed, made it 64.
+                                                     * LENGTH is only ever what you set) */
         s->take_steps = 0;
     } else {
-        if (s->first_take && s->take_steps > 0) {
-            int len = (s->take_steps + 3) & ~3;
-            rv.tp[t & 7][TP_LEN] = (int16_t)clampi(len, 4, RV_STEPS);
-        }
         s->first_take = 0;
         rv_live.recording = 0;
     }
