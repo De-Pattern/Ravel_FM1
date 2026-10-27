@@ -31,7 +31,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
 - **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a 12-BIT space (a gritty late-80s rack plate: decay, damp, motion, crunch, low cut), a feedback bus (filter, comb, smear, shift, fold or crush, a band filter in the loop, returning to the master or into a track), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it. Every effect starts off: a new project sends nothing into any bus, and a bus with nothing coming in does not run at all.
-- **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 8 named project slots, and a sound bank of your own; projects and sounds move between the emulator and an FM-1 as a .ravel file.
+- **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 32 named project slots (compressed on the FM-1), and four banks of your own sounds that PRESETS reaches from any track; projects and sounds move between the emulator and an FM-1 as a .ravel file.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
 
@@ -141,7 +141,7 @@ The section buttons:
 | **SCL** | Scale | Root, scale, transpose, interval |
 | **ARP** | Arp | The current track's arpeggiator: mode, rate, octaves, hold (also a sustain with the arp off); gate, repeat, chance |
 | **SEQ** | Steps | Steps, tempo, step timing and shape, track settings, direction, graph and playheads |
-| **GLO** | Song | Mixers, scenes, arrangement, density arcs, clock |
+| **GLO** | Song | Mixers, the clock (tempo first), scenes, arrangement, density arcs, CPU |
 | **SAVE** | Projects and sounds | Save, load, demos, new project; your own sound bank |
 
 > **Section or layer?** A quick **tap** (less than about half a second) opens the section. **Holding** a button and using keys or knobs while it is down turns it into a *layer* instead: SEQ held makes the keys steps, LFO held puts the macros on the knobs, and so on. When you use a button as a layer, letting go of it does not change the page. See [Hold layers](#15-hold-layers).
@@ -978,14 +978,15 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | --- | --- | --- | --- | --- | --- |
 | **MIXER 1-4** | T1 LEVEL | T2 LEVEL | T3 LEVEL | T4 LEVEL | – |
 | **MIXER 5-8** | T5 LEVEL | T6 LEVEL | T7 LEVEL | T8 LEVEL | – |
-| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | GLIDE: JUMP, or 1–8 bars (see below) | scene |
-| **ARRANGE** | SCENE for this row, or END (past 16): the song stops when it gets there | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
-| **ARCS** | DENSITY of this point (0–100 %) for the current track | SPAN: each point lasts 1, 2 or 4 bars (16, 32 or 64 bars in all) | – | – | point 1–16 |
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
+| **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | GLIDE: JUMP, or 1–8 bars (see below) | scene |
+| **ARRANGE** | SCENE for this row, or END (past 16): the song stops when it gets there | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
+| **ARCS** | DENSITY of this point (0–100 %) for the current track | SPAN: each point lasts 1, 2 or 4 bars (16, 32 or 64 bars in all) | – | – | point 1–16 |
 | **CPU** | CORES: 2 (the default) gives the FM-1's second core the effects and every other voice; 1 turns it off (see below) | FLASH WT: OFF, or ON to count how much of the render waits for its code to come from the flash | – | – | – |
 | **STRESS** | STEP: OFF, or 1–16, each adding load to the last (below) | ENGINE: the synth engine the voices use | AUTO: RUN walks the steps, three seconds each, and fills in the table | – | – |
+| **FLASH** | – (read only: how the boot set the flash up) | | | | – |
 
 <p align="center"><img src="docs/manual/song-cpu.png" alt="CPU" width="240"> <img src="docs/manual/song-stress.png" alt="STRESS" width="240"></p>
 <p align="center"><sub>(Taken on the desktop simulator, a far faster machine: the same project reads many times higher on the FM-1.)</sub></p>
@@ -1064,7 +1065,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 <p align="center"><img src="docs/manual/save.png" alt="SAVE" width="320"></p>
 
 1. Press **SAVE** to open the page.
-2. Turn **PRESETS** to choose a slot (1–7). The picture shows which slots are used and their names.
+2. Turn **PRESETS** to choose a slot (1–32). The picture shows eight at a time around the chosen one, which are used and their names, and on the FM-1 how much room the projects have left (**ROOM**).
 3. Turn **KNOB 1 (ACTION)**:
 
    | Action | What it does |
@@ -1082,7 +1083,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 
 Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
 
-There are seven project slots. (Before v0.5.0 there were eight; the eighth's room now holds the sound banks, so a project saved in slot 8 is gone after updating. Load it and save it to slots 1–7 first.)
+There are 32 project slots. On the FM-1 a project is kept compressed (most fit in one 4 KB block of the flash, a very busy one in a few), so they share the room: **ROOM** on the page says how much is left, and if a save doesn't fit, it says **NO ROOM: SAVE OVER ANOTHER** and nothing is lost. Projects saved in slots 1–7 by an earlier version are still there; the first save after updating compresses them too, which takes a second or two once.
 
 A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the LIBRARY of step envelopes. A project saved before the tape was removed still loads: its tape tracks come back as blank VA synths with empty patterns, and influence TAPE routes are switched off.
 
@@ -1108,11 +1109,13 @@ A sound is the track's voice: its kind and engine, every sound setting (source, 
 
 Loading a sound that changes a track between a kit and notes (lanes and notes don't read each other's steps) clears that track's steps, so it asks first: press **SAVE** again.
 
+**From PRESETS:** on any EDIT page, turning **PRESETS** walks the factory sounds of the track's kind and then your own of that kind, from the bank chosen here (knob 4): the footer and the top bar name each one (A3 MY BASS). So a sound you keep is a turn of PRESETS away on any track.
+
 **In the emulator**, your sounds are at the top of the sound menu under **My sounds**, one group per bank, each with its slot (A1 … D32) before the name and its kind in brackets after it. Choosing one loads it into the current track, switching its kind if needed. **Save sound…** keeps the current track's sound (it asks for a slot such as B5, offering the first empty one, and a name), and **Delete sound…** removes one. The panel's SAVE › SOUNDS page works too.
 
 ### Moving projects and sounds to an FM-1 (and back)
 
-Everything you have saved, the projects in slots 1–7 and the sound banks A–D, can leave the emulator as a file and go onto an FM-1 running Ravel, and the other way. The FM-1's own update leaves its saved projects and banks alone, so install the firmware first, then bring your work over.
+Everything you have saved, the projects in slots 1–32 and the sound banks A–D, can leave the emulator as a file and go onto an FM-1 running Ravel, and the other way. The FM-1's own update leaves its saved projects and banks alone, so install the firmware first, then bring your work over.
 
 **In the emulator** (the *Projects & sounds* panel on the left):
 
@@ -1323,7 +1326,7 @@ The installer works from M-VAVE's own firmware, from Ravel, and from the other c
 | `docs/` | The signal-flow diagram, and `docs/manual/`: the panel drawing and the screenshots used in this manual |
 | `tools/` | The FM-1 build (`build_fm1.py`, `fm1pkg_make.py`), the installer and rescue tools, the site assembler (`make_site.py`), toolchain and SDK-file downloads, font and table generators |
 | `web/installer/` | The web installer (Web MIDI), from Felucca and X0X |
-| `tests/fm1/` | Felucca's update-path tests, run against Ravel's package |
+| `tests/fm1/` | Felucca's update-path tests, run against Ravel's package; `projstore_test.c`, the compressed project store on a simulated flash (power cut at every write) |
 
 ## Building
 

@@ -8,7 +8,7 @@
       [--only project3,bankB] [--yes] [--port NAME]
 
 A .ravel file is what the emulator's Export file makes (and Import file reads): every saved
-project (slots 1-7) and sound bank (A-D). Restoring replaces those slots on the FM-1 and leaves the
+project (1-32) and sound bank (A-D). Restoring replaces those slots on the FM-1 and leaves the
 others alone. Ravel must be running on the FM-1 (the normal firmware, not update mode). The
 messages are firmware/app/rv_xfer.c's; web/emu/xfer.js is the emulator's side. Needs mido with
 python-rtmidi (as tools/fm1_install.py does).
@@ -23,18 +23,22 @@ import time
 import zlib
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0] if "/" in __file__ else ".")   # (fm1_install.py's MIDI wrapper)
-STORES, PROJECTS, BANK0 = 13, 7, 9
-SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12]
+STORES, PROJECTS, BANK0, MORE = 38, 7, 9, 13            # projects 1-7: slots 0-6; banks A-D: 9-12; projects 8-32: 13-37
+SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12] + list(range(MORE, MORE + 25))
 CHUNK = 256
 PORT_RE = re.compile(r"fm-1|felucca|ravel|composite|sinco|usb-midi", re.I)   # never probe other gear
 
 
+def proj_no(s):
+    return s + 1 if s < PROJECTS else s - MORE + 8
+
+
 def slot_name(s):
-    return f"project {s + 1}" if s < PROJECTS else f"bank {'ABCD'[s - BANK0]}"
+    return f"project {proj_no(s)}" if s < PROJECTS or s >= MORE else f"bank {'ABCD'[s - BANK0]}"
 
 
 def slot_key(s):
-    return f"project{s + 1}" if s < PROJECTS else f"bank{'ABCD'[s - BANK0]}"
+    return f"project{proj_no(s)}" if s < PROJECTS or s >= MORE else f"bank{'ABCD'[s - BANK0]}"
 
 
 class Fail(Exception):

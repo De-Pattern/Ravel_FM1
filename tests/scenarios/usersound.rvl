@@ -1,0 +1,32 @@
+# PRESETS on the voice pages walks the factory sounds, then your own of the track's kind: keep T1's
+# sound (an FM synth) in bank A, then on T4 (a PHYS synth) PRESETS back one is that sound
+wait 300
+tap HOME
+turn SELECT -20
+turn K4 1
+wait 100
+turn K4 1
+wait 200
+expect tp 1 ENGINE 2
+tap SAVE
+wait 100
+turn SELECT 20
+wait 100
+expect page SOUNDS
+turn K1 1
+tap SAVE
+wait 300
+turn ALGO 3
+wait 100
+expect tp 4 ENGINE 3
+tap EDIT
+turn SELECT -20
+wait 100
+expect page SOUND
+turn PRESET -1
+wait 300
+expect tp 4 ENGINE 2
+shot usersound.png
+turn PRESET 1
+wait 300
+expect tp 4 KIND 0

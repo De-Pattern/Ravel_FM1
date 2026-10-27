@@ -43,6 +43,7 @@ rv.rv_set_keys(1 << 2); run(120); rv.rv_enc(2, 5); run(60); rv.rv_set_keys(0); r
 check(true, 'held a step and turned KNOB 1');
 rv.web_goto(9, 0); run(50); tap('SAVE'); tap('SAVE');       // SAVE › save to slot 1
 check(rv.rv_store_len(0) > 20000, `saved a project (${rv.rv_store_len(0)} bytes)`);
+check(rv.rv_store_slots() === 38 && rv.web_save(25) === 0 && rv.rv_store_len(25) > 20000 && rv.web_load(25) === 0, 'project 20 (slot 25) saves and loads');
 {                                                           // the sound bank: keep T1's sound, load it on T2 as a perc kit
   rv.web_set_kind(2, 3, 0); run(20);
   const nb = new Uint8Array(rv.memory.buffer, rv.web_bank_name_buf(), 16); nb.fill(0);

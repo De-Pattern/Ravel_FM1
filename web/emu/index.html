@@ -620,7 +620,7 @@ $("panic").addEventListener("click", () => { if (!rv) return; rv.web_transport(0
 $("loaddemo").addEventListener("click", () => { rv.web_demo(+$("demo").value); sideSync(); });
 {
   const g = $("gotos");
-  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Arp",6,0],["Steps",7,0],["Mod",3,0],["Buses",4,0],["Song",8,2],["Save",9,0]].forEach(([n, s, p]) => {
+  [["Tracks",0,0],["Influence",0,1],["Voice",1,0],["Articulation",2,0],["Arp",6,0],["Steps",7,0],["Mod",3,0],["Buses",4,0],["Clock",8,2],["Song",8,5],["Save",9,0]].forEach(([n, s, p]) => {
     const b = document.createElement("button"); b.className = "hbtn"; b.textContent = n;
     b.addEventListener("click", () => rv && rv.web_goto(s, p)); g.appendChild(b);
   });
@@ -667,7 +667,7 @@ const GUIDE = {
 <tr><td>SCL</td><td>Scale, root, transpose and the track's note interval</td></tr>
 <tr><td>ARP</td><td>The arpeggiator: hold notes (or play steps) and it plays them one at a time on the clock</td></tr>
 <tr><td>SEQ</td><td>Steps, tempo, step timing, step shape, track (MODE: steps or graph), then direction, or the graph's heads and motion</td></tr>
-<tr><td>GLO</td><td>Song: mixers, scenes, arrangement, density arcs, clock</td></tr>
+<tr><td>GLO</td><td>Song: mixers, the clock (tempo first), scenes, arrangement, density arcs</td></tr>
 <tr><td>SAVE</td><td>Projects (name them with KNOB 2 and 3) and sound banks: choose an action with KNOB 1, press SAVE twice to do it. The <b>Projects &amp; sounds</b> panel moves them as a file or to an FM-1.</td></tr>
 <tr><td>PLAY · REC</td><td>Start/stop · arm recording on the track (keys and knob moves; with REC armed the keys play notes even on SEQ pages, hold SEQ for steps)</td></tr>
 <tr><td>OCT− · OCT+</td><td>The keyboard's octave; on SEQ, the step page. On pages with more settings than knobs (a kit's LANE pages, the CZ's DCO/DCW/DCA envelopes, LFO SHAPE) they move the knobs to the next row: the screen numbers the knobs and the footer says what's next.</td></tr></table>`,

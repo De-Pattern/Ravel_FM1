@@ -5,9 +5,10 @@
  * (all little-endian). The emulator page and the tests use it; tools/fm1_data.py speaks the same. */
 (function (root) {
   "use strict";
-  const STORES = 13, PROJECTS = 7, BANK0 = 9, BANKS = 4, CHUNK = 256;
-  const SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12];
-  const slotName = s => s < PROJECTS ? `project ${s + 1}` : `bank ${"ABCD"[s - BANK0]}`;
+  /* projects 1-7: slots 0-6; sound banks A-D: 9-12; projects 8-32: 13-37 */
+  const STORES = 38, PROJECTS = 7, BANK0 = 9, BANKS = 4, MORE = 13, CHUNK = 256;
+  const SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, ...Array.from({ length: 25 }, (_, i) => MORE + i)];
+  const slotName = s => s < PROJECTS ? `project ${s + 1}` : s >= MORE ? `project ${s - MORE + 8}` : `bank ${"ABCD"[s - BANK0]}`;
 
   let CRC_T = null;
   function crc32(b) {

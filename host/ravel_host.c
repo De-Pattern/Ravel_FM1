@@ -363,7 +363,7 @@ int main(int argc, char **argv)
                 char nm[13];
                 const char *have = rv.name;
                 if (w2[0]) {
-                    rv_slot_used(atoi(w2) - 1, nm);
+                    rv_slot_used(PLAT_PROJ(atoi(w2) - 1), nm);
                     have = nm;
                 }
                 if (strcmp(have, w1)) {

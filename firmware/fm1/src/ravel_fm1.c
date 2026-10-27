@@ -93,7 +93,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 #include "storage.c"
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { return flash_ok ? st_load(obj, dst, max) : -1; }
-int plat_store_save(uint32_t obj, const void *src, uint32_t len) { return flash_ok ? st_save(obj, src, len) : -9; }
+/* (only the settings and the panel: the other objects' sectors are the projects' now, projstore.c) */
+int plat_store_save(uint32_t obj, const void *src, uint32_t len) { return flash_ok && (obj == OBJ_SET || obj == OBJ_PANEL) ? st_save(obj, src, len) : -9; }
 
 struct bootguard_s { uint32_t magic, failed, pending; };
 extern struct bootguard_s bootguard;

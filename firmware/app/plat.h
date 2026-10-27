@@ -26,11 +26,22 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px);
 
 /* storage: numbered slots of up to PLAT_SLOT_MAX bytes */
 #define PLAT_SLOT_MAX (64u * 1024u)
-#define PLAT_SLOTS 7                    /* the projects (0..6; 7 was the eighth, now the sound banks' room) */
+/* projects 1-7 are slots 0-6 (as they always were; 7 was the eighth, now the sound banks' room), the
+ * sound banks A-D 9-12, and projects 8-32 slots 13-37 (so a slot keeps its number in files and transfers) */
+#define PLAT_SLOTS 7                    /* the first projects' slots, 0..6 */
 #define PLAT_BANK_OLD 8                 /* the first sound bank's old place (read once, to move it) */
 #define PLAT_BANK0 9                    /* the sound banks A..D */
 #define PLAT_BANKS 4
-#define PLAT_STORES (PLAT_BANK0 + PLAT_BANKS)
+#define PLAT_PROJECTS 32                /* projects in all */
+#define PLAT_PROJ_MORE 13               /* the slot of project 8 */
+#define PLAT_PROJ(p) ((p) < PLAT_SLOTS ? (p) : PLAT_PROJ_MORE + (p) - PLAT_SLOTS)   /* project p (0..31): its slot */
+#define PLAT_STORES (PLAT_PROJ_MORE + PLAT_PROJECTS - PLAT_SLOTS)
+static inline int plat_proj_of(int slot)   /* a slot's project (0..31), or -1 */
+{
+    return slot >= 0 && slot < PLAT_SLOTS ? slot : slot >= PLAT_PROJ_MORE && slot < PLAT_STORES ? slot - PLAT_PROJ_MORE + PLAT_SLOTS : -1;
+}
+static inline int plat_is_bank(int slot) { return slot >= PLAT_BANK0 && slot < PLAT_BANK0 + PLAT_BANKS; }
+int plat_proj_room(int *free_pct);      /* how much room the projects have left, % (-1: not counted here) */
 int plat_load(int slot, void *dst, uint32_t max);          /* copies up to max; returns the stored length, < 0 = empty */
 int plat_save(int slot, const void *src, uint32_t len);    /* 0 = saved */
 /* a slot written in pieces (a transfer from a computer): begin empties it, writes land at off (256-byte

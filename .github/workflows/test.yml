@@ -62,6 +62,7 @@ jobs:
           AC79_SDK="$HOME/ac79" python3 tools/fm1pkg_make.py build/fm1test/old_app.bin build/fm1/loader/ota.bin build/fm1test/old.fwsc
           cc -o build/fm1test/ldr_test tests/fm1/ldr_test.c && build/fm1test/ldr_test build/fm1test/old.fwsc build/fm1/Ravel-FM1.fwsc
           python3 tests/fm1/install_test.py
+          cc -O2 -o build/fm1test/projstore_test tests/fm1/projstore_test.c && build/fm1test/projstore_test
       - uses: actions/upload-artifact@v4
         if: always()
         with:

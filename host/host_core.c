@@ -57,7 +57,7 @@ int plat_audio_in(float *lr, int frames) { return host_audio_in(lr, frames); }
 
 /* storage: slots in memory, kept across a simulated reboot */
 static uint8_t store[PLAT_STORES][PLAT_SLOT_MAX];
-static int32_t store_len[PLAT_STORES] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+static int32_t store_len[PLAT_STORES] = {[0 ... PLAT_STORES - 1] = -1};
 static uint32_t store_writes;
 int plat_load(int slot, void *dst, uint32_t max)
 {
@@ -92,7 +92,8 @@ static uint32_t host_crc32(const uint8_t *p, uint32_t n)
     }
     return ~c;
 }
-static uint32_t host_room(int slot) { return slot >= PLAT_BANK0 ? 0x3000u - 256u : 0x8000u - 256u; }
+static uint32_t host_room(int slot) { return plat_is_bank(slot) ? 0x3000u - 256u : 0x8000u - 256u; }
+int plat_proj_room(int *free_pct) { *free_pct = 100; return -1; }   /* (no flash to fill here) */
 int plat_slot_begin(int slot, uint32_t len)
 {
     if (slot < 0 || slot >= PLAT_STORES || len > host_room(slot))

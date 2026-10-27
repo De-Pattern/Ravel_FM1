@@ -92,12 +92,14 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px)
     lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h, b);
 }
 
-/* projects: seven slots of 32 KB in Felucca's data area (0x97000 .. 0xCF000), then the four sound
- * banks of 12 KB (0xCF000 .. 0xDB000, where the eighth project was), then the panel calibration at
- * 0xDC000 and the updater's staging at 0xE0000. (The first sound bank once sat at 0xD7000: kept
- * readable as PLAT_BANK_OLD so it can be moved.) A header, then the data; the header is written
- * last, so a slot cut short by a power loss reads as empty. Writing pauses the sound (the code runs
- * from the same flash). */
+/* projects: compressed, in a pool of sectors (projstore.c: Felucca's data area 0x97000 .. 0xCF000 and
+ * three spare sectors), as many as fit, 32 at most; then the four sound banks of 12 KB (0xCF000 ..
+ * 0xDB000, where the eighth fixed project slot was), the panel calibration at 0xDC000 and the
+ * updater's staging at 0xE0000. (The first sound bank once sat at 0xD7000: kept readable as
+ * PLAT_BANK_OLD so it can be moved.) A bank: a header, then the data; the header is written last, so
+ * a slot cut short by a power loss reads as empty. Writing pauses the sound (the code runs from the
+ * same flash). */
+#include "projstore.c"
 #define SLOT_BASE 0x00097000u
 #define SLOT_SIZE 0x8000u
 #define SLOT_MAGIC 0x4C535652u                  /* "RVSL" */
@@ -111,12 +113,19 @@ static uint32_t slot_base(int slot)
            : slot == PLAT_BANK_OLD ? BANK_OLD : SLOT_BASE + (uint32_t)slot * SLOT_SIZE;
 }
 static uint32_t slot_room(int slot) { return slot >= PLAT_BANK0 ? BANK_SIZE : slot == PLAT_BANK_OLD ? 0x5000u : SLOT_SIZE; }
-static int slot_ok(int slot) { return slot >= 0 && slot < PLAT_STORES && slot != PLAT_SLOTS; }   /* (7: the banks' room now) */
+static int slot_ok(int slot) { return plat_is_bank(slot) || slot == PLAT_BANK_OLD; }   /* (the banks: projects go to projstore.c) */
+int plat_proj_room(int *free_pct)
+{
+    *free_pct = flash_ok ? ps_free_count() * 100 / PS_SECTORS : 0;
+    return 0;
+}
 
 int plat_load(int slot, void *dst, uint32_t max)
 {
     slot_head h;
     uint32_t base = slot_base(slot), n;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_load(plat_proj_of(slot), dst, max);
     if (!flash_ok || !slot_ok(slot))
         return -1;
     if (st_read(base, &h, sizeof h) || h.magic != SLOT_MAGIC || h.len > slot_room(slot) - 256u)
@@ -133,6 +142,8 @@ int plat_save(int slot, const void *src, uint32_t len)
 {
     slot_head h;
     uint32_t base = slot_base(slot), off;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_save(plat_proj_of(slot), src, len);   /* (-2: no room left) */
     if (!flash_ok || !slot_ok(slot) || slot == PLAT_BANK_OLD || len > slot_room(slot) - 256u)   /* (a bank stays in its 12 KB) */
         return -1;
     for (off = 0; off < len + 256u; off += 0x1000u)
@@ -177,6 +188,8 @@ int plat_slot_begin(int slot, uint32_t len)
 {
     uint32_t base = slot_base(slot), off;
     xf_open = -1;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_xbegin(plat_proj_of(slot), len);
     if (!flash_ok || !slot_ok(slot) || slot == PLAT_BANK_OLD || len > slot_room(slot) - 256u)
         return -1;
     for (off = 0; off < len + 256u; off += 0x1000u)
@@ -187,6 +200,8 @@ int plat_slot_begin(int slot, uint32_t len)
 }
 int plat_slot_write(int slot, uint32_t off, const void *p, uint32_t n)
 {
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return (off & 255u) || n > 256u ? -1 : ps_xwrite(plat_proj_of(slot), off, p, n);
     if (slot != xf_open || (off & 255u) || n > 256u || off + n > slot_room(slot) - 256u)
         return -1;
     return st_prog(slot_base(slot) + 256u + off, p, n) ? -1 : 0;
@@ -196,6 +211,8 @@ int plat_slot_end(int slot, uint32_t len, uint32_t crc)
     uint8_t buf[256];
     uint32_t base = slot_base(slot), off, c = 0xFFFFFFFFu;
     slot_head h, back;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_xend(plat_proj_of(slot), len, crc);
     if (slot != xf_open || len > slot_room(slot) - 256u)
         return -1;
     xf_open = -1;
@@ -218,6 +235,8 @@ int plat_slot_end(int slot, uint32_t len, uint32_t crc)
 int plat_slot_info(int slot, uint32_t *len, uint32_t *crc)
 {
     slot_head h;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_info(plat_proj_of(slot), len, crc);
     if (!flash_ok || !slot_ok(slot) || st_read(slot_base(slot), &h, sizeof h) || h.magic != SLOT_MAGIC || h.len > slot_room(slot) - 256u)
         return -1;
     *len = h.len;
@@ -227,6 +246,8 @@ int plat_slot_info(int slot, uint32_t *len, uint32_t *crc)
 int plat_slot_read(int slot, uint32_t off, void *p, uint32_t n)
 {
     uint32_t len, crc;
+    if (flash_ok && plat_proj_of(slot) >= 0)
+        return ps_read(plat_proj_of(slot), off, p, n);
     if (plat_slot_info(slot, &len, &crc) || off + n > len)
         return -1;
     return st_read(slot_base(slot) + 256u + off, p, n) ? -1 : 0;

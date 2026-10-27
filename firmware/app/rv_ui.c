@@ -52,6 +52,7 @@ enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PK
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK };
 
+#define USND 1000                       /* ui.preset_idx at or above: your own sound USND + slot (the current bank) */
 typedef struct {
     uint8_t sec, vis, pic, pr;
     const char *title;
@@ -170,12 +171,13 @@ static const page_t pages[] = {
 
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 1-4", {{K_TLEVEL, 0}, {K_TLEVEL, 1}, {K_TLEVEL, 2}, {K_TLEVEL, 3}}},
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 5-8", {{K_TLEVEL, 4}, {K_TLEVEL, 5}, {K_TLEVEL, 6}, {K_TLEVEL, 7}}},
-    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
-    {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
-    {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
+    /* the clock right after the mixers: the tempo two pages in */
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
+    {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
+    {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
+    {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
     {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, NO, NO}},   /* where the audio's time goes; CORES */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
     {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
@@ -212,8 +214,9 @@ static struct {
     uint8_t save_confirm;
     uint8_t cur_sound, bank_action, bank_cursor, bank_dirty;   /* SOUNDS: the slot, LOAD/SAVE/CLEAR, the name's cursor */
     uint32_t bank_edit_ms;                   /* a name edited: kept in flash once the naming pauses */
-    char slot_names[PLAT_SLOTS][13];
-    uint8_t slot_used[PLAT_SLOTS];
+    char slot_names[PLAT_PROJECTS][13];
+    uint8_t slot_used[PLAT_PROJECTS];
+    int8_t room;                           /* the projects' room left, % (-1: not counted here) */
     int8_t euc_rot[RV_TRACKS][RV_LANES];     /* EUCLID: the last ROTATE turned to (a track's in [0], a kit's per lane) */
     uint32_t frame;
     uint8_t dust_hist[60];
@@ -1693,7 +1696,7 @@ static void bank_do(void)
         else {
             int kind = rv.tp[t][TP_KIND], e = rv.tp[t][TP_ENGINE];
             b[0] = 0;
-            if (ui.preset_idx[t] >= 0)
+            if (ui.preset_idx[t] >= 0 && ui.preset_idx[t] < USND)
                 sx_cat(b, rv_preset_name(ui.preset_idx[t]));
             else {
                 sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[e % 12] : kind == KIND_STRIKE ? "STRIKE"
@@ -1724,6 +1727,50 @@ static void bank_do(void)
     ui.save_confirm = 0;
 }
 
+/* PRESETS on the voice pages: the factory sounds of the track's kind, then your own of that kind in the
+ * bank chosen on SAVE > SOUNDS (ui.preset_idx at or above USND), round and round */
+static int usnd_ok(int t, int b) { return rv_bank_used(b) && rv_bank_kind(b) == rv.tp[t][TP_KIND]; }
+static int fact_next(int t, int f, int dir)
+{
+    for (f += dir; f >= 0 && f < rv_preset_count(); f += dir)
+        if (rv_preset_kind(f) == rv.tp[t][TP_KIND])
+            return f;
+    return -1;
+}
+static int usnd_next(int t, int b, int dir)
+{
+    for (b += dir; b >= 0 && b < RV_BANK_N; b += dir)
+        if (usnd_ok(t, b))
+            return b;
+    return -1;
+}
+static int sound_step(int t, int cur, int dir)
+{
+    int r;
+    if (dir > 0) {
+        if (cur < USND) {
+            if ((r = fact_next(t, cur, 1)) >= 0)
+                return r;
+            if ((r = usnd_next(t, -1, 1)) >= 0)
+                return USND + r;
+            return fact_next(t, -1, 1);
+        }
+        if ((r = usnd_next(t, cur - USND, 1)) >= 0)
+            return USND + r;
+        return (r = fact_next(t, -1, 1)) >= 0 ? r : cur;
+    }
+    if (cur >= USND) {
+        if ((r = usnd_next(t, cur - USND, -1)) >= 0)
+            return USND + r;
+        return (r = fact_next(t, rv_preset_count(), -1)) >= 0 ? r : cur;
+    }
+    if (cur >= 0 && (r = fact_next(t, cur, -1)) >= 0)
+        return r;
+    if ((r = usnd_next(t, RV_BANK_N, -1)) >= 0)
+        return USND + r;
+    return fact_next(t, rv_preset_count(), -1);
+}
+
 static void preset_turn(int d)
 {
     const page_t *pg = cur_page();
@@ -1731,15 +1778,29 @@ static void preset_turn(int d)
     switch (pg->pr) {
     case PR_SOUND:
     case PR_CZSTEP: {                                 /* (the CZ envelope pages: OCT walks the stages, PRESETS the sounds) */
-        int cur = ui.preset_idx[t] >= 0 ? ui.preset_idx[t] : (d > 0 ? -1 : 0), i;
+        int cur = ui.preset_idx[t], i, kit;
         int n = d > 0 ? d : -d;
         for (i = 0; i < n; i++)
-            cur = rv_preset_step(t, cur, d > 0 ? 1 : -1);
-        if (rv_preset_is_kit(cur) != is_kit_ui(t) && track_has_steps(t) && !confirmed(CONF_PRESET, "TURN AGAIN: CLEARS STEPS"))
+            cur = sound_step(t, cur, d > 0 ? 1 : -1);
+        if (cur < 0)
             break;
-        rv_preset_apply(t, cur);
+        kit = cur >= USND ? rv_bank_is_kit(cur - USND) : rv_preset_is_kit(cur);
+        if (kit != is_kit_ui(t) && track_has_steps(t) && !confirmed(CONF_PRESET, "TURN AGAIN: CLEARS STEPS"))
+            break;
+        if (cur >= USND) {                            /* one of your own: the bank chosen on SAVE > SOUNDS */
+            char b[24];
+            if (rv_bank_apply(t, cur - USND))
+                break;
+            b[0] = 0;
+            sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), cur - USND + 1);
+            sx_cat(b, " ");
+            sx_cat(b, rv_bank_name(cur - USND));
+            msg(b);
+        } else {
+            rv_preset_apply(t, cur);
+            msg(rv_preset_name(cur));
+        }
         ui.preset_idx[t] = (int16_t)cur;
-        msg(rv_preset_name(cur));
         break;
     }
     case PR_LANE: {                                   /* a LANE page: PRESETS walks the machines */
@@ -1768,7 +1829,7 @@ static void preset_turn(int d)
     case PR_ARR: ui.cur_arr = (uint8_t)clampi(ui.cur_arr + d, 0, (rv.arr_len ? rv.arr_len : 1) - 1); break;
     case PR_ARC: ui.cur_arc = (uint8_t)clampi(ui.cur_arc + d, 0, 15); break;
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_SENV - 1); break;
-    case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_SLOTS - 1); ui.save_confirm = 0; break;
+    case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_PROJECTS - 1); ui.save_confirm = 0; break;
     case PR_BANK: {                                   /* the slots, on through the banks: A32 then B1 */
         int at = clampi(rv_bank_current() * RV_BANK_N + ui.cur_sound + d, 0, RV_BANKS * RV_BANK_N - 1);
         bank_keep();
@@ -1785,9 +1846,10 @@ static void preset_turn(int d)
 
 static void slots_refresh(void)
 {
-    int i;
-    for (i = 0; i < PLAT_SLOTS; i++)
-        ui.slot_used[i] = (uint8_t)rv_slot_used(i, ui.slot_names[i]);
+    int i, pct;
+    for (i = 0; i < PLAT_PROJECTS; i++)
+        ui.slot_used[i] = (uint8_t)rv_slot_used(PLAT_PROJ(i), ui.slot_names[i]);
+    ui.room = (int8_t)(plat_proj_room(&pct) < 0 ? -1 : pct);
 }
 
 static void save_do(void)
@@ -1795,17 +1857,19 @@ static void save_do(void)
     char b[24];
     b[0] = 0;
     switch (ui.save_action) {
-    case 0:
-        if (rv_save(ui.cur_slot) == 0) {
+    case 0: {
+        int rc = rv_save(PLAT_PROJ(ui.cur_slot));
+        if (rc == 0) {
             sx_cat(b, "SAVED TO ");
             sx_int(b + 9, ui.cur_slot + 1);
             msg(b);
         } else
-            msg("SAVE FAILED");
+            msg(rc == -2 ? "NO ROOM: SAVE OVER ANOTHER" : "SAVE FAILED");
         break;
+    }
     case 1:
         rv_transport(0);
-        if (rv_load(ui.cur_slot) == 0) {
+        if (rv_load(PLAT_PROJ(ui.cur_slot)) == 0) {
             sx_cat(b, "LOADED ");
             sx_int(b + 7, ui.cur_slot + 1);
             msg(b);
@@ -4202,9 +4266,9 @@ static void pic_clock(void)
 
 static void pic_save(void)
 {
-    int i;
-    for (i = 0; i < PLAT_SLOTS; i++) {
-        int y = PIC_Y + 2 + i * 15;
+    int r, top = clampi(ui.cur_slot - 4, 0, PLAT_PROJECTS - 8);   /* eight of the 32, around the chosen one */
+    for (r = 0; r < 8; r++) {
+        int i = top + r, y = PIC_Y + 2 + r * 15;
         char b[20];
         if (i == ui.cur_slot)
             g_fill(0, y - 1, 240, 14, ui.save_confirm ? C_AMBER_D : C_PANEL);
@@ -4223,6 +4287,14 @@ static void pic_save(void)
         x = 132 + g_text_w(&FONT_XS, b);
         g_fill(x, PIC_Y + 25, 7, 2, C_AMBER);
         g_text(132, PIC_Y + 34, &FONT_T, "2: CURSOR  3: LETTER", C_DIM);
+        if (ui.room >= 0) {                           /* the flash: how much room the projects have left */
+            b[0] = 0;
+            sx_int(b + sx_cat(b, "ROOM "), ui.room);
+            sx_cat(b, "%");
+            g_text(132, PIC_Y + 104, &FONT_T, b, ui.room < 10 ? C_RED : C_DIM);
+            g_fill(132, PIC_Y + 116, 96, 4, C_LINE);
+            g_fill(132, PIC_Y + 116, 96 * ui.room / 100, 4, ui.room < 10 ? C_RED : C_AMBER);
+        }
     }
 }
 
@@ -4434,12 +4506,12 @@ void ui_storage_changed(int slot)
     char b[24] = "RECEIVED ";
     rv_bank_reload(slot);
     slots_refresh();
-    if (slot >= PLAT_BANK0) {
+    if (plat_is_bank(slot)) {
         sx_cat(b, "BANK ");
         sx_cat(b, bank_letters[(slot - PLAT_BANK0) & 3]);
     } else {
         sx_cat(b, "PROJECT ");
-        sx_int(b + 17, slot + 1);
+        sx_int(b + 17, plat_proj_of(slot) + 1);
     }
     msg(b);
 }

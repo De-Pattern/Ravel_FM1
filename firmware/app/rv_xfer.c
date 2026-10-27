@@ -9,15 +9,16 @@
  *   0x62 BEGIN slot len32             -> slot status                      (the slot is erased: empty until END)
  *   0x63 WRITE slot off32 data        -> slot off32 status                (256 bytes at 256-byte offsets)
  *   0x64 END   slot len32 crc32       -> slot status                      (checked; then the slot is valid)
- * Stores are the platform's slots: projects 0-6, sound banks 9-12 (plat.h). Everything is
+ * Stores are the platform's slots: projects 1-7 in 0-6, the sound banks in 9-12, projects 8-32 in 13-37 (plat.h). Everything is
  * little-endian; status 0 is ok. The data is what plat_save stores, so a project or a bank moves
  * between the emulator and an FM-1 unchanged, and is checked again when it is loaded. */
 #include "rv.h"
 
 #define XF_MAX 256u
-static uint8_t xf_msg[8 + 8 + XF_MAX] RV_RAMBSS, xf_wire[2 + ((8 + 8 + XF_MAX) * 8 + 6) / 7] RV_RAMBSS;   /* (in RAM, outside the pool) */
+#define XF_BODY (5u + PLAT_STORES * 8u > XF_MAX + 8u ? 5u + PLAT_STORES * 8u : XF_MAX + 8u)   /* (INFO's list is the longest) */
+static uint8_t xf_msg[8 + XF_BODY] RV_RAMBSS, xf_wire[2 + ((8 + XF_BODY) * 8 + 6) / 7] RV_RAMBSS;   /* (in RAM, outside the pool) */
 
-static int xf_slot_ok(int s) { return (s >= 0 && s < PLAT_SLOTS) || (s >= PLAT_BANK0 && s < PLAT_STORES); }
+static int xf_slot_ok(int s) { return plat_proj_of(s) >= 0 || plat_is_bank(s); }
 static uint32_t xf_rd32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 static void xf_wr32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v, p[1] = (uint8_t)(v >> 8), p[2] = (uint8_t)(v >> 16), p[3] = (uint8_t)(v >> 24); }
 
