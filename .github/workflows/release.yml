@@ -81,7 +81,7 @@ jobs:
           cat > notes.md <<NOTES
           **Ravel ${{ github.ref_name }}** for the M-VAVE FM-1.
 
-          - \`Ravel-FM1.fwsc\`: the FM-1 firmware. **It has not been tested on FM-1 hardware yet.** Install it from the web installer (${pages}install/, Chrome or Edge, over USB) or with \`python3 tools/fm1_install.py Ravel-FM1.fwsc\`. Keep the FM-1 connected for the whole update. The installer page can also put M-VAVE's own firmware back.
+          - \`Ravel-FM1.fwsc\`: the FM-1 firmware. Install it from the web installer (${pages}install/, Chrome or Edge, over USB) or with \`python3 tools/fm1_install.py Ravel-FM1.fwsc\`. Keep the FM-1 connected for the whole update. The installer page can also put M-VAVE's own firmware back.
           - \`ravel-emulator.html\`: the emulator in one file. Open it in a browser; no install.
           - \`ravel-manual.pdf\`: the manual.
           - \`SHA256SUMS.txt\`: checksums.
