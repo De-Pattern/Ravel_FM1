@@ -55,7 +55,12 @@ def main(argv):
         lib = "\n".join(ln for ln in lib.splitlines() if not ln.startswith("import ") and not ln.startswith("export {"))
         lib = lib.replace("export function", "function").replace("export class", "class").replace("export const", "const")
         page = (SRC / "web" / "installer" / "index.html").read_text(encoding="utf-8")
-        meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/Ravel-FM1.fwsc"})
+        try:                                                # the commit's date, shown with the version
+            import subprocess
+            built = subprocess.run(["git", "log", "-1", "--format=%cs"], capture_output=True, text=True, cwd=SRC).stdout.strip()
+        except OSError:
+            built = ""
+        meta = json.dumps({"version": version, "product": product, "built": built, "pkg": "../firmware/Ravel-FM1.fwsc"})
         for mark in ("/*LIB*/", "/*META*/"):
             if page.count(mark) != 1:
                 raise SystemExit(f"web/installer/index.html must contain {mark} once")

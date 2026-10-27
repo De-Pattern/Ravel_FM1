@@ -3803,6 +3803,7 @@ static void pic_flash(void)
     uint32_t v[4];
     char b[40];
     int y = PIC_Y + 4;
+    g_text_r(234, PIC_Y + 124, &FONT_T, "RAVEL " RAVEL_BUILD, C_MID);   /* the version running */
     if (plat_flash_info(v) < 0) {
         g_text_c(120, PIC_Y + 46, &FONT_B, "NO FLASH HERE", C_DIM);
         g_text_c(120, PIC_Y + 68, &FONT_T, "THE FM-1 SHOWS ITS FLASH'S SETUP ON THIS PAGE", C_DIM);

@@ -37,6 +37,7 @@
   #alert { font-weight: 600; }
   #alert:empty { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .ver { font-weight: 600; }
 </style>
 </head>
 <body>
@@ -44,6 +45,7 @@
   <button class="lang" id="lang"></button>
   <a class="home" href="../">RAVEL · back to the emulator</a>
   <h1>Install Ravel on the FM-1</h1>
+  <p id="ver" class="ver"></p>
   <p data-t="intro"></p>
   <p data-t="warn"></p>
   <p class="small" data-t="direct"></p>
@@ -77,6 +79,7 @@
 const $ = (id) => document.getElementById(id);
 const TEXT = {
   ja: {
+    ver: "このページでインストールされる版: ",
     intro: "FM-1 を USB で接続してください。（Chrome か Edge で使えます）",
     warn: "書き込み中は USB を抜かないでください。",
     install: "インストール", other: "English",
@@ -113,6 +116,7 @@ const TEXT = {
     newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合", percent: "%",
   },
   en: {
+    ver: "This page installs version ",
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
     warn: "Do not unplug the USB cable while writing.",
     install: "Install", other: "日本語",
@@ -159,6 +163,12 @@ function applyLang() {
   $("lang").textContent = t("other");
   $("lang").lang = lang === "ja" ? "en" : "ja";
   if (lastKey) show(t(lastKey) + lastArg, FAILS.has(lastKey));
+  showVer();
+}
+/* the version this page installs, always in view (the FM-1 shows its own on GLO > FLASH and at start) */
+function showVer() {
+  try { if (!meta || !$("ver")) return; } catch (e) { return; }   /* (meta comes later in the page) */
+  $("ver").textContent = t("ver") + meta.version + (meta.built ? ` (${meta.built})` : "");
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
 applyLang();
@@ -182,6 +192,7 @@ function sayPct(k, pct) {
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
 const meta = /*META*/;
+showVer();
 {   /* on a github.io site the repository is owner/first path part: the source and the recovery notes */
   const h = location.hostname, parts = location.pathname.split("/").filter(Boolean);
   if (/\.github\.io$/i.test(h) && parts.length) {

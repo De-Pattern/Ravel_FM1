@@ -11,6 +11,9 @@
 #include "rv_math.h"
 
 #define RAVEL_VERSION_STR "0.2"
+#ifndef RAVEL_BUILD
+#define RAVEL_BUILD "dev"                /* the build's version: the FM-1 build sets it (tools/build_fm1.py) */
+#endif
 
 /* ------------------------------------------------------------------ sizes --- */
 #define RV_FS 44100                 /* the FM-1's codec runs at about 44.1 kHz */

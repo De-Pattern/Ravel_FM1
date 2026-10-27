@@ -1303,6 +1303,8 @@ Turning ALGORITHM while armed moves recording to the new track.
 2. Connect the FM-1, switched on, directly to the computer with a USB data cable.
 3. Press **Install**, allow MIDI when the browser asks, and wait until it says it is done. Don't unplug part way. The FM-1 restarts into Ravel.
 
+The installer page says which version it installs (a release's number, or `dev-` and the commit for the newest build of `main`, with its date). The FM-1 shows the version it runs on its start screen and on GLO › FLASH.
+
 From the command line instead (`pip3 install mido python-rtmidi`): `python3 tools/fm1_install.py Ravel-FM1.fwsc`. The `.fwsc` is on the site (`firmware/Ravel-FM1.fwsc`) and on the repository's releases.
 
 The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.

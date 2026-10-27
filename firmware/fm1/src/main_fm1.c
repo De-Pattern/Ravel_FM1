@@ -224,7 +224,7 @@ static void fm1_main(void)
             ota_boot_cleanup();
     }
     lcd_init();
-    ui_notice("RAVEL", "SYNTHESIZE  STRIKE  INFLUENCE", 0, 0, 0);
+    ui_notice("RAVEL", "SYNTHESIZE  STRIKE  INFLUENCE", "VERSION " RAVEL_BUILD, 0, 0);
     if (safe_mode)
         safe_main();                                /* never returns */
     if (fm1_crash.magic == FM1_CRASH_MAGIC) {     /* a crash since power-on: say so, once */

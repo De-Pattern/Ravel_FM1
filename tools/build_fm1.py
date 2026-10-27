@@ -57,6 +57,18 @@ PRODUCT = "FM-1_82"                 # package identity; release builds are FM-1_
 VERSION = None
 
 
+def _build_name():
+    """the version shown on the FM-1: a release's (0.9.1), else dev- and the commit (as the site names it)"""
+    if VERSION:
+        return VERSION
+    try:
+        import subprocess
+        h = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=Path(__file__).resolve().parent.parent).stdout.strip()
+    except OSError:
+        h = ""
+    return f"dev-{h}" if h else "dev"
+
+
 def toolchain():
     tc = os.environ.get("JIELI_TOOLCHAIN")
     if not tc or not (Path(tc) / "pi32v2" / "bin" / "clang").exists():
@@ -207,6 +219,7 @@ def build_app():
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
+    flags.append(f'-DRAVEL_BUILD="{_build_name().upper()}"')   # the version the FM-1 shows (start screen, GLO > FLASH)
     flags.append("-DRV_NO_AUDIO_IN")    # the FM-1 build has no audio input: its controls are hidden
     flags.append("-DRV_FM1")            # RV_RAMBSS: state placed in plain RAM, outside the pool
     o2 = [f if f != "-Os" else "-O2" for f in flags] + ["-Wno-unused-variable"]
