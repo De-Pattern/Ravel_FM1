@@ -17,6 +17,7 @@ uint32_t plat_buttons(void);            /* held: bit B_* */
 uint32_t plat_keys(void);               /* held: bit k = key k (0 = F3) */
 int32_t plat_enc(int role);             /* detents since the last call, + = clockwise */
 uint32_t plat_master(void);             /* MASTER knob, 0..4096 */
+int plat_battery(void);                 /* the battery: 0..3 bars, 4 on USB power, -1 none here */
 void plat_leds(uint32_t buttons, uint32_t keys);
 
 /* the screen: a band of native-endian RGB565 pixels */

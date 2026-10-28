@@ -2513,7 +2513,26 @@ static void draw_footer(void)
         hint = "WHITE KEY: STORE THE SCENE";
     else if (btn & (1u << B_SCL))
         hint = "KEY: ROOT";
-    x = 237 - n * 5;
+    {   /* the battery, at the very right (on the FM-1): bars, or a bolt on USB power */
+        int bt = plat_battery();
+        x = 237 - n * 5;
+        if (bt >= 0) {
+            uint16_t c = bt == 0 ? C_RED : C_MID;
+            int k;
+            x -= 16;
+            g_frame(224, FOOT_Y + 7, 11, 7, c);
+            g_fill(235, FOOT_Y + 9, 1, 3, c);
+            if (bt == 4) {                            /* a bolt */
+                g_fill(230, FOOT_Y + 8, 2, 1, C_INK);
+                g_fill(229, FOOT_Y + 9, 2, 1, C_INK);
+                g_fill(228, FOOT_Y + 10, 4, 1, C_INK);
+                g_fill(229, FOOT_Y + 11, 2, 1, C_INK);
+                g_fill(228, FOOT_Y + 12, 2, 1, C_INK);
+            } else
+                for (k = 0; k < bt; k++)
+                    g_fill(226 + k * 3, FOOT_Y + 9, 2, 3, c);
+        }
+    }
     {   /* the hint, cut short if it would run into the dots and the transport */
         char hb[48];
         int k = 0, room = x - (rv_live.playing ? 16 : 0) - (ui.armed ? 10 : 0) - 10;

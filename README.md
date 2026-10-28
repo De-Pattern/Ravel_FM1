@@ -157,7 +157,7 @@ The section buttons:
 - **Picture:** what the page does, drawn live (a waveform, a filter curve, the step grid, the graph). Tracks keep their kind's colour in the pictures (their meters, waves and steps); what belongs to no one track (the buses, the graph's two heads, the two WAVE tables) is drawn in white and greys with bone and verdigris.
 - **Footer:**
   - **left:** what the controls do *right now*. It changes when you hold a button, so read it whenever you are unsure.
-  - **right:** small dots, one per page in the section, with the current one lit.
+  - **right:** small dots, one per page in the section, with the current one lit; then, on the FM-1, the battery: three bars, red and empty when it runs low, or a bolt while USB powers it (the reading means little then).
   - **Also shown:** a play indicator while running, and a red dot when recording is armed.
 
 Short messages ("CAUGHT", "PATTERN B", "SAVED TO 3") flash on the screen when something happens.

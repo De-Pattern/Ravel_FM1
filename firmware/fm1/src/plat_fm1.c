@@ -25,6 +25,18 @@ int32_t plat_enc(int role)
 
 static volatile uint32_t master_q12 = 2048;
 uint32_t plat_master(void) { return master_q12; }
+/* the battery, from the divider on ADC ch3 (smoothed in the main loop): Melodee's thresholds, 531 / 561 /
+ * 591, as 0-3 bars; on a USB host's power the reading says little, so a bolt instead (4) */
+static volatile int32_t batt_raw;               /* 0: not read yet */
+int plat_battery(void)
+{
+    int32_t b = batt_raw;
+    if (usb.config && !usb.suspended)
+        return 4;
+    if (!b)
+        return -1;
+    return b >= 591 ? 3 : b >= 561 ? 2 : b >= 531 ? 1 : 0;
+}
 
 /* LEDs: the picture is built off-line and copied one byte per column (Felucca: clearing and
  * relighting would let the 10 kHz scan catch the dark gap and flicker) */
