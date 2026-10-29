@@ -280,6 +280,7 @@ static void movement_tick(int n)
 
 /* ------------------------------------------------------------ the sum --- */
 static float midi_wheel;
+static float midi_touch, midi_touch_s;            /* MIDI aftertouch (channel or poly pressure), 0..1, and smoothed */
 
 RV_INL float macro_curve(int c, float u)
 {
@@ -359,6 +360,8 @@ RV_HOT static void eff_compute(void)
     src[MS_LFO2] = lfo[1].value;
     src[MS_DUST] = dust_v;
     src[MS_WHEEL] = midi_wheel;
+    midi_touch_s += (midi_touch - midi_touch_s) * 0.25f;
+    src[MS_TOUCH] = midi_touch_s;
     src[MS_M1] = rv.gp[GP_MACRO1] * (1.0f / 127.0f);
     src[MS_M2] = rv.gp[GP_MACRO2] * (1.0f / 127.0f);
     src[MS_M3] = rv.gp[GP_MACRO3] * (1.0f / 127.0f);

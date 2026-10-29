@@ -3939,7 +3939,7 @@ static void pic_midi(void)
     g_text(8, y + 40, &FONT_T, b, rv.gp[GP_MIDICLK] && !rv_live.midi_clk ? C_RED : C_INK);
     g_fill(8, y + 56, 30, 30, g_mix(C_BG, C_TEAL, rv_live.clock_env));
     g_text(8, y + 96, &FONT_T, rv.gp[GP_MIDITRN] ? "START AND STOP: IGNORED" : "START AND STOP: FOLLOWED", C_DIM);
-    g_text(8, y + 110, &FONT_T, "USB AND THE TRS JACK. CC1: WHEEL", C_DIM);
+    g_text(8, y + 110, &FONT_T, "USB, TRS. CC1: WHEEL  PRESSURE: TOUCH", C_DIM);
 }
 
 static void pic_master(void)

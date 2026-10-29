@@ -703,7 +703,12 @@ static void midi_drain(void)
             }
         } else if (st == 0xB0 && m[1] == 1) {
             midi_wheel = (float)(m[2] & 127) * (1.0f / 127.0f);
+        } else if (st == 0xD0) {                     /* channel pressure: the matrix's TOUCH */
+            midi_touch = (float)(m[1] & 127) * (1.0f / 127.0f);
+        } else if (st == 0xA0) {                     /* poly pressure: TOUCH follows the latest key's */
+            midi_touch = (float)(m[2] & 127) * (1.0f / 127.0f);
         } else if (st == 0xB0 && (m[1] == 123 || m[1] == 120)) {   /* all notes / sound off */
+            midi_touch = 0.0f;
             all_off_now();
             arp_reset();
         }
