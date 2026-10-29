@@ -49,7 +49,7 @@ static uint32_t st_crc32(const void *p, uint32_t n)   /* zlib CRC-32, 4 bits per
 
 static uint32_t st_sector(uint32_t obj, uint32_t copy)  /* flash offset of copy A (0) / B (1) */
 {
-    if (obj == OBJ_SET)
+    if (obj == OBJ_SET || obj == OBJ_RPREF)      /* (Ravel: its device settings, by their own type) */
         return 0xFC000u + copy * ST_SECTOR;
     if (obj == OBJ_PANEL)
         return 0xDC000u + copy * ST_SECTOR;

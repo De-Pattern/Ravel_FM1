@@ -351,6 +351,7 @@ static int lane_field(int id)
 
 static void lane_msg(int t);
 static void lane_open(int t, int l);
+static void prefs_changed(int g);
 static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
 /* a kit lane's machine */
 static const char *lane_mname(int t, int l) { return perc_mnames[rv.kit[t].mach[l] % PM_N]; }
@@ -1056,6 +1057,7 @@ static void kb_set(kb_t k, int v)
         break;
     case K_GP:
         rv_pid_set(PID_G(k.id), v);
+        prefs_changed(k.id);
         break;
     case K_TLEVEL:
         rv.tp[k.id][TP_LEVEL] = (int16_t)v;
@@ -2223,12 +2225,58 @@ static void buttons(uint32_t now_btn)
     ui.prev_btn = now_btn;
 }
 
+/* the MIDI IN page's settings belong to the FM-1, not to a project: kept in the flash apart from the
+ * projects (a moment after a change, while stopped, since writing the flash pauses the sound) and put
+ * back over whatever a project loaded brings */
+#define PREFS_MAGIC 0x52505246u                       /* "FRPR" */
+static const uint8_t pref_gp[3] = {GP_MIDICH, GP_MIDICLK, GP_MIDITRN};
+static struct { uint32_t magic; int16_t v[3]; uint16_t rsv; } prefs;
+static uint8_t prefs_dirty;
+static uint32_t prefs_ms;
+static void prefs_init(void)
+{
+    int i, ok;
+    ok = plat_prefs_load(&prefs, sizeof prefs) == (int)sizeof prefs && prefs.magic == PREFS_MAGIC;
+    for (i = 0; ok && i < 3; i++) {
+        const rv_pinfo *pi = rv_pinfo_global(pref_gp[i]);
+        ok = prefs.v[i] >= pi->min && prefs.v[i] <= pi->max;
+    }
+    if (!ok) {
+        prefs.magic = PREFS_MAGIC;
+        prefs.rsv = 0;
+        for (i = 0; i < 3; i++)
+            prefs.v[i] = (int16_t)rv_pinfo_global(pref_gp[i])->def;
+    }
+}
+static void prefs_changed(int g)                      /* a knob moved one of them */
+{
+    int i;
+    for (i = 0; i < 3; i++)
+        if (pref_gp[i] == g) {
+            prefs.v[i] = rv.gp[g];
+            prefs_dirty = 1;
+            prefs_ms = plat_ms();
+        }
+}
+static void prefs_tick(void)
+{
+    int i;
+    for (i = 0; i < 3; i++)
+        if (rv.gp[pref_gp[i]] != prefs.v[i])
+            rv.gp[pref_gp[i]] = prefs.v[i];
+    if (prefs_dirty && plat_ms() - prefs_ms > 2000u && !rv_live.playing) {
+        prefs_dirty = 0;
+        plat_prefs_save(&prefs, sizeof prefs);
+    }
+}
+
 static int moom_on(void);
 void ui_input_only(void)
 {
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
     int i, d;
     rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
+    prefs_tick();
     if (moom_on())                                    /* (the game reads its own input, once a frame) */
         return;
     {                                                 /* step recording: stopped and armed on a SEQ page */
@@ -4573,6 +4621,7 @@ void ui_init(void)
     for (i = 0; i < sizeof(ui); i++)
         p[i] = 0;
     ui.srec_t = ui.srec_seen = -1;
+    prefs_init();
     for (t = 0; t < RV_TRACKS; t++)
         ui.preset_idx[t] = -1;
     ui.sec = SEC_HOME;

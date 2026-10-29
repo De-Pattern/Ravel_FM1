@@ -57,7 +57,8 @@ void rv_xfer_msg(const uint8_t *m, uint32_t d);   /* projects and sounds over Sy
 #endif
 
 /* storage objects (storage.c): only the panel calibration is one; projects are slots (plat_fm1.c) */
-enum { OBJ_SET, OBJ_SOUND, OBJ_PAT0, OBJ_PAT1, OBJ_PANEL, OBJ_SONG, OBJ_MOTION, OBJ_NOBJ };
+enum { OBJ_SET, OBJ_SOUND, OBJ_PAT0, OBJ_PAT1, OBJ_PANEL, OBJ_SONG, OBJ_MOTION, OBJ_NOBJ,
+       OBJ_RPREF = 0x5250 };      /* Ravel's device settings: X0X's settings sectors, a type of their own */
 
 static uint8_t flash_ok;          /* JEDEC id matched at boot */
 static uint32_t flash_jedec, flash_sr, flash_con, flash_baud;   /* read at boot, for the FLASH page */
@@ -95,6 +96,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 int plat_store_load(uint32_t obj, void *dst, uint32_t max) { return flash_ok ? st_load(obj, dst, max) : -1; }
 /* (only the settings and the panel: the other objects' sectors are the projects' now, projstore.c) */
 int plat_store_save(uint32_t obj, const void *src, uint32_t len) { return flash_ok && (obj == OBJ_SET || obj == OBJ_PANEL) ? st_save(obj, src, len) : -9; }
+int plat_prefs_load(void *dst, int max) { return flash_ok && max > 0 ? st_load(OBJ_RPREF, dst, (uint32_t)max) : -1; }
+int plat_prefs_save(const void *src, int len) { return flash_ok && len > 0 ? st_save(OBJ_RPREF, src, (uint32_t)len) : -9; }
 
 struct bootguard_s { uint32_t magic, failed, pending; };
 extern struct bootguard_s bootguard;

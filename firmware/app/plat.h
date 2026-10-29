@@ -42,6 +42,9 @@ static inline int plat_proj_of(int slot)   /* a slot's project (0..31), or -1 */
     return slot >= 0 && slot < PLAT_SLOTS ? slot : slot >= PLAT_PROJ_MORE && slot < PLAT_STORES ? slot - PLAT_PROJ_MORE + PLAT_SLOTS : -1;
 }
 static inline int plat_is_bank(int slot) { return slot >= PLAT_BANK0 && slot < PLAT_BANK0 + PLAT_BANKS; }
+/* the device's own settings (MIDI IN), kept across power-off apart from any project: a length, -1 none */
+int plat_prefs_load(void *dst, int max);
+int plat_prefs_save(const void *src, int len);
 int plat_proj_room(int *free_pct);      /* how much room the projects have left, % (-1: not counted here) */
 int plat_load(int slot, void *dst, uint32_t max);          /* copies up to max; returns the stored length, < 0 = empty */
 int plat_save(int slot, const void *src, uint32_t len);    /* 0 = saved */

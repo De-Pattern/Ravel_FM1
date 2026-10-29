@@ -163,6 +163,25 @@ static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
 uint32_t plat_cpu_peak(void) { return 0; }
 int plat_battery(void) { return -1; }   /* (no battery here) */
+static uint8_t prefs_mem[64];                   /* (kept across a simulated reboot, as the slots are) */
+static int prefs_len = -1;
+int plat_prefs_load(void *dst, int max)
+{
+    int i, n = prefs_len < max ? prefs_len : max;
+    for (i = 0; i < n; i++)
+        ((uint8_t *)dst)[i] = prefs_mem[i];
+    return prefs_len < 0 ? -1 : n;
+}
+int plat_prefs_save(const void *src, int len)
+{
+    int i;
+    if (len > (int)sizeof prefs_mem)
+        return -1;
+    for (i = 0; i < len; i++)
+        prefs_mem[i] = ((const uint8_t *)src)[i];
+    prefs_len = len;
+    return 0;
+}
 int plat_flash_info(uint32_t v[4]) { v[0] = v[1] = v[2] = v[3] = 0; return -1; }
 #ifdef __wasm__
 uint32_t plat_cycles(void) { return 0; }        /* (the browser gives no clock to read here) */

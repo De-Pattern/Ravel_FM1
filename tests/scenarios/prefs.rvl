@@ -1,0 +1,26 @@
+# The MIDI IN page's settings stay with the FM-1: across power-off, and over a project or demo loaded
+wait 300
+tap GLO
+turn SELECT -20
+turn SELECT 5
+wait 100
+expect page MIDI IN
+expect gp START/STP 0
+turn K3 1
+wait 2500
+expect gp START/STP 1
+reboot
+wait 300
+expect gp START/STP 1
+demo 1
+wait 300
+expect gp START/STP 1
+tap GLO
+turn SELECT -20
+turn SELECT 5
+wait 100
+turn K3 -1
+wait 2500
+reboot
+wait 300
+expect gp START/STP 0
