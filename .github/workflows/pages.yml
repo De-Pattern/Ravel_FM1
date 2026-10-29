@@ -52,7 +52,8 @@ jobs:
         run: |
           mkdir -p build/releases
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
-            | jq -r '[.[] | select(.draft | not) | select(any(.assets[]; .name == "Ravel-FM1.fwsc"))][:10][]
+            | jq -r '[.[] | select(.draft | not) | select(any(.assets[]; .name == "Ravel-FM1.fwsc"))]
+                     | sort_by(.published_at) | reverse | .[:10][]
                      | .tag_name + " " + .published_at[:10]' > build/releases/list.txt || true
           while read -r tag date; do
             gh release download "$tag" -R "$GITHUB_REPOSITORY" -p Ravel-FM1.fwsc -D "build/releases/$tag" --clobber || true
