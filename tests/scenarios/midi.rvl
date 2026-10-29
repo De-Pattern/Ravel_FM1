@@ -1,0 +1,272 @@
+# MIDI in: notes on the channel chosen (OMNI, one, MULTI), Start / Clock / Stop driving the transport,
+# the clock's tempo measured (120 BPM: a clock every 20.8 ms), START/STP IGNORE
+wait 300
+tap GLO
+turn SELECT -20
+turn SELECT 5
+wait 100
+expect page MIDI IN
+expect voices 0
+midi 90 3c 64
+wait 100
+expect voices 1
+midi 80 3c 0
+wait 600
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+midi 90 40 64
+wait 100
+expect voices 0
+midi 91 40 64
+wait 100
+expect voices 1
+midi 81 40 0
+wait 600
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+turn K1 1
+wait 300
+midi 93 43 64
+wait 100
+expect voices 1
+midi 83 43 0
+wait 600
+turn K2 1
+wait 100
+midi fa 0 0
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 20
+midi f8 0 0
+wait 21
+expect playing 1
+expect midibpm 110 135
+shot midi.png
+midi fc 0 0
+wait 50
+expect playing 0
+turn K3 1
+wait 100
+midi fa 0 0
+wait 50
+expect playing 0
+turn K3 -1
+turn K2 -1
+wait 100

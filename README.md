@@ -723,7 +723,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 - **MACRO1–4;**
 - **CLOCK:** a pulse on every clock tick;
 - **KEY:** the note the *target* track is playing, centred on C4. At AMOUNT **+63** the parameter follows the keyboard exactly, one semitone per key (see below);
-- **WHEEL:** reserved for MIDI; nothing drives it in this version.
+- **WHEEL:** MIDI CC 1 (the mod wheel) from MIDI in.
 
 **The matrix:** 8 slots, each "this source moves that parameter by this much".
 
@@ -981,6 +981,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
+| **MIDI IN** | MIDI CH: OMNI (any channel plays the current track), 1–16 (only that one), or MULTI (channels 1–8 play T1–T8, for a sequencer driving every track) | CLOCK IN: RAVEL (its own clock) or MIDI (24 clocks a beat from USB or the TRS jack; the picture shows the tempo measured, or that none is coming) | START/STP: FOLLOW (MIDI Start and Continue start the transport, Stop stops it) or IGNORE | – | – |
 | **SCENES** | PLAYS: PATTERN (you launch) or SONG (the arrangement runs) | S1 TEMPO … S16 TEMPO: the tempo the current scene sets when it launches, or KEEP (turn fully left) to leave the tempo alone | TEMPO: the tempo now | GLIDE: JUMP, or 1–8 bars (see below) | scene |
 | **ARRANGE** | SCENE for this row, or END (past 16): the song stops when it gets there | BARS it lasts (1–64) | ROWS: how many rows the song has | PLAYS (as above) | row |
 | **ARCS** | DENSITY of this point (0–100 %) for the current track | SPAN: each point lasts 1, 2 or 4 bars (16, 32 or 64 bars in all) | – | – | point 1–16 |
@@ -1015,6 +1016,10 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | 8 | a second drum kit, a hit on every step | 16 | MASTER DRIVE |
 
 Each step is measured from its first second to its third; the table shows the RENDER % for each step (and the second core's after a /, when it works), red with a ! where XRUNS started. Each effect step's rise over the one before is what that effect costs. AUTO RUN walks all sixteen in under a minute and leaves the table on screen: a photo of it says exactly what this FM-1 can do. Change ENGINE to compare engines (STEP 5 is 8 voices of it). Turn STEP to OFF to stop. Loading any project or demo ends the test.
+
+<p align="center"><img src="docs/manual/midi.png" alt="MIDI IN: notes on channels 1-8, the clock from MIDI at its measured tempo" width="240"></p>
+
+**MIDI in.** Notes from a keyboard or a sequencer, over USB or the TRS jack, play a track as its keys do, and are recorded when it is armed (with their timing, as the keys are). CC 1 is the matrix's WHEEL; CC 120 and 123 stop every note. With CLOCK IN at MIDI, Ravel follows the incoming clock (every 6th of its 24 a beat is a step) and its own TEMPO waits; Start starts from the top. In the emulator, **Listen to MIDI** (left panel) takes every MIDI input on the computer.
 
 **Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 
@@ -1368,7 +1373,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **Flash:** the app is about 200 KB of the 568 KB app slot.
 - **RAM:** the platform uses about 45 KB of the 96 KB main RAM; the instrument's state (voices, buses; the 120 KB the tape used is free) about 280 KB of the 336 KB pool.
 - **Storage:** eight project slots of 32 KB in the flash's data area; the panel calibration beside them.
-- **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too. Ravel does not act on incoming MIDI yet.
+- **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too: notes, CC 1, clock, start and stop (GLO › MIDI IN).
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
 - **Not in this version:** Bluetooth, audio input.
 

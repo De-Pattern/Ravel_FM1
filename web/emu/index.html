@@ -236,6 +236,11 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <p class="note">The FM-1 has no audio input in Ravel (its USB sends Ravel's output to a computer). Here a file stands in, so you can ring a strike body with the EXT exciter.</p>
       </div>
       <div>
+        <h3>MIDI in</h3>
+        <button class="hbtn" id="midiin" title="Play Ravel from a MIDI keyboard or sequencer connected to this computer (notes, clock, start and stop: GLO › MIDI IN)">Listen to MIDI</button>
+        <p class="note" id="midistate">Notes, clock and start/stop from a keyboard or a DAW, as the FM-1 takes them over USB or its TRS jack (GLO › MIDI IN sets the channel and the clock).</p>
+      </div>
+      <div>
         <h3>Projects &amp; sounds</h3>
         <div class="row2">
           <button class="hbtn" id="xexport" title="Every saved project and sound bank, as one .ravel file">Export file</button>
@@ -737,6 +742,26 @@ function storeLoad() {
     }
   } catch (e) { /* no storage: start fresh */ }
 }
+/* --------------------------------------------- MIDI in: every input this computer has, into Ravel */
+$("midiin").addEventListener("click", async () => {
+  if (!navigator.requestMIDIAccess) { $("midistate").textContent = "This browser has no Web MIDI (Chrome or Edge do)."; return; }
+  try {
+    const acc = await navigator.requestMIDIAccess();
+    const hook = () => {
+      const names = [];
+      acc.inputs.forEach(inp => {
+        if (/fm-1|felucca|ravel/i.test(inp.name || "")) return;   /* (not an FM-1 itself: that line is for transfers) */
+        names.push(inp.name);
+        inp.onmidimessage = ev => { const d = ev.data; if (rv && d.length && d[0] !== 0xF0) rv.web_midi(d[0], d[1] || 0, d[2] || 0); };
+      });
+      $("midistate").textContent = names.length ? "Listening to: " + names.join(", ") : "No MIDI inputs found: connect one, it is picked up when it appears.";
+    };
+    hook();
+    acc.onstatechange = hook;
+    $("midiin").disabled = true;
+  } catch (e) { $("midistate").textContent = "MIDI was not allowed: " + e.message; }
+});
+
 /* ----------------------------------- projects and sounds: a file, or an FM-1 over USB-MIDI (xfer.js) */
 function xstate(t) { $("xstate").textContent = t; }
 function xentries() {

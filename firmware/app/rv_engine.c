@@ -635,6 +635,100 @@ static void cmd_drain(void)
     }
 }
 
+/* ------------------------------------------------------------- MIDI in --- */
+/* Notes play a track as its keys do (and record when it is armed): OMNI or one channel play the track
+ * the interface is on, MULTI plays channels 1-8 on tracks 1-8. CC 1 is the matrix's WHEEL. Start and
+ * Continue start the transport, Stop stops it (unless START/STP is IGNORE). With CLOCK IN at MIDI,
+ * the master clock is MIDI's: every 6th clock (24 a beat) is a step; the tempo is measured from them. */
+static uint32_t midi_ticks;                          /* clocks in, not yet counted as steps */
+static uint8_t midi_div;                             /* clocks since the last step (0-5) */
+static uint32_t midi_last_s;                         /* when the last clock was counted (samples) */
+static float midi_tick_s = 0.0208333f;               /* the time between clocks, smoothed (120 BPM) */
+static void midi_transport(int run)
+{
+    if (run) {
+        if (playing)
+            seq_stop();
+        seq_start();
+        midi_div = 0;                                /* the next clock is the first step */
+        midi_ticks = 0;
+    } else if (playing) {
+        seq_stop();
+        __builtin_memset(senv, 0, sizeof senv);
+    }
+    rv_live.playing = playing;
+}
+static void midi_drain(void)
+{
+    uint8_t m[3];
+    int guard = 64;
+    while (guard-- && plat_midi_in(m)) {
+        int b = m[0], st = b & 0xF0, ch = b & 15, sel = rv.gp[GP_MIDICH], t;
+        if (b >= 0xF8) {
+            if (b == 0xF8)
+                midi_ticks++;
+            else if ((b == 0xFA || b == 0xFB) && !rv.gp[GP_MIDITRN])
+                midi_transport(1);
+            else if (b == 0xFC && !rv.gp[GP_MIDITRN])
+                midi_transport(0);
+            continue;
+        }
+        if (sel == 17)                               /* MULTI: channels 1-8, tracks 1-8 */
+            t = ch < RV_TRACKS ? ch : -1;
+        else
+            t = sel == 0 || sel - 1 == ch ? rv_live.ui_track & 7 : -1;
+        if (t < 0)
+            continue;
+        if (st == 0x90 || st == 0x80) {
+            int vel = st == 0x90 ? m[2] : 0;
+            arp_live_in = 1;
+            if (vel > 0)
+                note_on_internal(t, m[1] & 127, vel, 0, (uint16_t)(1u << t));
+            else
+                note_off_internal(t, m[1] & 127);
+            arp_live_in = 0;
+            record_note(t, m[1] & 127, vel);
+            if (vel > 0) {
+                rv_live.midi_hit++;
+                rv_live.midi_ch = (uint8_t)(ch + 1);
+                rv_live.midi_note = (uint8_t)(m[1] & 127);
+            }
+        } else if (st == 0xB0 && m[1] == 1) {
+            midi_wheel = (float)(m[2] & 127) * (1.0f / 127.0f);
+        } else if (st == 0xB0 && (m[1] == 123 || m[1] == 120)) {   /* all notes / sound off */
+            all_off_now();
+            arp_reset();
+        }
+    }
+}
+/* the master clock's steps in this control step, from MIDI's clocks (offsets: all at its start) */
+static int midi_clock_steps(int n, int *offs, int max)
+{
+    int np = 0;
+    uint32_t k = midi_ticks;
+    midi_ticks = 0;
+    if (k) {
+        uint32_t dt = now_s - midi_last_s;
+        if (midi_last_s && dt < (uint32_t)(RV_FS / 2)) {   /* (a gap of more than half a second: not a tempo) */
+            midi_tick_s += ((float)dt / (float)k * RV_DT - midi_tick_s) * 0.1f;
+        }
+        midi_last_s = now_s;
+        while (k--) {
+            if (midi_div == 0 && np < max)
+                offs[np++] = 0;
+            midi_div = (uint8_t)((midi_div + 1) % 6);
+        }
+        clk_period = 6.0f * midi_tick_s;
+        if (np)
+            clk_env = 1.0f;
+    }
+    clk_env *= fm_expf(-(float)n * RV_DT / fm_maxf(0.01f, clk_period * 0.5f));
+    rv_live.clock_env = clk_env;
+    rv_live.midi_clk = (uint8_t)(now_s - midi_last_s < (uint32_t)(RV_FS / 2) && midi_last_s);
+    rv_live.midi_bpm = rv_live.midi_clk ? 60.0f / (24.0f * midi_tick_s) : 0.0f;
+    return np;
+}
+
 /* --------------------------------------------------- the track chain --- */
 static inline float skin(track_t *tr, float x, float drive, float fld, int bits, float derez, int mask)
 {
@@ -1380,7 +1474,8 @@ static void render_sub(float *outl, float *outr, int n)
     movement_tick(n);
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
-    np = clock_tick(n, offs, 8);
+    midi_drain();
+    np = rv.gp[GP_MIDICLK] ? midi_clock_steps(n, offs, 8) : clock_tick(n, offs, 8);
     arp_control();
     for (i = 0; i < np; i++) {
         seq_pulse(offs[i]);

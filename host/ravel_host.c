@@ -318,6 +318,12 @@ int main(int argc, char **argv)
             int d = atoi(b);
             rv_transport(0);
             rv_demo(d == 3 ? 3 : d == 2 ? 1 : 0);
+        } else if (!strcmp(a, "midi")) {      /* midi b0 b1 b2 (hex): a message in, as from USB or the jack */
+            void host_midi_push(int x, int y, int z);
+            unsigned x = 0, y = 0, z = 0;
+            sscanf(line, "%*s %x %x %x", &x, &y, &z);
+            host_midi_push((int)x, (int)y, (int)z);
+            run_ms(1);
         } else if (!strcmp(a, "reboot")) {
             held_btn = held_keys = 0;
             boot();
@@ -381,6 +387,15 @@ int main(int argc, char **argv)
             } else if (!strcmp(b, "voices")) {               /* synth and strike voices sounding */
                 got = rv_live.voices_synth + rv_live.voices_strike;
                 want = atoi(w1);
+            } else if (!strcmp(b, "playing")) {              /* the transport: 1 running */
+                got = rv_live.playing;
+                want = atoi(w1);
+            } else if (!strcmp(b, "midibpm")) {              /* MIDI clock's tempo, measured: between two values */
+                if (rv_live.midi_bpm < atof(w1) || rv_live.midi_bpm > atof(w2)) {
+                    printf("FAIL line %d: MIDI tempo %.1f, expected %s to %s\n", lineno, rv_live.midi_bpm, w1, w2);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "arpn")) {                 /* notes track T's (1..8) arpeggiator holds */
                 got = rv_live.arp_n[(atoi(w1) - 1) & 7];
                 want = atoi(w2);

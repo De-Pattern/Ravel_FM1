@@ -47,10 +47,23 @@ void plat_leds(uint32_t b, uint32_t k)
     lit_btn = b;
     lit_keys = k;
 }
+/* MIDI in: what the simulator's scripts (midi a b c) and the emulator's page (web_midi) send */
+static uint8_t hm_q[256][3];
+static uint32_t hm_w, hm_r;
+void host_midi_push(int a, int b, int c)
+{
+    if (hm_w - hm_r < 256u) {
+        hm_q[hm_w & 255u][0] = (uint8_t)a, hm_q[hm_w & 255u][1] = (uint8_t)b, hm_q[hm_w & 255u][2] = (uint8_t)c;
+        hm_w++;
+    }
+}
 int plat_midi_in(uint8_t msg[3])
 {
-    (void)msg;
-    return 0;
+    if (hm_r == hm_w)
+        return 0;
+    msg[0] = hm_q[hm_r & 255u][0], msg[1] = hm_q[hm_r & 255u][1], msg[2] = hm_q[hm_r & 255u][2];
+    hm_r++;
+    return 1;
 }
 void plat_midi_out(const uint8_t *msg, int n) { (void)msg, (void)n; }
 int plat_audio_in(float *lr, int frames) { return host_audio_in(lr, frames); }

@@ -287,10 +287,15 @@ int plat_midi_in(uint8_t msg[3])
     while (mi_r != mi_w) {
         uint32_t pkt = midi_in_q[mi_r % MQ], cin = pkt & 15u;
         mi_r++;
-        if (cin >= 0x8u && cin <= 0xEu) {      /* channel messages only */
+        if (cin >= 0x8u && cin <= 0xEu) {      /* channel messages */
             msg[0] = (uint8_t)(pkt >> 8);
             msg[1] = (uint8_t)(pkt >> 16);
             msg[2] = (uint8_t)(pkt >> 24);
+            return 1;
+        }
+        if (cin == 0xFu && (uint8_t)(pkt >> 8) >= 0xF8u) {   /* real time: clock, start, continue, stop */
+            msg[0] = (uint8_t)(pkt >> 8);
+            msg[1] = msg[2] = 0;
             return 1;
         }
     }

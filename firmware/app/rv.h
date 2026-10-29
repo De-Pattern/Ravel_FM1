@@ -123,6 +123,10 @@ enum {
     GP_SCNGLIDE, GP_ARCSPAN,
     /* (format 18) the tape delay's wear: flutter, saturation, age, and a doubler */
     GP_DLYFLUT, GP_DLYSAT, GP_DLYAGE, GP_DLYDBL,
+    /* MIDI in (USB and the TRS jack): the channel it listens on (0 OMNI, 1-16, 17 MULTI: channels
+     * 1-8 play tracks 1-8), the clock (0 Ravel's own, 1 MIDI's), whether Start and Stop drive the
+     * transport (0 yes, 1 no). All 0 in older projects: OMNI, own clock, transport followed */
+    GP_MIDICH, GP_MIDICLK, GP_MIDITRN,
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
@@ -372,6 +376,10 @@ typedef struct {
     uint8_t arp_pos[RV_TRACKS];            /* where in its pattern it is (the step it played last) */
     uint8_t arp_hit[RV_TRACKS];            /* counts up on each note it plays */
     float comp_gr, comp_in;                /* COMP: gain reduction now (dB, >= 0), the level it hears (dB) */
+    uint8_t ui_track;                      /* the track the interface is on (MIDI OMNI plays it) */
+    uint8_t midi_hit, midi_ch, midi_note;  /* MIDI in: counts up on each note, its channel (1-16) and note */
+    uint8_t midi_clk;                      /* MIDI clock: 1 while it comes */
+    float midi_bpm;                        /* its tempo, as measured */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;

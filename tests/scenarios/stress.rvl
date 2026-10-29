@@ -3,7 +3,7 @@
 wait 300
 tap GLO
 turn SELECT -20
-turn SELECT 9
+turn SELECT 10
 wait 150
 expect page STRESS
 shot stress-idle.png

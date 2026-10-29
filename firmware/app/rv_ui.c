@@ -44,7 +44,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
@@ -175,6 +175,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
+    {SEC_SONG, V_ALL, PIC_MIDI, PR_NONE, "MIDI IN", {GP(GP_MIDICH), GP(GP_MIDICLK), GP(GP_MIDITRN), NO}},   /* USB and the TRS jack */
     {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
@@ -2212,6 +2213,7 @@ void ui_input_only(void)
 {
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
     int i, d;
+    rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
     if (moom_on())                                    /* (the game reads its own input, once a frame) */
         return;
     buttons(btn);
@@ -3857,6 +3859,57 @@ static void pic_flash(void)
     g_text(8, y + 108, &FONT_T, "A PHOTO OF THIS PAGE, PLEASE", C_AMBER);
 }
 
+/* MIDI IN: where notes go, the clock (its tempo, or that none comes), the last note */
+static void pic_midi(void)
+{
+    char b[40];
+    int sel = rv.gp[GP_MIDICH], y = PIC_Y + 4;
+    static uint8_t seen;
+    static uint32_t flash_ms;
+    b[0] = 0;
+    if (sel == 17)
+        sx_cat(b, "NOTES: CHANNELS 1-8 PLAY T1-T8");
+    else {
+        sx_cat(b, sel ? "NOTES: CHANNEL " : "NOTES: ANY CHANNEL");
+        if (sel)
+            sx_int(b + sx_cat(b, ""), sel);
+        sx_cat(b, " > THIS TRACK");
+    }
+    g_text(8, y, &FONT_T, b, C_INK);
+    if (rv_live.midi_hit != seen) {
+        seen = rv_live.midi_hit;
+        flash_ms = plat_ms();
+    }
+    if (rv_live.midi_ch) {
+        static const char *nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        int n = rv_live.midi_note;
+        b[0] = 0;
+        sx_cat(b, "LAST: CH ");
+        sx_int(b + sx_cat(b, ""), rv_live.midi_ch);
+        sx_cat(b, "  ");
+        sx_cat(b, nm[n % 12]);
+        sx_int(b + sx_cat(b, ""), n / 12 - 1);
+        g_text(8, y + 16, &FONT_T, b, plat_ms() - flash_ms < 150u ? C_WHITE : C_MID);
+    } else
+        g_text(8, y + 16, &FONT_T, "NO NOTES YET", C_DIM);
+    b[0] = 0;
+    if (!rv.gp[GP_MIDICLK])
+        sx_cat(b, "CLOCK: RAVEL'S OWN (GLO > CLOCK)");
+    else if (rv_live.midi_clk) {
+        int bpm10 = (int)(rv_live.midi_bpm * 10.0f + 0.5f);
+        sx_cat(b, "CLOCK: MIDI ");
+        sx_int(b + sx_cat(b, ""), bpm10 / 10);
+        sx_cat(b, ".");
+        sx_int(b + sx_cat(b, ""), bpm10 % 10);
+        sx_cat(b, " BPM");
+    } else
+        sx_cat(b, "CLOCK: MIDI, NONE COMING");
+    g_text(8, y + 40, &FONT_T, b, rv.gp[GP_MIDICLK] && !rv_live.midi_clk ? C_RED : C_INK);
+    g_fill(8, y + 56, 30, 30, g_mix(C_BG, C_TEAL, rv_live.clock_env));
+    g_text(8, y + 96, &FONT_T, rv.gp[GP_MIDITRN] ? "START AND STOP: IGNORED" : "START AND STOP: FOLLOWED", C_DIM);
+    g_text(8, y + 110, &FONT_T, "USB AND THE TRS JACK. CC1: WHEEL", C_DIM);
+}
+
 static void pic_master(void)
 {
     float l = fm_sqrtf(rv_live.master_l), r = fm_sqrtf(rv_live.master_r);
@@ -4401,6 +4454,7 @@ static void draw_picture(void)
     case PIC_ARP: pic_arp(); break;
     case PIC_COMP: pic_comp(); break;
     case PIC_FLASH: pic_flash(); break;
+    case PIC_MIDI: pic_midi(); break;
     default: break;
     }
 }
