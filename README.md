@@ -1326,7 +1326,7 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 2. Connect the FM-1, switched on, directly to the computer with a USB data cable.
 3. Press **Install**, allow MIDI when the browser asks, and wait until it says it is done. Don't unplug part way. The FM-1 restarts into Ravel.
 
-The installer page says which version it installs (a release's number, or `dev-` and the commit for the newest build of `main`, with its date). The FM-1 shows the version it runs on its start screen and on GLO › FLASH.
+The installer page shows the latest release at the top and installs it unless you choose otherwise: its **Version to install** list also has the ten most recent releases (an older one warns that projects saved with a newer version may not open in it, so export them first) and, when `main` has moved on since the last release, the newest **test build** (`dev-` and the commit, with its date). The Install button names the version it writes. The FM-1 shows the version it runs on its start screen and on GLO › FLASH.
 
 From the command line instead (`pip3 install mido python-rtmidi`): `python3 tools/fm1_install.py Ravel-FM1.fwsc`. The `.fwsc` is on the site (`firmware/Ravel-FM1.fwsc`) and on the repository's releases.
 

@@ -37,7 +37,11 @@
   #alert { font-weight: 600; }
   #alert:empty { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
-  .ver { font-weight: 600; }
+  .latest { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .latest span { color: var(--dim); font-weight: 400; font-size: 15px; }
+  select { font: inherit; font-size: 15px; background: var(--bg); color: var(--fg); border: 1px solid var(--dim); padding: 6px 8px; max-width: 100%; margin-top: 4px; }
+  #pickwarn { font-weight: 600; }
+  #pickwarn:empty { display: none; }
 </style>
 </head>
 <body>
@@ -45,7 +49,9 @@
   <button class="lang" id="lang"></button>
   <a class="home" href="../">RAVEL · back to the emulator</a>
   <h1>Install Ravel on the FM-1</h1>
-  <p id="ver" class="ver"></p>
+  <p id="latest" class="latest"></p>
+  <p><label for="pick" class="small" data-t="pick"></label><br><select id="pick"></select></p>
+  <p id="pickwarn" class="small"></p>
   <p data-t="intro"></p>
   <p data-t="warn"></p>
   <p class="small" data-t="direct"></p>
@@ -79,7 +85,10 @@
 const $ = (id) => document.getElementById(id);
 const TEXT = {
   ja: {
-    ver: "このページでインストールされる版: ",
+    latest: "最新リリース: ", ready: "準備完了: Ravel ", norel: "リリースはまだありません",
+    pick: "インストールする版", isLatest: "（最新リリース）", testb: "テストビルド ",
+    testwhy: "最新リリース以降の変更を含むテストビルドです。まだリリースされておらず、FM-1 で試されていない変更があるかもしれません。",
+    older: "古い版です。新しい版で保存したプロジェクトは開けないことがあり、古い版で保存すると上書きされることがあります。先にプロジェクトを .ravel ファイルとして書き出してください。",
     intro: "FM-1 を USB で接続してください。（Chrome か Edge で使えます）",
     warn: "書き込み中は USB を抜かないでください。",
     install: "インストール", other: "English",
@@ -116,7 +125,10 @@ const TEXT = {
     newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合", percent: "%",
   },
   en: {
-    ver: "This page installs version ",
+    latest: "Latest release: ", ready: "Ready to install Ravel ", norel: "No release yet",
+    pick: "Version to install", isLatest: " (latest release)", testb: "Test build ",
+    testwhy: "A test build with the changes since the latest release: not released yet, and it may have changes not yet tried on an FM-1.",
+    older: "This is an older version. Projects saved with a newer one may not open in it, and saving in it can overwrite them. Export your projects as .ravel files first.",
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
     warn: "Do not unplug the USB cable while writing.",
     install: "Install", other: "日本語",
@@ -165,10 +177,37 @@ function applyLang() {
   if (lastKey) show(t(lastKey) + lastArg, FAILS.has(lastKey));
   showVer();
 }
-/* the version this page installs, always in view (the FM-1 shows its own on GLO > FLASH and at start) */
+/* the latest release at the top, and the versions to choose from (the FM-1 shows its own on GLO > FLASH
+ * and at start) */
+const vname = (b) => b.release ? b.version : t("testb") + b.version;
 function showVer() {
-  try { if (!meta || !$("ver")) return; } catch (e) { return; }   /* (meta comes later in the page) */
-  $("ver").textContent = t("ver") + meta.version + (meta.built ? ` (${meta.built})` : "");
+  try { if (!meta || !$("latest")) return; } catch (e) { return; }   /* (meta comes later in the page) */
+  const rel = meta.builds.find((b) => b.release);
+  $("latest").textContent = rel ? t("latest") + rel.version : t("norel");
+  if (rel && rel.built) {
+    const sp = document.createElement("span");
+    sp.textContent = ` · ${rel.built}`;
+    $("latest").append(sp);
+  }
+  const pick = $("pick"), cur = pick.value;
+  pick.textContent = "";
+  meta.builds.forEach((b, i) => {
+    const o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = vname(b) + (b.built ? ` (${b.built})` : "") + (b === rel ? t("isLatest") : "");
+    pick.append(o);
+  });
+  pick.value = cur || String(Math.max(0, meta.builds.indexOf(rel)));
+  pickWarn();
+  try { goLabel(); } catch (e) { /* (before the package is loaded) */ }
+}
+function goLabel() {                                  /* the button names what it writes */
+  if (chosen) $("go").textContent = t("install") + " " + vname(chosen);
+}
+function pickWarn() {
+  const b = meta.builds[+$("pick").value], rel = meta.builds.find((x) => x.release);
+  $("pickwarn").textContent = !b ? "" : !b.release ? t("testwhy")
+    : rel && meta.builds.indexOf(b) > meta.builds.indexOf(rel) ? t("older") : "";
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
 applyLang();
@@ -205,18 +244,31 @@ showVer();
 let writing = false;
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
 
-(async () => {
+/* the chosen version's package, fetched when it is chosen */
+let chosen = null, loading = 0;
+async function load() {
+  const b = meta.builds[+$("pick").value], my = ++loading;
+  image = null;
+  chosen = null;
+  $("go").disabled = true;
+  pickWarn();
+  if (!b) return;
   if (!navigator.requestMIDIAccess) { sayK("nomidi"); return; }
   try {
-    const r = await fetch(meta.pkg);
-    if (!r.ok) throw new Error(`${meta.pkg}: HTTP ${r.status}`);
+    const r = await fetch(b.pkg);
+    if (!r.ok) throw new Error(`${b.pkg}: HTTP ${r.status}`);
     const pkg = new Uint8Array(await r.arrayBuffer());
-    if (productOf(pkg) !== meta.product) { sayK("badpkg"); return; }
+    if (my !== loading) return;                        /* (another was chosen meanwhile) */
+    if (productOf(pkg) !== b.product) { sayK("badpkg"); return; }
     image = logicalImage(pkg);
-    say(`Ravel ${meta.version}`);
-    $("go").disabled = false;
-  } catch (e) { sayK("loadfail", e.message); }
-})();
+    chosen = b;
+    say(t("ready") + vname(b));
+    goLabel();
+    $("go").disabled = writing;
+  } catch (e) { if (my === loading) sayK("loadfail", e.message); }
+}
+$("pick").addEventListener("change", () => { if (!writing) load(); });
+load();
 
 /* stock firmware: M-VAVE's FM-1 V15, chosen by the user (M-VAVE's server allows no cross-site
    download) and checked against its SHA-256 before anything is written */
@@ -242,7 +294,7 @@ async function run(img, product, isStock) {
   try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
   catch (e) { sayK("denied"); return; }
   writing = true;
-  $("go").disabled = $("stockgo").disabled = true;
+  $("go").disabled = $("stockgo").disabled = $("pick").disabled = true;
   try {
     const up = new Updater(midi, log);
     const total = 74 + 1167;
@@ -270,10 +322,11 @@ async function run(img, product, isStock) {
   }
   writing = false;
   $("go").disabled = !image;
+  $("pick").disabled = false;
   $("stockgo").disabled = !stock;
 }
 
-$("go").addEventListener("click", () => run(image, meta.product, false));
+$("go").addEventListener("click", () => { if (chosen) run(image, chosen.product, false); });
 $("stockgo").addEventListener("click", () => { if (stock) run(stock.image, stock.product, true); });
 </script>
 </body>

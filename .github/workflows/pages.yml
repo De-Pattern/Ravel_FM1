@@ -4,6 +4,9 @@ name: pages
 on:
   push:
     branches: [main]
+  workflow_run:                       # a release's files attached: the installer offers it
+    workflows: [release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -43,13 +46,25 @@ jobs:
           if [ -n "$tag" ]; then rel="--release ${tag#v}"; ver="${tag#v}"; else rel=""; ver="dev-$(git rev-parse --short HEAD)"; fi
           JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/ac79" python3 tools/build_fm1.py $rel
           echo "RAVEL_VERSION=$ver" >> "$GITHUB_ENV"
+      - name: The last ten releases' firmware, for the installer to offer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build/releases
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
+            | jq -r '[.[] | select(.draft | not) | select(any(.assets[]; .name == "Ravel-FM1.fwsc"))][:10][]
+                     | .tag_name + " " + .published_at[:10]' > build/releases/list.txt || true
+          while read -r tag date; do
+            gh release download "$tag" -R "$GITHUB_REPOSITORY" -p Ravel-FM1.fwsc -D "build/releases/$tag" --clobber || true
+          done < build/releases/list.txt
+          cat build/releases/list.txt
       - name: The manual as a PDF
         run: |
           npm install --no-save playwright@1.47.2
           npx playwright install --with-deps chromium
           node tools/make_manual_pdf.mjs
       - name: Assemble the site
-        run: python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc "$RAVEL_VERSION"
+        run: python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc "$RAVEL_VERSION" build/releases
       - name: Ravel Software (the full version, kept on the software branch) at /software/
         run: |
           git worktree add ../sw origin/software
