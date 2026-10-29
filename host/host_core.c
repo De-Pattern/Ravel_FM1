@@ -65,6 +65,7 @@ int plat_midi_in(uint8_t msg[3])
     hm_r++;
     return 1;
 }
+int plat_midi_age(void) { return -1; }
 void plat_midi_out(const uint8_t *msg, int n) { (void)msg, (void)n; }
 int plat_audio_in(float *lr, int frames) { return host_audio_in(lr, frames); }
 

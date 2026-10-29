@@ -22,6 +22,9 @@
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
+ *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
+ *   expect stepchord T S N        track T's step S has N notes (1..4)
+ *   expect sreccur S              step recording's cursor is on step S (0: off)
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
 #include <stdio.h>
@@ -384,6 +387,19 @@ int main(int argc, char **argv)
                 for (i2 = 0; i2 < RV_STEPS; i2++)
                     got += (pp->s[i2].flags & ST_ON) != 0;
                 want = atoi(w2);
+            } else if (!strcmp(b, "stepnote")) {             /* track T's step S: its note (-1: off) */
+                int tt = atoi(w1) - 1;
+                const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
+                got = (ss->flags & ST_ON) ? ss->note : -1;
+                want = atoi(w3);
+            } else if (!strcmp(b, "stepchord")) {            /* track T's step S: how many notes */
+                int tt = atoi(w1) - 1;
+                const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
+                got = 1 + (ss->chord[0] != 0) + (ss->chord[1] != 0) + (ss->chord[2] != 0);
+                want = atoi(w3);
+            } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
+                got = rv_live.srec_step + 1;
+                want = atoi(w1);
             } else if (!strcmp(b, "voices")) {               /* synth and strike voices sounding */
                 got = rv_live.voices_synth + rv_live.voices_strike;
                 want = atoi(w1);

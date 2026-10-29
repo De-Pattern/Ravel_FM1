@@ -1019,7 +1019,7 @@ Each step is measured from its first second to its third; the table shows the RE
 
 <p align="center"><img src="docs/manual/midi.png" alt="MIDI IN: notes on channels 1-8, the clock from MIDI at its measured tempo" width="240"></p>
 
-**MIDI in.** Notes from a keyboard or a sequencer, over USB or the TRS jack, play a track as its keys do, and are recorded when it is armed (with their timing, as the keys are). CC 1 is the matrix's WHEEL; CC 120 and 123 stop every note. With CLOCK IN at MIDI, Ravel follows the incoming clock (every 6th of its 24 a beat is a step) and its own TEMPO waits; Start starts from the top. In the emulator, **Listen to MIDI** (left panel) takes every MIDI input on the computer.
+**MIDI in.** Notes from a keyboard or a sequencer, over USB or the TRS jack, play a track as its keys do, and are recorded when it is armed (with their timing, as the keys are). CC 1 is the matrix's WHEEL; CC 120 and 123 stop every note. With CLOCK IN at MIDI, Ravel follows the incoming clock (every 6th of its 24 a beat is a step) and its own TEMPO waits; Start starts from the top. Steps are counted from the clocks themselves, so Ravel never drifts from the sender, however long it runs. On the FM-1 each clock is timed as it comes in, and its step lands one audio block (2.9 ms) later at the same spacing, so the steps keep the sender's timing rather than snapping to the blocks. MIDI notes step-record too (below). In the emulator, **Listen to MIDI** (left panel) takes every MIDI input on the computer.
 
 **Metronome and count-in.** METRO clicks while the sequencer plays; the click goes straight to the output and is never recorded. With REC armed, PLAY first counts in (the clicks sound even with METRO off, and the screen shows COUNT-IN with the beats left), then starts at step 1. Notes played during the count-in are not recorded, except one played just before step 1, which lands on it. Without REC, PLAY starts at once.
 
@@ -1168,9 +1168,20 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 
 Turning ALGORITHM while armed moves recording to the new track.
 
+**Step recording.** With the transport stopped, open a SEQ page and tap **REC**: the keys play notes, and a red cursor sits on the step after the last note (STEP REC 5 on the screen; its key blinks).
+
+- Play a note, or hold a chord (up to four keys together): it goes on the cursor's step, replacing what was there (the step's locks and tricks stay). When you let go of the last key, the cursor moves to the next step.
+- **OCT+** leaves a rest (empties the step) and moves on. **OCT−** goes back a step, to play it again.
+- **Hold SEQ and tap a step** to put the cursor there, for instance to change one chord in the middle of a pattern.
+- **Hold REC and press OCT− or OCT+** to change the keys' octave.
+- Notes from a MIDI keyboard step-record too.
+- Press **PLAY** to hear it: recording carries on live as usual. Stop, and step recording picks up after the last note. Tap **REC** to finish.
+
+Step recording is for synth and strike tracks; a kit's keys stay its steps (tap them in).
+
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
-**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth or strike track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page. Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth or strike track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
 
 ## 17. Recipes, step by step
 
@@ -1264,6 +1275,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 | One track's hits ringing a strike track | HOME › INFLUENCE: route SPARK |
 | Scenes that glide | GLO › SCENES: GLIDE 1–8 bars |
 | Record a chord onto a step | Tap REC, PLAY, press the keys together |
+| Enter notes and chords step by step | Stopped, on SEQ: tap REC, play each note or chord (OCT+ a rest, OCT− back) |
 | Graph steps past 16 | GRAPH page, OCT+ / OCT− |
 | A long reverb | FX › SPACE: DECAY near the top |
 | A worn tape echo | FX › DELAY, then TAPE WEAR: WOW, FLUTTER, SATURAT, AGE |

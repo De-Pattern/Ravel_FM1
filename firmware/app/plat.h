@@ -60,6 +60,7 @@ int plat_audio_in(float *lr, int frames);
 
 /* MIDI: complete short messages */
 int plat_midi_in(uint8_t msg[3]);       /* 1 = got one: a channel message, or a real-time byte (F8-FF) in msg[0] */
+int plat_midi_age(void);                /* how long ago (samples) the real-time byte plat_midi_in just gave came in; -1: not known */
 void plat_midi_out(const uint8_t *msg, int n);
 
 uint32_t plat_cpu_pct(void);            /* audio render load, % */

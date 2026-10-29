@@ -1369,6 +1369,83 @@ static void record_arm_now(int t, int on)
     }
 }
 
+/* step recording: stopped, armed, on a SEQ page (the interface turns it on). The keys (or MIDI notes) held
+ * together are written on the cursor's step as one note or a chord of up to four, replacing what it held
+ * (its locks and tricks stay); when the last of them is let go, the cursor moves to the next step. A rest
+ * empties the cursor's step and moves on; back moves the cursor back a step. */
+static int8_t srec_t = -1;
+static uint8_t srec_cur, srec_n;
+static uint8_t srec_down[8];                          /* the notes down now */
+static int srec_len(int t) { return clampi(rv.tp[t][TP_LEN], 1, RV_STEPS); }
+static void srec_cmd(int op, int t, int step)
+{
+    if (op == SREC_ON && srec_t != t) {
+        const rv_pattern *p = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
+        int i, len = srec_len(t), last = -1;
+        for (i = 0; i < len; i++)                     /* the cursor starts after the last note */
+            if (p->s[i].flags & ST_ON)
+                last = i;
+        srec_t = (int8_t)t;
+        srec_cur = (uint8_t)((last + 1) % len);
+        srec_n = 0;
+    } else if (op == SREC_OFF) {
+        srec_t = -1;
+        srec_n = 0;
+    } else if (srec_t >= 0 && srec_n == 0) {
+        int len = srec_len(srec_t);
+        rv_step *s = &rv.pat[srec_t][rv.pat_cur[srec_t] % RV_PATTERNS].s[srec_cur % len];
+        if (op == SREC_REST) {
+            s->flags &= (uint8_t)~ST_ON;
+            srec_cur = (uint8_t)((srec_cur + 1) % len);
+        } else if (op == SREC_BACK)
+            srec_cur = (uint8_t)((srec_cur + len - 1) % len);
+        else if (op == SREC_TO)
+            srec_cur = (uint8_t)(step % len);
+    }
+    rv_live.srec_step = (int8_t)(srec_t < 0 ? -1 : srec_cur);
+}
+static int srec_note(int t, int note, int vel)       /* 1: step recording took it */
+{
+    int len, k, c;
+    rv_step *s;
+    if (srec_t != t || playing)
+        return 0;
+    len = srec_len(t);
+    srec_cur = (uint8_t)(srec_cur % len);
+    s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[srec_cur];
+    if (vel > 0) {
+        for (k = 0; k < srec_n; k++)
+            if (srec_down[k] == note)
+                return 1;
+        if (srec_n == 0) {                            /* the first key: the step's note, the chord cleared */
+            s->flags = ST_ON;
+            s->note = (uint8_t)note;
+            s->vel = (uint8_t)vel;
+            s->micro = 0;
+            s->len = 4;
+            s->chord[0] = s->chord[1] = s->chord[2] = 0;
+        } else if (note - s->note >= -64 && note - s->note <= 63) {   /* the next ones: its chord */
+            for (c = 0; c < 3; c++)
+                if (!s->chord[c]) {
+                    s->chord[c] = (int8_t)(note - s->note);
+                    break;
+                }
+        }
+        if (srec_n < sizeof srec_down)
+            srec_down[srec_n++] = (uint8_t)note;
+    } else {
+        for (k = 0; k < srec_n; k++)
+            if (srec_down[k] == note) {
+                srec_down[k] = srec_down[--srec_n];
+                if (srec_n == 0)                      /* all let go: the next step */
+                    srec_cur = (uint8_t)((srec_cur + 1) % len);
+                break;
+            }
+    }
+    rv_live.srec_step = (int8_t)srec_cur;
+    return 1;
+}
+
 /* where a live event lands: the step and its micro offset */
 static int live_step_pos(int t, int *micro)
 {
@@ -1388,6 +1465,8 @@ static void record_note(int t, int note, int vel)
 {
     int micro, si, k;
     rv_step *s;
+    if (srec_note(t, note, vel))
+        return;
     if (!playing || !rv_live.recording || rv_live.rec_track != t)
         return;
     if (countin_left > 0) {                           /* the count-in: only a note just before the top counts, on step 1 */
@@ -1489,6 +1568,7 @@ static void motion_now(int pid, int v)
 static void seq_init(void)
 {
     int t, k;
+    rv_live.srec_step = -1;
     for (t = 0; t < RV_TRACKS; t++) {
         pend_pat[t] = -1;
         sq[t].step[0] = sq[t].step[1] = -1;

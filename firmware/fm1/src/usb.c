@@ -128,6 +128,8 @@ static volatile uint32_t so_w, so_r;
 /* MIDI rings: 4-byte USB-MIDI event packets */
 #define MQ 64u
 static uint32_t midi_in_q[MQ], midi_out_q[MQ];
+/* when a real-time byte came in: TIMER4 in 256-tick units (10.67 us), 16 bits (wraps every 0.7 s) */
+#define MIDI_STAMP() ((fm1_ticks() >> 8) & 0xFFFFu)
 static volatile uint32_t mi_w, mi_r, mo_w, mo_r;
 
 static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
@@ -639,6 +641,8 @@ static void ep1_rx(void)
                 sysex_byte(ep1rx[i + 1 + k]);
         } else if (((cin >= 8u && cin <= 0xEu) || (cin == 0xFu && ep1rx[i + 1] >= 0xF8u)) && mi_w - mi_r < MQ) {
             /* CIN 0xF: a single byte; the real-time ones (clock, start, continue, stop) matter */
+            if (cin == 0xFu)                            /* (a one-byte packet: its last two bytes carry when it came) */
+                pkt = (pkt & 0xFFFFu) | MIDI_STAMP() << 16;
             midi_in_q[mi_w % MQ] = pkt;
             RING_PUBLISH();
             mi_w++;

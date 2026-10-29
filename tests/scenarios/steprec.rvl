@@ -1,0 +1,56 @@
+# Step recording: stopped and armed on SEQ, keys held together land on the cursor's step as a chord,
+# letting go moves on, OCT+ leaves a rest, OCT- goes back, SEQ and a step move the cursor, PLAY ends it
+wait 300
+tap SEQ
+wait 100
+expect sreccur 0
+tap REC
+wait 100
+expect sreccur 1
+key 0 down
+key 4 down
+key 7 down
+wait 100
+key 0 up
+key 4 up
+wait 50
+expect sreccur 1
+key 7 up
+wait 50
+expect sreccur 2
+expect stepnote 1 1 53
+expect stepchord 1 1 3
+key 2 down
+wait 50
+key 2 up
+wait 50
+expect stepnote 1 2 55
+expect stepchord 1 2 1
+tap OCT+
+wait 50
+expect sreccur 4
+expect stepnote 1 3 -1
+tap OCT-
+wait 50
+expect sreccur 3
+press SEQ
+tapkey 11
+release SEQ
+wait 50
+expect sreccur 7
+midi 90 3c 64
+wait 50
+midi 80 3c 00
+wait 50
+expect stepnote 1 7 60
+expect sreccur 8
+tap PLAY
+wait 100
+expect sreccur 0
+tap PLAY
+wait 100
+expect sreccur 8
+tap REC
+wait 100
+expect sreccur 0
+expect steps 1 3

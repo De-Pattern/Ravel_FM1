@@ -179,7 +179,7 @@ static float master_drive_comp = 1.0f;
 uint32_t rv_rng(void) { return xs32(&eng_rng); }
 
 /* ------------------------------------------------------- command queue --- */
-enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF };
+enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF, C_SREC };
 typedef struct { uint8_t op, a; int16_t b, c; } cmd_t;
 static cmd_t cq[128];
 static volatile uint32_t cq_w, cq_r;
@@ -208,6 +208,7 @@ void rv_tap_tempo(void) { cmd(C_TAP, 0, 0, 0); }
 void rv_record_arm(int t, int on) { cmd(C_ARM, t, on, 0); }
 void rv_motion(int pid, int v) { cmd(C_MOTION, 0, pid, v); }
 void rv_all_off(void) { cmd(C_ALLOFF, 0, 0, 0); }
+void rv_step_rec(int op, int t, int step) { cmd(C_SREC, t, op, step); }
 
 /* ------------------------------------------------------------- notes --- */
 /* a hit's shading: the sequencer sets the next note's (a ratchet's R MOVE) just before it plays;
@@ -629,6 +630,9 @@ static void cmd_drain(void)
             all_off_now();
             arp_reset();
             break;
+        case C_SREC:
+            srec_cmd(c.b, c.a & 7, c.c);
+            break;
         default:
             break;
         }
@@ -641,6 +645,7 @@ static void cmd_drain(void)
  * Continue start the transport, Stop stops it (unless START/STP is IGNORE). With CLOCK IN at MIDI,
  * the master clock is MIDI's: every 6th clock (24 a beat) is a step; the tempo is measured from them. */
 static uint32_t midi_ticks;                          /* clocks in, not yet counted as steps */
+static int16_t midi_tick_age[16];                    /* how long ago each came in (samples; -1: not known) */
 static uint8_t midi_div;                             /* clocks since the last step (0-5) */
 static uint32_t midi_last_s;                         /* when the last clock was counted (samples) */
 static float midi_tick_s = 0.0208333f;               /* the time between clocks, smoothed (120 BPM) */
@@ -665,8 +670,11 @@ static void midi_drain(void)
     while (guard-- && plat_midi_in(m)) {
         int b = m[0], st = b & 0xF0, ch = b & 15, sel = rv.gp[GP_MIDICH], t;
         if (b >= 0xF8) {
-            if (b == 0xF8)
+            if (b == 0xF8) {
+                if (midi_ticks < 16)
+                    midi_tick_age[midi_ticks] = (int16_t)plat_midi_age();
                 midi_ticks++;
+            }
             else if ((b == 0xFA || b == 0xFB) && !rv.gp[GP_MIDITRN])
                 midi_transport(1);
             else if (b == 0xFC && !rv.gp[GP_MIDITRN])
@@ -704,18 +712,24 @@ static void midi_drain(void)
 /* the master clock's steps in this control step, from MIDI's clocks (offsets: all at its start) */
 static int midi_clock_steps(int n, int *offs, int max)
 {
-    int np = 0;
-    uint32_t k = midi_ticks;
+    int np = 0, last = 0;
+    uint32_t k = midi_ticks, i;
     midi_ticks = 0;
     if (k) {
-        uint32_t dt = now_s - midi_last_s;
+        int age_last = k <= 16 ? midi_tick_age[k - 1] : -1;   /* (the tempo: from when the last one came) */
+        uint32_t tnow = now_s - (uint32_t)(age_last > 0 ? age_last : 0), dt = tnow - midi_last_s;
         if (midi_last_s && dt < (uint32_t)(RV_FS / 2)) {   /* (a gap of more than half a second: not a tempo) */
             midi_tick_s += ((float)dt / (float)k * RV_DT - midi_tick_s) * 0.1f;
         }
-        midi_last_s = now_s;
-        while (k--) {
+        midi_last_s = tnow;
+        /* each step lands a block after its clock came, where the clock fell in the last block, so the
+         * steps keep the spacing they came with (where the platform knows when they came) */
+        for (i = 0; i < k; i++) {
+            int age = i < 16 ? midi_tick_age[i] : -1, off = age < 0 ? 0 : n - 1 - age;
+            off = off < last ? last : off > n - 1 ? n - 1 : off;
+            last = off;
             if (midi_div == 0 && np < max)
-                offs[np++] = 0;
+                offs[np++] = off;
             midi_div = (uint8_t)((midi_div + 1) % 6);
         }
         clk_period = 6.0f * midi_tick_s;

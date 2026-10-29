@@ -36,7 +36,7 @@ static void um_byte(uint32_t b)
 {
     if (b >= 0xF8u) {                              /* real time: any time, keeps running status */
         if (b == 0xF8u || b == 0xFAu || b == 0xFBu || b == 0xFCu) {
-            if (um_put(0xFu | b << 8))
+            if (um_put(0xFu | b << 8 | MIDI_STAMP() << 16))
                 um.msgs++;
             else
                 um.drops++;

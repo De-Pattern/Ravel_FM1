@@ -380,6 +380,7 @@ typedef struct {
     uint8_t midi_hit, midi_ch, midi_note;  /* MIDI in: counts up on each note, its channel (1-16) and note */
     uint8_t midi_clk;                      /* MIDI clock: 1 while it comes */
     float midi_bpm;                        /* its tempo, as measured */
+    int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */
     uint32_t tick;
 } rv_live_t;
 extern volatile rv_live_t rv_live;
@@ -426,6 +427,8 @@ void rv_scene_store(int s);
 void rv_pattern_launch(int t, int p);
 void rv_tap_tempo(void);
 void rv_record_arm(int t, int on);
+enum { SREC_OFF, SREC_ON, SREC_REST, SREC_BACK, SREC_TO };
+void rv_step_rec(int op, int t, int step);   /* step recording: on (track t), off, a rest, back a step, to a step */
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */
 void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed, records */
 void rv_pattern_clear(int t);

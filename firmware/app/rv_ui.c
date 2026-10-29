@@ -212,6 +212,8 @@ static struct {
     uint32_t msg_until;
     uint32_t turned_ms[4];
     uint8_t armed;
+    int8_t srec_t;                  /* step recording on this track (-1: off) */
+    int8_t srec_seen;               /* the cursor last shown (the keys' page follows it) */
     uint8_t save_confirm;
     uint8_t cur_sound, bank_action, bank_cursor, bank_dirty;   /* SOUNDS: the slot, LOAD/SAVE/CLEAR, the name's cursor */
     uint32_t bank_edit_ms;                   /* a name edited: kept in flash once the naming pauses */
@@ -1968,6 +1970,10 @@ static void key_event(int k, int on)
         if (wi >= 0) {
             if (ui.step_key_held & (1u << wi)) {   /* a step key: a tap toggles the step */
                 ui.step_key_held &= ~(1u << wi);
+                if (!ui.step_turned && ui.srec_t == t) {   /* step recording: SEQ and a step put the cursor there */
+                    rv_step_rec(SREC_TO, t, ui.step_page * 16 + wi);
+                    return;
+                }
                 if (!ui.step_turned) {
                     rv_step *s = step_ptr(ui.step_page * 16 + wi);
                     if (is_kit_ui(t)) {
@@ -2161,6 +2167,15 @@ static void buttons(uint32_t now_btn)
         ui.lane_row = (uint8_t)((ui.lane_row + ((down & (1u << B_OCTUP)) ? 1 : 2)) % 3);   /* the knobs' row */
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && ui.srec_t >= 0 && !(now_btn & (1u << B_SEQ))) {
+        int up1 = (down & (1u << B_OCTUP)) != 0;
+        if (now_btn & (1u << B_REC)) {                /* step recording: REC and OCT, the keys' octave */
+            ui.octave = (int8_t)clampi(ui.octave + (up1 ? 1 : -1), -3, 3);
+            ui.layer_used[B_REC] = 1;
+        } else                                        /* OCT+ a rest, OCT- back a step */
+            rv_step_rec(up1 ? SREC_REST : SREC_BACK, ui.srec_t, 0);
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
+    }
     if (down & (1u << B_OCTDN)) {
         if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track)) {
             ui.step_page = (uint8_t)(ui.step_page ? ui.step_page - 1 : 0);
@@ -2216,6 +2231,22 @@ void ui_input_only(void)
     rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
     if (moom_on())                                    /* (the game reads its own input, once a frame) */
         return;
+    {                                                 /* step recording: stopped and armed on a SEQ page */
+        int t = ui.track, kind = rv.tp[t][TP_KIND];
+        int want = ui.sec == SEC_SEQ && ui.armed && !rv_live.playing && (kind == KIND_SYNTH || kind == KIND_STRIKE) ? t : -1;
+        if (want != ui.srec_t) {
+            if (want >= 0)
+                rv_step_rec(SREC_ON, want, 0);
+            else
+                rv_step_rec(SREC_OFF, 0, 0);
+            ui.srec_t = (int8_t)want;
+            ui.srec_seen = -1;
+        }
+        if (want >= 0 && rv_live.srec_step >= 0 && rv_live.srec_step != ui.srec_seen) {
+            ui.srec_seen = rv_live.srec_step;         /* the keys' page follows the cursor */
+            ui.step_page = (uint8_t)(rv_live.srec_step / 16);
+        }
+    }
     buttons(btn);
     ch = keys ^ ui.prev_keys;
     for (i = 0; i < NKEYS; i++)
@@ -2437,7 +2468,8 @@ static void draw_footer(void)
     case PR_MAT: hint = "PRESETS: SLOT"; break;
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
     case PR_PATTERN:
-        hint = seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
+        hint = ui.srec_t >= 0 ? "OCT+ REST  OCT- BACK"
+               : seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
                : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
                : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
                : "BLACK 3-8: LANE  KEYS: STEPS ON/OFF";
@@ -4054,6 +4086,8 @@ static void pic_steps(void)
             c = (p->s[i].flags & ST_ON) ? g_mix(kind_dcol(t), C_INK, 0.5f) : C_DIM;
         if (i == play)
             c = C_WHITE;
+        if (i == rv_live.srec_step && ui.srec_t == t)
+            c = C_RED;
         g_rbox(x, y, 12, 3, 1, c, 1);
     }
     /* the 16 keys' steps, large */
@@ -4069,7 +4103,10 @@ static void pic_steps(void)
             g_rbox(x, y, 25, 42, 4, C_LINE, 0);
         if (si == play || si == play2)
             g_rbox(x, y, 25, 42, 4, C_WHITE, 0);
-        if (si == ui.step_cur)                        /* the step the knobs edit: ringed in KNOB 1's colour */
+        if (ui.srec_t == t && si == rv_live.srec_step) {   /* step recording: the next note goes here */
+            g_rbox(x - 2, y - 2, 29, 46, 5, C_RED, 0);
+            g_rbox(x - 1, y - 1, 27, 44, 5, C_RED, 0);
+        } else if (si == ui.step_cur)                 /* the step the knobs edit: ringed in KNOB 1's colour */
             g_rbox(x - 2, y - 2, 29, 46, 5, C_K1, 0);
         if (s->flags & ST_ON) {
             int vh = s->vel * 20 / 127;
@@ -4114,6 +4151,11 @@ static void pic_steps(void)
         sx_cat(pb, "   PAGE ");
         sx_int(pb + 17, ui.step_page + 1);
         g_text(8, PIC_Y + 124, &FONT_T, pb, C_MID);
+        if (ui.srec_t == t && rv_live.srec_step >= 0) {
+            char sb[16] = "STEP REC ";
+            sx_int(sb + 9, rv_live.srec_step + 1);
+            g_text_r(232, PIC_Y + 124, &FONT_T, sb, C_RED);
+        }
     }
 }
 
@@ -4474,6 +4516,8 @@ static void leds(void)
         for (i = 0; i < 16; i++) {
             int si = ui.step_page * 16 + i, on = kit ? (p->s[si].flags & ST_ON) && ((p->s[si].note >> l) & 1) : (p->s[si].flags & ST_ON) != 0;
             int here = kit ? rv_live.playing && si == rv_live.lane_step[t][l] : si == rv_live.step[t][0];
+            if (ui.srec_t == t && si == rv_live.srec_step)
+                on = (plat_ms() / 200u) & 1u, here = 0;   /* step recording: the cursor's key blinks */
             if (on ^ here)
                 lk |= 1u << white_keys[i];
         }
@@ -4528,6 +4572,7 @@ void ui_init(void)
     unsigned i;
     for (i = 0; i < sizeof(ui); i++)
         p[i] = 0;
+    ui.srec_t = ui.srec_seen = -1;
     for (t = 0; t < RV_TRACKS; t++)
         ui.preset_idx[t] = -1;
     ui.sec = SEC_HOME;

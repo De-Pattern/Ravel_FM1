@@ -282,6 +282,8 @@ int plat_audio_in(float *lr, int frames)
 }
 
 /* MIDI: Felucca's rings carry 4-byte USB-MIDI event packets (byte 0 = cable / CIN) */
+static int midi_age = -1;
+int plat_midi_age(void) { return midi_age; }
 int plat_midi_in(uint8_t msg[3])
 {
     while (mi_r != mi_w) {
@@ -294,6 +296,8 @@ int plat_midi_in(uint8_t msg[3])
             return 1;
         }
         if (cin == 0xFu && (uint8_t)(pkt >> 8) >= 0xF8u) {   /* real time: clock, start, continue, stop */
+            uint32_t age = (MIDI_STAMP() - (pkt >> 16)) & 0xFFFFu;   /* 10.67 us units */
+            midi_age = age > 4096u ? 2048 : (int)((age * 482u) >> 10);   /* in samples (x 0.4704) */
             msg[0] = (uint8_t)(pkt >> 8);
             msg[1] = msg[2] = 0;
             return 1;
