@@ -26,6 +26,7 @@
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
+ *   expect msrc NAME LO HI        the matrix source NAME (WHEEL, TOUCH, BEND...) is between LO and HI now
  *   expect sreccur S              step recording's cursor is on step S (0: off)
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
@@ -419,6 +420,16 @@ int main(int argc, char **argv)
                 last_n = rv_live.dust_n;
                 if ((int)n2 < atoi(w1) || (int)n2 > atoi(w2)) {
                     printf("FAIL line %d: %u DUST grains, expected %s to %s\n", lineno, n2, w1, w2);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "msrc")) {                 /* a matrix source's value now: between two numbers */
+                int ms2;
+                for (ms2 = 0; ms2 < MS_N && strcmp(rv_msrc_names[ms2], w1); ms2++)
+                    ;
+                if (ms2 == MS_N || rv_live.msrc[ms2] < atof(w2) || rv_live.msrc[ms2] > atof(w3)) {
+                    printf("FAIL line %d: source %s is %.3f, expected %s to %s\n", lineno, w1,
+                           ms2 < MS_N ? rv_live.msrc[ms2] : -99.0f, w2, w3);
                     fails++;
                 }
                 continue;

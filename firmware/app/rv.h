@@ -224,7 +224,7 @@ typedef struct {
 } rv_route;
 
 /* --------------------------------------------------------- matrix, macros --- */
-enum { MS_OFF, MS_LFO1, MS_LFO2, MS_DUST, MS_ENV, MS_VEL, MS_WHEEL, MS_M1, MS_M2, MS_M3, MS_M4, MS_CLOCK, MS_KEY, MS_TOUCH, MS_N };
+enum { MS_OFF, MS_LFO1, MS_LFO2, MS_DUST, MS_ENV, MS_VEL, MS_WHEEL, MS_M1, MS_M2, MS_M3, MS_M4, MS_CLOCK, MS_KEY, MS_TOUCH, MS_BEND, MS_N };
 typedef struct { uint8_t src; uint16_t dst; int8_t amt; } rv_mslot;
 typedef struct { uint16_t dst; int8_t start, end; uint8_t curve, lo, hi; } rv_mdest;   /* curve: lin, exp, log, s; lo/hi: window 0..100 */
 typedef struct { rv_mdest d[RV_MACRO_DESTS]; } rv_macro;

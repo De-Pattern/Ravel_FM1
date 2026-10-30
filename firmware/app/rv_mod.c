@@ -300,6 +300,7 @@ static void movement_tick(int n)
 /* ------------------------------------------------------------ the sum --- */
 static float midi_wheel;
 static float midi_touch, midi_touch_s;            /* MIDI aftertouch (channel or poly pressure), 0..1, and smoothed */
+static float midi_bend, midi_bend_s;              /* MIDI pitch bend, -1..1, and smoothed */
 
 RV_INL float macro_curve(int c, float u)
 {
@@ -381,6 +382,8 @@ RV_HOT static void eff_compute(void)
     src[MS_WHEEL] = midi_wheel;
     midi_touch_s += (midi_touch - midi_touch_s) * 0.25f;
     src[MS_TOUCH] = midi_touch_s;
+    midi_bend_s += (midi_bend - midi_bend_s) * 0.35f;
+    src[MS_BEND] = midi_bend_s;
     src[MS_M1] = rv.gp[GP_MACRO1] * (1.0f / 127.0f);
     src[MS_M2] = rv.gp[GP_MACRO2] * (1.0f / 127.0f);
     src[MS_M3] = rv.gp[GP_MACRO3] * (1.0f / 127.0f);
@@ -418,6 +421,10 @@ RV_HOT static void eff_compute(void)
             rv_live.mat_amt[i] = (int8_t)aeff[i];
             if (m->src == MS_OFF || m->src >= MS_N || fm_fabsf(aeff[i]) < 0.01f || m->dst >= RV_NPID)
                 continue;
+            if (m->src == MS_BEND) {                    /* pitch bend: AMOUNT is its range in semitones (2: a tone each way) */
+                eff_add(m->dst, src[MS_BEND] * key_units(m->dst) * aeff[i]);
+                continue;
+            }
             if (m->src == MS_KEY) {                     /* the destination track's note */
                 int dt = m->dst < RV_GPID ? m->dst / RV_TP : 0;
                 eff_add(m->dst, trk[dt].lead_key * key_units(m->dst) * clampf(aeff[i] * (1.0f / 63.0f), -1.0f, 1.0f));

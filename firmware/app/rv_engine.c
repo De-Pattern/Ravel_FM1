@@ -703,12 +703,16 @@ static void midi_drain(void)
             }
         } else if (st == 0xB0 && m[1] == 1) {
             midi_wheel = (float)(m[2] & 127) * (1.0f / 127.0f);
+        } else if (st == 0xE0) {                     /* pitch bend: the matrix's BEND, -1..1 */
+            int v14 = ((m[2] & 127) << 7 | (m[1] & 127)) - 8192;
+            midi_bend = (float)v14 * (v14 < 0 ? 1.0f / 8192.0f : 1.0f / 8191.0f);
         } else if (st == 0xD0) {                     /* channel pressure: the matrix's TOUCH */
             midi_touch = (float)(m[1] & 127) * (1.0f / 127.0f);
         } else if (st == 0xA0) {                     /* poly pressure: TOUCH follows the latest key's */
             midi_touch = (float)(m[2] & 127) * (1.0f / 127.0f);
         } else if (st == 0xB0 && (m[1] == 123 || m[1] == 120)) {   /* all notes / sound off */
             midi_touch = 0.0f;
+            midi_bend = 0.0f;
             all_off_now();
             arp_reset();
         }
