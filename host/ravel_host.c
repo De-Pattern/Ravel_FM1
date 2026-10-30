@@ -17,6 +17,7 @@
  *   shot FILE.png                 save the screen
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
+ *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect gp NAME VALUE          a global parameter
@@ -38,6 +39,8 @@
 #include "host_core.c"
 #include "../firmware/app/rv.h"
 const char *ui_page_title(void);
+void moom_warp(int lv);
+void moom_pose(float x, float y, float dir);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -320,6 +323,12 @@ int main(int argc, char **argv)
             png_write(path);
         } else if (!strcmp(a, "peakreset")) {
             peak_out = 0;
+        } else if (!strcmp(a, "moom")) {      /* moom LV: the game, straight into level LV (1 or 2) */
+            moom_warp(atoi(b) - 1);
+        } else if (!strcmp(a, "moompose")) {  /* moompose X Y DIR: where the player stands and looks (radians) */
+            float mx = 0, my = 0, md = 0;
+            sscanf(line, "%*s %f %f %f", &mx, &my, &md);
+            moom_pose(mx, my, md);
         } else if (!strcmp(a, "settp")) {     /* settp T NAME VALUE: track T's (1..8) parameter, straight */
             char nm[64] = "";
             int tt = 0, vv = 0, pp;

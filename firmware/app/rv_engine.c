@@ -16,6 +16,10 @@ static float click_env, click_ph, click_hz;
 /* MOOM's sound effects (rv_moom.c asks with moom_sfx_req): a click and zap, a hit, a resolved chime,
  * a hurt buzz, a pickup, a win, a fall; square waves and noise, after the limiter like the click */
 static volatile uint8_t moom_sfx_req;
+/* MOOM's gun, a voice of its own so the other sounds don't cut it: a crack, a body of filtered noise,
+ * a low thump, a dark tail with two slaps of echo off the walls; on a hit, a hit marker's tick a
+ * moment after (two, lower, on a kill). moom_shot_req: 1 a miss, 2 a hit, 3 a kill */
+static volatile uint8_t moom_shot_req;
 /* MOOM's soundtrack (moom_music: 0 off, else the level + 1): an original loop at 128 BPM in 16ths, a
  * driving bass in A minor, kick, snare and hats from noise, and a small square hook every other bar;
  * level 2 sits a fourth higher. Quiet, under the effects. */
@@ -57,6 +61,44 @@ static float mus_tick(void)
 static uint8_t sfx_kind;
 static float sfx_t, sfx_ph;
 static uint32_t sfx_rng = 0x5EEDu;
+static uint8_t shot_kind;
+static float shot_t, shot_lp, shot_lp2, shot_ph, shot_tk;
+static uint32_t shot_rng = 0x6A11u;
+static float shot_tick(void)
+{
+    float t = shot_t, n, crack, body, thump, tail, echo, y, f;
+    shot_rng = shot_rng * 1664525u + 1013904223u;
+    n = (float)(shot_rng >> 9) * (2.0f / 8388608.0f) - 1.0f;
+    shot_lp += (n - shot_lp) * 0.2f;                  /* (about 1.5 kHz) */
+    shot_lp2 += (n - shot_lp2) * 0.035f;              /* (about 250 Hz) */
+    crack = (n - shot_lp) * (t < 0.003f ? 1.0f : fm_expf(-(t - 0.003f) * 300.0f));
+    body = shot_lp * fm_expf(-t * 34.0f);
+    f = 46.0f + 110.0f * fm_expf(-t * 45.0f);
+    shot_ph += f * RV_DT;
+    shot_ph -= fm_floorf(shot_ph);
+    thump = sin_lut(shot_ph) * fm_expf(-t * 20.0f);
+    tail = shot_lp2 * 2.2f * fm_expf(-t * 6.0f);
+    echo = (t > 0.105f ? 0.45f * fm_expf(-(t - 0.105f) * 55.0f) : 0.0f) + (t > 0.22f ? 0.22f * fm_expf(-(t - 0.22f) * 55.0f) : 0.0f);
+    y = sat((0.7f * crack + 0.9f * body + 0.8f * thump + 0.5f * tail + echo * shot_lp) * 1.8f) * 0.42f;
+    if (shot_kind >= 2) {                             /* the hit marker: a dry, bright tick */
+        float a = t - 0.028f;
+        if (a > 0.0f && a < 0.03f) {
+            shot_tk += (shot_kind == 3 ? 2300.0f : 3100.0f) * RV_DT;
+            shot_tk -= fm_floorf(shot_tk);
+            y += (shot_tk < 0.5f ? 0.2f : -0.2f) * fm_expf(-a * 160.0f);
+        }
+        a = t - 0.085f;
+        if (shot_kind == 3 && a > 0.0f && a < 0.03f) {
+            shot_tk += 1800.0f * RV_DT;
+            shot_tk -= fm_floorf(shot_tk);
+            y += (shot_tk < 0.5f ? 0.22f : -0.22f) * fm_expf(-a * 140.0f);
+        }
+    }
+    shot_t += RV_DT;
+    if (shot_t > 0.7f)
+        shot_kind = 0;
+    return y;
+}
 static float sfx_tick(void)
 {
     static const float chime[3] = {523.25f, 659.25f, 783.99f}, win[4] = {523.25f, 659.25f, 783.99f, 1046.5f};
@@ -75,6 +117,41 @@ static float sfx_tick(void)
     case 5: f = t < 0.06f ? 660.0f : 990.0f; a = t < 0.12f ? 0.15f : 0.0f; break;   /* PICKUP */
     case 6: f = win[clampi((int)(t / 0.09f), 0, 3)]; a = t < 0.36f ? 0.16f : 0.0f; break;   /* WIN */
     case 7: f = 400.0f * fm_expf(-t * 3.5f) + 50.0f; a = t < 0.7f ? 0.2f * (1.0f - t / 0.7f) : 0.0f; break;   /* DOWN */
+    case 9: {                                        /* GATE: a portal grinding open, like a door in Doom: stone sliding
+                                                      * up over a motor's drone, a rattle, then the stop */
+        static float glp, gph;
+        float cut = 0.03f + 0.12f * fm_minf(t / 0.6f, 1.0f), env, x;
+        sfx_t += RV_DT;
+        if (t > 0.78f) {
+            sfx_kind = 0;
+            return 0.0f;
+        }
+        sfx_rng = sfx_rng * 1664525u + 1013904223u;
+        glp += (((float)(sfx_rng >> 9) * (2.0f / 8388608.0f) - 1.0f) - glp) * cut;
+        gph += (52.0f + 30.0f * fm_minf(t / 0.6f, 1.0f)) * RV_DT;
+        gph -= fm_floorf(gph);
+        env = fm_minf(t / 0.03f, 1.0f) * (t < 0.62f ? 1.0f : fm_expf(-(t - 0.62f) * 30.0f));
+        x = glp * 2.6f * (0.55f + 0.45f * (fm_sinf(t * 175.0f) > 0.0f ? 1.0f : -0.2f)) + (2.0f * gph - 1.0f) * 0.25f;
+        if (t > 0.6f)                                 /* the stop: a heavy clunk */
+            x += sin_lut((t - 0.6f) * 60.0f) * 1.2f * fm_expf(-(t - 0.6f) * 25.0f);
+        return sat(x * env * 1.4f) * 0.3f;
+    }
+    case 10: {                                       /* ROAR: the panda, a growl that rises and breaks */
+        static float rlp;
+        float hz = 62.0f + 28.0f * fm_sinf(fm_minf(t / 0.9f, 1.0f) * 3.1f) + 6.0f * fm_sinf(t * 37.0f), env, x;
+        sfx_t += RV_DT;
+        if (t > 1.1f) {
+            sfx_kind = 0;
+            return 0.0f;
+        }
+        sfx_ph += hz * RV_DT;
+        sfx_ph -= fm_floorf(sfx_ph);
+        sfx_rng = sfx_rng * 1664525u + 1013904223u;
+        rlp += (((float)(sfx_rng >> 9) * (2.0f / 8388608.0f) - 1.0f) - rlp) * 0.08f;
+        env = fm_minf(t / 0.08f, 1.0f) * (t < 0.8f ? 1.0f : 1.0f - (t - 0.8f) / 0.3f);
+        x = (2.0f * sfx_ph - 1.0f) * (0.7f + 0.6f * rlp) + rlp * 1.5f;
+        return sat(x * 1.8f) * env * 0.3f;
+    }
     case 8: {                                        /* TITLE: an original galloping riff on A, then a held power chord */
         static const uint8_t riff[16] = {45, 45, 45, 0, 48, 0, 45, 45, 50, 0, 49, 0, 45, 45, 52, 51};
         const float st = 0.11f;
@@ -1874,7 +1951,7 @@ static void render_sub(float *outl, float *outr, int n)
         if (!(lim_gain > 0.0f && lim_gain <= 1.0f))
             lim_gain = 1.0f;
         RV_FAR(master_tail)(outl, outr, n);
-        if (moom_sfx_req || moom_music || sfx_kind || mus_t != 0.0f)   /* MOOM's sounds, when it plays */
+        if (moom_sfx_req || moom_shot_req || moom_music || sfx_kind || shot_kind || mus_t != 0.0f)   /* MOOM's sounds, when it plays */
             for (i = 0; i < n; i++) {
             if (moom_sfx_req) {                       /* a MOOM sound starts */
                 sfx_kind = moom_sfx_req;
@@ -1888,6 +1965,16 @@ static void render_sub(float *outl, float *outr, int n)
                 outr[i] = clampf(outr[i] + m, -0.98f, 0.98f);
             } else
                 mus_t = 0.0f;
+            if (moom_shot_req) {                      /* a shot: its own voice */
+                shot_kind = moom_shot_req;
+                moom_shot_req = 0;
+                shot_t = shot_ph = shot_tk = 0.0f;
+            }
+            if (shot_kind) {
+                float c = shot_tick();
+                outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
+                outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
+            }
             if (sfx_kind) {
                 float c = sfx_tick();
                 if (sfx_kind == 1 && sfx_t < 0.012f)
