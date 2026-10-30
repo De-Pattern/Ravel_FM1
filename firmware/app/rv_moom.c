@@ -23,15 +23,21 @@
 #define MM_HZ ((MM_VY0 + MM_VY1) / 2)
 #define MM_NENT 40
 enum { ME_NONE, ME_BUG, ME_CHG, ME_ERR, ME_COFFEE, ME_TINY,   /* ME_TINY: little bugs, in swarms of three */
-       ME_GRAPH, ME_CODE, ME_GHOUL, ME_PORTAL };               /* level 2: incident graphs, bad code, ghouls and their portals */
+       ME_GRAPH, ME_CODE, ME_GHOUL, ME_PORTAL,                 /* level 2: incident graphs, bad code, ghouls and their portals */
+       ME_PANDA, ME_BARREL, ME_PAPER, ME_NKIND };             /* level 1's boss; burning barrels and reports on the floor */
+#define MM_PROP(k) ((k) == ME_COFFEE || (k) == ME_BARREL || (k) == ME_PAPER)   /* not to be shot, not counted */
 #define MM_PORTAL_SPAWNS 4                                     /* ghouls a portal lets out, at most */
-enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, SFX_TITLE };
+enum { SFX_CLICK = 1, SFX_HIT, SFX_KILL, SFX_HURT, SFX_PICK, SFX_WIN, SFX_DIE, SFX_TITLE, SFX_GATE, SFX_ROAR };
+enum { SHOT_MISS = 1, SHOT_HIT, SHOT_KILL };           /* the gun (its own voice): a shot, with a hit marker's tick or two */
 
 typedef struct { float x, y, hp, flash, dying, cool; uint8_t kind, alive, n; } mm_ent;   /* n: a portal's ghouls so far */
 typedef struct {
     uint8_t on, was_playing, level, state;     /* state 0 play, 1 cleared, 2 down, 3 the title, 4 joining the bridge */
     uint8_t paused;                            /* PLAY during play */
     float px, py, dir, uptime, fire_cool, recoil, hurt, t, mttr, state_t, spin, held;   /* spin: turning speed; held: how long a turn key has been down */
+    float hitmark;                             /* a hit marker round the crosshair, for this long */
+    uint8_t hitkill;                           /* (red: that shot resolved it) */
+    int8_t boss;                               /* the panda, once it has seen you (its entity), else -1 */
     uint32_t last_ms, prev_btn, prev_keys;
     int open, total;
     char map[MM_W * MM_W];
@@ -46,25 +52,26 @@ static moom_t mm RV_RAMBSS;
 static int moom_on(void) { return mm.on; }
 
 /* '#' rack, 'L' log wall, 'D' dashboard, 'X' the exit (opens when all is resolved);
- * 'P' start, 'b' bug, 't' a swarm of three little bugs, 'c' failed change, 'e' 500 error, 'k' coffee.
+ * 'P' start, 'b' bug, 't' a swarm of three little bugs, 'c' failed change, 'e' 500 error, 'k' coffee,
+ * 'Y' the panda (level 1's boss, by the exit), 'w' / 'm' burning barrels (WBA, MBF), 'p' reports on the floor.
  * Level 2, inside the call: 'W' the desktop, 'B' a browser window, 'V' the call's video tiles;
  * 'g' an incident graph, 'd' lines of code from a bad change, 'r' a CHANGE REQUEST portal */
 static const char *const mm_levels[2][MM_W] = {
     {"################",
-     "#P..#....L.....#",
+     "#Pp.#....L.....#",
      "#...#..b.L..c..#",
-     "#...D....t....e#",
+     "#.w.D....t....e#",
      "#.....##LL..#..#",
-     "#..b..#.....#..#",
+     "#..b..#..p..#..#",
      "##.####..k..D..#",
      "#..t...#....#.t#",
      "#.c....#.b..##.#",
-     "#..LL.....t....#",
+     "#..LL.....t..m.#",
      "#..L.....##.e..#",
-     "#..L..k..##....#",
+     "#..L..k..##..p.#",
      "#.....b....t...#",
-     "####D....LL..c.#",
-     "#e.......L....XX",
+     "####D....LLY.c.#",
+     "#e...p...L....XX",
      "################"},
     {"WWWWWWWWWWWWWWWW",
      "WP...B....V....W",
@@ -86,7 +93,7 @@ static const char *const mm_names[2] = {"DATA CENTER A", "INSIDE THE BRIDGE"};
 
 /* each kind: how fast it comes, how much uptime it takes a second up close, its hit points, how
  * wide a target it is, how big it's drawn */
-static const struct { float speed, dps, hp, hitw, size; } mm_kind[10] = {
+static const struct { float speed, dps, hp, hitw, size; } mm_kind[ME_NKIND] = {
     {0, 0, 0, 0, 0},
     {1.1f, 7.0f, 1.0f, 0.32f, 0.8f},      /* bug */
     {0.7f, 10.0f, 2.0f, 0.32f, 0.8f},     /* failed change */
@@ -97,6 +104,9 @@ static const struct { float speed, dps, hp, hitw, size; } mm_kind[10] = {
     {2.4f, 5.0f, 1.0f, 0.3f, 0.62f},      /* bad code */
     {1.6f, 16.0f, 3.0f, 0.34f, 1.0f},     /* ghoul */
     {0, 0, 6.0f, 0.42f, 1.15f},           /* CHANGE REQUEST portal */
+    {0.75f, 24.0f, 24.0f, 0.62f, 1.75f},  /* the panda */
+    {0, 0, 0, 0, 0.62f},                  /* a burning barrel */
+    {0, 0, 0, 0, 0.5f},                   /* reports on the floor */
 };
 
 static uint32_t mm_hash(uint32_t x)
@@ -161,20 +171,29 @@ static void mm_load(int lv)
                     e->hp = 1.0f;
                     mm.open++;
                 }
-            } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k' || c == 'g' || c == 'd' || c == 'r') && n < MM_NENT) {
+            } else if ((c == 'b' || c == 'c' || c == 'e' || c == 'k' || c == 'g' || c == 'd' || c == 'r' || c == 'Y' ||
+                        c == 'w' || c == 'm' || c == 'p') && n < MM_NENT) {
                 mm_ent *e = &mm.e[n++];
                 e->x = x + 0.5f;
                 e->y = y + 0.5f;
                 e->alive = 1;
                 e->kind = c == 'b' ? ME_BUG : c == 'c' ? ME_CHG : c == 'e' ? ME_ERR : c == 'g' ? ME_GRAPH
-                        : c == 'd' ? ME_CODE : c == 'r' ? ME_PORTAL : ME_COFFEE;
+                        : c == 'd' ? ME_CODE : c == 'r' ? ME_PORTAL : c == 'Y' ? ME_PANDA : c == 'w' || c == 'm' ? ME_BARREL
+                        : c == 'p' ? ME_PAPER : ME_COFFEE;
+                e->n = c == 'm';                         /* (a barrel's lettering: WBA, MBF) */
+                if (c == 'p') {                          /* reports lie where they fell, not in the middle */
+                    e->x += 0.22f * (float)((int)(mm_hash((uint32_t)(x * 31 + y)) % 3) - 1);
+                    e->y += 0.22f * (float)((int)(mm_hash((uint32_t)(x * 17 + y * 5)) % 3) - 1);
+                }
                 e->hp = mm_kind[e->kind].hp;
                 e->cool = e->kind == ME_PORTAL ? 2.5f : e->kind == ME_GRAPH ? 1.5f + 0.4f * (float)(x & 3) : 0.0f;
-                if (e->kind != ME_COFFEE)
+                if (!MM_PROP(e->kind))
                     mm.open++;
             }
         }
     mm.total = mm.open;
+    mm.boss = -1;
+    mm.hitmark = 0.0f;
     mm.uptime = 100.0f;
     mm.state = 0;
     mm.mttr = 0.0f;
@@ -246,12 +265,20 @@ static void moom_stop(void)
 }
 
 /* ------------------------------------------------------------ the world --- */
+static int mm_barrel_at(float x, float y)            /* a barrel stands there (they block, as in Doom) */
+{
+    int i;
+    for (i = 0; i < MM_NENT; i++)
+        if (mm.e[i].alive && mm.e[i].kind == ME_BARREL && fm_fabsf(mm.e[i].x - x) < 0.42f && fm_fabsf(mm.e[i].y - y) < 0.42f)
+            return 1;
+    return 0;
+}
 static void mm_move(float dx, float dy)
 {
     const float r = 0.22f;
-    if (!mm_wall(mm.px + dx + (dx > 0 ? r : -r), mm.py))
+    if (!mm_wall(mm.px + dx + (dx > 0 ? r : -r), mm.py) && (!mm_barrel_at(mm.px + dx, mm.py) || mm_barrel_at(mm.px, mm.py)))
         mm.px += dx;
-    if (!mm_wall(mm.px, mm.py + dy + (dy > 0 ? r : -r)))
+    if (!mm_wall(mm.px, mm.py + dy + (dy > 0 ? r : -r)) && (!mm_barrel_at(mm.px, mm.py + dy) || mm_barrel_at(mm.px, mm.py)))
         mm.py += dy;
 }
 
@@ -272,7 +299,7 @@ static void mm_fire(void)
     for (i = 0; i < MM_NENT; i++) {
         mm_ent *e = &mm.e[i];
         float dx, dy, along, side;
-        if (!e->alive || e->dying > 0.0f || e->kind == ME_COFFEE)
+        if (!e->alive || e->dying > 0.0f || MM_PROP(e->kind))
             continue;
         dx = e->x - mm.px;
         dy = e->y - mm.py;
@@ -286,7 +313,7 @@ static void mm_fire(void)
     mm.fire_cool = 0.28f;
     mm.recoil = 1.0f;
     if (hit < 0) {
-        mm_sfx(SFX_CLICK);
+        moom_shot_req = SHOT_MISS;
         return;
     }
     {
@@ -294,20 +321,27 @@ static void mm_fire(void)
         e->hp -= 1.0f;
         e->flash = 0.12f;
         if (e->hp <= 0.0f) {
-            static const char *const done[10] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
+            static const char *const done[ME_NKIND] = {"", "INFO BUG FIXED, TICKET CLOSED", "INFO CHANGE ROLLED BACK",
                                                  "INFO 500S CLEARED, SVC HEALTHY", "", "INFO MINOR BUG SQUASHED",
                                                  "INFO ALERT ACKED, GRAPH GREEN", "INFO BAD COMMIT REVERTED",
-                                                 "INFO REGRESSION EXORCISED", "INFO CHANGE REQUEST REJECTED"};
-            e->dying = 0.6f;
+                                                 "INFO REGRESSION EXORCISED", "INFO CHANGE REQUEST REJECTED",
+                                                 "INFO P0 PANDA RESOLVED. ROOT CAUSE: PANDA", "", ""};
+            e->dying = e->kind == ME_PANDA ? 1.2f : 0.6f;
             mm.open--;
+            moom_shot_req = SHOT_KILL;
+            mm.hitmark = 0.3f;
+            mm.hitkill = 1;
             mm_sfx(SFX_KILL);
             mm_log(done[e->kind], C_TEAL);
             if (mm.open == 0) {
                 mm_log("ALL CLEAR: EXIT ACCESS GRANTED", RGB(110, 210, 120));
                 mm_sfx(SFX_WIN);
             }
-        } else
-            mm_sfx(SFX_HIT);
+        } else {
+            moom_shot_req = SHOT_HIT;
+            mm.hitmark = 0.18f;
+            mm.hitkill = 0;
+        }
     }
 }
 
@@ -370,6 +404,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
     if (fwd != 0.0f || side != 0.0f)
         mm_move((cx * fwd - cy * side) * sp, (cy * fwd + cx * side) * sp);
     mm.fire_cool -= dt;
+    mm.hitmark -= dt;
     mm.recoil *= fm_expf(-dt * 9.0f);
     mm.hurt -= dt;
     if (mm.fire_cool <= 0.0f && (down_keys & (0xFFF80000u | (1u << 7) | (1u << 9) | (1u << 11) | (1u << 12))))   /* C4 D4 E4 F4, C5 up */
@@ -390,6 +425,8 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         dx = mm.px - e->x;
         dy = mm.py - e->y;
         d = fm_sqrtf(dx * dx + dy * dy);
+        if (e->kind == ME_BARREL || e->kind == ME_PAPER)
+            continue;
         if (e->kind == ME_COFFEE) {
             if (d < 0.5f && mm.uptime < 100.0f) {
                 e->alive = 0;
@@ -415,7 +452,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
                     g->hp = mm_kind[ME_GHOUL].hp;
                     e->n++;
                     mm.open++;
-                    mm_sfx(SFX_HURT);
+                    mm_sfx(SFX_GATE);                  /* the portal grinds open, like a door in Doom */
                     mm_log("WARN CR APPROVED: SOMETHING CAME THRU", RGB(190, 90, 220));
                 }
                 e->cool = 4.5f;
@@ -433,7 +470,12 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
                 mm_log(pg[mm_hash((uint32_t)i + (uint32_t)(mm.t * 10.0f)) % 3], C_RED);
             }
         }
-        if (d > 0.55f && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
+        if (e->kind == ME_PANDA && mm.boss < 0 && d < 8.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {   /* it has seen you */
+            mm.boss = (int8_t)i;
+            mm_sfx(SFX_ROAR);
+            mm_log("CRIT P0: THE PANDA IS ON THE BRIDGE", C_RED);
+        }
+        if (d > (e->kind == ME_PANDA ? 0.85f : 0.55f) && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
             float v = mm_kind[e->kind].speed * dt / d;
             float w = e->kind == ME_TINY ? fm_sinf(mm.t * 9.0f + (float)i * 2.1f) * 0.6f   /* little bugs zig-zag, */
                     : e->kind == ME_CODE ? fm_sinf(mm.t * 13.0f + (float)i) * 0.5f       /* code glitches sideways, */
@@ -443,7 +485,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
                 e->x = nx;
             if (!mm_wall(e->x, ny))
                 e->y = ny;
-        } else if (d <= 0.6f) {                        /* close enough to hurt */
+        } else if (d <= (e->kind == ME_PANDA ? 0.9f : 0.6f)) {   /* close enough to hurt */
             mm.uptime -= mm_kind[e->kind].dps * dt;
             e->cool -= dt;
             if (e->cool <= 0.0f) {
@@ -666,7 +708,7 @@ static float mm_seg(float u, float v, float x0, float y0, float x1, float y1)
 /* the sprites: u, v in 0..1; returns 0 for see-through */
 static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
 {
-    float t = mm.t, dx, dy;
+    float t = mm.t;
     if (e->dying > 0.0f) {                             /* resolved: a green check that fades */
         float a = e->dying / 0.6f, d1, d2;
         d1 = mm_seg(u, v, 0.24f, 0.52f, 0.42f, 0.70f);   /* the short stroke, then the long one */
@@ -680,28 +722,161 @@ static uint16_t mm_sprite_px(const mm_ent *e, float u, float v)
         return c ? C_WHITE : 0;
     }
     switch (e->kind) {
-    case ME_TINY:                                      /* a little bug: the same beetle, smaller, yellow-green, quicker legs */
-    case ME_BUG: {                                     /* a beetle: body, head, six legs that walk, antennae */
-        int tiny = e->kind == ME_TINY;
-        float leg = fm_sinf(t * (tiny ? 34.0f : 18.0f)) * 0.03f;
-        dx = (u - 0.5f) / 0.26f;
-        dy = (v - 0.62f) / 0.22f;
-        if (dx * dx + dy * dy < 1.0f)
-            return fm_fabsf(u - 0.5f) < 0.012f ? RGB(60, 0, 20) : tiny ? RGB(190, 200, 40) : RGB(200, 30, 70);
-        dx = (u - 0.5f) / 0.12f;
-        dy = (v - 0.36f) / 0.1f;
-        if (dx * dx + dy * dy < 1.0f)
-            return (fm_fabsf(u - 0.45f) < 0.03f || fm_fabsf(u - 0.55f) < 0.03f) && fm_fabsf(v - 0.34f) < 0.03f ? C_WHITE : RGB(110, 10, 40);
-        {
-            int k;
-            for (k = 0; k < 3; k++) {
-                float ly = 0.52f + k * 0.1f + ((k & 1) ? leg : -leg);
-                if (fm_fabsf(v - ly - (u - 0.5f) * 0.25f) < 0.018f && fm_fabsf(u - 0.5f) > 0.2f && fm_fabsf(u - 0.5f) < 0.42f)
-                    return RGB(70, 10, 30);
+    case ME_BUG: {                                     /* a centipede: a chain of plated segments that ripples, many
+                                                        * small legs walking, and great spider legs rising from its
+                                                        * back like wings, folding and opening as it comes */
+        int k;
+        float hx = 0.13f, hy = 0.66f + 0.02f * fm_sinf(t * 6.0f);
+        for (k = 0; k < 4; k++) {                      /* the spider legs, behind the body */
+            float sx = 0.30f + 0.1f * (float)k, sy = 0.62f + 0.03f * fm_sinf((float)k * 0.9f - t * 6.0f) - 0.07f;
+            float fl = fm_sinf(t * 3.2f + (float)k * 0.8f), side = (k & 1) ? 1.0f : -1.0f;
+            float kx = sx + side * (0.12f + 0.04f * fl) + 0.04f, ky = 0.06f + 0.03f * (float)k - 0.05f * fl;
+            float tx = sx + side * (0.2f + 0.05f * fl) + 0.06f, ty = 0.5f + 0.04f * fl;
+            float d1 = mm_seg(u, v, sx, sy, kx, ky), d2 = mm_seg(u, v, kx, ky, tx, ty);
+            if (d1 < 0.024f || d2 < 0.017f)
+                return (fm_fabsf(u - kx) < 0.025f && fm_fabsf(v - ky) < 0.025f) ? RGB(200, 180, 150)   /* the knee */
+                       : (d1 < 0.009f || d2 < 0.006f) ? RGB(96, 40, 30) : RGB(40, 12, 10);
+        }
+        for (k = 0; k < 8; k++) {                      /* the body: head end on the left */
+            float cx = 0.2f + 0.083f * (float)k, cy = 0.62f + 0.03f * fm_sinf((float)k * 0.9f - t * 6.0f), r = 0.07f - 0.004f * (float)k;
+            float lg = fm_sinf(t * 16.0f + (float)k * 1.4f) * 0.025f, a, b;
+            if (mm_seg(u, v, cx, cy, cx - 0.03f + lg, 0.95f) < 0.009f || mm_seg(u, v, cx, cy, cx + 0.03f - lg, 0.95f) < 0.009f)
+                return RGB(60, 20, 14);                /* its little legs */
+            a = (u - cx) / r;
+            b = (v - cy) / (r * 0.85f);
+            if (a * a + b * b < 1.0f)
+                return b < -0.55f ? RGB(196, 96, 60)   /* the plate's shine */
+                       : a * a + b * b > 0.72f ? RGB(50, 14, 10) : ((k & 1) ? RGB(150, 46, 30) : RGB(126, 36, 24));
+        }
+        {   /* the head: red eyes, hooked mandibles, long feelers */
+            float a = (u - hx) / 0.085f, b = (v - hy) / 0.075f;
+            if ((fm_fabsf(u - 0.1f) < 0.022f || fm_fabsf(u - 0.155f) < 0.022f) && fm_fabsf(v - (hy - 0.025f)) < 0.02f)
+                return RGB(255, 60, 30);
+            if (a * a + b * b < 1.0f)
+                return b < -0.5f ? RGB(170, 70, 40) : RGB(96, 26, 18);
+            if (mm_seg(u, v, hx - 0.06f, hy + 0.03f, 0.02f, hy + 0.09f) < 0.012f || mm_seg(u, v, hx - 0.02f, hy + 0.06f, 0.04f, hy + 0.13f) < 0.012f)
+                return RGB(230, 210, 170);             /* the mandibles */
+            if (mm_seg(u, v, hx - 0.03f, hy - 0.06f, 0.02f + 0.02f * fm_sinf(t * 5.0f), 0.32f) < 0.007f ||
+                mm_seg(u, v, hx + 0.02f, hy - 0.06f, 0.13f - 0.02f * fm_sinf(t * 4.0f), 0.3f) < 0.007f)
+                return RGB(80, 30, 20);                /* the feelers */
+        }
+        return 0;
+    }
+    case ME_TINY: {                                    /* a little alien exoskeleton like a mantis on all fours: a
+                                                        * triangle of a head with great eyes, a ribbed body, folded
+                                                        * forelegs it walks on, and spined hind legs */
+        float g = fm_sinf(t * 22.0f + e->x * 5.0f) * 0.03f, a, b;
+        int k;
+        static const uint16_t bone = RGB(176, 196, 150), dark = RGB(56, 70, 46);
+        if (fm_fabsf(u - 0.5f) < 0.2f - (v - 0.16f) * 0.85f && v > 0.16f && v < 0.38f) {   /* the head */
+            a = (u - 0.36f) / 0.075f;
+            b = (v - 0.22f) / 0.06f;
+            if (a * a + b * b < 1.0f || ((u - 0.64f) / 0.075f) * ((u - 0.64f) / 0.075f) + b * b < 1.0f)
+                return fm_fabsf(b) < 0.3f ? RGB(240, 255, 170) : RGB(150, 230, 60);   /* its compound eyes */
+            return v > 0.33f ? dark : bone;
+        }
+        if (fm_fabsf(u - 0.5f) < 0.03f && v > 0.36f && v < 0.5f)
+            return bone;                               /* the neck */
+        for (k = 0; k < 4; k++) {                      /* forelegs (bent, walked on), then hind legs */
+            float sd = (k & 1) ? 1.0f : -1.0f, fore = k < 2, w = fore ? g : -g;
+            float x0 = 0.5f + sd * (fore ? 0.05f : 0.09f), y0 = fore ? 0.48f : 0.6f;
+            float x1 = 0.5f + sd * (fore ? 0.3f : 0.42f), y1 = (fore ? 0.36f : 0.5f) + w;
+            float x2 = 0.5f + sd * (fore ? 0.36f + w : 0.3f - w), y2 = 0.97f;
+            if (mm_seg(u, v, x0, y0, x1, y1) < 0.026f || mm_seg(u, v, x1, y1, x2, y2) < 0.018f)
+                return (fore && mm_seg(u, v, x1, y1, x2, y2) < 0.03f && ((int)(v * 30.0f) & 1)) ? dark : bone;
+            if (fore && fm_fabsf(u - x1) < 0.015f && v > y1 - 0.06f && v < y1)
+                return RGB(220, 230, 200);             /* the foreleg's spike */
+        }
+        a = (u - 0.5f) / 0.15f;
+        b = (v - 0.62f) / 0.12f;
+        if (a * a + b * b < 1.0f)                      /* the body: ribbed plates */
+            return fm_fabsf(fm_sinf(v * 70.0f)) < 0.35f ? dark : bone;
+        return 0;
+    }
+    case ME_PANDA: {                                   /* the panda: a giant panda crossed with the abominable snowman,
+                                                        * shaggy white fur, black arms raised to strike, a maw of fangs */
+        float sw = fm_sinf(t * 2.6f) * 0.03f, a, b, r;
+        int k;
+        static const uint16_t fur = RGB(232, 234, 236), furd = RGB(176, 182, 190), blk = RGB(22, 22, 26);
+        uint32_t hn = mm_hash((uint32_t)(u * 30.0f) * 977u + (uint32_t)(v * 30.0f) * 131u);
+        for (k = 0; k < 2; k++) {                      /* black arms raised, white claws */
+            float sd = k ? 1.0f : -1.0f, fx = 0.5f + sd * (0.42f + sw), fy = 0.13f - sw;
+            if (fm_fabsf(u - fx) < 0.07f && v < fy - 0.03f && v > fy - 0.14f && ((int)((u - fx + 0.07f) / 0.035f) & 1) == 0 &&
+                fm_fabsf(u - fx) < 0.07f * (v - fy + 0.14f) / 0.11f)
+                return RGB(240, 236, 220);             /* claws */
+            if (mm_seg(u, v, 0.5f + sd * 0.25f, 0.44f, fx, fy) < 0.08f)
+                return blk;
+        }
+        a = (u - 0.5f) / 0.18f;                        /* the head */
+        b = (v - 0.3f) / 0.17f;
+        if (((u - 0.36f) * (u - 0.36f) + (v - 0.15f) * (v - 0.15f) < 0.0036f) || ((u - 0.64f) * (u - 0.64f) + (v - 0.15f) * (v - 0.15f) < 0.0036f))
+            return blk;                                /* the ears */
+        if (a * a + b * b < 1.0f) {
+            float ex = fm_fabsf(u - 0.5f) - 0.075f, ey = v - 0.27f;
+            if (fm_fabsf(u - 0.5f) < 0.11f && v > 0.36f && v < 0.46f) {   /* the maw: fangs top and bottom */
+                float q = (v - 0.36f) / 0.1f, ph = (u - 0.39f) / 0.0275f, f = ph - fm_floorf(ph);
+                if (q < 0.45f && fm_fabsf(f - 0.5f) < 0.5f * (0.45f - q) / 0.45f)
+                    return RGB(250, 246, 230);
+                if (q > 0.55f && fm_fabsf(f - 0.5f) < 0.5f * (q - 0.55f) / 0.45f)
+                    return RGB(250, 246, 230);
+                return q > 0.3f && q < 0.7f ? RGB(120, 10, 14) : RGB(70, 6, 10);
+            }
+            if ((ex * ex) / 0.0025f + (ey * ey) / 0.0016f < 1.0f)   /* black eye patches, eyes that burn red */
+                return (ex * ex + ey * ey < 0.0003f) ? RGB(255, 50, 30) : blk;
+            if (fm_fabsf(u - 0.5f) < 0.03f && v > 0.31f && v < 0.35f)
+                return blk;                            /* the nose */
+            return (hn & 7) == 0 ? furd : fur;
+        }
+        r = 0.32f + 0.025f * (float)((hn >> 3) & 3) / 3.0f;   /* the body: a shaggy edge */
+        a = (u - 0.5f) / r;
+        b = (v - 0.66f) / 0.3f;
+        if (a * a + b * b < 1.0f) {
+            if (v < 0.5f || fm_fabsf(u - 0.5f) > 0.25f)
+                return blk;                            /* the panda's black shoulders and flanks */
+            return (hn & 7) == 0 ? furd : (hn & 7) == 1 ? RGB(250, 250, 252) : fur;
+        }
+        for (k = 0; k < 2; k++)                        /* black legs */
+            if (mm_seg(u, v, 0.5f + (k ? 0.14f : -0.14f), 0.86f, 0.5f + (k ? 0.17f : -0.17f), 0.97f) < 0.07f)
+                return blk;
+        return 0;
+    }
+    case ME_BARREL: {                                  /* a burning barrel, lettered on the side (WBA or MBF) */
+        static const uint16_t glyph[2][3] = {{0x5BFD, 0x6BAE, 0x2BED}, {0x5FED, 0x6BAE, 0x79A4}};   /* W B A, M B F (3 x 5) */
+        float flick = 0.08f * fm_sinf(t * 17.0f + u * 31.0f) + 0.05f * fm_sinf(t * 29.0f - u * 13.0f);
+        if (u > 0.24f && u < 0.76f && v > 0.36f && v < 1.0f) {
+            float cyl = fm_sinf((u - 0.24f) / 0.52f * 3.14159f);   /* (rounder in the middle) */
+            int sh = 70 + (int)(cyl * 170.0f);
+            if (fm_fabsf(v - 0.42f) < 0.02f || fm_fabsf(v - 0.74f) < 0.02f || fm_fabsf(v - 0.95f) < 0.02f)
+                return mm_dim(RGB(150, 160, 140), sh);  /* its hoops */
+            if (v > 0.47f && v < 0.7f && u > 0.25f && u < 0.75f) {   /* the lettering, as big as the barrel allows */
+                int col = (int)((u - 0.25f) / 0.5f * 11.0f), row = (int)((v - 0.47f) / 0.23f * 5.0f), ch = col / 4, cx = col % 4;
+                if (ch < 3 && cx < 3 && ((glyph[e->n & 1][ch] >> (14 - (row * 3 + cx))) & 1))
+                    return RGB(250, 220, 90);
+            }
+            return mm_dim(RGB(70, 98, 60), sh);         /* green metal, as Doom's */
+        }
+        if (v < 0.38f && v > 0.0f && fm_fabsf(u - 0.5f) < 0.24f) {   /* the fire */
+            float top = 0.08f + 0.18f * (fm_fabsf(u - 0.5f) / 0.24f) + flick;
+            if (v > top) {
+                float h = (v - top) / (0.38f - top);
+                return h > 0.7f ? RGB(255, 250, 200) : h > 0.4f ? RGB(255, 200, 40) : h > 0.18f ? RGB(255, 120, 20) : RGB(200, 40, 10);
             }
         }
-        if (v < 0.28f && v > 0.12f && (fm_fabsf(u - 0.42f + (0.28f - v) * 0.6f) < 0.015f || fm_fabsf(u - 0.58f - (0.28f - v) * 0.6f) < 0.015f))
-            return RGB(70, 10, 30);
+        return 0;
+    }
+    case ME_PAPER: {                                   /* reports dropped on the floor: two sheets, lines of text, a red stamp */
+        int k;
+        for (k = 0; k < 2; k++) {
+            float ox = k ? 0.14f : -0.1f, oy = k ? 0.04f : 0.0f, sk = k ? 0.35f : -0.25f;
+            float vv = (v - 0.84f - oy) / 0.12f, uu = (u - 0.5f - ox - (v - 0.9f) * sk) / (0.18f + 0.06f * vv);
+            if (vv >= 0.0f && vv <= 1.0f && fm_fabsf(uu) <= 1.0f) {
+                if (k == 1 && uu > 0.2f && uu < 0.8f && vv > 0.15f && vv < 0.4f)
+                    return RGB(200, 40, 40);           /* SEV1 */
+                if (((int)(vv * 9.0f) & 1) && fm_fabsf(uu) < 0.8f && (mm_hash((uint32_t)(uu * 6.0f + 9.0f) + (uint32_t)(vv * 9.0f) * 7u + (uint32_t)k) % 5))
+                    return RGB(110, 110, 120);         /* text */
+                return RGB(226, 224, 214);
+            }
+        }
         return 0;
     }
     case ME_CHG: {                                     /* a change ticket: paper, a red header, CHG, a big red X */
@@ -898,25 +1073,50 @@ static void mm_draw_view(void)
         size = (int)((MM_VY1 - MM_VY0) / along * mm_kind[e->kind].size);
         sx0 = sxc - size / 2;
         sy0 = MM_HZ - size / 2 + (int)((MM_VY1 - MM_VY0) / along * 0.1f);
-        if (e->kind == ME_TINY || e->kind == ME_GHOUL || e->kind == ME_PORTAL)   /* these stand on the floor */
+        if (e->kind == ME_TINY || e->kind == ME_GHOUL || e->kind == ME_PORTAL || e->kind == ME_BUG || e->kind == ME_PANDA ||
+            e->kind == ME_BARREL || e->kind == ME_PAPER)   /* these stand on the floor */
             sy0 = MM_HZ + (int)((MM_VY1 - MM_VY0) / along * 0.5f) - size;
         else if (e->kind == ME_GRAPH || e->kind == ME_CODE)   /* these hover */
             sy0 -= (int)((MM_VY1 - MM_VY0) / along * (0.12f + 0.04f * fm_sinf(mm.t * 2.0f + e->x)));
         shade = clampi((int)(255.0f / (1.0f + along * 0.18f)), 60, 255);
-        for (x = sx0 < 0 ? 0 : sx0; x < sx0 + size && x < PLAT_W; x++) {
-            if (mm.zbuf[x] < along)
-                continue;
-            for (y = sy0 < y0 ? y0 : sy0; y < sy0 + size && y < y1; y++) {
-                float su = (float)(x - sx0) / size, sv = (float)(y - sy0) / size;
-                uint16_t c;
-                if (e->kind != ME_COFFEE) {             /* the enemies, slightly pixelated: blocks of 2 px, or 1/64 of a big one */
-                    int q = size / 64 > 2 ? size / 64 : 2;
-                    su = (float)((x - sx0) / q * q + q / 2) / size;
-                    sv = (float)((y - sy0) / q * q + q / 2) / size;
+        {   /* pixelated as Doom's sprites are: the sprite worked out once per block (texel) and the block
+             * filled, so a near one costs no more than a far one. Level 1's things are chunkier (about 30
+             * blocks across, the boss and the lettered barrels a little finer); level 2's, 1/64 of a big one;
+             * at least 2 px a block; the coffee is drawn smooth. Light falls off in bands, as in Doom */
+            int lv1 = e->kind == ME_BUG || e->kind == ME_TINY || e->kind == ME_CHG || e->kind == ME_ERR ||
+                      e->kind == ME_PANDA || e->kind == ME_BARREL || e->kind == ME_PAPER;
+            int nb = e->kind == ME_PANDA ? 40 : e->kind == ME_BARREL ? 56 : lv1 ? 30 : 64;
+            int q = e->kind == ME_COFFEE ? 1 : size / nb > 2 ? size / nb : 2, bx, by;
+            if (lv1)
+                shade = (shade + 12) / 24 * 24 > 255 ? 255 : (shade + 12) / 24 * 24;
+            for (bx = 0; bx * q < size; bx++) {
+                int xa = sx0 + bx * q, xb = xa + q, vis = 0;
+                if (xb > sx0 + size)
+                    xb = sx0 + size;
+                if (xb <= 0 || xa >= PLAT_W)
+                    continue;
+                for (x = xa < 0 ? 0 : xa; x < xb && x < PLAT_W; x++)
+                    vis |= mm.zbuf[x] >= along;
+                if (!vis)
+                    continue;
+                for (by = 0; by * q < size; by++) {
+                    int ya = sy0 + by * q, yb = ya + q;
+                    uint16_t c;
+                    if (yb > sy0 + size)
+                        yb = sy0 + size;
+                    if (yb <= y0 || ya >= y1)
+                        continue;
+                    c = mm_sprite_px(e, ((float)(bx * q) + 0.5f * (float)q) / (float)size, ((float)(by * q) + 0.5f * (float)q) / (float)size);
+                    if (!c)
+                        continue;
+                    c = mm_dim(c, shade);
+                    for (x = xa < 0 ? 0 : xa; x < xb && x < PLAT_W; x++) {
+                        if (mm.zbuf[x] < along)
+                            continue;
+                        for (y = ya < y0 ? y0 : ya; y < yb && y < y1; y++)
+                            gb[(y - g_y0) * PLAT_W + x] = c;
+                    }
                 }
-                c = mm_sprite_px(e, su, sv);
-                if (c)
-                    gb[(y - g_y0) * PLAT_W + x] = mm_dim(c, shade);
             }
         }
         if (e->kind == ME_PORTAL && !e->dying && size > 44 && sxc > 0 && sxc < PLAT_W && mm.zbuf[sxc] >= along) {   /* its sign */
@@ -952,6 +1152,16 @@ static void mm_draw_hand(void)
         for (k = 0; k < 10; k++)
             g_hline(x0, y0 + k, k < 7 ? k / 2 + 1 : 2, C_WHITE);
         g_line(x0, y0, x0, y0 + 9, RGB(20, 20, 20));
+    }
+    if (mm.hitmark > 0.0f) {   /* the hit marker: four short strokes in an X round the aim, red on a kill */
+        int cx = PLAT_W / 2, cy = MM_HZ, a = mm.hitkill ? 6 : 5, b = mm.hitkill ? 13 : 11, k;
+        uint16_t c = mm.hitkill ? RGB(255, 50, 40) : C_WHITE;
+        for (k = 0; k < 2; k++) {                     /* (two pixels thick) */
+            g_line(cx - a, cy - a + k, cx - b, cy - b + k, c);
+            g_line(cx + a, cy - a + k, cx + b, cy - b + k, c);
+            g_line(cx - a, cy + a - k, cx - b, cy + b - k, c);
+            g_line(cx + a, cy + a - k, cx + b, cy + b - k, c);
+        }
     }
 }
 
@@ -990,6 +1200,14 @@ static void mm_draw_hud(void)
     g_text_r(234, MM_VY1 + 15, &FONT_T, mm.level ? "LVL 2" : "LVL 1", C_DIM);
     g_text_r(234, MM_VY1 + 28, &FONT_T, "PLAY: PAUSE", C_DIM);
     g_text(4, MM_VY1 + 28, &FONT_T, mm.log[1], mm.log_col[1] ? mm.log_col[1] : C_DIM);
+    if (mm.boss >= 0 && mm.e[mm.boss].alive && mm.e[mm.boss].dying <= 0.0f) {   /* the panda's health, across the top */
+        const mm_ent *bo = &mm.e[mm.boss];
+        int w = (int)(bo->hp / mm_kind[ME_PANDA].hp * 150.0f + 0.5f);
+        g_fill(44, MM_VY0 + 4, 152, 12, RGB(8, 12, 10));
+        g_fill(45, MM_VY0 + 5, w, 10, RGB(200, 30, 30));
+        g_frame(44, MM_VY0 + 4, 152, 12, RGB(240, 220, 200));
+        g_text_c(120, MM_VY0 + 18, &FONT_T, "P0: THE PANDA", RGB(255, 220, 200));
+    }
     if (mm.hurt > 0.0f) {                                             /* hit: the view's edge goes red */
         g_fill(0, MM_VY0, PLAT_W, 4, C_RED);
         g_fill(0, MM_VY1 - 4, PLAT_W, 4, C_RED);
