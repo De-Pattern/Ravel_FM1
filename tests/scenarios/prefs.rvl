@@ -24,3 +24,16 @@ wait 2500
 reboot
 wait 300
 expect gp START/STP 0
+# changed while playing: kept all the same (a second after the change)
+tap GLO
+turn SELECT -20
+turn SELECT 5
+wait 100
+tap PLAY
+wait 300
+turn K3 1
+wait 1500
+expect playing 1
+reboot
+wait 300
+expect gp START/STP 1

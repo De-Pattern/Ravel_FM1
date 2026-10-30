@@ -2239,7 +2239,8 @@ static void buttons(uint32_t now_btn)
 #define PREFS_MAGIC 0x52505246u                       /* "FRPR" */
 static const uint8_t pref_gp[3] = {GP_MIDICH, GP_MIDICLK, GP_MIDITRN};
 static struct { uint32_t magic; int16_t v[3]; uint16_t rsv; } prefs;
-static uint8_t prefs_dirty;
+static uint8_t prefs_dirty, prefs_tries;
+static uint8_t prefs_state;                           /* 0 kept in the flash, 1 nothing kept yet (the defaults), 2 to be kept, 3 failed */
 static uint32_t prefs_ms;
 static void prefs_init(void)
 {
@@ -2249,6 +2250,7 @@ static void prefs_init(void)
         const rv_pinfo *pi = rv_pinfo_global(pref_gp[i]);
         ok = prefs.v[i] >= pi->min && prefs.v[i] <= pi->max;
     }
+    prefs_state = ok ? 0 : 1;
     if (!ok) {
         prefs.magic = PREFS_MAGIC;
         prefs.rsv = 0;
@@ -2263,6 +2265,8 @@ static void prefs_changed(int g)                      /* a knob moved one of the
         if (pref_gp[i] == g) {
             prefs.v[i] = rv.gp[g];
             prefs_dirty = 1;
+            prefs_tries = 0;
+            prefs_state = 2;
             prefs_ms = plat_ms();
         }
 }
@@ -2272,9 +2276,23 @@ static void prefs_tick(void)
     for (i = 0; i < 3; i++)
         if (rv.gp[pref_gp[i]] != prefs.v[i])
             rv.gp[pref_gp[i]] = prefs.v[i];
-    if (prefs_dirty && plat_ms() - prefs_ms > 2000u && !rv_live.playing) {
-        prefs_dirty = 0;
-        plat_prefs_save(&prefs, sizeof prefs);
+    /* kept a second after the last change, playing or not (a moment's gap in the sound once), or at
+     * once on leaving the MIDI IN page; read back, and tried again if the flash did not take it */
+    if (prefs_dirty && (plat_ms() - prefs_ms > 1000u || cur_page()->pic != PIC_MIDI)) {
+        int ok, k;
+        struct { uint32_t magic; int16_t v[3]; uint16_t rsv; } back;
+        ok = plat_prefs_save(&prefs, sizeof prefs) == 0 && plat_prefs_load(&back, sizeof back) == (int)sizeof back;
+        for (k = 0; ok && k < 3; k++)
+            ok = back.magic == prefs.magic && back.v[k] == prefs.v[k];
+        if (ok) {
+            prefs_dirty = 0;
+            prefs_state = 0;
+        } else if (++prefs_tries >= 3) {
+            prefs_dirty = 0;
+            prefs_state = 3;
+            msg("MIDI IN NOT KEPT: FLASH");
+        } else
+            prefs_ms = plat_ms();                     /* (again in a second) */
     }
 }
 
@@ -4007,6 +4025,10 @@ static void pic_midi(void)
     g_fill(8, y + 56, 30, 30, g_mix(C_BG, C_TEAL, rv_live.clock_env));
     g_text(8, y + 96, &FONT_T, rv.gp[GP_MIDITRN] ? "START AND STOP: IGNORED" : "START AND STOP: FOLLOWED", C_DIM);
     g_text(8, y + 110, &FONT_T, "USB, TRS. MATRIX: WHEEL TOUCH BEND", C_DIM);
+    {   /* the settings belong to the FM-1: whether they are kept */
+        static const char *const st[4] = {"KEPT THROUGH POWER-OFF", "DEFAULTS (NOTHING KEPT YET)", "KEEPING...", "NOT KEPT: THE FLASH REFUSED"};
+        g_text(8, y + 124, &FONT_T, st[prefs_state & 3], prefs_state == 3 ? C_RED : prefs_state == 0 ? C_TEAL : C_DIM);
+    }
 }
 
 static void pic_master(void)
