@@ -126,6 +126,10 @@ static uint32_t slot_base(int slot)
 }
 static uint32_t slot_room(int slot) { return slot >= PLAT_BANK0 ? BANK_SIZE : slot == PLAT_BANK_OLD ? 0x5000u : SLOT_SIZE; }
 static int slot_ok(int slot) { return plat_is_bank(slot) || slot == PLAT_BANK_OLD; }   /* (the banks: projects go to projstore.c) */
+int plat_proj_clear(int slot)
+{
+    return flash_ok && plat_proj_of(slot) >= 0 ? ps_clear(plat_proj_of(slot)) : -1;
+}
 int plat_proj_room(int *free_pct)
 {
     *free_pct = flash_ok ? ps_free_count() * 100 / PS_SECTORS : 0;

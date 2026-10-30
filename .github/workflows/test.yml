@@ -50,6 +50,11 @@ jobs:
         run: pip install pillow markdown
       - name: JieLi toolchain
         run: sh tools/get_toolchain.sh "$HOME/.jieli"
+      - name: The AC79 SDK files, kept between runs
+        uses: actions/cache@v4
+        with:
+          path: ~/ac79
+          key: ac79-sdk-AC79NN_SDK_V1.2.1_2023-12-13
       - name: AC79 SDK files for the package
         run: sh tools/get_ac79_files.sh "$HOME/ac79"
       - name: Build, check and package

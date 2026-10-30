@@ -632,6 +632,25 @@ static int ps_xend(int slot, uint32_t len, uint32_t crc)
         ps_scan();
     return rc;
 }
+/* a project cleared: every sector that names it erased, the first parts first (so a power loss in the
+ * middle leaves no copy whole), or an old fixed slot's header; its room is free again. Only this
+ * project's sectors are touched: each one's header names it. 0, -1 (empty, or the flash failed) */
+static int ps_clear(int slot)
+{
+    int k, pass, rc = 0;
+    ps_x.slot = -1;                                /* (a transfer left open ends here) */
+    ps_need();
+    if (!ps_e[slot].nparts)
+        return -1;
+    for (pass = 0; pass < 2; pass++)
+        for (k = 0; k < PS_SECTORS; k++)
+            if (ps_si[k].ok && ps_si[k].slot == slot && (ps_si[k].part == 0) == (pass == 0))
+                rc |= st_erase(ps_sec_addr(k));
+    if (ps_e[slot].legacy)                         /* (its sectors hold no pool header: the clash test in ps_scan) */
+        rc |= st_erase(ps_sec_addr(ps_e[slot].sec[0]));
+    ps_scan();
+    return rc || ps_e[slot].nparts ? -1 : 0;
+}
 static int ps_info(int slot, uint32_t *len, uint32_t *crc)
 {
     ps_need();

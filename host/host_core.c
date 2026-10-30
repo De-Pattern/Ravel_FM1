@@ -108,6 +108,14 @@ static uint32_t host_crc32(const uint8_t *p, uint32_t n)
 }
 static uint32_t host_room(int slot) { return plat_is_bank(slot) ? 0x3000u - 256u : 0x8000u - 256u; }
 int plat_proj_room(int *free_pct) { *free_pct = 100; return -1; }   /* (no flash to fill here) */
+int plat_proj_clear(int slot)
+{
+    if (plat_proj_of(slot) < 0 || store_len[slot] < 0)
+        return -1;
+    store_len[slot] = -1;
+    store_writes++;
+    return 0;
+}
 int plat_slot_begin(int slot, uint32_t len)
 {
     if (slot < 0 || slot >= PLAT_STORES || len > host_room(slot))

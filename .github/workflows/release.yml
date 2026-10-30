@@ -41,6 +41,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python packages (font generator)
         run: pip install pillow markdown
+      - name: The AC79 SDK files, kept between runs
+        uses: actions/cache@v4
+        with:
+          path: ~/ac79
+          key: ac79-sdk-AC79NN_SDK_V1.2.1_2023-12-13
       - name: JieLi toolchain and the AC79 SDK files
         run: |
           sh tools/get_toolchain.sh "$HOME/.jieli"

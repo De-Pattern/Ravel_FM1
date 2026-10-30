@@ -156,6 +156,46 @@ int main(void)
         bad_prog = 0;
         CHECK(k == -1 && same(6, proj[6]), "a bad program: refused (%d), the old copy kept", k);
     }
+    /* clearing a project: gone (after a restart too), its room back, the others untouched; then saved again */
+    {
+        int before = ps_free_count(), used = ps_e[9].nparts;
+        CHECK(used > 0, "project 10 is there to clear");
+        CHECK(ps_clear(9) == 0, "clear project 10");
+        ps_ready = 0;
+        CHECK(ps_load(9, tmp, sizeof tmp) < 0, "project 10 is gone after a restart");
+        CHECK(ps_free_count() == before + used, "its %d sectors are free again (%d, was %d)", used, ps_free_count(), before);
+        for (i = 0; i < p; i++)
+            if (i != 9)
+                CHECK(same(i, proj[i]), "project %d untouched by the clear", i + 1);
+        CHECK(ps_clear(9) == -1, "clearing an empty project says so");
+        CHECK(ps_save(9, proj[9], RAW) == 0 && same(9, proj[9]), "project 10 saved again");
+    }
+    /* power loss at every flash operation of a clear: the project whole or gone, nothing else touched */
+    {
+        static uint8_t save_flash[sizeof flash];
+        int ops, cut;
+        memcpy(save_flash, flash, sizeof flash);
+        ps_ready = 0;
+        budget = 1000000;
+        ps_clear(9);
+        ops = (int)(1000000 - budget);
+        budget = -1;
+        memcpy(flash, save_flash, sizeof flash);
+        for (cut = 0; cut <= ops; cut++) {
+            ps_ready = 0;
+            budget = cut;
+            ps_clear(9);
+            budget = -1;
+            ps_ready = 0;
+            k = ps_load(9, tmp, sizeof tmp);
+            CHECK(k < 0 || same(9, proj[9]), "cut after %d of a clear: project 10 half there", cut);
+            for (i = 0; i < p; i++)
+                if (i != 9)
+                    CHECK(same(i, proj[i]), "cut after %d of a clear: project %d touched", cut, i + 1);
+            memcpy(flash, save_flash, sizeof flash);
+        }
+        ps_ready = 0;
+    }
     /* power loss at every flash operation of a save: the old copy or the new, nothing else touched */
     {
         uint8_t next[RAW];
@@ -224,6 +264,21 @@ int main(void)
                 CHECK(same(p, proj[p]), "cut after %d: old project %d lost", cut, p + 1);
         }
         memcpy(flash, base, sizeof flash);
+    }
+    /* clearing a project still in an old fixed slot: gone, the other old ones still read where they are */
+    {
+        ps_ready = 0;
+        CHECK(ps_e[2].legacy || (ps_need(), ps_e[2].legacy), "project 3 is in its old slot");
+        CHECK(ps_clear(2) == 0, "clear old project 3");
+        ps_ready = 0;
+        CHECK(ps_load(2, tmp, sizeof tmp) < 0, "old project 3 is gone after a restart");
+        for (p = 0; p < 7; p++)
+            if (p != 2)
+                CHECK(same(p, proj[p]) && ps_e[p].legacy, "old project %d still where it was", p + 1);
+        make(proj[2], 0);
+        CHECK(ps_save(2, proj[2], RAW) == 0 && same(2, proj[2]), "project 3 saved again (the old ones moving in)");
+        for (p = 0; p < 7; p++)
+            CHECK(same(p, proj[p]), "project %d after that save", p + 1);
     }
     printf(fails ? "%d FAILED\n" : "projstore: all ok\n", fails);
     return fails != 0;

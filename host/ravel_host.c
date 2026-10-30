@@ -22,6 +22,7 @@
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
+ *   expect slotused N 0|1         project slot N (1..32) is empty or saved
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
@@ -391,6 +392,10 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "slotused")) {             /* project slot N (1..32): 1 saved, 0 empty */
+                char nm[13];
+                got = rv_slot_used(PLAT_PROJ(atoi(w1) - 1), nm) ? 1 : 0;
+                want = atoi(w2);
             } else if (!strcmp(b, "steps")) {                /* steps on in track T's (1..8) current pattern */
                 int tt = atoi(w1) - 1, i2;
                 const rv_pattern *pp = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS];

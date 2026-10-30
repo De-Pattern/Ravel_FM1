@@ -835,7 +835,7 @@ $("xget").addEventListener("click", async () => {
 function storeSave() {
   try {
     for (let o = 0; o < rv.rv_store_slots(); o++) {
-      const n = rv.rv_store_len(o); if (n < 0) continue;
+      const n = rv.rv_store_len(o); if (n < 0) { localStorage.removeItem("ravel2.slot." + o); continue; }   /* (a cleared slot stays cleared) */
       const b = new Uint8Array(rv.memory.buffer, rv.rv_store(o), n); let s = "";
       for (let i = 0; i < n; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, Math.min(n, i + 8192)));
       localStorage.setItem("ravel2.slot." + o, btoa(s));

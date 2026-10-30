@@ -39,7 +39,7 @@ static int old_size(int f)
 static int head_ok(int slot, rv_head *h)
 {
     int n = plat_load(slot, h, sizeof(*h));
-    if (h->magic != RV_MAGIC)
+    if (n < (int)sizeof(*h) || h->magic != RV_MAGIC)   /* (an empty slot leaves *h as it was) */
         return 0;
     if (h->format == RV_FORMAT)
         return n == (int)sizeof(rv);

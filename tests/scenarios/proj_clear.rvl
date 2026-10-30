@@ -1,0 +1,33 @@
+# SAVE > PROJECT > CLEAR: the slot emptied after a second press, the project you have kept; an empty slot says so
+wait 300
+tap SAVE
+wait 150
+expect page PROJECT
+expect slotused 1 0
+tap SAVE
+wait 100
+tap SAVE
+wait 300
+expect slotused 1 1
+turn K1 1
+wait 120
+turn K1 1
+wait 120
+turn K1 1
+wait 120
+turn K1 1
+wait 120
+turn K1 1
+wait 120
+turn K1 1
+wait 120
+tap SAVE
+wait 100
+expect slotused 1 1
+shot proj_clear.png
+tap SAVE
+wait 300
+expect slotused 1 0
+reboot
+wait 300
+expect slotused 1 0

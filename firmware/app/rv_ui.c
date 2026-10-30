@@ -516,7 +516,7 @@ static const char *const rmove_names[] = {"NONE", "UP", "DOWN", "DARK"};
 static const char *const cshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
 static const char *const csize_names[] = {"MASTER", "1/32", "1/16", "1/8", "1/6", "1/4", "1/3", "1/2"};
 static const char *const cut_names[] = {"NONE", "LOOP", "REVERSE", "STUTTER"};
-static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "DEMO 3", "INIT"};
+static const char *const save_actions[] = {"SAVE", "LOAD", "DEMO 1", "DEMO 2", "DEMO 3", "INIT", "CLEAR"};
 static const char *const bank_actions[] = {"LOAD", "SAVE", "CLEAR"};
 static const char *const bank_letters[] = {"A", "B", "C", "D"};
 static const char *const curve_names[] = {"LINEAR", "EXP", "LOG", "S"};
@@ -761,7 +761,7 @@ static kinfo_t kb_info(kb_t k)
     case K_SAVE:
         if (k.id == 0) {
             r.name = "ACTION";
-            r.max = 5;
+            r.max = (int)(sizeof save_actions / sizeof save_actions[0]) - 1;
             r.fmt = PF_ENUM;
             r.names = save_actions;
         } else {                                      /* the project's name: where, then which letter */
@@ -1888,6 +1888,14 @@ static void save_do(void)
         rv_demo(ui.save_action == 4 ? 3 : ui.save_action - 2);
         msg(ui.save_action == 2 ? "DEMO: RAVEL" : ui.save_action == 3 ? "DEMO: DUST" : "DEMO: GRAPH");
         break;
+    case 6:                                           /* CLEAR: the slot emptied (the project you have is kept) */
+        if (plat_proj_clear(PLAT_PROJ(ui.cur_slot)) == 0) {
+            sx_cat(b, "CLEARED ");
+            sx_int(b + 8, ui.cur_slot + 1);
+            msg(b);
+        } else
+            msg("SLOT EMPTY");
+        break;
     default:
         rv_transport(0);
         rv_demo(2);
@@ -2536,7 +2544,8 @@ static void draw_footer(void)
         hint = lh;
         break;
     }
-    case PR_SLOT: hint = ui.save_confirm ? "PRESS SAVE AGAIN TO CONFIRM" : "PRESETS: SLOT  SAVE: DO IT"; break;
+    case PR_SLOT: hint = ui.save_confirm ? (ui.save_action == 6 ? "PRESS SAVE AGAIN TO CLEAR IT" : "PRESS SAVE AGAIN TO CONFIRM")
+                       : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
         static char gh[40];
         int len = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS), a = ui.step_page * 16 + 1, z = a + 15 > len ? len : a + 15;

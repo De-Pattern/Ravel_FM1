@@ -1087,6 +1087,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
    | DEMO 2 | Dust |
    | DEMO 3 | The graph demo |
    | INIT | A new, blank project |
+   | CLEAR | Empties the slot, so it shows EMPTY and its room is free again (the project you have open stays as it is) |
 
 4. To name the project, use **KNOB 2 (CURSOR)** to pick a letter's place (1–11) and **KNOB 3 (LETTER)** to choose it (A–Z, 0–9, space and - + # & ' .), as on SOUNDS. The name shows on the right, with a mark under the letter on the cursor. It belongs to the project you are working on, so name it before you SAVE; LOAD brings back the name it was saved with.
 5. Press **SAVE** once: the footer says "PRESS SAVE AGAIN TO CONFIRM".
