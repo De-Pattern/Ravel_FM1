@@ -1,0 +1,262 @@
+# DUST: SCATTER and STRIKE on the LFO section's DUST page; a strike track on DUST takes the DUST source's grains
+wait 300
+tap LFO
+turn SELECT -20
+wait 100
+turn SELECT 3
+wait 100
+expect page DUST
+expect gp SCATTER 0
+expect gp STRIKE 0
+turn K3 -1
+wait 150
+turn K3 -1
+wait 150
+expect gp SCATTER -2
+turn K4 1
+wait 150
+expect gp STRIKE 1
+wait 3000
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+turn K1 3
+wait 30
+wait 500
+expect gp RATE 127
+expect dustn 0 9999
+wait 5000
+expect dustn 200 310
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+turn K3 -3
+wait 30
+expect gp SCATTER -64
+expect dustn 0 9999
+wait 5000
+expect dustn 150 420
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+turn K3 3
+wait 30
+expect gp SCATTER 63
+expect dustn 0 9999
+wait 5000
+expect dustn 230 285

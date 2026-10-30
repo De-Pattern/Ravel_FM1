@@ -127,6 +127,7 @@ enum {
      * 1-8 play tracks 1-8), the clock (0 Ravel's own, 1 MIDI's), whether Start and Stop drive the
      * transport (0 yes, 1 no). All 0 in older projects: OMNI, own clock, transport followed */
     GP_MIDICH, GP_MIDICLK, GP_MIDITRN,
+    GP_DUSTSCAT, GP_DUSTLINK,         /* DUST: clumped .. spread out; the strike tracks' DUST and RAIN from it */
     GP_N
 };
 #define RV_GP 128                   /* (format 5: was 96) */
@@ -380,6 +381,7 @@ typedef struct {
     uint8_t midi_hit, midi_ch, midi_note;  /* MIDI in: counts up on each note, its channel (1-16) and note */
     uint8_t midi_clk;                      /* MIDI clock: 1 while it comes */
     float midi_bpm;                        /* its tempo, as measured */
+    uint16_t dust_n;                       /* DUST: counts up on each grain */
     int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */
     uint32_t tick;
 } rv_live_t;

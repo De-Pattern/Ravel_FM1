@@ -17,6 +17,7 @@
  *   shot FILE.png                 save the screen
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
+ *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
@@ -317,6 +318,16 @@ int main(int argc, char **argv)
             png_write(path);
         } else if (!strcmp(a, "peakreset")) {
             peak_out = 0;
+        } else if (!strcmp(a, "settp")) {     /* settp T NAME VALUE: track T's (1..8) parameter, straight */
+            char nm[64] = "";
+            int tt = 0, vv = 0, pp;
+            sscanf(line, "%*s %d %63s %d", &tt, nm, &vv);
+            pp = find_tp((tt - 1) & 7, nm);
+            if (pp < 0) {
+                fprintf(stderr, "line %d: no parameter %s\n", lineno, nm);
+                return 2;
+            }
+            rv.tp[(tt - 1) & 7][pp] = (int16_t)vv;
         } else if (!strcmp(a, "demo")) {      /* demo 1|2|3, as SAVE > DEMO 1-3 */
             int d = atoi(b);
             rv_transport(0);
@@ -397,6 +408,15 @@ int main(int argc, char **argv)
                 const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
                 got = 1 + (ss->chord[0] != 0) + (ss->chord[1] != 0) + (ss->chord[2] != 0);
                 want = atoi(w3);
+            } else if (!strcmp(b, "dustn")) {                /* DUST grains since the last dustn: between two counts */
+                static unsigned last_n;
+                unsigned n2 = (unsigned)rv_live.dust_n - last_n;
+                last_n = rv_live.dust_n;
+                if ((int)n2 < atoi(w1) || (int)n2 > atoi(w2)) {
+                    printf("FAIL line %d: %u DUST grains, expected %s to %s\n", lineno, n2, w1, w2);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
                 got = rv_live.srec_step + 1;
                 want = atoi(w1);

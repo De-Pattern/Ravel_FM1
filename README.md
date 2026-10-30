@@ -521,7 +521,7 @@ A strike is an **exciter** (what hits) and a **body** (what rings).
 
 | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
 | --- | --- | --- | --- |
-| EXCITER: CLICK, NOISE, METAL, FM, DUST, RAIN, BOW, BLOW, EXT (only from outside) | DAMP | ORDER: how the modes are laid out | RING F: ring-mod frequency |
+| EXCITER: CLICK, NOISE, METAL, FM, DUST, RAIN, BOW, BLOW, EXT (only from outside; DUST and RAIN can take the LFO section's DUST instead, below) | DAMP | ORDER: how the modes are laid out | RING F: ring-mod frequency |
 | BODY: PING (filters), MODAL (bars and bells), DISC (cymbals, plates), STRINGS (coupled strings) | INHARM: how un-harmonic the modes are | RATE: for DUST and RAIN, how often grains fall | RING amount |
 | DECAY | GEOMTRY: the shape of the body | TRANS: level of the attack transient | P DROP: pitch drop at the hit (toms, kicks) |
 | TONE: brightness | MODES: 2–8 resonances | T DECAY: length of the transient | SEED: a different random variation |
@@ -704,7 +704,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 | **MATRIX** | SOURCE | TRACK (1–8, GLOBAL, or MATRIX: another row) | PARAM (with MATRIX: ROW 1–8, that row's AMOUNT) | AMOUNT (±) | slot 1–8 |
 | **LFOS** | L1 RATE | L1 SHAPE: SINE, TRI, RAMP, SAW, SQUARE, S&H, DRIFT | L2 RATE | L2 SHAPE | – |
 | **LFO SHAPE** (OCT- / OCT+: LFO 1 or LFO 2) | SYM: skews the wave either way (± 64) | PHASE: where the wave starts, 0–359° | MODE: LOOP, RETRIG, 1 SHOT | – | – |
-| **DUST** | RATE: how often random spikes happen | DECAY: how long each spike lasts | – | – | – |
+| **DUST** | RATE: how often random spikes happen, on average | DECAY: how long each spike lasts | SCATTER: how they fall. 0 random, like rain; up, spread out more and more evenly (+63: clockwork); down, in clumps, bursts of quick grains with long gaps between (−64: the most) | STRIKE: OWN, or DUST: strike tracks on the DUST or RAIN exciter take their grains from this source instead of their own RATE and ORDER (see below) | – |
 | **MACRO** | DEST: what this slot moves | START value (±) | END value (±) | CURVE: LINEAR, EXP, LOG, S | which macro and slot |
 | **MACRO WINDOW** | FROM %: where on the macro's travel this slot starts moving | TO %: where it stops | MACRO 1 | MACRO 2 | which macro and slot |
 
@@ -719,7 +719,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 **Matrix sources:**
 
 - **LFO1, LFO2;**
-- **DUST:** random impulses, like crackle;
+- **DUST:** random impulses, like crackle, shaped by SCATTER;
 - **ENV and VELO:** the *target* track's own envelope and velocity;
 - **MACRO1–4;**
 - **CLOCK:** a pulse on every clock tick;
@@ -728,6 +728,8 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 - **TOUCH:** aftertouch from MIDI in: channel pressure, or a keyboard's poly pressure (the latest key's). How hard you keep pressing a held key, for vibrato, a filter opening up, a swell.
 
 The FM-1's own keys are switches: they play every note at the same velocity and have no pressure. VELO and TOUCH come alive with a MIDI keyboard that sends them (GLO › MIDI IN). For movement under your fingers on the FM-1 itself, map MACRO1–4 to the knobs you want and ride them, or record the knob moves.
+
+**Dust that plays.** On LFO › DUST, turn STRIKE to DUST and every strike track on the DUST or RAIN exciter is struck by the DUST source's own grains, at its RATE and SCATTER, rather than by its own RATE and ORDER (which grey out). The same grains spike the matrix's DUST source and step a track clocked by DUST, so a body ringing, a filter jumping and a track stepping all happen together. A held note gets one grain as it starts, then only the source's. DUST's RATE tops out at about 50 grains a second; for denser rain, leave STRIKE at OWN.
 
 **The matrix:** 8 slots, each "this source moves that parameter by this much".
 

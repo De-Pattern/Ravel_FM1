@@ -88,10 +88,17 @@ RV_INL float strike_exciter(strike_t *v, int exc, const float *eff, float f, flo
     }
     case EXC_DUST:
     case EXC_RAIN: {
-        /* impulses at RATE; ORDER walks from scattered (seeded, so it repeats) to clockwork */
+        /* impulses at RATE; ORDER walks from scattered (seeded, so it repeats) to clockwork. With the
+         * DUST page's STRIKE at DUST, the grains are the DUST source's, as they fall */
         float hz = 2.0f + rate * rate * 400.0f;
-        v->dust_acc += hz * RV_DT;
-        if (v->dust_acc >= v->dust_next + 1.0f || v->t == 0.0f) {
+        if (rv.gp[GP_DUSTLINK]) {
+            if (v->dust_link_at == 0 || v->t == 0.0f) {
+                x = exc == EXC_RAIN ? (v->t == 0.0f ? 1.0f : dust_amp) : 1.0f;
+                v->exc_env = 1.0f;
+            }
+            if (v->dust_link_at >= 0)
+                v->dust_link_at--;
+        } else if ((v->dust_acc += hz * RV_DT) >= v->dust_next + 1.0f || v->t == 0.0f) {
             float jit = (1.0f - order) * (xs_uni(&v->dust_rng) * 1.8f - 0.9f);
             v->dust_acc -= v->dust_next + 1.0f;
             v->dust_next = jit;
@@ -142,6 +149,7 @@ RV_HOT2 static float strike_render(strike_t *v, track_t *tr, float *out, int n)
     float tcoef = 1.0f - 1.0f / ((0.0005f + tdec * tdec * 0.08f) * 44100.0f);
     const float *ratios = body == BODY_DISC ? disc_ratio : bar_ratio;
     v->pitch_env *= fm_expf(-(float)n * RV_DT / 0.03f);
+    v->dust_link_at = dust_at;                        /* (the DUST source's grain in this block, if any) */
     if (f > 16000.0f)
         f = 16000.0f;
     /* body coefficients for this control step */

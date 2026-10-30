@@ -158,6 +158,7 @@ typedef struct {
     float exc_env, trans_env, pitch_env;
     uint32_t rng, dust_rng;
     float dust_acc, dust_next;
+    int dust_link_at;               /* DUST page STRIKE at DUST: the samples to this block's grain (-1: none) */
     float mph[6];                   /* metallic squares */
     float fmph[2];
     float md_y1[8], md_y2[8];       /* modal resonators: state (re, im) */
@@ -173,6 +174,9 @@ typedef struct {
     uint8_t spark;                  /* rung by a SPARK route: a bare tap on the body, no exciter, no transient */
     hitshade_t hs;
 } strike_t;
+/* the DUST source's grain in this control block (rv_mod.c), which strike tracks can take (STRIKE: DUST) */
+static int dust_at = -1;                              /* its sample (-1: none) */
+static float dust_amp;                                /* its strength, 0.3..1 */
 
 /* --------------------------------------------------------------- track --- */
 typedef struct {

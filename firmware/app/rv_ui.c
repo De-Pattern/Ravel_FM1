@@ -121,7 +121,7 @@ static const page_t pages[] = {
     {SEC_MOD, V_ALL, PIC_MATRIX, PR_MAT, "MATRIX", {MF(MF_SRC), MF(MF_TRACK), MF(MF_PARAM), MF(MF_AMT)}},
     {SEC_MOD, V_ALL, PIC_LFO1, PR_NONE, "LFOS", {GP(GP_LFO1RATE), GP(GP_LFO1SHAPE), GP(GP_LFO2RATE), GP(GP_LFO2SHAPE)}},
     {SEC_MOD, V_ALL, PIC_LFO2, PR_LFOROW, "LFO SHAPE", {{K_LFOR, 0}, {K_LFOR, 1}, {K_LFOR, 2}, NO}},   /* OCT: LFO 1 or LFO 2 */
-    {SEC_MOD, V_ALL, PIC_DUST, PR_NONE, "DUST", {GP(GP_DUSTRATE), GP(GP_DUSTDECAY), NO, NO}},
+    {SEC_MOD, V_ALL, PIC_DUST, PR_NONE, "DUST", {GP(GP_DUSTRATE), GP(GP_DUSTDECAY), GP(GP_DUSTSCAT), GP(GP_DUSTLINK)}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO", {XF(XF_DEST), XF(XF_START), XF(XF_END), XF(XF_CURVE)}},
     {SEC_MOD, V_ALL, PIC_MACRO, PR_MACRO, "MACRO WINDOW", {XF(XF_LO), XF(XF_HI), {K_GP, GP_MACRO1}, {K_GP, GP_MACRO2}}},
 
@@ -3420,8 +3420,18 @@ static void pic_lfo(int k)
 static void pic_dust(void)
 {
     int i;
-    ui.dust_hist[ui.dust_w] = (uint8_t)(clampf(rv_live.dust, 0.0f, 1.0f) * 100.0f);
-    ui.dust_w = (uint8_t)((ui.dust_w + 1) % 60);
+    static uint32_t seen_frame, seen_n;
+    static float peak;
+    if (rv_live.dust_n != seen_n)                     /* (a grain since the last frame shows, however short) */
+        peak = 1.0f;
+    seen_n = rv_live.dust_n;
+    peak = fm_maxf(peak, rv_live.dust);
+    if (ui.frame / 3u != seen_frame) {                /* one column every third frame (the screen is drawn in bands) */
+        seen_frame = ui.frame / 3u;
+        ui.dust_hist[ui.dust_w] = (uint8_t)(clampf(peak, 0.0f, 1.0f) * 100.0f);
+        ui.dust_w = (uint8_t)((ui.dust_w + 1) % 60);
+        peak = 0.0f;
+    }
     for (i = 0; i < 60; i++) {
         int v = ui.dust_hist[(ui.dust_w + i) % 60];
         g_fill(8 + i * 4, PIC_Y + 116 - v, 3, v, i == 59 ? C_WHITE : C_TEAL);

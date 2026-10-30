@@ -112,6 +112,7 @@ static lfo_t lfo[2];
 static float dust_v;
 static uint32_t dust_rng = 0xD057D057u;
 static uint8_t lfo_wrapped[2], dust_fired;
+static float dust_acc, dust_due = 1.0f;               /* the mean intervals gone since the last grain, and the next one's */
 
 static uint8_t lfo_note_trig;                          /* a note started: RETRIG and 1 SHOT LFOs start over */
 
@@ -267,9 +268,27 @@ static void movement_tick(int n)
                  clampi(rv.gp[k ? GP_LFO2MODE : GP_LFO1MODE], 0, 2));
     dust_v *= fm_expf(-dt / ddec);
     dust_fired = 0;
-    if (xs_uni(&dust_rng) < drate * dt) {
-        dust_v = fm_maxf(dust_v, 0.3f + 0.7f * xs_uni(&dust_rng));
-        dust_fired = 1;
+    dust_at = -1;
+    {   /* grains at RATE on average; SCATTER shapes the gaps: 0 random (as rain falls), up to evenly
+         * spread (clockwork at the top), down to clumps (bursts of quick grains, long gaps between) */
+        float sc = clampf(G(GP_DUSTSCAT) * (1.0f / 64.0f), -1.0f, 1.0f), step = drate * dt;
+        dust_acc += step;
+        if (dust_acc >= dust_due) {
+            float u = fm_maxf(xs_uni(&dust_rng), 1e-6f), e = -fm_log2f(u) * 0.6931472f, g;
+            if (sc >= 0.0f)
+                g = (1.0f - sc) * e + sc;             /* toward even */
+            else {
+                float c = -sc * 0.85f;                /* the chance the next grain follows quickly */
+                g = xs_uni(&dust_rng) < c ? 0.06f * e : e * (1.0f - c * 0.06f) / (1.0f - c);
+            }
+            dust_at = clampi((int)((1.0f - (dust_acc - dust_due) / fm_maxf(step, 1e-9f)) * (float)n), 0, n - 1);
+            dust_acc = fm_minf(dust_acc - dust_due, 1.0f);
+            dust_due = g;
+            dust_amp = 0.3f + 0.7f * xs_uni(&dust_rng);
+            dust_v = fm_maxf(dust_v, dust_amp);
+            dust_fired = 1;
+            rv_live.dust_n++;
+        }
     }
     rv_live.lfo1 = lfo[0].value;
     rv_live.lfo2 = lfo[1].value;

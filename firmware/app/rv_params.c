@@ -45,6 +45,7 @@ static const char *const metro_names[] = {"OFF", "QUIET", "LOUD"};
 static const char *const countin_names[] = {"OFF", "1 BAR", "2 BARS"};
 static const char *const midich_names[] = {"OMNI", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "MULTI"};
 static const char *const midiclk_names[] = {"RAVEL", "MIDI"};
+static const char *const dustlink_names[] = {"OWN", "DUST"};
 static const char *const miditrn_names[] = {"FOLLOW", "IGNORE"};
 static const char *const cutshape_names[] = {"EVEN", "BOUNCE", "DRAG"};
 static const char *const glide_names[] = {"JUMP", "1 BAR", "2 BARS", "3 BARS", "4 BARS", "5 BARS", "6 BARS", "7 BARS", "8 BARS"};
@@ -432,6 +433,8 @@ static const rv_pinfo GLOBAL[GP_N] = {
     [GP_MIDICH] = {"MIDI CH", 0, N(midich_names), 0, E(midich_names)},
     [GP_MIDICLK] = {"CLOCK IN", 0, N(midiclk_names), 0, E(midiclk_names)},
     [GP_MIDITRN] = {"START/STP", 0, N(miditrn_names), 0, E(miditrn_names)},
+    [GP_DUSTSCAT] = {"SCATTER", -64, 63, 0, PF_NUM, 0},
+    [GP_DUSTLINK] = {"STRIKE", 0, N(dustlink_names), 0, E(dustlink_names)},
     [GP_LFO1SYM] = {"L1 SYM", -64, 63, 0, PF_BI, 0},     /* skews the wave: - leans early, + late */
     [GP_LFO2SYM] = {"L2 SYM", -64, 63, 0, PF_BI, 0},
     [GP_LFO1PHASE] = {"L1 PHASE", 0, 359, 0, PF_NUM, 0},  /* degrees: where the wave starts */
@@ -712,7 +715,7 @@ int rv_tp_applies(int t, int p)
         case TP_S4: case TP_S6: return body != BODY_PING;                  /* DAMP, GEOMETRY */
         case TP_S5: return body != BODY_PING;                               /* INHARM */
         case TP_S7: return body == BODY_MODAL || body == BODY_DISC;         /* MODES */
-        case TP_S8: case TP_S9: case TP_S15: return grains;                 /* ORDER, RATE, SEED */
+        case TP_S8: case TP_S9: case TP_S15: return grains && !rv.gp[GP_DUSTLINK];   /* ORDER, RATE, SEED (not while the DUST source gives the grains) */
         case TP_S11: return tp[TP_S10] > 0;                                 /* T DECAY: with a TRANS layer */
         case TP_S12: return tp[TP_S13] > 0;                                 /* RING F: with RING */
         default: return 1;
@@ -809,7 +812,7 @@ int rv_is_moddest_g(int g)
 {
     switch (g) {
     case GP_TEMPO: case GP_SWING: case GP_CLKDEPTH: case GP_CLKBRATE: case GP_CLKTHR:
-    case GP_LFO1RATE: case GP_LFO2RATE: case GP_DUSTRATE: case GP_DUSTDECAY:
+    case GP_LFO1RATE: case GP_LFO2RATE: case GP_DUSTRATE: case GP_DUSTDECAY: case GP_DUSTSCAT:
     case GP_DLYTIME: case GP_DLYFB: case GP_DLYTONE: case GP_DLYLEVEL: case GP_DLYWOB: case GP_DLYMODE:
     case GP_GRDENS: case GP_GRSIZE: case GP_GRPITCH:
     case GP_REVSIZE: case GP_REVDAMP: case GP_REVLEVEL: case GP_REVMOD:
