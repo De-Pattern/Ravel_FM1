@@ -28,6 +28,9 @@
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
  *   expect msrc NAME LO HI        the matrix source NAME (WHEEL, TOUCH, BEND...) is between LO and HI now
+ *   expect stepcur S              the step the knobs edit is S (1..64)
+ *   expect steplen T S CODE       track T's step S has LENGTH CODE (8 a step)
+ *   expect recording 0|1          REC armed
  *   expect sreccur S              step recording's cursor is on step S (0: off)
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
@@ -42,6 +45,7 @@ const char *ui_page_title(void);
 void moom_warp(int lv);
 void moom_pose(float x, float y, float dir);
 void moom_clear(void);
+int ui_step_cur(void);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -445,6 +449,16 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "stepcur")) {              /* the step the knobs edit (1..64) */
+                got = ui_step_cur() + 1;
+                want = atoi(w1);
+            } else if (!strcmp(b, "steplen")) {              /* track T's step S: its LENGTH (code: 8 a step) */
+                int tt = atoi(w1) - 1;
+                got = rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)].len;
+                want = atoi(w3);
+            } else if (!strcmp(b, "recording")) {            /* REC armed: 1 */
+                got = rv_live.recording;
+                want = atoi(w1);
             } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
                 got = rv_live.srec_step + 1;
                 want = atoi(w1);

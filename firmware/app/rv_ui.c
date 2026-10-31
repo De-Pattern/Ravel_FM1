@@ -50,7 +50,7 @@ enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PK
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
-       PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN };
+       PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP };   /* PR_STEP: the step pages, PRESETS steps through the steps */
 
 #define USND 1000                       /* ui.preset_idx at or above: your own sound USND + slot (the current bank) */
 typedef struct {
@@ -148,14 +148,14 @@ static const page_t pages[] = {
 
     {SEC_SEQ, V_COMP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), NO, NO}},   /* (a COMP track has no steps) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},   /* (the same TEMPO and SWING as GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), SF(SF_RMOVE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), SF(SF_RMOVE)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
+    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), NO}},
     {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), NO, NO, NO}},
@@ -1698,6 +1698,8 @@ static void knob_turn(int i, int d)
             nv = KIND_PERC;
         kb_set(k, nv);
         page_follow(gp);
+        if (ui.srec_t == ui.track && k.kind == K_STEP && k.id == SF_LEN)   /* step recording: the notes to come take this length */
+            rv_step_rec(SREC_LEN, ui.track, kb_get(k));
     }
     ui.turned_ms[i] = plat_ms();
 }
@@ -1889,6 +1891,17 @@ static void preset_turn(int d)
         break;
     }
     case PR_STEPCUR: ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, clampi(rv.tp[t][TP_LEN], 1, 64) - 1); break;
+    case PR_STEP: {                                   /* STEP: the step the knobs edit, 1 .. LENGTH; the keys' page follows.
+                                                       * Step recording: the cursor (where the next note goes) */
+        int len = clampi(rv.tp[t][TP_LEN], 1, 64);
+        if (ui.srec_t == t && rv_live.srec_step >= 0) {
+            rv_step_rec(SREC_TO, t, rv_live.srec_step + d);
+            break;
+        }
+        ui.step_cur = (int16_t)clampi(ui.step_cur + d, 0, len - 1);
+        ui.step_page = (uint8_t)(ui.step_cur / 16);
+        break;
+    }
     default: break;
     }
 }
@@ -2204,6 +2217,10 @@ static void buttons(uint32_t now_btn)
     }
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
+    }
+    if ((down & (1u << B_SAVE)) && (now_btn & (1u << B_REC))) {   /* REC + SAVE: TAKE what was played in the last loop */
+        rv_take();
+        ui.layer_used[B_REC] = ui.layer_used[B_SAVE] = 1;
     }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_CZSTEP) {
         ui.cz_row = (uint8_t)((ui.cz_row + ((down & (1u << B_OCTUP)) ? 1 : 4)) % 5);   /* the next two stages */
@@ -2541,8 +2558,9 @@ void ui_input_only(void)
             ui.srec_seen = -1;
         }
         if (want >= 0 && rv_live.srec_step >= 0 && rv_live.srec_step != ui.srec_seen) {
-            ui.srec_seen = rv_live.srec_step;         /* the keys' page follows the cursor */
+            ui.srec_seen = rv_live.srec_step;         /* the keys' page follows the cursor, and the knobs edit its step */
             ui.step_page = (uint8_t)(rv_live.srec_step / 16);
+            ui.step_cur = rv_live.srec_step;
         }
     }
     buttons(btn);
@@ -2765,8 +2783,10 @@ static void draw_footer(void)
     case PR_ROUTE: hint = "PRESETS: TARGET  ALGO: SOURCE"; break;
     case PR_MAT: hint = "PRESETS: SLOT"; break;
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
+    case PR_STEP:
     case PR_PATTERN:
         hint = ui.srec_t >= 0 ? "OCT+ REST  OCT- BACK"
+               : pg->pr == PR_STEP && !seq_keys_play(ui.track) && !is_kit_ui(ui.track) ? "PRESETS: STEP  KEYS: STEPS"
                : seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
                : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
                : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
@@ -4522,6 +4542,10 @@ static void pic_steps(void)
             char sb[16] = "STEP REC ";
             sx_int(sb + 9, rv_live.srec_step + 1);
             g_text_r(232, PIC_Y + 124, &FONT_T, sb, C_RED);
+        } else if (cur_page()->pr == PR_STEP) {      /* the step on the knobs (PRESETS moves it) */
+            char sb[12] = "STEP ";
+            sx_int(sb + 5, ui.step_cur + 1);
+            g_text_r(232, PIC_Y + 124, &FONT_T, sb, C_K1);
         }
     }
 }
@@ -4902,6 +4926,73 @@ static void leds(void)
 
 #include "rv_moom.c"
 
+/* hold HOME: this page's controls in words: the four knobs, PRESETS, the keys and OCT, then the layers
+ * that work everywhere */
+static void draw_help(void)
+{
+    const page_t *pg = cur_page();
+    int i, y = 4, seq = ui.sec == SEC_SEQ, kit = is_kit_ui(ui.track);
+    char b[48];
+    const char *pr;
+    g_fill(0, g_y0, PLAT_W, g_y1 - g_y0, C_BG);
+    g_text(6, y, &FONT_B, pg->title, C_TEAL);
+    g_text_r(234, y + 2, &FONT_T, "HELP", C_DIM);
+    y += 22;
+    for (i = 0; i < 4; i++) {                         /* the knobs */
+        kb_t k = page_knob(pg, i);
+        b[0] = 0;
+        sx_int(b + sx_cat(b, "KNOB "), i + 1);
+        g_text(6, y, &FONT_T, b, i == 0 ? C_K1 : i == 1 ? C_K2 : i == 2 ? C_K3 : C_K4);
+        g_text(56, y, &FONT_T, k.kind == K_NONE ? "-" : kb_info(k).name, k.kind == K_NONE ? C_DIM : C_INK);
+        y += 12;
+    }
+    switch (pg->pr) {                                 /* PRESETS */
+    case PR_STEP: pr = ui.srec_t >= 0 ? "MOVES THE RECORDING CURSOR" : "THE STEP THE KNOBS EDIT"; break;
+    case PR_STEPCUR: pr = "THE STEP THE KNOBS EDIT"; break;
+    case PR_PATTERN: pr = "PATTERN A OR B"; break;
+    case PR_ROUTE: pr = "THE ROUTE'S TARGET"; break;
+    case PR_MAT: pr = "THE MATRIX SLOT"; break;
+    case PR_MACRO: pr = "THE MACRO DESTINATION"; break;
+    case PR_SCENE: pr = "THE SCENE"; break;
+    case PR_ARR: pr = "THE ARRANGEMENT ROW"; break;
+    case PR_ARC: pr = "THE BAR"; break;
+    case PR_LIB: pr = "THE ENVELOPE"; break;
+    case PR_SLOT: pr = "THE PROJECT SLOT"; break;
+    case PR_BANK: pr = "THE SOUND SLOT"; break;
+    case PR_LANE: pr = "THE LANE'S MACHINE"; break;
+    case PR_LEARN: pr = "A LEARNED CONTROL"; break;
+    default: pr = "THE TRACK'S SOUNDS"; break;
+    }
+    y += 4;
+    g_text(6, y, &FONT_T, "PRESETS", C_MID);
+    g_text(64, y, &FONT_T, pr, C_INK);
+    y += 12;
+    g_text(6, y, &FONT_T, "KEYS", C_MID);
+    g_text(64, y, &FONT_T, seq && !seq_keys_play(ui.track) ? (kit ? "STEPS, THE LANE CHOSEN" : "STEPS (HOLD + KNOB: A LOCK)")
+                           : seq ? "PLAY AND RECORD NOTES" : pg->pic == PIC_SCENES ? "LAUNCH SCENES" : "PLAY THE TRACK", C_INK);
+    y += 12;
+    g_text(6, y, &FONT_T, "OCT", C_MID);
+    g_text(64, y, &FONT_T, ui.srec_t >= 0 ? "+ A REST, - BACK A STEP" : seq && !seq_keys_play(ui.track) ? "THE KEYS' STEPS 1-16 .. 49-64" : "THE KEYS' OCTAVE", C_INK);
+    y += 12;
+    g_text(6, y, &FONT_T, "SELECT", C_MID);
+    g_text(64, y, &FONT_T, "PAGE   ALGORITHM: TRACK", C_INK);
+    y += 16;
+    g_hline(6, y - 3, 228, C_LINE);
+    {
+        static const char *const lay[] = {
+            "SEQ + KEY: A STEP, ON ANY PAGE",
+            "REC: ARM. STOPPED ON SEQ: STEP BY STEP",
+            "REC + SAVE: TAKE THE LAST LOOP PLAYED",
+            "FX + KEYS 1-8: PUNCH-IN EFFECTS",
+            "GLO + KEYS: MUTE 1-8, SOLO 9-16",
+            "SAVE + KEY: STORE A SCENE",
+            "LFO + KNOBS: MACROS 1-4   SCL + KEY: ROOT",
+        };
+        for (i = 0; i < 7; i++, y += 11)
+            g_text(6, y, &FONT_T, lay[i], C_DIM);
+    }
+}
+
 void ui_frame(void)
 {
     int b, i, j;
@@ -4923,13 +5014,35 @@ void ui_frame(void)
         for (j = 0; j < RV_TRACKS; j++)
             if (rv_live.route_fire[i][j] > 0)
                 rv_live.route_fire[i][j] = (uint8_t)(rv_live.route_fire[i][j] > 24 ? rv_live.route_fire[i][j] - 24 : 0);
-    for (b = 0; b < PLAT_H; b += GB_H) {
-        g_band(b);
-        draw_top();
-        draw_knobs();
-        draw_picture();
-        draw_footer();
-        g_send();
+    if (rv_live.take_res) {                           /* TAKE done */
+        char tb[28];
+        tb[0] = 0;
+        if (rv_live.take_res == 1)
+            sx_cat(tb, "TAKE: NOTHING PLAYED");
+        else {
+            sx_int(tb + sx_cat(tb, "TAKE: "), rv_live.take_res - 1);
+            sx_cat(tb, " STEPS KEPT");
+        }
+        rv_live.take_res = 0;
+        msg(tb);
+    }
+    {   /* HOME held a moment, nothing else with it: what every control does here (letting go: no page change) */
+        int help = (plat_buttons() & (1u << B_HOME)) && plat_ms() - ui.btn_down_ms[B_HOME] > 400u &&
+                   (plat_buttons() & ~(1u << B_HOME)) == 0;
+        if (help)
+            ui.layer_used[B_HOME] = 1;
+        for (b = 0; b < PLAT_H; b += GB_H) {
+            g_band(b);
+            if (help)
+                draw_help();
+            else {
+                draw_top();
+                draw_knobs();
+                draw_picture();
+                draw_footer();
+            }
+            g_send();
+        }
     }
     leds();
 }
@@ -4973,6 +5086,7 @@ void ui_notice(const char *title, const char *l1, const char *l2, const char *l3
 
 /* for the emulator page: where the interface is */
 int ui_section(void) { return ui.sec; }
+int ui_step_cur(void) { return ui.step_cur; }   /* (the scenarios: the step on the knobs) */
 int ui_track(void) { return ui.track; }
 const char *ui_page_title(void) { return cur_page()->title; }
 void ui_goto(int sec, int page)

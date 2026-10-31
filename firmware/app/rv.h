@@ -382,6 +382,7 @@ typedef struct {
     uint8_t midi_clk;                      /* MIDI clock: 1 while it comes */
     float midi_bpm;                        /* its tempo, as measured */
     uint16_t dust_n;                       /* DUST: counts up on each grain */
+    uint8_t take_res;                      /* TAKE done: the steps it kept + 1 (the interface clears it) */
     int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */
     uint32_t tick;
 } rv_live_t;
@@ -430,8 +431,9 @@ void rv_pattern_launch(int t, int p);
 void rv_tap_tempo(void);
 void rv_record_arm(int t, int on);
 int rv_midi_cc(uint8_t m[3]);              /* a control change from MIDI in, for the interface (channel, CC, value): 1 if one came */
-enum { SREC_OFF, SREC_ON, SREC_REST, SREC_BACK, SREC_TO };
-void rv_step_rec(int op, int t, int step);   /* step recording: on (track t), off, a rest, back a step, to a step */
+enum { SREC_OFF, SREC_ON, SREC_REST, SREC_BACK, SREC_TO, SREC_LEN };
+void rv_step_rec(int op, int t, int step);   /* step recording: on (track t), off, a rest, back a step, to a step, the entry length (code) */
+void rv_take(void);                        /* TAKE: what you played in the last loop on the track in view, into its pattern */
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */
 void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed, records */
 void rv_pattern_clear(int t);

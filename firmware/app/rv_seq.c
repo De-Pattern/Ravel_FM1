@@ -1404,6 +1404,7 @@ static void record_arm_now(int t, int on)
  * empties the cursor's step and moves on; back moves the cursor back a step. */
 static int8_t srec_t = -1;
 static uint8_t srec_cur, srec_n;
+static uint8_t srec_elen = 4;                         /* the entry length (code, as a step's LENGTH): the knob sets it */
 static uint8_t srec_down[8];                          /* the notes down now */
 static int srec_len(int t) { return clampi(rv.tp[t][TP_LEN], 1, RV_STEPS); }
 static void srec_cmd(int op, int t, int step)
@@ -1420,7 +1421,7 @@ static void srec_cmd(int op, int t, int step)
     } else if (op == SREC_OFF) {
         srec_t = -1;
         srec_n = 0;
-    } else if (srec_t >= 0 && srec_n == 0) {
+    } else if (srec_t >= 0 && srec_n == 0 && op != SREC_LEN) {
         int len = srec_len(srec_t);
         rv_step *s = &rv.pat[srec_t][rv.pat_cur[srec_t] % RV_PATTERNS].s[srec_cur % len];
         if (op == SREC_REST) {
@@ -1429,8 +1430,10 @@ static void srec_cmd(int op, int t, int step)
         } else if (op == SREC_BACK)
             srec_cur = (uint8_t)((srec_cur + len - 1) % len);
         else if (op == SREC_TO)
-            srec_cur = (uint8_t)(step % len);
+            srec_cur = (uint8_t)(((step % len) + len) % len);
     }
+    if (op == SREC_LEN)                               /* (any time: the notes to come take it) */
+        srec_elen = (uint8_t)clampi(step, 1, RV_LEN_MAX);
     rv_live.srec_step = (int8_t)(srec_t < 0 ? -1 : srec_cur);
 }
 static int srec_note(int t, int note, int vel)       /* 1: step recording took it */
@@ -1451,7 +1454,7 @@ static int srec_note(int t, int note, int vel)       /* 1: step recording took i
             s->note = (uint8_t)note;
             s->vel = (uint8_t)vel;
             s->micro = 0;
-            s->len = 4;
+            s->len = srec_elen;
             s->chord[0] = s->chord[1] = s->chord[2] = 0;
         } else if (note - s->note >= -64 && note - s->note <= 63) {   /* the next ones: its chord */
             for (c = 0; c < 3; c++)
@@ -1466,8 +1469,10 @@ static int srec_note(int t, int note, int vel)       /* 1: step recording took i
         for (k = 0; k < srec_n; k++)
             if (srec_down[k] == note) {
                 srec_down[k] = srec_down[--srec_n];
-                if (srec_n == 0)                      /* all let go: the next step */
-                    srec_cur = (uint8_t)((srec_cur + 1) % len);
+                if (srec_n == 0) {                    /* all let go: past the note (a step, or its length) */
+                    int adv = (int)(rv_len_steps(s->len) + 0.999f);
+                    srec_cur = (uint8_t)((srec_cur + (adv > 1 ? adv : 1)) % len);
+                }
                 break;
             }
     }
@@ -1490,29 +1495,88 @@ static int live_step_pos(int t, int *micro)
     return si;
 }
 
+/* TAKE: while it plays and you're not recording, what you play on the track in view is written, as
+ * recording would write it, into a pattern of its own, each step stamped with when; TAKE (REC + SAVE)
+ * copies the steps played in the last loop into the track's pattern (rv_take). A new track in view
+ * starts it afresh */
+static rv_pattern take_pat;
+static uint32_t take_when[RV_STEPS];                  /* the step's playhead count when written + 1 (0: nothing) */
+static int8_t take_owner = -1;
+static void take_now(void)
+{
+    int t = take_owner, len, si, n = 0, c;
+    uint32_t cur;
+    if (t < 0) {
+        rv_live.take_res = 1;
+        return;
+    }
+    len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
+    cur = sq[t].travelled[0] + 1u;
+    for (si = 0; si < len; si++) {
+        const rv_step *a = &take_pat.s[si];
+        rv_step *d = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+        if (!take_when[si] || cur - take_when[si] >= (uint32_t)len || !(a->flags & ST_ON))
+            continue;                                 /* (nothing, or from an earlier loop) */
+        if (is_kit(t)) {
+            if (!(d->flags & ST_ON)) {
+                d->note = d->env = d->len = 0;
+                d->vel = 100;
+                d->chance = 100;
+                d->micro = a->micro;
+            }
+            d->flags |= ST_ON;
+            d->note |= a->note;
+        } else {
+            d->flags = ST_ON;
+            d->note = a->note;
+            d->vel = a->vel;
+            d->micro = a->micro;
+            d->len = a->len;
+            for (c = 0; c < 3; c++)
+                d->chord[c] = a->chord[c];
+        }
+        n++;
+    }
+    __builtin_memset(&take_pat, 0, sizeof take_pat);
+    __builtin_memset(take_when, 0, sizeof take_when);
+    rv_live.take_res = (uint8_t)(n + 1 > 255 ? 255 : n + 1);
+}
+
 static void record_note(int t, int note, int vel)
 {
-    int micro, si, k;
-    rv_step *s;
+    int micro, si, k, shadow = 0;
+    rv_step *s, *base;
     if (srec_note(t, note, vel))
         return;
-    if (!playing || !rv_live.recording || rv_live.rec_track != t)
+    if (!playing)
         return;
-    if (countin_left > 0) {                           /* the count-in: only a note just before the top counts, on step 1 */
+    if (rv_live.recording && rv_live.rec_track == t)
+        base = rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s;
+    else if (t == (rv_live.ui_track & 7)) {           /* not recording: for TAKE */
+        if (take_owner != t) {
+            __builtin_memset(&take_pat, 0, sizeof take_pat);
+            __builtin_memset(take_when, 0, sizeof take_when);
+            take_owner = (int8_t)t;
+        }
+        base = take_pat.s;
+        shadow = 1;
+    } else
+        return;
+    if (countin_left > 0 && !shadow) {                           /* the count-in: only a note just before the top counts, on step 1 */
         if (countin_left > 1 || vel == 0)
             return;
         si = 0;
         micro = 0;
     } else
         si = live_step_pos(t, &micro);
-    s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+    s = &base[si];
     if (is_kit(t)) {                                  /* a kit: the key's lane plays on this step */
         int lane = perc_lane_of(note), tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
         int llen = rv.kit[t].len[lane] ? clampi(rv.kit[t].len[lane], 1, RV_STEPS) : tlen;
         if (llen != tlen && countin_left == 0 && sq[t].step[0] >= 0) {   /* a lane with its own LENGTH: its own step */
             uint32_t ahead = si != sq[t].step[0] ? 1u : 0u;
             si = (int)((sq[t].travelled[0] - 1u + ahead) % (uint32_t)llen);
-            s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+            s = &base[si];
         }
         if (vel > 0) {
             if (!(s->flags & ST_ON)) {
@@ -1525,6 +1589,8 @@ static void record_note(int t, int note, int vel)
             }
             s->flags |= ST_ON;
             s->note |= (uint8_t)(1u << perc_lane_of(note));
+            if (shadow)
+                take_when[si] = sq[t].travelled[0] + 1u;
         }
         return;
     }
@@ -1551,6 +1617,8 @@ static void record_note(int t, int note, int vel)
             s->len = 4;
             s->chord[0] = s->chord[1] = s->chord[2] = 0;
         }
+        if (shadow)
+            take_when[si] = sq[t].travelled[0] + 1u;
         for (k = 0; k < 16; k++)
             if (sq[t].held_note[k] < 0 || k == 15) {
                 sq[t].held_note[k] = (int8_t)si;
@@ -1562,7 +1630,7 @@ static void record_note(int t, int note, int vel)
     } else {
         for (k = 0; k < 16; k++)
             if (sq[t].held_note[k] >= 0 && sq[t].held_key[k] == note) {   /* (a chord's notes share the step's length) */
-                rv_step *st = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[sq[t].held_note[k]];
+                rv_step *st = &base[sq[t].held_note[k]];
                 float steps = (float)(now_s - sq[t].held_on[k]) * RV_DT / (sq[t].step_dur > 0.0f ? sq[t].step_dur : 0.125f);
                 st->len = (uint8_t)rv_len_code(steps);   /* (the last key let go sets it) */
                 sq[t].held_note[k] = -1;

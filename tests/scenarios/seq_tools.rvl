@@ -1,0 +1,99 @@
+# STEP (PRESETS on the step pages) moves the step the knobs edit, and in step recording the cursor;
+# LENGTH while step recording sets the notes' length and the cursor moves past them; hold HOME: help;
+# REC + SAVE: TAKE what was played in the last loop while not recording
+wait 300
+tap SEQ
+wait 100
+expect page STEPS
+expect stepcur 1
+turn PRESET 1
+wait 60
+turn PRESET 1
+wait 60
+turn PRESET 1
+wait 60
+expect stepcur 4
+turn PRESET -1
+wait 60
+expect stepcur 3
+# hold HOME: help, and letting go stays on the page
+press HOME
+wait 700
+shot help.png
+release HOME
+wait 100
+expect page STEPS
+# step recording: PRESETS moves the cursor; LENGTH sets the notes to come; the cursor moves past them
+tap REC
+wait 100
+expect sreccur 1
+turn PRESET 1
+wait 60
+turn PRESET 1
+wait 60
+expect sreccur 3
+expect stepcur 3
+turn PRESET -2
+wait 60
+expect sreccur 1
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+turn K3 1
+wait 200
+wait 100
+key 0 down
+wait 60
+key 0 up
+wait 100
+expect steplen 1 1 16
+expect sreccur 3
+key 2 down
+wait 60
+key 2 up
+wait 100
+expect sreccur 5
+tap REC
+wait 100
+expect sreccur 0
+# TAKE: playing, not recording, notes played on the keys are kept by REC + SAVE
+tap HOME
+wait 100
+tap PLAY
+wait 600
+key 4 down
+wait 100
+key 4 up
+wait 700
+key 7 down
+wait 100
+key 7 up
+wait 400
+expect steps 1 2
+press REC
+wait 50
+tap SAVE
+wait 50
+release REC
+wait 200
+expect recording 0
+expect steps 1 4

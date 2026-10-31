@@ -122,7 +122,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | **MASTER** | Output volume |
 | **SELECT** | Moves to the next page (turn right) or back to the previous one (turn left) in the section you are in |
 | **ALGORITHM** | Picks the track you are working on, **T1 to T8**. The keys play this track. |
-| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, patterns on SEQ, scenes on SONG, slots on SAVE (projects or sounds), steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
+| **PRESETS** | Browses the list that belongs to the page: sounds on most pages, the step the knobs edit on SEQ's step pages (STEPS, STEP TIMING, STEP SHAPE, STEP CUT, DRUM STEP) and patterns on its other pages, scenes on SONG, slots on SAVE (projects or sounds), steps on GRAPH, routes on INFLUENCE. The footer tells you which. |
 | **KNOB 1–4** | Change the four values in the row at the top of the screen, left to right |
 | **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). On pages with more settings than knobs they move the knobs to the next row instead; those pages show the rows on screen, number the knobs, and the footer says what OCT brings next: a kit's **LANE** pages (machine parameters, then LEVEL, CHANCE, LENGTH), the CZ's **DCO, DCW and DCA** envelopes (two stages at a time, then SUS and END), and **LFO SHAPE** (LFO 1 or LFO 2). |
 | **10 section buttons** | Each one opens a section (a group of pages). Tap it again for the section's next page. |
@@ -134,7 +134,7 @@ The section buttons:
 
 | Button | Section | What lives there |
 | --- | --- | --- |
-| **HOME** | Tracks | All eight tracks at a glance, and the influence grid |
+| **HOME** | Tracks | All eight tracks at a glance, and the influence grid. **Hold HOME** on any page for a help screen: what each knob, PRESETS, the keys and OCT do there, and the layers that work everywhere; let go and you're back where you were |
 | **EDIT** | Voice | The current track's sound: engine, source pages, pitch, filter, skin, insert, mix, sends |
 | **ENV** | Articulation | How a note starts, holds and ends, the FILTER ENV, and the step envelopes (STEP ENV, LIBRARY) |
 | **LFO** | Mod | Mod matrix, the two LFOs, dust, macros |
@@ -881,6 +881,8 @@ Editing a held empty step switches it on.
 | **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | – | – | – |
 | **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
 
+**STEP: PRESETS picks the step.** On the step pages (STEPS, STEP TIMING, STEP SHAPE, STEP CUT; DRUM STEP on a kit), turn **PRESETS** to move through the steps, 1 to LENGTH: the knobs edit that step (ringed on screen, STEP 23 at the bottom right), and the keys jump to its 16. Holding a step key still works as before, and the black keys 1 and 2 still switch patterns A and B.
+
 <p align="center"><img src="docs/manual/seq-euclid.png" alt="The EUCLID page: a pattern drawn as a ring of its steps, E(hits, length) in the middle" width="240"></p>
 
 **EUCLID** spreads HITS as evenly as they go over the track's LENGTH (5 over 16 is x..x..x..x..x...., the first on step 1) and ROTATE turns the pattern round. It writes ordinary steps as you turn: the steps it lights are steps like any others, with their notes, locks and ratchets, and you can edit them by hand from there. HITS starts from how many steps play now. Each turn rewrites which steps play (up to LENGTH), so turn it to find a rhythm, then leave it. On a kit the page is LANE, HITS, ROTATE and the lane's LENGTH, and it writes the chosen lane only: give each lane its own length and hits for rhythms that interlock and drift. The picture is the pattern as a ring, E(hits, length) in the middle.
@@ -1195,12 +1197,15 @@ Turning ALGORITHM while armed moves recording to the new track.
 
 - Play a note, or hold a chord (up to four keys together): it goes on the cursor's step, replacing what was there (the step's locks and tricks stay). When you let go of the last key, the cursor moves to the next step.
 - **OCT+** leaves a rest (empties the step) and moves on. **OCT−** goes back a step, to play it again.
-- **Hold SEQ and tap a step** to put the cursor there, for instance to change one chord in the middle of a pattern.
+- **PRESETS** moves the cursor, a step a click, or **hold SEQ and tap a step** to put it there, for instance to change one chord in the middle of a pattern.
+- **Length as you go:** on STEPS the knobs edit the cursor's step, so turn **KNOB 3 (LENGTH)**, before or while you hold the keys: the notes take that length, and so do the ones after it until you change it. Letting go moves the cursor past the note, so a note two steps long moves it on two (and leaves the step between as it was).
 - **Hold REC and press OCT− or OCT+** to change the keys' octave.
 - Notes from a MIDI keyboard step-record too.
 - Press **PLAY** to hear it: recording carries on live as usual. Stop, and step recording picks up after the last note. Tap **REC** to finish.
 
 Step recording is for synth and strike tracks; a kit's keys stay its steps (tap them in).
+
+**TAKE: keep what you just played.** While the transport runs and you're not recording, Ravel quietly listens to what you play on the track you're on (the keys or a MIDI keyboard), as recording would write it. If you played something you like, hold **REC** and tap **SAVE**: the last loop's worth of it (the track's LENGTH, back from now) goes into the pattern, chords, timing and lengths as played, over what's there; the screen says how many steps it kept. It works after you stop, too. Changing track starts it afresh.
 
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 

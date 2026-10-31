@@ -256,7 +256,7 @@ static float master_drive_comp = 1.0f;
 uint32_t rv_rng(void) { return xs32(&eng_rng); }
 
 /* ------------------------------------------------------- command queue --- */
-enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF, C_SREC };
+enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF, C_SREC, C_TAKE };
 typedef struct { uint8_t op, a; int16_t b, c; } cmd_t;
 static cmd_t cq[128];
 static volatile uint32_t cq_w, cq_r;
@@ -286,6 +286,7 @@ void rv_record_arm(int t, int on) { cmd(C_ARM, t, on, 0); }
 void rv_motion(int pid, int v) { cmd(C_MOTION, 0, pid, v); }
 void rv_all_off(void) { cmd(C_ALLOFF, 0, 0, 0); }
 void rv_step_rec(int op, int t, int step) { cmd(C_SREC, t, op, step); }
+void rv_take(void) { cmd(C_TAKE, 0, 0, 0); }
 
 /* ------------------------------------------------------------- notes --- */
 /* a hit's shading: the sequencer sets the next note's (a ratchet's R MOVE) just before it plays;
@@ -713,6 +714,9 @@ static void cmd_drain(void)
             break;
         case C_SREC:
             srec_cmd(c.b, c.a & 7, c.c);
+            break;
+        case C_TAKE:
+            take_now();
             break;
         default:
             break;
