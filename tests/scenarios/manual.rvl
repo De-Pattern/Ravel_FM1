@@ -201,21 +201,69 @@ wait 600
 shot song-mixer.png
 tap GLO
 turn SELECT -20
-turn SELECT 6
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page SCENES
 wait 600
 shot song-scenes.png
 tap GLO
 turn SELECT -20
-turn SELECT 7
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page ARRANGE
 wait 600
 shot song-arrange.png
 tap GLO
 turn SELECT -20
-turn SELECT 8
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page ARCS
 wait 600
@@ -227,7 +275,22 @@ wait 150
 expect page CLOCK
 wait 600
 shot song-clock.png
-turn SELECT 7
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page CPU
 wait 1500

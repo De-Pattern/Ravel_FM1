@@ -28,7 +28,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS };   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN };   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -44,13 +44,13 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
-       PR_CZSTEP, PR_LFOROW, PR_BANK };
+       PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN };
 
 #define USND 1000                       /* ui.preset_idx at or above: your own sound USND + slot (the current bank) */
 typedef struct {
@@ -176,12 +176,14 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK FEEL", {GP(GP_CLKLOCK), GP(GP_QUANT), GP(GP_METRO), GP(GP_COUNTIN)}},
     {SEC_SONG, V_ALL, PIC_MIDI, PR_NONE, "MIDI IN", {GP(GP_MIDICH), GP(GP_MIDICLK), GP(GP_MIDITRN), NO}},   /* USB and the TRS jack */
+    {SEC_SONG, V_ALL, PIC_LEARN, PR_LEARN, "MIDI LEARN", {{K_LRN, 0}, {K_LRN, 1}, {K_LRN, 2}, NO}},   /* a controller's knobs on any parameter */
     {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
     {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, NO, NO}},   /* where the audio's time goes; CORES */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
     {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
+    {SEC_SONG, V_ALL, PIC_PANEL, PR_NONE, "PANEL", {{K_LRN, 3}, NO, NO, NO}},   /* the FM-1's own: kept through power-off */
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
@@ -288,7 +290,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_SCENE };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE };   /* (CONF_SCENE + the scene) */
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -351,7 +353,31 @@ static int lane_field(int id)
 
 static void lane_msg(int t);
 static void lane_open(int t, int l);
+/* the FM-1's own settings (see prefs_init) and MIDI learn */
+#define PREFS_MAGIC 0x52505246u                       /* "FRPR" */
+#define PREFS_V1 12
+#define NBIND 16
+typedef struct { uint8_t cc, ch; uint16_t pid; } mbind_t;   /* a learned control: CC on channel (0..15) moves pid */
+typedef struct {
+    uint32_t magic;
+    int16_t v[3];                                     /* MIDI CH, CLOCK IN, START/STP */
+    uint8_t back;                                     /* BACKLIGHT + 1 (0: never set, LOW) */
+    uint8_t nb;                                       /* the learned controls */
+    mbind_t b[NBIND];
+} prefs_t;
+static const uint8_t pref_gp[3] = {GP_MIDICH, GP_MIDICLK, GP_MIDITRN};
+static prefs_t prefs;
+static uint8_t prefs_dirty, prefs_tries;
+static uint8_t prefs_state;                           /* 0 kept in the flash, 1 nothing kept yet (the defaults), 2 to be kept, 3 failed */
+static uint32_t prefs_ms;
+static const page_t *prefs_pg;                        /* the page it changed on */
+static uint8_t learn;                                 /* 0 off, 1 armed: waiting for a knob, 2: a knob chosen, waiting for a controller */
+static uint16_t learn_pid;
+static uint8_t learn_sel;
 static void prefs_changed(int g);
+static int prefs_back_get(void) { return prefs.back ? (prefs.back - 1) & 3 : 1; }
+static void learn_knob_any(int kind, int id);
+static void lrn_turn(int id, int d);
 static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
 /* a kit lane's machine */
 static const char *lane_mname(int t, int l) { return perc_mnames[rv.kit[t].mach[l] % PM_N]; }
@@ -758,6 +784,16 @@ static kinfo_t kb_info(kb_t k)
         }
         break;
     }
+    case K_LRN: {
+        static const char *const ln[] = {"OFF", "ARMED", "ARMED"}, *const one[] = {"TURN"};
+        static const char *const bl[] = {"OFF", "LOW", "MID", "HIGH"};
+        static const char *const kn[] = {"LEARN", "DELETE", "CLEAR ALL", "BACKLIGHT"};
+        r.name = kn[k.id & 3];
+        r.fmt = PF_ENUM;
+        r.max = k.id == 0 ? 2 : k.id == 3 ? 3 : 0;
+        r.names = k.id == 0 ? ln : k.id == 3 ? bl : one;
+        break;
+    }
     case K_SAVE:
         if (k.id == 0) {
             r.name = "ACTION";
@@ -972,6 +1008,8 @@ static int kb_get(kb_t k)
         default: return kt->p[l][(f - LF_P0) & 7];
         }
     }
+    case K_LRN:
+        return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : 0;
     case K_SAVE:
         return k.id == 0 ? ui.save_action : k.id == 1 ? ui.proj_cursor + 1
              : rv_bank_char_index(rv.name[ui.proj_cursor % (sizeof rv.name - 1)]);
@@ -1606,6 +1644,11 @@ static void knob_turn(int i, int d)
     }
     if (k.kind == K_NONE)
         return;
+    if (k.kind == K_LRN) {
+        lrn_turn(k.id, d);
+        return;
+    }
+    learn_knob_any(k.kind, k.id);                     /* (MIDI learn armed: this knob's parameter) */
     if (held >= 0 && k.kind == K_TP && cur_page()->sec != SEC_SEQ) {
         /* a step held (SEQ held, or on the SEQ pages): turning a track knob writes a lock */
         int v;
@@ -1835,6 +1878,7 @@ static void preset_turn(int d)
     case PR_ARC: ui.cur_arc = (uint8_t)clampi(ui.cur_arc + d, 0, 15); break;
     case PR_LIB: ui.cur_lib = (uint16_t)clampi(ui.cur_lib + d, 0, RV_SENV - 1); break;
     case PR_SLOT: ui.cur_slot = (uint8_t)clampi(ui.cur_slot + d, 0, PLAT_PROJECTS - 1); ui.save_confirm = 0; break;
+    case PR_LEARN: learn_sel = (uint8_t)clampi(learn_sel + d, 0, prefs.nb ? prefs.nb - 1 : 0); break;
     case PR_BANK: {                                   /* the slots, on through the banks: A32 then B1 */
         int at = clampi(rv_bank_current() * RV_BANK_N + ui.cur_sound + d, 0, RV_BANKS * RV_BANK_N - 1);
         bank_keep();
@@ -2233,41 +2277,58 @@ static void buttons(uint32_t now_btn)
     ui.prev_btn = now_btn;
 }
 
-/* the MIDI IN page's settings belong to the FM-1, not to a project: kept in the flash apart from the
- * projects (a moment after a change, while stopped, since writing the flash pauses the sound) and put
- * back over whatever a project loaded brings */
-#define PREFS_MAGIC 0x52505246u                       /* "FRPR" */
-static const uint8_t pref_gp[3] = {GP_MIDICH, GP_MIDICLK, GP_MIDITRN};
-static struct { uint32_t magic; int16_t v[3]; uint16_t rsv; } prefs;
-static uint8_t prefs_dirty, prefs_tries;
-static uint8_t prefs_state;                           /* 0 kept in the flash, 1 nothing kept yet (the defaults), 2 to be kept, 3 failed */
-static uint32_t prefs_ms;
+/* the FM-1's own settings, kept in the flash apart from the projects and put back over whatever a
+ * project loaded brings: the MIDI IN page, the backlight (GLO > PANEL) and the MIDI learn assignments.
+ * Kept a second after a change or on leaving the page, playing or not (writing the flash can leave a
+ * moment's gap in the sound), read back, and tried again if the flash did not take it. The first
+ * version held only the MIDI IN settings (12 bytes): it still loads, the rest at its defaults */
+static int prefs_back(void) { return prefs.back ? (prefs.back - 1) & 3 : 1; }
 static void prefs_init(void)
 {
-    int i, ok;
-    ok = plat_prefs_load(&prefs, sizeof prefs) == (int)sizeof prefs && prefs.magic == PREFS_MAGIC;
+    int i, n, ok;
+    prefs_t p;
+    __builtin_memset(&p, 0, sizeof p);
+    n = plat_prefs_load(&p, sizeof p);
+    ok = (n == PREFS_V1 || n == (int)sizeof p) && p.magic == PREFS_MAGIC;
+    if (ok && n == PREFS_V1)
+        p.back = p.nb = 0;                            /* (the first version: no backlight, nothing learned) */
     for (i = 0; ok && i < 3; i++) {
         const rv_pinfo *pi = rv_pinfo_global(pref_gp[i]);
-        ok = prefs.v[i] >= pi->min && prefs.v[i] <= pi->max;
+        ok = p.v[i] >= pi->min && p.v[i] <= pi->max;
+    }
+    if (ok) {                                         /* learned controls that name nothing are dropped */
+        int j = 0;
+        if (p.nb > NBIND)
+            p.nb = NBIND;
+        for (i = 0; i < p.nb; i++)
+            if (p.b[i].cc < 120 && p.b[i].ch < 16 && p.b[i].pid < RV_NPID && rv_pinfo_pid(p.b[i].pid)->name)
+                p.b[j++] = p.b[i];
+        p.nb = (uint8_t)j;
     }
     prefs_state = ok ? 0 : 1;
     if (!ok) {
-        prefs.magic = PREFS_MAGIC;
-        prefs.rsv = 0;
+        __builtin_memset(&p, 0, sizeof p);
+        p.magic = PREFS_MAGIC;
         for (i = 0; i < 3; i++)
-            prefs.v[i] = (int16_t)rv_pinfo_global(pref_gp[i])->def;
+            p.v[i] = (int16_t)rv_pinfo_global(pref_gp[i])->def;
     }
+    prefs = p;
 }
-static void prefs_changed(int g)                      /* a knob moved one of them */
+static void prefs_touch(void)                         /* something in them changed: keep it soon */
+{
+    prefs_dirty = 1;
+    prefs_tries = 0;
+    prefs_state = 2;
+    prefs_ms = plat_ms();
+    prefs_pg = cur_page();
+}
+static void prefs_changed(int g)                      /* a knob moved a global: one of them? */
 {
     int i;
     for (i = 0; i < 3; i++)
         if (pref_gp[i] == g) {
             prefs.v[i] = rv.gp[g];
-            prefs_dirty = 1;
-            prefs_tries = 0;
-            prefs_state = 2;
-            prefs_ms = plat_ms();
+            prefs_touch();
         }
 }
 static void prefs_tick(void)
@@ -2276,24 +2337,182 @@ static void prefs_tick(void)
     for (i = 0; i < 3; i++)
         if (rv.gp[pref_gp[i]] != prefs.v[i])
             rv.gp[pref_gp[i]] = prefs.v[i];
-    /* kept a second after the last change, playing or not (a moment's gap in the sound once), or at
-     * once on leaving the MIDI IN page; read back, and tried again if the flash did not take it */
-    if (prefs_dirty && (plat_ms() - prefs_ms > 1000u || cur_page()->pic != PIC_MIDI)) {
-        int ok, k;
-        struct { uint32_t magic; int16_t v[3]; uint16_t rsv; } back;
-        ok = plat_prefs_save(&prefs, sizeof prefs) == 0 && plat_prefs_load(&back, sizeof back) == (int)sizeof back;
-        for (k = 0; ok && k < 3; k++)
-            ok = back.magic == prefs.magic && back.v[k] == prefs.v[k];
+    plat_backlight(prefs_back());
+    if (prefs_dirty && (plat_ms() - prefs_ms > 1000u || cur_page() != prefs_pg)) {
+        int ok;
+        prefs_t back;
+        ok = plat_prefs_save(&prefs, sizeof prefs) == 0 && plat_prefs_load(&back, sizeof back) == (int)sizeof back &&
+             !__builtin_memcmp(&back, &prefs, sizeof back);
         if (ok) {
             prefs_dirty = 0;
             prefs_state = 0;
         } else if (++prefs_tries >= 3) {
             prefs_dirty = 0;
             prefs_state = 3;
-            msg("MIDI IN NOT KEPT: FLASH");
+            msg("SETTINGS NOT KEPT: FLASH");
         } else
             prefs_ms = plat_ms();                     /* (again in a second) */
     }
+}
+
+/* ------------------------------------------------- MIDI: the knobs from a controller ---
+ * CC 70-73 move KNOB 1-4 of the page on screen, as if turned; learned controls (GLO > MIDI LEARN) move
+ * one parameter wherever you are, and win over 70-73. Both pick up: a control takes hold only once it
+ * reaches the value the parameter has (or passes it), so nothing jumps when a page or a project changes */
+#define CC_KNOB0 70
+typedef struct { int16_t last_tgt, last_set; uint8_t on; } pickup_t;
+static pickup_t cc_pk[4], bind_pk[NBIND];
+static int cc_pk_page = -1;
+static void pickup_reset(pickup_t *k) { k->on = 0, k->last_tgt = -32768, k->last_set = -32768; }
+static int pickup(pickup_t *k, int cur, int tgt, int step)   /* 1: set it to tgt */
+{
+    if (k->on && cur != k->last_set)                  /* moved by something else since: pick up again */
+        k->on = 0;
+    if (!k->on) {
+        int lo = k->last_tgt < tgt ? k->last_tgt : tgt, hi = k->last_tgt < tgt ? tgt : k->last_tgt;
+        if ((k->last_tgt != -32768 && cur >= lo && cur <= hi) || (tgt - cur <= step && cur - tgt <= step))
+            k->on = 1;
+        k->last_tgt = (int16_t)tgt;
+        if (!k->on)
+            return 0;
+    }
+    k->last_tgt = (int16_t)tgt;
+    k->last_set = (int16_t)tgt;
+    return 1;
+}
+static int cc_scale(int v, int lo, int hi) { return lo + ((hi - lo) * v + 63) / 127; }
+static void bind_label(const mbind_t *b, char *o, int max)
+{
+    char d[24];
+    o[0] = 0;
+    sx_int(o + sx_cat(o, "CC "), b->cc);
+    sx_int(o + sx_cat(o, " CH"), b->ch + 1);
+    sx_cat(o, " > ");
+    rv_pid_label(b->pid, d, 20);
+    d[max - 15 > 0 && max - 15 < 20 ? max - 15 : 19] = 0;
+    sx_cat(o, d);
+}
+static void midi_cc_ui(void)
+{
+    uint8_t m[3];
+    int guard = 32;
+    while (guard-- && rv_midi_cc(m)) {
+        int ch = m[0], cc = m[1], v = m[2], i;
+        if (learn == 2) {                             /* learning: this control moves the knob just turned */
+            char b[40];
+            for (i = 0; i < prefs.nb && !(prefs.b[i].cc == cc && prefs.b[i].ch == ch); i++)
+                ;
+            if (i == prefs.nb && prefs.nb == NBIND) {
+                msg("16 LEARNED: DELETE ONE FIRST");
+                learn = 0;
+                continue;
+            }
+            if (i == prefs.nb)
+                prefs.nb++;
+            prefs.b[i].cc = (uint8_t)cc, prefs.b[i].ch = (uint8_t)ch, prefs.b[i].pid = learn_pid;
+            pickup_reset(&bind_pk[i]);
+            learn_sel = (uint8_t)i;
+            learn = 0;
+            prefs_touch();
+            bind_label(&prefs.b[i], b, 34);
+            msg(b);
+            continue;
+        }
+        if (learn == 1) {
+            msg("LEARN: TURN A KNOB FIRST");
+            continue;
+        }
+        for (i = 0; i < prefs.nb; i++)                /* a learned control */
+            if (prefs.b[i].cc == cc && prefs.b[i].ch == ch) {
+                int pid = prefs.b[i].pid;
+                const rv_pinfo *pi = rv_pinfo_pid(pid);
+                int cur = rv_pid_get(pid), tgt = cc_scale(v, pi->min, pi->max), st = (pi->max - pi->min) / 127 + 1;
+                if (pickup(&bind_pk[i], cur, tgt, st) && tgt != cur) {
+                    rv_pid_set(pid, tgt);
+                    if (pid >= RV_GPID)
+                        prefs_changed(pid - RV_GPID);
+                    else
+                        rv_motion(pid, tgt);   /* (recorded as a lock while recording, as a knob is) */
+                }
+                break;
+            }
+        if (i < prefs.nb)
+            continue;
+        if (cc >= CC_KNOB0 && cc < CC_KNOB0 + 4) {    /* the knobs on screen */
+            int kn = cc - CC_KNOB0, pg = (int)(cur_page() - pages) * 8 + ui.track;
+            kb_t k = page_knob(cur_page(), kn);
+            kinfo_t in;
+            int cur, tgt;
+            if (pg != cc_pk_page) {                   /* (another page: every knob picks up again) */
+                cc_pk_page = pg;
+                for (i = 0; i < 4; i++)
+                    pickup_reset(&cc_pk[i]);
+            }
+            if (k.kind == K_NONE)
+                continue;
+            in = kb_info(k);
+            cur = kb_get(k);
+            tgt = cc_scale(v, in.min, in.max);
+            if (pickup(&cc_pk[kn], cur, tgt, (in.max - in.min) / 127 + 1) && tgt != cur) {
+                knob_turn(kn, tgt - cur);
+                cc_pk[kn].last_set = (int16_t)kb_get(k);
+            }
+        }
+    }
+}
+static void learn_knob_any(int kind, int id)          /* learning, and a knob turned: this is the parameter */
+{
+    char b[40] = "NOW MOVE A CONTROL: ", d[24];
+    if (learn != 1 && learn != 2)
+        return;
+    if (kind != K_TP && kind != K_GP && kind != K_TLEVEL) {
+        msg("LEARN: NOT THAT KNOB");
+        return;
+    }
+    learn_pid = (uint16_t)(kind == K_TP ? PID_T(ui.track, id) : kind == K_TLEVEL ? PID_T(id & 7, TP_LEVEL) : PID_G(id));
+    learn = 2;
+    rv_pid_label(learn_pid, d, 20);
+    sx_cat(b, d);
+    msg(b);
+}
+static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEARN, DELETE, CLEAR ALL; PANEL's BACKLIGHT */
+{
+    if (id == 3) {
+        prefs.back = (uint8_t)(clampi(prefs_back() + d, 0, 3) + 1);
+        prefs_touch();
+        return;
+    }
+    if (id == 0) {
+        learn = d > 0 ? (learn ? learn : 1) : 0;
+        msg(learn ? "LEARN: TURN A KNOB, ANY PAGE" : "LEARN OFF");
+        return;
+    }
+    if (d <= 0)
+        return;
+    if (!prefs.nb) {
+        msg("NOTHING LEARNED YET");
+        return;
+    }
+    if (id == 1) {
+        int i;
+        if (!confirmed(CONF_LDEL, "TURN AGAIN TO DELETE IT"))
+            return;
+        for (i = learn_sel; i + 1 < prefs.nb; i++) {
+            prefs.b[i] = prefs.b[i + 1];
+            bind_pk[i] = bind_pk[i + 1];
+        }
+        prefs.nb--;
+        if (learn_sel >= prefs.nb && learn_sel)
+            learn_sel--;
+        msg("DELETED");
+    } else {
+        if (!confirmed(CONF_LCLR, "TURN AGAIN TO CLEAR ALL"))
+            return;
+        prefs.nb = 0;
+        learn_sel = 0;
+        msg("ALL CLEARED");
+    }
+    prefs_touch();
 }
 
 static int moom_on(void);
@@ -2303,8 +2522,13 @@ void ui_input_only(void)
     int i, d;
     rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
     prefs_tick();
-    if (moom_on())                                    /* (the game reads its own input, once a frame) */
+    if (moom_on()) {                                  /* (the game reads its own input, once a frame; controllers wait) */
+        uint8_t m[3];
+        while (rv_midi_cc(m))
+            ;
         return;
+    }
+    midi_cc_ui();
     {                                                 /* step recording: stopped and armed on a SEQ page */
         int t = ui.track, kind = rv.tp[t][TP_KIND];
         int want = ui.sec == SEC_SEQ && ui.armed && !rv_live.playing && (kind == KIND_SYNTH || kind == KIND_STRIKE) ? t : -1;
@@ -2564,6 +2788,7 @@ static void draw_footer(void)
     }
     case PR_SLOT: hint = ui.save_confirm ? (ui.save_action == 6 ? "PRESS SAVE AGAIN TO CLEAR IT" : "PRESS SAVE AGAIN TO CONFIRM")
                        : "PRESETS: SLOT  SAVE: DO IT"; break;
+    case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
         static char gh[40];
         int len = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS), a = ui.step_page * 16 + 1, z = a + 15 > len ? len : a + 15;
@@ -2642,6 +2867,8 @@ static void draw_footer(void)
                     g_fill(226 + k * 3, FOOT_Y + 9, 2, 3, c);
         }
     }
+    if (learn)                                        /* MIDI learn armed: say what's next, on any page */
+        hint = learn == 1 ? "LEARN: TURN A KNOB" : "LEARN: MOVE A CONTROL";
     {   /* the hint, cut short if it would run into the dots and the transport */
         char hb[48];
         int k = 0, room = x - (rv_live.playing ? 16 : 0) - (ui.armed ? 10 : 0) - 10;
@@ -3977,6 +4204,57 @@ static void pic_flash(void)
 }
 
 /* MIDI IN: where notes go, the clock (its tempo, or that none comes), the last note */
+/* MIDI LEARN: what's learned (PRESETS picks one), the knobs on screen (CC 70-73), and how to learn */
+static void pic_learn(void)
+{
+    int y = PIC_Y + 4, i, first = learn_sel > 3 ? learn_sel - 3 : 0;
+    char b[40];
+    if (learn) {
+        g_fill(6, y - 2, 228, 26, RGB(70, 14, 18));
+        g_text(10, y, &FONT_T, learn == 1 ? "1. TURN A KNOB, ON ANY PAGE" : "2. NOW MOVE A CONTROL", C_WHITE);
+        if (learn == 2) {
+            char d[24];
+            rv_pid_label(learn_pid, d, 20);
+            g_text(10, y + 11, &FONT_T, d, C_AMBER);
+        } else
+            g_text(10, y + 11, &FONT_T, "(ITS PARAMETER IS THE ONE LEARNED)", C_MID);
+    } else {
+        g_text(8, y, &FONT_T, "TO LEARN: KNOB 1, TURN ANY KNOB ON", C_DIM);
+        g_text(8, y + 11, &FONT_T, "ANY PAGE, THEN MOVE THE CONTROL", C_DIM);
+    }
+    if (!learn)
+        g_text(8, y + 22, &FONT_T, "CC 70-73: THE FOUR KNOBS ON SCREEN", C_DIM);
+    if (!prefs.nb)
+        g_text(8, y + 44, &FONT_T, "NOTHING LEARNED YET", C_MID);
+    for (i = first; i < prefs.nb && i < first + 7; i++) {
+        int ry = y + 40 + (i - first) * 12;
+        bind_label(&prefs.b[i], b, 34);
+        if (i == learn_sel)
+            g_fill(6, ry - 1, 228, 11, C_PANEL);
+        g_text(10, ry, &FONT_T, b, i == learn_sel ? C_INK : C_MID);
+    }
+    sx_int(b + sx_cat((b[0] = 0, b), "LEARNED "), prefs.nb);
+    sx_cat(b, " OF 16");
+    g_text_r(232, y + 126, &FONT_T, b, C_DIM);
+}
+
+/* PANEL: the FM-1's own: the backlight under the buttons and keys */
+static void pic_panel(void)
+{
+    static const char *const st[4] = {"KEPT THROUGH POWER-OFF", "DEFAULTS (NOTHING KEPT YET)", "KEEPING...", "NOT KEPT: THE FLASH REFUSED"};
+    int y = PIC_Y + 4, lv = prefs_back(), i;
+    g_text(8, y, &FONT_T, "THE BUTTONS AND KEYS GLOW DIMLY, SO", C_DIM);
+    g_text(8, y + 11, &FONT_T, "YOU CAN FIND THEM IN THE DARK; WHAT'S", C_DIM);
+    g_text(8, y + 22, &FONT_T, "LIT IS LIT FULLY, AS ALWAYS", C_DIM);
+    for (i = 0; i < 12; i++) {                        /* a row of keys at this level */
+        uint16_t c = i == 4 ? C_WHITE : lv == 0 ? C_BG : g_mix(C_BG, C_WHITE, lv == 1 ? 0.18f : lv == 2 ? 0.32f : 0.5f);
+        g_rbox(10 + i * 18, y + 48, 15, 30, 3, c, 1);
+        g_rbox(10 + i * 18, y + 48, 15, 30, 3, C_LINE, 0);
+    }
+    g_text(8, y + 88, &FONT_T, "ONLY ON THE FM-1", C_DIM);
+    g_text(8, y + 124, &FONT_T, st[prefs_state & 3], prefs_state == 3 ? C_RED : prefs_state == 0 ? C_TEAL : C_DIM);
+}
+
 static void pic_midi(void)
 {
     char b[40];
@@ -4586,6 +4864,8 @@ static void draw_picture(void)
     case PIC_COMP: pic_comp(); break;
     case PIC_FLASH: pic_flash(); break;
     case PIC_MIDI: pic_midi(); break;
+    case PIC_PANEL: pic_panel(); break;
+    case PIC_LEARN: pic_learn(); break;
     default: break;
     }
 }

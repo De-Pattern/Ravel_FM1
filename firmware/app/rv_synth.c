@@ -2262,7 +2262,7 @@ RV_HOT2 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int
         svf_set(&v->svf, rv_cut_hz(cut), ft == FT_XNOTCH ? 0.5f + res * 6.0f : q);
         svf_set(&v->svf2, rv_cut_hz(cut), ft == FT_XLP24 || ft == FT_XBP24 ? 0.55f : q);
     } else if (FT_IS_Z(ft))                           /* MORPH and XFORM */
-        zp_design(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
+        RV_FAR(zp_design)(ft - FT_ZVOWEL, cut * (1.0f / 127.0f), res, v->zp.c, &v->zp.g);
     else if (ft == FT_LADDER || ft == FT_MS20 || ft == FT_SH101)
         ladder_set(&v->lad, rv_cut_hz(cut), res);
     else if (ft == FT_SEM)                            /* 12 dB, its resonance stops short of oscillating */

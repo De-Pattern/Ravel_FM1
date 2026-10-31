@@ -429,6 +429,7 @@ void rv_scene_store(int s);
 void rv_pattern_launch(int t, int p);
 void rv_tap_tempo(void);
 void rv_record_arm(int t, int on);
+int rv_midi_cc(uint8_t m[3]);              /* a control change from MIDI in, for the interface (channel, CC, value): 1 if one came */
 enum { SREC_OFF, SREC_ON, SREC_REST, SREC_BACK, SREC_TO };
 void rv_step_rec(int op, int t, int step);   /* step recording: on (track t), off, a rest, back a step, to a step */
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */

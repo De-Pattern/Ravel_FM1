@@ -171,7 +171,8 @@ static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
 uint32_t plat_cpu_peak(void) { return 0; }
 int plat_battery(void) { return -1; }   /* (no battery here) */
-static uint8_t prefs_mem[64];                   /* (kept across a simulated reboot, as the slots are) */
+void plat_backlight(int level) { (void)level; }   /* (no LEDs here) */
+static uint8_t prefs_mem[256];                   /* (kept across a simulated reboot, as the slots are) */
 static int prefs_len = -1;
 int plat_prefs_load(void *dst, int max)
 {

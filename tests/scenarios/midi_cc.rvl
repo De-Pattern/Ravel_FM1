@@ -1,0 +1,73 @@
+# MIDI control of the knobs: CC 70-73 move the knobs on screen, with pickup; MIDI LEARN binds a
+# control to a parameter, kept through power-off; DELETE lets it go
+wait 300
+tap GLO
+turn SELECT -20
+wait 100
+expect page MIXER 1-4
+expect tp 1 LEVEL 100
+# CC 70 (KNOB 1: T1's level) far from 100 does nothing until it reaches it
+midi b0 46 00
+wait 50
+expect tp 1 LEVEL 100
+midi b0 46 32
+wait 50
+expect tp 1 LEVEL 100
+midi b0 46 64
+wait 50
+expect tp 1 LEVEL 100
+midi b0 46 1e
+wait 50
+expect tp 1 LEVEL 30
+midi b0 47 7f
+wait 50
+expect tp 2 LEVEL 100
+# MIDI LEARN: arm, turn MIXER's KNOB 2 (T2 LEVEL), then move CC 21
+turn SELECT 6
+wait 100
+expect page MIDI LEARN
+turn K1 1
+wait 100
+turn SELECT -6
+wait 100
+expect page MIXER 1-4
+turn K2 1
+wait 100
+midi b0 15 40
+wait 100
+turn SELECT 6
+wait 1500
+shot midi_learn.png
+midi b0 15 65
+wait 50
+midi b0 15 14
+wait 50
+expect tp 2 LEVEL 20
+reboot
+wait 300
+expect tp 2 LEVEL 100
+midi b0 15 64
+wait 50
+midi b0 15 28
+wait 50
+expect tp 2 LEVEL 40
+# DELETE (turned twice): CC 21 moves nothing now
+tap GLO
+turn SELECT -20
+turn SELECT 6
+wait 100
+expect page MIDI LEARN
+turn K2 1
+wait 400
+turn K2 1
+wait 1500
+midi b0 15 0a
+wait 50
+expect tp 2 LEVEL 40
+reboot
+wait 300
+midi b0 15 64
+wait 50
+midi b0 15 0a
+wait 50
+expect tp 2 LEVEL 100

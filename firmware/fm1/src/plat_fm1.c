@@ -52,9 +52,18 @@ static void led_pos_init(void)
                     led_pos[id] = (uint8_t)((p << 3) | r);
     }
 }
+/* the backlight: every button and key with an LED glows dimly, lit on one scan frame in DIV (the scan
+ * runs at about 900 frames a second, so even 1 in 6 reads as steady), in the timer ISR's own scan:
+ * no extra work, and the keys are read as before. What's lit is lit fully, as always */
+static uint8_t back_div;                          /* 0 off, else the divisor */
+void plat_backlight(int level)
+{
+    static const uint8_t div[4] = {0, 6, 3, 2};
+    back_div = div[level & 3];
+}
 void plat_leds(uint32_t buttons, uint32_t keys)
 {
-    uint8_t nl[FM1_NCOL] = {0};
+    uint8_t nl[FM1_NCOL] = {0}, dl[FM1_NCOL] = {0};
     uint32_t i, c;
     for (i = 0; i < NB + NKEYS; i++) {
         uint32_t id = i < NB ? panel.btn[i] : 14u + (i - NB);
@@ -62,15 +71,18 @@ void plat_leds(uint32_t buttons, uint32_t keys)
         uint8_t q = led_pos[id];
         if (i == B_PLAY)                         /* PLAY's green LED (keyless position col 8, row PA5, X0X) */
             q = (uint8_t)((8u << 3) | 1u);
-        if (q == 0xFF || !on)
+        if (q == 0xFF)
             continue;
-        nl[q >> 3] |= (uint8_t)(1u << (q & 7u));
+        if (on)
+            nl[q >> 3] |= (uint8_t)(1u << (q & 7u));
+        else
+            dl[q >> 3] |= (uint8_t)(1u << (q & 7u));
     }
     for (c = 0; c < FM1_NCOL; c++) {
         fm1_led[c] = nl[c];
-        fm1_led_dim[c] = 0;
+        fm1_led_dim[c] = back_div ? (uint8_t)(dl[c] & ~nl[c]) : 0u;
     }
-    fm1_led_dim_div = 0u;
+    fm1_led_dim_div = back_div;
 }
 
 /* the screen: Ravel draws bands of native RGB565; the panel wants them byte-swapped, from RAM, and

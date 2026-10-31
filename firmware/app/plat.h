@@ -45,6 +45,7 @@ static inline int plat_is_bank(int slot) { return slot >= PLAT_BANK0 && slot < P
 /* the device's own settings (MIDI IN), kept across power-off apart from any project: a length, -1 none */
 int plat_prefs_load(void *dst, int max);
 int plat_prefs_save(const void *src, int len);
+void plat_backlight(int level);          /* the unlit buttons and keys glow dimly: 0 off, 1 low, 2 mid, 3 high */
 int plat_proj_clear(int slot);          /* a project slot emptied, its room free again: 0, or -1 (empty, or not a project slot) */
 int plat_proj_room(int *free_pct);      /* how much room the projects have left, % (-1: not counted here) */
 int plat_load(int slot, void *dst, uint32_t max);          /* copies up to max; returns the stored length, < 0 = empty */

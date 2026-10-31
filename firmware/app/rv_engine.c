@@ -740,6 +740,30 @@ static void midi_transport(int run)
     }
     rv_live.playing = playing;
 }
+/* control changes for the interface (MIDI learn, the knobs on screen): passed on through a small ring,
+ * the engine writing, the interface reading; one that finds it full is dropped */
+static volatile uint8_t mcc_q[32][3];
+static volatile uint32_t mcc_w, mcc_r;
+int rv_midi_cc(uint8_t m[3])
+{
+    uint32_t r = mcc_r;
+    if (r == mcc_w)
+        return 0;
+    __asm__ volatile("" ::: "memory");   /* (as RING_PUBLISH: the render and the interface run on the same core) */
+    m[0] = mcc_q[r & 31][0], m[1] = mcc_q[r & 31][1], m[2] = mcc_q[r & 31][2];
+    __asm__ volatile("" ::: "memory");   /* (as RING_PUBLISH: the render and the interface run on the same core) */
+    mcc_r = r + 1;
+    return 1;
+}
+static void midi_cc_pass(int ch, int cc, int v)
+{
+    uint32_t w = mcc_w;
+    if (w - mcc_r >= 32u)
+        return;
+    mcc_q[w & 31][0] = (uint8_t)ch, mcc_q[w & 31][1] = (uint8_t)cc, mcc_q[w & 31][2] = (uint8_t)v;
+    __asm__ volatile("" ::: "memory");   /* (as RING_PUBLISH: the render and the interface run on the same core) */
+    mcc_w = w + 1;
+}
 static void midi_drain(void)
 {
     uint8_t m[3];
@@ -792,7 +816,8 @@ static void midi_drain(void)
             midi_bend = 0.0f;
             all_off_now();
             arp_reset();
-        }
+        } else if (st == 0xB0 && m[1] < 120)          /* any other control change: the interface's (learn, knobs) */
+            midi_cc_pass(ch, m[1], m[2] & 127);
     }
 }
 /* the master clock's steps in this control step, from MIDI's clocks (offsets: all at its start) */
