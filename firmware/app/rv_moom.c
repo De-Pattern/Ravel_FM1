@@ -473,7 +473,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         if (e->kind == ME_PANDA && mm.boss < 0 && d < 8.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {   /* it has seen you */
             mm.boss = (int8_t)i;
             mm_sfx(SFX_ROAR);
-            mm_log("P0: THE LARGE PANDA IS ON THE BRIDGE", C_RED);
+            mm_log("THE LARGE PANDA HAS FLOODED THE QUEUE", C_RED);
         }
         if (d > (e->kind == ME_PANDA ? 0.85f : 0.55f) && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
             float v = mm_kind[e->kind].speed * dt / d;
