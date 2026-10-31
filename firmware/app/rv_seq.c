@@ -709,6 +709,30 @@ static arp_t arp[RV_TRACKS];
  * key down after all were up) lets them go, or HOLD goes off */
 typedef struct { uint8_t n, note[RV_ARP_HELD], down; } hold_t;
 static hold_t hold[RV_TRACKS];
+/* the keys (and MIDI notes) down on each track now, whatever its mode: HOLD switched on takes these, so
+ * a chord you're already holding stays when you let go */
+static hold_t keys_down[RV_TRACKS];
+static uint8_t hold_was[RV_TRACKS];
+static void keys_down_on(int t, int note)
+{
+    hold_t *k = &keys_down[t];
+    int i;
+    for (i = 0; i < k->n; i++)
+        if (k->note[i] == note)
+            return;
+    if (k->n < RV_ARP_HELD)
+        k->note[k->n++] = (uint8_t)note;
+}
+static void keys_down_off(int t, int note)
+{
+    hold_t *k = &keys_down[t];
+    int i;
+    for (i = 0; i < k->n; i++)
+        if (k->note[i] == note) {
+            k->note[i] = k->note[--k->n];
+            return;
+        }
+}
 static float arp_pf;                                /* master pulses so far (counted when stopped too) */
 static uint8_t arp_out, arp_live_in;                /* the arpeggiator itself is playing; the note is a key's */
 static uint32_t arp_rng = 0xA5A5F00Du;
@@ -918,6 +942,11 @@ static void arp_control(void)
             hold_release(t);
         if (!hold_on(t))
             hold[t].down = 0;
+        else if (!hold_was[t] && keys_down[t].n) { /* HOLD just on, keys already down: it holds those */
+            hold[t] = keys_down[t];
+            hold[t].down = keys_down[t].n;
+        }
+        hold_was[t] = (uint8_t)hold_on(t);
         rv_live.arp_n[t] = a->n ? a->n : hold[t].n;
         for (i = 0; i < rv_live.arp_n[t]; i++)
             rv_live.arp_note[t][i] = a->n ? a->note[i] : hold[t].note[i];

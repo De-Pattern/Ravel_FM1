@@ -411,6 +411,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
     if (kind == KIND_COMP)                          /* COMP plays no notes */
         return;
+    if (!arp_out && arp_live_in && !spark && vel > 0)   /* (which keys are down: HOLD switched on takes them) */
+        keys_down_on(t, note);
     if (!arp_out && !spark && vel > 0 && arp_on(t)) {   /* ARP: the arpeggiator holds it and plays it in its turn */
         arp_key(t, note, vel, 1);
         hs_clear(&hs_pend);
@@ -599,6 +601,8 @@ static void note_off_internal(int t, int note)
 {
     int i;
     int kind = rv.tp[t][TP_KIND];
+    if (!arp_out && arp_live_in)
+        keys_down_off(t, note);
     if (!arp_out && arp_on(t) && arp_holds(t, note)) {
         arp_key(t, note, 0, 0);
         return;

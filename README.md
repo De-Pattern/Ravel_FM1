@@ -838,7 +838,7 @@ The effects last while the key is held. Letting go of FX releases them all.
 | **ARP** | ARP: OFF, UP, DOWN, UP-DN, DN-UP (both turn at the ends without playing the end twice), PLAYED (the order the keys came), RANDOM | RATE: 1/4 (a beat), 1/8, 1/8T (triplets), 1/16 (a step), 1/16T, 1/32 | OCTAVES: 1–4, the notes again an octave up each round | HOLD: the notes stay after the keys let go, until you play a new chord (see below) |
 | **ARP 2** | GATE: 5–100 % of its step (100: each note runs into the next, legato, so a mono synth with GLIDE slides) | REPEAT: each note 1–4 times | CHANCE: 0–100 % that a step plays (else a rest) | – |
 
-**HOLD** works with the arpeggiator off too. Then it is a sustain for the keys: the notes you play keep sounding after you let go, until the first key of your next chord (which then sounds on in their place), or until you turn HOLD off. It holds what you play on the keys, not the track's steps.
+**HOLD** works with the arpeggiator off too. Then it is a sustain for the keys: the notes you play keep sounding after you let go, until the first key of your next chord (which then sounds on in their place), or until you turn HOLD off. Switching HOLD on while you're already holding a note or chord holds that too: let go and it keeps sounding. It holds what you play on the keys (or a MIDI keyboard), not the track's steps.
 
 The picture shows the notes it holds, in the order they came, and one round of the pattern they make: a column a step, as high as its note, the step it just played lit.
 

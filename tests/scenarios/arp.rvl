@@ -59,6 +59,26 @@ expect voices 1
 turn K4 -1
 wait 400
 expect voices 0
+# HOLD switched on while a chord is already down: it holds that chord when the keys let go
+key 12 down
+key 16 down
+wait 100
+turn K4 1
+wait 100
+expect tp 1 HOLD 1
+key 12 up
+key 16 up
+wait 400
+expect voices 2
+expect arpn 1 2
+key 19 down
+wait 60
+key 19 up
+wait 400
+expect voices 1
+turn K4 -1
+wait 400
+expect voices 0
 turn SELECT 1
 wait 100
 expect page ARP 2
