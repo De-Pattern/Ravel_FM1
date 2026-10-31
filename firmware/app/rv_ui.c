@@ -4542,10 +4542,13 @@ static void pic_steps(void)
             char sb[16] = "STEP REC ";
             sx_int(sb + 9, rv_live.srec_step + 1);
             g_text_r(232, PIC_Y + 124, &FONT_T, sb, C_RED);
-        } else if (cur_page()->pr == PR_STEP) {      /* the step on the knobs (PRESETS moves it) */
+        } else if (cur_page()->pr == PR_STEP) {      /* STEP: the step on the knobs, a fifth control (PRESETS moves it) */
             char sb[12] = "STEP ";
+            int w;
             sx_int(sb + 5, ui.step_cur + 1);
-            g_text_r(232, PIC_Y + 124, &FONT_T, sb, C_K1);
+            w = g_text_w(&FONT_B, sb);
+            g_text_r(232, PIC_Y + 118, &FONT_B, sb, C_K1);
+            g_text_r(232 - w - 6, PIC_Y + 124, &FONT_T, "PRESETS", C_DIM);
         }
     }
 }
