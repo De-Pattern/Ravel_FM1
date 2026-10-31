@@ -245,6 +245,15 @@ void moom_warp(int lv)
 }
 
 void moom_pose(float x, float y, float dir) { mm.px = x, mm.py = y, mm.dir = dir; }   /* (the screenshots) */
+void moom_clear(void)                             /* (the tests: everything resolved, standing in the exit) */
+{
+    int i;
+    for (i = 0; i < MM_NENT; i++)
+        if (!MM_PROP(mm.e[i].kind))
+            mm.e[i].alive = 0;
+    mm.open = 0;
+    mm.px = mm.py = (float)MM_W - 1.5f;
+}
 
 static void moom_stop(void);
 int moom_active(void) { return mm.on; }
@@ -1222,10 +1231,21 @@ static void mm_draw_hud(void)
         g_text_c(120, 124, &FONT_T, "HOME: LEAVE MOOM", C_DIM);
     }
     if (mm.state == 1 || mm.state == 2) {
-        g_fill(20, 86, 200, 52, RGB(8, 12, 10));
-        g_frame(20, 86, 200, 52, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
+        int hh = mm.state == 1 ? 68 : 52;
+        g_fill(20, 86, 200, hh, RGB(8, 12, 10));
+        g_frame(20, 86, 200, hh, mm.state == 1 ? RGB(90, 210, 120) : C_RED);
         g_text_c(120, 94, &FONT_B, mm.state == 2 ? "SLA BREACHED" : mm.level ? "CHANGE ROLLED BACK" : "INCIDENT RESOLVED", mm.state == 1 ? RGB(90, 210, 120) : C_RED);
         g_text_c(120, 116, &FONT_T, mm.state == 2 ? "BRIDGE REOPENS..." : mm.level ? "BRIDGE CLOSED. RCA DUE FRIDAY" : "NEW BRIDGE INCOMING...", C_MID);
+        if (mm.state == 1) {                          /* the score: RTS, return to service, the level's time */
+            int m2 = (int)mm.mttr, k;
+            b[0] = 0;
+            k = sx_int(b + sx_cat(b, "RTS  "), m2 / 60) + 5;
+            b[k++] = ':';
+            b[k++] = (char)('0' + (m2 % 60) / 10);
+            b[k++] = (char)('0' + m2 % 10);
+            b[k] = 0;
+            g_text_c(120, 134, &FONT_T, b, C_AMBER);
+        }
     }
 }
 

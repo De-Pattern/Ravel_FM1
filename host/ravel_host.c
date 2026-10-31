@@ -41,6 +41,7 @@
 const char *ui_page_title(void);
 void moom_warp(int lv);
 void moom_pose(float x, float y, float dir);
+void moom_clear(void);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -325,6 +326,8 @@ int main(int argc, char **argv)
             peak_out = 0;
         } else if (!strcmp(a, "moom")) {      /* moom LV: the game, straight into level LV (1 or 2) */
             moom_warp(atoi(b) - 1);
+        } else if (!strcmp(a, "moomclear")) { /* moomclear: everything resolved, standing in the exit (the score) */
+            moom_clear();
         } else if (!strcmp(a, "moompose")) {  /* moompose X Y DIR: where the player stands and looks (radians) */
             float mx = 0, my = 0, md = 0;
             sscanf(line, "%*s %f %f %f", &mx, &my, &md);
