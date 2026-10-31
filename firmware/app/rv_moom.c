@@ -325,7 +325,7 @@ static void mm_fire(void)
                                                  "INFO 500S CLEARED, SVC HEALTHY", "", "INFO MINOR BUG SQUASHED",
                                                  "INFO ALERT ACKED, GRAPH GREEN", "INFO BAD COMMIT REVERTED",
                                                  "INFO REGRESSION EXORCISED", "INFO CHANGE REQUEST REJECTED",
-                                                 "INFO P0 PANDA RESOLVED. ROOT CAUSE: PANDA", "", ""};
+                                                 "INFO THE LARGE PANDA RESOLVED", "", ""};
             e->dying = e->kind == ME_PANDA ? 1.2f : 0.6f;
             mm.open--;
             moom_shot_req = SHOT_KILL;
@@ -473,7 +473,7 @@ static void mm_update(float dt, uint32_t keys, uint32_t down_keys, uint32_t btn,
         if (e->kind == ME_PANDA && mm.boss < 0 && d < 8.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {   /* it has seen you */
             mm.boss = (int8_t)i;
             mm_sfx(SFX_ROAR);
-            mm_log("CRIT P0: THE PANDA IS ON THE BRIDGE", C_RED);
+            mm_log("P0: THE LARGE PANDA IS ON THE BRIDGE", C_RED);
         }
         if (d > (e->kind == ME_PANDA ? 0.85f : 0.55f) && d < 9.0f && mm_sees(e->x, e->y, mm.px, mm.py)) {
             float v = mm_kind[e->kind].speed * dt / d;
@@ -1200,13 +1200,13 @@ static void mm_draw_hud(void)
     g_text_r(234, MM_VY1 + 15, &FONT_T, mm.level ? "LVL 2" : "LVL 1", C_DIM);
     g_text_r(234, MM_VY1 + 28, &FONT_T, "PLAY: PAUSE", C_DIM);
     g_text(4, MM_VY1 + 28, &FONT_T, mm.log[1], mm.log_col[1] ? mm.log_col[1] : C_DIM);
-    if (mm.boss >= 0 && mm.e[mm.boss].alive && mm.e[mm.boss].dying <= 0.0f) {   /* the panda's health, across the top */
+    if (mm.boss >= 0 && mm.e[mm.boss].alive && mm.e[mm.boss].dying <= 0.0f) {   /* The Large Panda's health, across the top */
         const mm_ent *bo = &mm.e[mm.boss];
         int w = (int)(bo->hp / mm_kind[ME_PANDA].hp * 150.0f + 0.5f);
         g_fill(44, MM_VY0 + 4, 152, 12, RGB(8, 12, 10));
         g_fill(45, MM_VY0 + 5, w, 10, RGB(200, 30, 30));
         g_frame(44, MM_VY0 + 4, 152, 12, RGB(240, 220, 200));
-        g_text_c(120, MM_VY0 + 18, &FONT_T, "P0: THE PANDA", RGB(255, 220, 200));
+        g_text_c(120, MM_VY0 + 18, &FONT_T, "THE LARGE PANDA", RGB(255, 220, 200));
     }
     if (mm.hurt > 0.0f) {                                             /* hit: the view's edge goes red */
         g_fill(0, MM_VY0, PLAT_W, 4, C_RED);
