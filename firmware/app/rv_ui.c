@@ -158,7 +158,7 @@ static const page_t pages[] = {
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), NO}},
-    {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), NO, NO, NO}},
+    {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), {K_LRN, 4}, NO, NO}},   /* STEP REC: NEXT or STAY (a device setting) */
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "GRAPH", {SF(SF_CORDA), SF(SF_CORDB), TP(TP_BRANCH), TP(TP_H2ROLE)}},
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "HEAD 1", {TP(TP_H1TRANS), NO, NO, NO}},
     {SEC_SEQ, V_GRAPH, PIC_MOTION, PR_NONE, "HEAD 1 MOTION", {TP(TP_H1SHAPE), TP(TP_H1DEPTH), TP(TP_H1CYCLE), TP(TP_H1COMB)}},
@@ -361,7 +361,7 @@ typedef struct { uint8_t cc, ch; uint16_t pid; } mbind_t;   /* a learned control
 typedef struct {
     uint32_t magic;
     int16_t v[3];                                     /* MIDI CH, CLOCK IN, START/STP */
-    uint8_t back;                                     /* BACKLIGHT + 1 (0: never set, LOW) */
+    uint8_t back;                                     /* BACKLIGHT + 1 (0: never set, LOW); bit 7: STEP REC STAY */
     uint8_t nb;                                       /* the learned controls */
     mbind_t b[NBIND];
 } prefs_t;
@@ -375,7 +375,8 @@ static uint8_t learn;                                 /* 0 off, 1 armed: waiting
 static uint16_t learn_pid;
 static uint8_t learn_sel;
 static void prefs_changed(int g);
-static int prefs_back_get(void) { return prefs.back ? (prefs.back - 1) & 3 : 1; }
+static int prefs_back_get(void) { return (prefs.back & 0x7F) ? ((prefs.back & 0x7F) - 1) & 3 : 1; }
+static int prefs_stay(void) { return (prefs.back >> 7) & 1; }   /* (bit 7 of back: STEP REC STAY) */
 static void learn_knob_any(int kind, int id);
 static void lrn_turn(int id, int d);
 static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
@@ -786,12 +787,12 @@ static kinfo_t kb_info(kb_t k)
     }
     case K_LRN: {
         static const char *const ln[] = {"OFF", "ARMED", "ARMED"}, *const one[] = {"TURN"};
-        static const char *const bl[] = {"OFF", "LOW", "MID", "HIGH"};
-        static const char *const kn[] = {"LEARN", "DELETE", "CLEAR ALL", "BACKLIGHT"};
-        r.name = kn[k.id & 3];
+        static const char *const bl[] = {"OFF", "LOW", "MID", "HIGH"}, *const st[] = {"NEXT", "STAY"};
+        static const char *const kn[] = {"LEARN", "DELETE", "CLEAR ALL", "BACKLIGHT", "STEP REC"};
+        r.name = kn[k.id < 5 ? k.id : 0];
         r.fmt = PF_ENUM;
-        r.max = k.id == 0 ? 2 : k.id == 3 ? 3 : 0;
-        r.names = k.id == 0 ? ln : k.id == 3 ? bl : one;
+        r.max = k.id == 0 ? 2 : k.id == 3 ? 3 : k.id == 4 ? 1 : 0;
+        r.names = k.id == 0 ? ln : k.id == 3 ? bl : k.id == 4 ? st : one;
         break;
     }
     case K_SAVE:
@@ -1009,7 +1010,7 @@ static int kb_get(kb_t k)
         }
     }
     case K_LRN:
-        return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : 0;
+        return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : k.id == 4 ? prefs_stay() : 0;
     case K_SAVE:
         return k.id == 0 ? ui.save_action : k.id == 1 ? ui.proj_cursor + 1
              : rv_bank_char_index(rv.name[ui.proj_cursor % (sizeof rv.name - 1)]);
@@ -2299,7 +2300,7 @@ static void buttons(uint32_t now_btn)
  * Kept a second after a change or on leaving the page, playing or not (writing the flash can leave a
  * moment's gap in the sound), read back, and tried again if the flash did not take it. The first
  * version held only the MIDI IN settings (12 bytes): it still loads, the rest at its defaults */
-static int prefs_back(void) { return prefs.back ? (prefs.back - 1) & 3 : 1; }
+static int prefs_back(void) { return prefs_back_get(); }
 static void prefs_init(void)
 {
     int i, n, ok;
@@ -2495,7 +2496,15 @@ static void learn_knob_any(int kind, int id)          /* learning, and a knob tu
 static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEARN, DELETE, CLEAR ALL; PANEL's BACKLIGHT */
 {
     if (id == 3) {
-        prefs.back = (uint8_t)(clampi(prefs_back() + d, 0, 3) + 1);
+        prefs.back = (uint8_t)((clampi(prefs_back() + d, 0, 3) + 1) | (prefs.back & 0x80));
+        prefs_touch();
+        return;
+    }
+    if (id == 4) {                                    /* STEP REC: NEXT (the cursor moves on) or STAY (it stays: note input) */
+        if (!(prefs.back & 0x7F))
+            prefs.back |= 2;                          /* (the backlight's default, kept as it was) */
+        prefs.back = (uint8_t)(d > 0 ? prefs.back | 0x80 : prefs.back & 0x7F);
+        rv_step_rec(SREC_STAY, ui.track, prefs_stay());
         prefs_touch();
         return;
     }
@@ -2550,8 +2559,10 @@ void ui_input_only(void)
         int t = ui.track, kind = rv.tp[t][TP_KIND];
         int want = ui.sec == SEC_SEQ && ui.armed && !rv_live.playing && (kind == KIND_SYNTH || kind == KIND_STRIKE) ? t : -1;
         if (want != ui.srec_t) {
-            if (want >= 0)
+            if (want >= 0) {
                 rv_step_rec(SREC_ON, want, 0);
+                rv_step_rec(SREC_STAY, want, prefs_stay());
+            }
             else
                 rv_step_rec(SREC_OFF, 0, 0);
             ui.srec_t = (int8_t)want;
@@ -2785,7 +2796,7 @@ static void draw_footer(void)
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
     case PR_STEP:
     case PR_PATTERN:
-        hint = ui.srec_t >= 0 ? "OCT+ REST  OCT- BACK"
+        hint = ui.srec_t >= 0 ? (prefs_stay() ? "STAY: PRESETS PICKS THE STEP" : "OCT+ REST  OCT- BACK")
                : pg->pr == PR_STEP && !seq_keys_play(ui.track) && !is_kit_ui(ui.track) ? "PRESETS: STEP  KEYS: STEPS"
                : seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
                : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"

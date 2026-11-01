@@ -1405,6 +1405,7 @@ static void record_arm_now(int t, int on)
 static int8_t srec_t = -1;
 static uint8_t srec_cur, srec_n;
 static uint8_t srec_elen = 4;                         /* the entry length (code, as a step's LENGTH): the knob sets it */
+static uint8_t srec_stay;                             /* STAY: letting go leaves the cursor where it is (note input) */
 static uint8_t srec_down[8];                          /* the notes down now */
 static int srec_len(int t) { return clampi(rv.tp[t][TP_LEN], 1, RV_STEPS); }
 static void srec_cmd(int op, int t, int step)
@@ -1421,7 +1422,7 @@ static void srec_cmd(int op, int t, int step)
     } else if (op == SREC_OFF) {
         srec_t = -1;
         srec_n = 0;
-    } else if (srec_t >= 0 && srec_n == 0 && op != SREC_LEN) {
+    } else if (srec_t >= 0 && srec_n == 0 && op != SREC_LEN && op != SREC_STAY) {
         int len = srec_len(srec_t);
         rv_step *s = &rv.pat[srec_t][rv.pat_cur[srec_t] % RV_PATTERNS].s[srec_cur % len];
         if (op == SREC_REST) {
@@ -1434,6 +1435,8 @@ static void srec_cmd(int op, int t, int step)
     }
     if (op == SREC_LEN)                               /* (any time: the notes to come take it) */
         srec_elen = (uint8_t)clampi(step, 1, RV_LEN_MAX);
+    if (op == SREC_STAY)
+        srec_stay = (uint8_t)(step != 0);
     rv_live.srec_step = (int8_t)(srec_t < 0 ? -1 : srec_cur);
 }
 static int srec_note(int t, int note, int vel)       /* 1: step recording took it */
@@ -1469,7 +1472,7 @@ static int srec_note(int t, int note, int vel)       /* 1: step recording took i
         for (k = 0; k < srec_n; k++)
             if (srec_down[k] == note) {
                 srec_down[k] = srec_down[--srec_n];
-                if (srec_n == 0) {                    /* all let go: past the note (a step, or its length) */
+                if (srec_n == 0 && !srec_stay) {      /* all let go: past the note (a step, or its length) */
                     int adv = (int)(rv_len_steps(s->len) + 0.999f);
                     srec_cur = (uint8_t)((srec_cur + (adv > 1 ? adv : 1)) % len);
                 }

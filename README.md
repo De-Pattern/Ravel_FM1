@@ -878,7 +878,7 @@ Editing a held empty step switches it on.
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
 | **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST |
-| **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | – | – | – |
+| **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | STEP REC: NEXT (step recording moves on after each note) or STAY (it stays on the step: note input, see Recording). Kept through power-off | – | – |
 | **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
 
 **STEP: PRESETS picks the step.** On the step pages (STEPS, STEP TIMING, STEP SHAPE, STEP CUT; DRUM STEP on a kit), turn **PRESETS** to move through the steps, 1 to LENGTH: the knobs edit that step (ringed on screen, STEP 23 at the bottom right), and the keys jump to its 16. Holding a step key still works as before, and the black keys 1 and 2 still switch patterns A and B.
@@ -1200,6 +1200,7 @@ Turning ALGORITHM while armed moves recording to the new track.
 - **PRESETS** moves the cursor, a step a click, or **hold SEQ and tap a step** to put it there, for instance to change one chord in the middle of a pattern.
 - **Length as you go:** on STEPS the knobs edit the cursor's step, so turn **KNOB 3 (LENGTH)**, before or while you hold the keys: the notes take that length, and so do the ones after it until you change it. Letting go moves the cursor past the note, so a note two steps long moves it on two (and leaves the step between as it was).
 - **Hold REC and press OCT− or OCT+** to change the keys' octave.
+- **Note input (STAY):** set SEQ › DIRECTION's STEP REC to **STAY** and the cursor stays where it is: **PRESETS** picks a step, and the keys play and write notes into it as often as you like (try a few, the last one stays), then PRESETS on to the next. NEXT (the default) moves on after each note. The setting belongs to the FM-1 and stays through power-off.
 - Notes from a MIDI keyboard step-record too.
 - Press **PLAY** to hear it: recording carries on live as usual. Stop, and step recording picks up after the last note. Tap **REC** to finish.
 
