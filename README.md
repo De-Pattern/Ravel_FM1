@@ -987,6 +987,7 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
 | --- | --- | --- | --- | --- | --- |
 | **MIXER 1-4** | T1 LEVEL | T2 LEVEL | T3 LEVEL | T4 LEVEL | – |
 | **MIXER 5-8** | T5 LEVEL | T6 LEVEL | T7 LEVEL | T8 LEVEL | – |
+| **MUTE / SOLO** | – (the keys, below) | | | | – |
 | **CLOCK** | TEMPO (30–240) | SWING: 50 % is straight, 66 % a triplet shuffle, up to 100 % (every second 16th pushed late) | B DOES: how oscillator B bends the clock | DEPTH of that bending | – |
 | **CLOCK B** | A SHAPE: the main clock's wave | B RATE | B SHAPE | THRESH: where a pulse fires | – |
 | **CLOCK FEEL** | TEMPO IS: LOCKED (keeps the average tempo) or FREE (drifts) | QUANTZE: pulls microtiming back to the grid (0–100 %) | METRO: the metronome, OFF, QUIET or LOUD (a click on each beat, higher on the bar's first) | COUNT-IN: OFF, 1 BAR (the default) or 2 BARS | – |
@@ -1081,7 +1082,10 @@ Without an END row the song loops back to row 1. Give the last row the scene END
 - With **DEPTH** at 0 the clock is straight.
 - **TEMPO IS: FREE** lets it drift like an old drum machine.
 - **Tap tempo:** hold **GLO** and tap black key **1**.
-- **Mute and solo:** hold **GLO** and press white keys **1–8** to mute tracks 1–8, or **9–16** to solo tracks 1–8.
+- **Mute and solo:** hold **GLO** and press white keys **1–8** to mute tracks 1–8, or **9–16** to solo tracks 1–8. From any page.
+- **The MUTE / SOLO page** (GLO, after the mixers) lays the eight tracks out for bringing parts in and out by hand, no button held: **white keys 1–8 mute and unmute tracks 1–8**, and **9–16 solo them** (or hold **GLO** and press 1–8). **Black key 1** unmutes every track, **black key 2** ends the solo. Each track's tile and its key light while you hear it; a muted track's tile goes dark with MUTE in red and its key goes out, and while anything is soloed the tracks left out go dark too (the soloed ones are outlined, and keys 9–16 light for them). Mutes and solos change at once; scenes store and recall the mutes as before.
+
+<p align="center"><img src="docs/manual/song-mutes.png" alt="MUTE / SOLO: T3 muted, T5 soloed" width="240"></p>
 
 ## 14. SAVE: projects and sounds
 
@@ -1278,7 +1282,7 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 | Edit one step | Hold its key, turn knobs |
 | Lock a value on a step | Hold SEQ + step, turn a knob on any page |
 | Pattern A / B | Black key 1 / 2 on SEQ, or PRESETS |
-| Mute / solo | Hold GLO + white 1–8 / 9–16 |
+| Mute / solo | Hold GLO + white 1–8 / 9–16, or the MUTE / SOLO page: white 1–8 / 9–16 |
 | Tap tempo | Hold GLO + black 1 |
 | Change the tempo | SEQ › TEMPO (or GLO › CLOCK), KNOB 1 |
 | Arpeggiate a chord | ARP, KNOB 1 to UP (or another mode), hold the keys |

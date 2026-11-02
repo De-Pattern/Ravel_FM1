@@ -1,0 +1,36 @@
+# GLO > MUTE / SOLO: white 1-8 mute, 9-16 solo, GLO held + 1-8 solo, black 1 all on, black 2 solo off
+wait 300
+wait 500
+tap GLO
+turn SELECT -20
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 150
+expect page MUTE / SOLO
+tapkey 0
+wait 50
+tapkey 4
+wait 50
+expect mutes 5
+tapkey 0
+wait 50
+expect mutes 4
+tapkey 21
+wait 50
+expect solos 16
+press GLO
+tapkey 2
+release GLO
+wait 50
+expect solos 18
+expect mutes 4
+tapkey 1
+wait 50
+expect mutes 0
+tapkey 3
+wait 50
+expect solos 0
+# the keys play nothing here
+expect voices 0
