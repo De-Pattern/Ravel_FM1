@@ -26,6 +26,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Arpeggiator** on any note track (ARP): up, down, up-down, down-up, as played or random, 1/4 to 1/32 of the clock, over up to four octaves, with gate, hold, repeats and chance; it plays held keys, the track's own steps and influence triggers alike.
 - **COMP** (T8, off until you choose it): a glue compressor on the main mix after the SSL G-series bus compressor, with its stepped ratios, attacks and releases (and AUTO), threshold, makeup and a dry mix.
+- **GLITCH LOOPER** (any one track, KIND GLITCH): four lanes recorded from the main mix or one track, overdubbing, each with its own level, pitch and speed (pitch and speed apart, by a grain stretch); a threshold to arm a take; quarter slices on the keys that take turns in the order held; PLAY and REC trigs on the steps with sections, Octatrack- and MLR-style. It borrows the effects' memory (it can keep SPACE or DELAY running).
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
 - **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), or step by step while stopped (a note or chord a step, rests and back), and each kit lane can run at its own rate.
@@ -188,7 +189,7 @@ So if a page seems to be "skipped", it is hidden because it does not apply to th
 
 <p align="center"><img src="docs/signal-flow.svg" alt="Signal flow" width="760"></p>
 
-Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND); T8 can also be the COMP, the mix's compressor:
+Ravel has **8 tracks**. Each track is one of three kinds, and any track can be any kind (HOME › TRACKS › KIND); T8 can also be the COMP, the mix's compressor, and any one track the GLITCH LOOPER:
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
@@ -196,7 +197,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
-| **GLITCH** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [GLITCH LOOPER](#glitch-looper-test-build)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
+| **GLITCH** | The GLITCH LOOPER: four lanes of recorded audio, played back and overdubbed (see [GLITCH LOOPER](#glitch-looper)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
 
 How the sound flows:
 
@@ -225,7 +226,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP; on the TEST build also GLITCH, the GLITCH LOOPER). **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP), or GLITCH, the GLITCH LOOPER. **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
@@ -245,11 +246,9 @@ The meter falls from the top as it squeezes (0 to 20 dB of gain reduction); besi
 
 The matrix and macros can move its knobs like any track's (THRESH on an LFO pumps). A scene or a sound loaded onto T8 can change its kind like any track's.
 
-### GLITCH LOOPER (TEST build)
+### GLITCH LOOPER
 
 <p align="center"><img src="docs/manual/loop.png" alt="GLITCH LOOPER: the four lanes" width="320"> <img src="docs/manual/loopseq.png" alt="GLITCH TRIGS" width="320"></p>
-
-> This is in the **TEST** firmware only (listed as TEST in the installer). It is new and has not been played much on hardware yet.
 
 Turn **KIND** to **GLITCH** on any one track (EDIT › SOUND, KNOB 1, or HOME › TRACKS, KNOB 3; turn it back the same way to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records. EDIT keeps its SOUND page (KIND; the other knobs greyed), and the looper's pages follow it.
 
@@ -343,7 +342,7 @@ PITCH and SPEED are apart: SPEED changes how fast the loop runs, and PITCH trans
 - **Hold a step and tap another** to set a section (MLR-style), from the left one to the right one, both included, in either order: REC over steps 5–11 records into them and stops; PLAY over steps 8–14 plays that stretch of the lane, looping it until another trig moves it. The trig sits on the section's first step with its RANGE reaching the last; other trigs of the same lane and kind inside it go. On SEQ the keys light the chosen lane's trigs of the chosen kind (TRIG), each along its section.
 - A REC trig with THRESH above 0 waits for the sound before it writes.
 
-The recordings are not saved: a project keeps the GLITCH LOOPER's settings and trigs, and its lanes start empty when it loads or the FM-1 starts. The loop's clock follows the GLITCH LOOPER's sequencer while it plays, and keeps running at the tempo while stopped. If you go back to the normal firmware (v1.5.1 or later), a project's GLITCH LOOPER loads as a blank synth, its steps cleared.
+The recordings are not saved: a project keeps the GLITCH LOOPER's settings and trigs, and its lanes start empty when it loads or the FM-1 starts. The loop's clock follows the GLITCH LOOPER's sequencer while it plays, and keeps running at the tempo while stopped. On v1.6.0 a project's GLITCH LOOPER loads as a blank synth with its steps cleared; firmware older than that should not open such a project.
 
 ### INFLUENCE
 

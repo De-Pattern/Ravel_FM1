@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel: the LOOP track (a TEST build). Four lanes of audio recorded from the main mix (or one track)
+/* Ravel: the GLITCH LOOPER (KIND_LOOP). Four lanes of audio recorded from the main mix (or one track)
  * and played back, each with its own LEVEL, PITCH and SPEED (pitch and speed apart: a two-grain
  * stretch), overdubbed as they record. The FM-1 has no audio input and no RAM to spare, so the lanes
  * live in the memory of the DELAY, FEEDBACK, SPACE and microcut buffers (which stand still while a
