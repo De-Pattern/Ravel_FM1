@@ -109,7 +109,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 
 **On the FM-1.** Install it with the web installer (see [Installing on the FM-1](#installing-on-the-fm-1)). Everything works the same as in the emulator, with these differences:
 
-- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of storm: a cloud of dust turning in the wind and rain, lightning, the dust gathering into RAVEL (signed de-pattern underneath, flickering), which then runs down the screen while drops splash on the glass. Press any key, button or knob to skip it; that press does nothing else.
+- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of storm: a cloud of dust turning in the wind and rain, lightning, the dust gathering into RAVEL (signed de-pattern underneath, flickering), which then melts and drips down the screen. Press any key, button or knob to skip it; that press does nothing else.
 - **MASTER** is the output volume (the emulator's Volume slider).
 - **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. The EXT exciter takes its sound from other tracks.
 - **Saving pauses the sound for a moment**, because the code runs from the same flash the project is written to.

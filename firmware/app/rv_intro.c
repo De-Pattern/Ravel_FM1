@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Ravel: the start screen. A storm in a few bits: a cloud of dust turning round in the dark, wind
  * and rain through it, lightning; the dust gathers into RAVEL, the word holds a moment, then runs
- * down the screen in drips, and a few drops splash on the glass. Greys, a little teal, a touch of
+ * down the screen in drips. Greys, a little teal, a touch of
  * deep red. About five seconds; any key, button or knob skips it. Everything is worked out from the
  * time each frame (no state but the start), so a slow frame only skips ahead.
  * Part of the engine unit (ravel_app.c), after rv_ui.c (its drawing and its input). */
@@ -9,7 +9,6 @@
 #define IN_NP 210                        /* dust */
 #define IN_NRAIN 46
 #define IN_NDROP 16
-#define IN_NSPLAT 6
 #define IN_END 5600u                     /* ms */
 #define IN_CELL 3                        /* the word's pixels, on screen */
 #define IN_X0 26
@@ -188,49 +187,6 @@ static int in_drip(int k, uint32_t t, int *x, int *top, int *head, int *r)
     return *head - 20 < PLAT_H;
 }
 
-/* a splash on the glass: its middle, size, and how long it has been there (ms; < 0: not yet) */
-static float in_splat(int k, uint32_t t, int *x, int *y, int *r)
-{
-    float ts = 3900.0f + (float)k * 210.0f + in_rnd((uint32_t)k, 31) * 160.0f;
-    *x = 24 + (int)(in_rnd((uint32_t)k, 32) * 192.0f);
-    *y = 30 + (int)(in_rnd((uint32_t)k, 33) * 180.0f);
-    *r = 4 + (int)(in_rnd((uint32_t)k, 34) * 7.0f);
-    return (float)t - ts;
-}
-
-static void in_draw_splat(int k, int x, int y, int r, float age, float fade)
-{
-    float v = (age < 70.0f ? 1.0f : 0.78f - in_clamp((age - 70.0f) / 1400.0f) * 0.4f) * fade;
-    uint16_t c = in_grey(v), cd = in_grey(v * 0.55f), acc = k == 2 ? IN_TEAL : k == 4 ? IN_RED : cd;
-    int i, n = 9 + (int)(in_rnd((uint32_t)k, 35) * 8.0f);
-    float grow = in_clamp(age / 45.0f), run = in_clamp((age - 200.0f) / 1600.0f);
-    uint32_t s0 = (uint32_t)k * 97u;
-    if (fade < 0.03f)
-        return;
-    for (i = 0; i < n; i++) {                          /* the spray: droplets thrown out, some drawn into streaks */
-        float a = in_rnd(s0 + (uint32_t)i, 36), d = ((float)r * 1.1f + in_rnd(s0 + (uint32_t)i, 37) * (float)r * 2.2f) * grow;
-        int dx = (int)(in_cos(a) * d), dy = (int)(fm_sin_turns(a) * d);
-        int sz = 1 + (in_rnd(s0 + (uint32_t)i, 38) > 0.55f) + (in_rnd(s0 + (uint32_t)i, 39) > 0.9f);
-        if (in_rnd(s0 + (uint32_t)i, 40) > 0.6f)
-            g_line_px(x + dx / 3, y + dy / 3, x + dx, y + dy, cd);
-        g_fill(x + dx - sz / 2, y + dy - sz / 2, sz, sz, i == 1 ? acc : c);
-    }
-    for (i = 0; i < 5; i++) {                          /* the body: a few lumps, not a circle */
-        float a = in_rnd(s0 + 50u + (uint32_t)i, 41), d = (float)r * 0.55f * in_rnd(s0 + 50u + (uint32_t)i, 42);
-        int rr = (int)(((float)r * (0.45f + in_rnd(s0 + 50u + (uint32_t)i, 43) * 0.5f)) * grow);
-        if (rr > 0)
-            g_disc(x + (int)(in_cos(a) * d), y + (int)(fm_sin_turns(a) * d), rr, c);
-    }
-    if (run > 0.0f) {                                  /* and it runs down the glass */
-        int len = (int)(run * (float)(r * 4 + 10));
-        g_fill(x - 1, y, 2, len, c);
-        g_disc(x, y + len, 1 + r / 4, c);
-    }
-    g_fill(x - r / 3, y - r / 3, 2, 1, in_grey(fade));   /* (the glint) */
-    if (k == 2 || k == 4)
-        g_pset(x + r / 2, y + r / 3, acc);
-}
-
 /* the maker's name in a lower-case pixel hand of its own (4 x 8, a bit a pixel, high bit left) */
 static const char in_lc_ch[] = "de-patrn";
 static const uint8_t in_lc[8][8] = {
@@ -371,14 +327,6 @@ static int intro_frame(void)
                 g_pset(x, head - r, IN_RED);           /* (one runs red) */
             else
                 g_pset(x - 1, head - 1, C_WHITE);
-        }
-        /* the splashes on the glass, over everything */
-        for (i = 0; i < IN_NSPLAT; i++) {
-            int x, y, r;
-            float age = in_splat(i, t, &x, &y, &r);
-            if (age < 0.0f || y + r * 3 < b || y - r * 3 > b + GB_H)
-                continue;
-            in_draw_splat(i, x, y, r, age, fade);
         }
         /* the maker's name, small, once the word is there: it flickers like a failing tube, now and then
          * jumping a pixel with a teal or red ghost */
