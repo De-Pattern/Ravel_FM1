@@ -45,7 +45,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 2. [The panel](#2-the-panel)
 3. [The five moves](#3-the-five-moves-how-every-page-works)
 4. [How the parts connect](#4-how-the-parts-connect)
-5. [HOME: tracks and influence](#5-home-tracks-and-influence)
+5. [HOME: tracks and influence](#5-home-tracks-and-influence) (and the [GLITCH LOOPER](#glitch-looper), [step by step](#step-by-step))
 6. [EDIT: the voice](#6-edit-the-voice)
 7. [ENV: articulation](#7-env-articulation)
 8. [LFO: modulation and macros](#8-lfo-modulation-and-macros)
@@ -1327,6 +1327,16 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 4. Turn **SELECT** to **DCW 1**. Turn **PRESETS** to step 1 and turn **KNOB 2 (LEVEL)** up to make the attack brighter.
 5. **SELECT** to **DCA 1**. On step 1, turn **KNOB 1 (RATE)** down for a slow swell.
 
+**Loop what's playing (the GLITCH LOOPER)**
+
+1. Press **PLAY** with something going. Turn **ALGORITHM** to a spare track (T8).
+2. **EDIT** (SOUND page): turn **KNOB 1 (KIND)** to **GLITCH**. **SELECT** one page on to **GLITCH LEVEL**.
+3. Tap **black key 1**: lane 1 records. After a bar, tap it again: it loops.
+4. Mute the tracks you recorded (GLO › MUTE / SOLO) and play with **GLITCH PITCH** and **GLITCH SPEED**, or hold **white keys 1–4** to play its quarters.
+5. When you're done, **GLITCH INPUT › LOOPER** to **OFF** brings every effect back.
+
+The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
+
 **Write a beat**
 
 1. Turn **ALGORITHM** to T5 (strike).
@@ -1388,6 +1398,10 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 | Change the tempo | SEQ › TEMPO (or GLO › CLOCK), KNOB 1 |
 | Arpeggiate a chord | ARP, KNOB 1 to UP (or another mode), hold the keys |
 | Glue the whole mix | T8: HOME › TRACKS, KIND = COMP; EDIT › COMP |
+| Loop what's playing | A spare track: EDIT › SOUND, KNOB 1 (KIND) = GLITCH; black key 1 to record lane 1, again to stop |
+| Loop: play, slices, clear | Black 5–8 play lanes 1–4; hold white keys for slices; hold black 9 + black 1–4 clears a lane |
+| Loop: sequence it | SEQ › GLITCH TRIGS: KNOB 2 = REC or PLAY, tap a step; hold a step + tap another for a section |
+| Effects back from the looper | GLITCH INPUT, KNOB 4 (LOOPER) = OFF, or KIND back |
 | Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
