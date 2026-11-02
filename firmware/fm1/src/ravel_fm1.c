@@ -33,6 +33,7 @@ void rv_render(int32_t *out, int frames);
 void ui_frame(void);
 void ui_input_only(void);
 void ui_notice(const char *title, const char *l1, const char *l2, const char *l3, int red);
+void ui_intro(void);
 void rv_transport(int run);
 void rv_xfer_msg(const uint8_t *m, uint32_t d);   /* projects and sounds over SysEx (app/rv_xfer.c) */
 

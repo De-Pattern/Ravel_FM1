@@ -985,6 +985,7 @@ function slowUpdate() {
     rv = (await WebAssembly.instantiate(bytes, {})).instance.exports;
     storeLoad();
     rv.rv_boot();
+    if (rv.web_intro) rv.web_intro();   /* the start screen, as the FM-1 plays it */
     rv.rv_set_master(masterVal);
     lastWrites = rv.rv_store_writes();
     tracksUi(); sideSync();

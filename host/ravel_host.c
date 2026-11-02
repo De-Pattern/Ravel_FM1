@@ -16,6 +16,7 @@
  *   wav FILE | wavstop            record the output
  *   shot FILE.png                 save the screen
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
+ *   intro                         the start screen (the FM-1 plays it at power-on)
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
  *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
@@ -48,6 +49,7 @@ void moom_warp(int lv);
 void moom_pose(float x, float y, float dir);
 void moom_clear(void);
 int ui_step_cur(void);
+void ui_intro(void);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -316,6 +318,8 @@ int main(int argc, char **argv)
                 d -= s;
                 run_ms(17);
             }
+        } else if (!strcmp(a, "intro")) {     /* the start screen, as the FM-1 plays it at power-on */
+            ui_intro();
         } else if (!strcmp(a, "cpu")) {
             cpu_pct = (uint32_t)atoi(b);
         } else if (!strcmp(a, "master")) {

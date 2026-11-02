@@ -10,6 +10,10 @@
  * says what the controls do right now. */
 #include "rv.h"
 #include "rv_gfx.c"
+static int intro_frame(void);                         /* (rv_intro.c: the start screen) */
+static int intro_skip(void);
+int ui_intro_on(void);
+
 
 int rv_preset_count(void);
 const char *rv_preset_name(int i);
@@ -2753,6 +2757,10 @@ void ui_input_only(void)
     int i, d;
     rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
     prefs_tick();
+    if (ui_intro_on()) {                              /* (the start screen: input only ends it) */
+        intro_skip();
+        return;
+    }
     if (moom_on()) {                                  /* (the game reads its own input, once a frame; controllers wait) */
         uint8_t m[3];
         while (rv_midi_cc(m))
@@ -5398,6 +5406,11 @@ static void draw_help(void)
 void ui_frame(void)
 {
     int b, i, j;
+    if (ui_intro_on()) {                              /* the start screen has the screen until it ends or is skipped */
+        if (intro_skip() && intro_frame())
+            return;
+        leds();
+    }
     if (mm.on) {                                      /* the hidden game has the screen and the panel */
         moom_frame();
         return;

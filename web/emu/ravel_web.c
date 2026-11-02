@@ -88,6 +88,8 @@ static int host_audio_in(float *lr, int frames)
     }
     return i;
 }
+void ui_intro(void);
+EXPORT(web_intro) void web_intro(void) { ui_intro(); }   /* the start screen, as the FM-1 plays it at power-on */
 EXPORT(web_in_ptr) float *web_in_ptr(void) { return in_ring; }
 EXPORT(web_in_write_pos) uint32_t web_in_write_pos(void) { return in_w % IN_RING; }
 EXPORT(web_in_space) uint32_t web_in_space(void) { return IN_RING - 1u - (in_w - in_r); }

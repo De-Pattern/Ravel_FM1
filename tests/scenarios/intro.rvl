@@ -1,0 +1,21 @@
+# The start screen: plays about five seconds, then the UI; any button skips it, and that press does
+# nothing else
+wait 100
+intro
+wait 1200
+tap EDIT
+wait 100
+expect page TRACKS
+tap EDIT
+wait 100
+expect page SOUND
+tap HOME
+wait 100
+intro
+wait 3000
+shot intro.png
+tapkey 0
+wait 100
+expect voices 0
+wait 3000
+expect page TRACKS

@@ -224,7 +224,7 @@ static void fm1_main(void)
             ota_boot_cleanup();
     }
     lcd_init();
-    ui_notice("RAVEL", "SYNTHESIZE  STRIKE  INFLUENCE", "VERSION " RAVEL_BUILD, 0, 0);
+    ui_notice(0, 0, 0, 0, 0);                       /* black, until the start screen (ui_intro) */
     if (safe_mode)
         safe_main();                                /* never returns */
     if (fm1_crash.magic == FM1_CRASH_MAGIC) {     /* a crash since power-on: say so, once */
@@ -258,6 +258,8 @@ static void fm1_main(void)
     else if ((fm1_in.buttons & ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE]))) ==
              ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE])))
         moom_start();                               /* HOME + SAVE held at power-on: the hidden game */
+    else
+        ui_intro();                                 /* the start screen: the storm, the word, the drips */
 
     for (;;) {
         fm1_wdt_feed();

@@ -16,6 +16,7 @@
 #include "rv_xfer.c"
 #include "rv_stress.c"
 #include "rv_ui.c"
+#include "rv_intro.c"
 
 /* start: always a blank project */
 void ravel_start(void)
