@@ -138,7 +138,7 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define PID_G(g) (RV_GPID + (g))
 #define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
 
-enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_N };   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
+enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_LOOP, KIND_N };   /* LOOP: four lanes of recorded audio (rv_loop.c; one track at most) */   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
                                                                               * COMP (T8 only): the bus compressor on the main mix, not a voice */
 enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
@@ -382,6 +382,9 @@ typedef struct {
     uint8_t midi_clk;                      /* MIDI clock: 1 while it comes */
     float midi_bpm;                        /* its tempo, as measured */
     uint16_t dust_n;                       /* DUST: counts up on each grain */
+    uint8_t loop_st[4];                    /* LOOP: each lane's state: 1 playing, 2 recording, 4 waiting for the threshold, 8 a slice held */
+    float loop_q[4], loop_pa[4], loop_pl[4], loop_ra[4], loop_peak[4];   /* where it plays, its play range, its record start (0..1), its level */
+    float loop_pos, loop_in;               /* the loop's clock (0..1), the level coming in */
     uint8_t take_res;                      /* TAKE done: the steps it kept + 1 (the interface clears it) */
     int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */
     uint32_t tick;
@@ -433,7 +436,10 @@ void rv_record_arm(int t, int on);
 int rv_midi_cc(uint8_t m[3]);              /* a control change from MIDI in, for the interface (channel, CC, value): 1 if one came */
 enum { SREC_OFF, SREC_ON, SREC_REST, SREC_BACK, SREC_TO, SREC_LEN, SREC_STAY };
 void rv_step_rec(int op, int t, int step);   /* step recording: on (track t), off, a rest, back a step, to a step, the entry length (code) */
-void rv_take(void);                        /* TAKE: what you played in the last loop on the track in view, into its pattern */
+void rv_take(void);
+void rv_loop_cmd(int op, int lane, int v);    /* LOOP by hand: 0 record on/off, 1 play on/off, 2 clear (lane 4: all), 3 slice on, 4 off */
+int rv_loop_peek(int lane, uint32_t i);       /* LOOP: a lane's sample (companded byte), for the picture */
+uint32_t rv_loop_lane_len(void);                        /* TAKE: what you played in the last loop on the track in view, into its pattern */
 void rv_motion(int pid, int v);                 /* a knob moved: motion recording */
 void rv_live_note(int t, int note, int vel);    /* a key: plays and, when armed, records */
 void rv_pattern_clear(int t);

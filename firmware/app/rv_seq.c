@@ -11,6 +11,7 @@
 static event_t evq[RV_EVQ];
 static int evn;
 static uint32_t now_s;                              /* the sample clock: samples since boot */
+static void loop_fire(int t, int si);               /* (rv_loop.c: a LOOP track's step) */
 static seqtrk_t sq[RV_TRACKS];
 static uint8_t playing;
 static uint32_t mpulse;                             /* master pulses since start */
@@ -426,6 +427,11 @@ static void step_fire(int t, int h, int si, uint32_t when)
         return;
     if (!cond_pass(s, t))
         return;
+    if (rv.tp[t][TP_KIND] == KIND_LOOP) {             /* a LOOP track: its record and play trigs (chance and conditions apply) */
+        if (h == 0 && (s->chance >= 100 || xs_uni(&seq_rng) * 100.0f < (float)s->chance))
+            loop_fire(t, si);
+        return;
+    }
     if (s->chance < 100 && xs_uni(&seq_rng) * 100.0f >= (float)s->chance)
         return;
     density = rv.arcs[t][(song_bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15];
@@ -1551,7 +1557,7 @@ static void record_note(int t, int note, int vel)
     rv_step *s, *base;
     if (srec_note(t, note, vel))
         return;
-    if (!playing)
+    if (!playing || rv.tp[t][TP_KIND] == KIND_LOOP)   /* (a LOOP track records sound, not notes) */
         return;
     if (rv_live.recording && rv_live.rec_track == t)
         base = rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s;

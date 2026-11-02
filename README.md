@@ -196,6 +196,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
+| **LOOP** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [LOOP](#loop-the-looper-test-build)). One track at most; the effects buses rest while it exists | – |
 
 How the sound flows:
 
@@ -224,7 +225,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP). **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP; on the TEST build also LOOP). **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
@@ -243,6 +244,47 @@ T8 can be a glue compressor for the whole mix, after the SSL G-series bus compre
 The meter falls from the top as it squeezes (0 to 20 dB of gain reduction); beside it, the curve it squeezes by, with the mix's level now as a dot. **AUTO** releases in two stages, as the SSL's does: quickly after a short peak, slowly out of a long squeeze. For glue, start at 2:1 or 4:1, ATTACK 10 or 30 ms, RELEASE AUTO, and lower THRESH until the meter moves 2 to 4 dB on the loudest hits. It costs almost nothing: the level is read once per 16 samples.
 
 The matrix and macros can move its knobs like any track's (THRESH on an LFO pumps). A scene or a sound loaded onto T8 can change its kind like any track's.
+
+### LOOP: the looper (TEST build)
+
+<p align="center"><img src="docs/manual/loop.png" alt="LOOP: the four lanes" width="320"> <img src="docs/manual/loopseq.png" alt="LOOP TRIGS" width="320"></p>
+
+> This is in the **TEST** firmware only (listed as TEST in the installer). It is new and has not been played much on hardware yet.
+
+Turn **KIND** to **LOOP** on any one track. It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records.
+
+**The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory. **While a project has a LOOP track, DELAY, FEEDBACK, SPACE and the microcuts are off** (the screen says FX BUSES REST). Turn KIND away from LOOP and they come back, cleared. Each lane holds about 16 000 samples spread over the loop's LENGTH, stored 8-bit: lo-fi on purpose. A short loop at a quick tempo sounds clearer than a long, slow one (16 steps at 120 BPM is about 8 kHz).
+
+**What it records.** SOURCE MAIN (the default) is the main mix without the LOOP track itself, so it never records its own playback. SOURCE T1–T8 records one track, after its own effects. The FM-1 has no audio input, so the looper can only record Ravel.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **LOOP LEVEL** | LEVEL 1 | LEVEL 2 | LEVEL 3 | LEVEL 4 |
+| **LOOP PITCH** | PITCH 1 (±24 semitones) | PITCH 2 | PITCH 3 | PITCH 4 |
+| **LOOP SPEED** | SPEED 1: 1/4, 1/2, 3/4, 1, 3/2, 2, REV | SPEED 2 | SPEED 3 | SPEED 4 |
+| **LOOP INPUT** | SOURCE: MAIN, T1–T8 | THRESH: 0 records at once; above 0, an armed lane waits until the sound is that loud | OVERDUB: how much of the old stays under the new (0 replaces it) | KIND |
+
+PITCH and SPEED are apart: SPEED changes how fast the loop runs, and PITCH transposes it without changing its time (a two-grain stretch). Both can be moved by the LFOs and the matrix.
+
+**Playing it by hand** (on the LOOP pages):
+
+- **Black keys 1–4** record lanes 1–4: one tap starts (or arms, with THRESH above 0), the next stops. A lane that records also plays, the loop's whole length, in time.
+- **Black keys 5–8** start and stop lanes 1–4 playing.
+- **Hold black key 9 and tap a record key** to clear that lane; **tap black key 11 twice** to clear all four.
+- **The white keys play slices**, in groups of four: keys 1–4 are the four quarters of lane 1, 5–8 of lane 2, and so on. A held slice replaces its lane while it is held. **Hold several**, even from different lanes, and they play one after another **in the order you pressed them**, round and round, as the arpeggiator's PLAYED order does with notes.
+
+**Sequencing it** (SEQ, like the Octatrack's recorder trigs). The steps carry only **PLAY** and **REC** trigs, per lane:
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **LOOP TRIGS** | LANE: the lane the keys write | TRIG: PLAY or REC | RANGE: how many steps the trig plays or records (0: the whole loop) | LENGTH of the loop |
+| **TRIG CHANCE** | CHANCE | CONDITN | – | – |
+
+- **Tap a step** to place or remove a trig of the chosen kind on the chosen lane; **black keys 3–6** choose the lane.
+- **Hold a step and tap a later one** to set a range (MLR-style): REC on step 5 with a range to 11 records into steps 5–11 and stops; PLAY on step 8 with a range to 14 plays steps 8–14 of that lane, looping that stretch until another trig moves it.
+- A REC trig with THRESH above 0 waits for the sound before it writes.
+
+The recordings are not saved: a project keeps the LOOP track's settings and trigs, and its lanes start empty when it loads or the FM-1 starts. The loop's clock follows the LOOP track's sequencer while it plays, and keeps running at the tempo while stopped. If you go back to the normal firmware (v1.5.1 or later), a project's LOOP track loads as a blank synth, its steps cleared.
 
 ### INFLUENCE
 

@@ -336,6 +336,10 @@ int main(int argc, char **argv)
             float mx = 0, my = 0, md = 0;
             sscanf(line, "%*s %f %f %f", &mx, &my, &md);
             moom_pose(mx, my, md);
+        } else if (!strcmp(a, "kind")) {      /* kind T K: track T (1..8) becomes kind K (as the KIND knob does) */
+            int tt = 0, kk = 0;
+            sscanf(line, "%*s %d %d", &tt, &kk);
+            rv_track_set_kind((tt - 1) & 7, kk);
         } else if (!strcmp(a, "settp")) {     /* settp T NAME VALUE: track T's (1..8) parameter, straight */
             char nm[64] = "";
             int tt = 0, vv = 0, pp;
@@ -449,6 +453,36 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "meter_min")) {            /* track T's output level is at least X (0..1) */
+                float mv = rv_live.meter[(atoi(w1) - 1) & 7];
+                if (mv < atof(w2)) {
+                    printf("FAIL line %d: track %s's meter %.4f, expected at least %s\n", lineno, w1, mv, w2);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "loopfill")) {             /* LOOP lane L (1..4): how many of its samples are not silent, at least N */
+                uint32_t q, nn = rv_loop_lane_len(), cnt = 0;
+                for (q = 0; q < nn; q++)
+                    cnt += rv_loop_peek(atoi(w1) - 1, q) != 0;
+                got = (int)cnt;
+                if (got < atoi(w2)) {
+                    printf("FAIL line %d: lane %s has %d sounding samples, expected at least %s\n", lineno, w1, got, w2);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "loopst")) {               /* LOOP lane L's state bits (1 play, 2 rec, 4 wait, 8 slice) */
+                got = rv_live.loop_st[(atoi(w1) - 1) & 3];
+                want = atoi(w2);
+            } else if (!strcmp(b, "lprange")) {              /* track T's step S: lane L's RANGE */
+                const rv_step *ss = &rv.pat[(atoi(w1) - 1) & 7][rv.pat_cur[(atoi(w1) - 1) & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
+                int ll = (atoi(w3) - 1) & 3;
+                char w4[16] = "";
+                sscanf(line, "%*s %*s %*s %*s %*s %15s", w4);
+                got = ll == 0 ? (uint8_t)ss->chord[0] : ll == 1 ? (uint8_t)ss->chord[1] : ll == 2 ? (uint8_t)ss->chord[2] : ss->vel;
+                want = atoi(w4);
+            } else if (!strcmp(b, "stepbits")) {             /* track T's step S: its note byte (LOOP: the trigs) */
+                got = rv.pat[(atoi(w1) - 1) & 7][rv.pat_cur[(atoi(w1) - 1) & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)].note;
+                want = atoi(w3);
             } else if (!strcmp(b, "stepcur")) {              /* the step the knobs edit (1..64) */
                 got = ui_step_cur() + 1;
                 want = atoi(w1);

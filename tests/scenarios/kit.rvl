@@ -2,7 +2,9 @@
 wait 300
 tap HOME
 turn SELECT -20
-turn K3 3
+turn K3 1
+wait 100
+turn K3 1
 wait 200
 expect tp 1 KIND 3
 expect tp 1 MODE 1

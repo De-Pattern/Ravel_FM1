@@ -6,7 +6,7 @@
 #include "rv_organ.h"
 
 /* ------------------------------------------------------------------ names --- */
-const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP"};
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "LOOP"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND"};
@@ -469,6 +469,22 @@ static const rv_pinfo SRC_COMP[16] = {
     {"MIX", 0, 100, 100, PF_NUM, 0},                 /* %: below 100, the dry mix under it (parallel) */
 };
 
+/* LOOP: each lane's LEVEL, PITCH (semitones, apart from its speed) and SPEED; what it records, from what
+ * level, and how much of what was there an overdub keeps */
+static const char *const lspeed_names[] = {"1/4", "1/2", "3/4", "1", "3/2", "2", "REV"};
+static const char *const lsrc_names[] = {"MAIN", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const rv_pinfo SRC_LOOP[16] = {
+    {"LEVEL 1", 0, 127, 100, PF_NUM, 0}, {"LEVEL 2", 0, 127, 100, PF_NUM, 0},
+    {"LEVEL 3", 0, 127, 100, PF_NUM, 0}, {"LEVEL 4", 0, 127, 100, PF_NUM, 0},
+    {"PITCH 1", -24, 24, 0, PF_SEMI, 0}, {"PITCH 2", -24, 24, 0, PF_SEMI, 0},
+    {"PITCH 3", -24, 24, 0, PF_SEMI, 0}, {"PITCH 4", -24, 24, 0, PF_SEMI, 0},
+    {"SPEED 1", 0, 6, 3, E(lspeed_names)}, {"SPEED 2", 0, 6, 3, E(lspeed_names)},
+    {"SPEED 3", 0, 6, 3, E(lspeed_names)}, {"SPEED 4", 0, 6, 3, E(lspeed_names)},
+    {"SOURCE", 0, 8, 0, E(lsrc_names)},
+    {"THRESH", 0, 127, 0, PF_NUM, 0},                /* 0: records at once */
+    {"OVERDUB", 0, 127, 100, PF_NUM, 0},             /* what of the old stays under the new (0: replaced) */
+};
+
 const rv_pinfo *rv_pinfo_track(int t, int p)
 {
     if (p >= TP_S0 && p <= TP_S15) {
@@ -480,7 +496,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
                 return &NONE;
             return q->name ? q : &NONE;
         }
-        tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_COMP ? SRC_COMP : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
+        tab = kind == KIND_STRIKE ? SRC_STRIKE : kind == KIND_COMP ? SRC_COMP : kind == KIND_LOOP ? SRC_LOOP : SRC_SYNTH[rv.tp[t & 7][TP_ENGINE] % ENG_N];
         if (tab == SRC_RESIN && rv.tp[t & 7][TP_S0] == 1)
             tab = SRC_RESIN_HORN;                     /* the reed: its own names */
         if (tab == SRC_TINE && rv.tp[t & 7][TP_S0] >= 1)

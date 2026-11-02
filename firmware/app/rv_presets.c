@@ -321,9 +321,10 @@ int rv_preset_kind(int i) { return i >= 0 && i < NPRESETS ? presets[i].kind : -1
 void rv_track_set_kind(int t, int kind)
 {
     int was_kit = rv.tp[t & 7][TP_KIND] == KIND_PERC && rv.tp[t & 7][TP_ENGINE] == 1;
+    int was_loop = rv.tp[t & 7][TP_KIND] == KIND_LOOP;
     int eng = kind == KIND_PERC ? 1 : kind == KIND_SYNTH && rv.tp[t & 7][TP_KIND] == KIND_SYNTH ? rv.tp[t & 7][TP_ENGINE] : 0;
     rv_track_defaults(t, kind, eng);
-    if (was_kit != (kind == KIND_PERC)) {
+    if (was_kit != (kind == KIND_PERC) || was_loop != (kind == KIND_LOOP)) {   /* (a LOOP track's steps are trigs: start clean) */
         int pt = rv.pat_cur[t & 7];
         for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)
             rv_pattern_clear(t);

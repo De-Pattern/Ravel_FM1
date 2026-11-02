@@ -256,7 +256,7 @@ static float master_drive_comp = 1.0f;
 uint32_t rv_rng(void) { return xs32(&eng_rng); }
 
 /* ------------------------------------------------------- command queue --- */
-enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF, C_SREC, C_TAKE };
+enum { C_NOTE, C_LIVE, C_TRANSPORT, C_PUNCH, C_CUT, C_SCENE, C_PATTERN, C_TAP, C_ARM, C_MOTION, C_ALLOFF, C_SREC, C_TAKE, C_LOOP };
 typedef struct { uint8_t op, a; int16_t b, c; } cmd_t;
 static cmd_t cq[128];
 static volatile uint32_t cq_w, cq_r;
@@ -287,6 +287,7 @@ void rv_motion(int pid, int v) { cmd(C_MOTION, 0, pid, v); }
 void rv_all_off(void) { cmd(C_ALLOFF, 0, 0, 0); }
 void rv_step_rec(int op, int t, int step) { cmd(C_SREC, t, op, step); }
 void rv_take(void) { cmd(C_TAKE, 0, 0, 0); }
+void rv_loop_cmd(int op, int lane, int v) { cmd(C_LOOP, op, lane, v); }
 
 /* ------------------------------------------------------------- notes --- */
 /* a hit's shading: the sequencer sets the next note's (a ratchet's R MOVE) just before it plays;
@@ -410,7 +411,7 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
     track_t *tr = &trk[t];
     int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;
     float v = (float)vel * (1.0f / 127.0f), grain = rv.tp[t][TP_GRAIN] * (1.0f / 127.0f);
-    if (kind == KIND_COMP)                          /* COMP plays no notes */
+    if (kind == KIND_COMP || kind == KIND_LOOP)     /* COMP and LOOP play no notes */
         return;
     if (!arp_out && arp_live_in && !spark && vel > 0)   /* (which keys are down: HOLD switched on takes them) */
         keys_down_on(t, note);
@@ -717,6 +718,9 @@ static void cmd_drain(void)
             break;
         case C_TAKE:
             take_now();
+            break;
+        case C_LOOP:
+            loop_cmd(c.a, c.b, c.c);
             break;
         default:
             break;
@@ -1258,6 +1262,12 @@ static __attribute__((noinline)) void bus_job(void)
     c1 = plat_par_cycles();
     bo_cyc[0] += c1 - c;
     c = c1;
+    if (loop_mem) {                                   /* a LOOP track has their memory: FEEDBACK, DELAY and SPACE stand still */
+        for (i = 0; i < n; i++)
+            bo_fb[i] = 0.0f;
+        bo_all += plat_par_cycles() - c0;
+        return;
+    }
     if (bus_skip(BUS_FB, fin, n)) {
         for (i = 0; i < n; i++)
             bo_fb[i] = 0.0f;
@@ -1604,6 +1614,7 @@ static void render_sub(float *outl, float *outr, int n)
 
     uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
     prof_t = cyc0 = plat_cycles();
+    loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
     movement_tick(n);
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
@@ -1784,7 +1795,11 @@ static void render_sub(float *outl, float *outr, int n)
         c2_voices_given = (uint8_t)nc2;
     }
     vcyc = prof_t - vcyc0;
-    /* tape tracks, and the tracks' chains */
+    /* the tracks' chains (a LOOP track's lanes first, into its buffer); what the LOOP track hears */
+    static float lp_cap[RV_SUB];
+    int lp_src = loop_t >= 0 ? clampi(rv.tp[loop_t][TP_S12], 0, 8) : 0;
+    for (i = 0; i < n; i++)
+        lp_cap[i] = 0.0f;
     for (t = 0; t < RV_TRACKS; t++) {
         track_t *tr = &trk[t];
         const float *eff = tr->eff;
@@ -1813,6 +1828,8 @@ static void render_sub(float *outl, float *outr, int n)
             gl *= 0.6f;
             gr *= 0.6f;
         }
+        if (kind == KIND_LOOP)
+            loop_render(t, tr->buf, n);
         if (ring <= 0.001f && peak_of(tr->buf, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
             if (tr->quiet >= BUS_HOLD)
                 n_chain = 0;
@@ -1843,6 +1860,8 @@ static void render_sub(float *outl, float *outr, int n)
                 }
                 outl[i] += sl;
                 outr[i] += sr;
+                if (t != loop_t && lp_src == 0)
+                    lp_cap[i] += (sl + sr) * 0.5f;    /* (the main mix, without the LOOP track) */
                 fb_in[i] += m * eff[TP_FBS] * (1.0f / 127.0f);
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
                 rev_in[i] += m * (punch[6] ? 0.8f : eff[TP_REVS] * (1.0f / 127.0f));
@@ -1878,10 +1897,15 @@ static void render_sub(float *outl, float *outr, int n)
         }
         for (i = 0; i < n; i++)
             tr->prev[i] = tr->buf[i];
+        if (lp_src == t + 1 && t != loop_t)          /* the LOOP track records this one */
+            for (i = 0; i < n; i++)
+                lp_cap[i] = tr->buf[i];
         /* a voice-less track decays its lead envelope */
         tr->lead_env *= fm_expf(-0.005013f * (float)n * (1.0f / 32.0f));   /* (0.995 a 32-frame step) */
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
+    if (loop_t >= 0)
+        loop_record(loop_t, lp_cap, n);
     {   /* the chains: all the tracks' loop */
         uint32_t c = plat_cycles();
         prof_acc[PF_CHAIN] += c - prof_t;

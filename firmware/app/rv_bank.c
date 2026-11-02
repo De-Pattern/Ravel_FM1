@@ -215,7 +215,7 @@ int rv_bank_is_kit(int i) { return rv_bank_used(i) && bank_is_kit(bank.s[i].kind
 /* a sound's kind, for lists: SYNTH, STRIKE, TAPE, PERC or KIT */
 const char *rv_bank_kind_label(int i)
 {
-    static const char *const k[KIND_N] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP"};
+    static const char *const k[KIND_N] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "LOOP"};
     if (!rv_bank_used(i))
         return "";
     if (rv_bank_is_kit(i))

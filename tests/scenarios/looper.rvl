@@ -1,0 +1,49 @@
+# LOOP (TEST build): T8 becomes a LOOP track; black key 1 records lane 1 from the main mix (the demo
+# playing) and plays it back; a white key holds a slice; on SEQ, trigs and ranges go on the steps
+wait 300
+demo 1
+wait 200
+tap PLAY
+wait 1500
+kind 8 5
+wait 100
+expect tp 8 KIND 5
+turn ALGO 7
+wait 100
+tap EDIT
+wait 150
+expect page LOOP LEVEL
+tapkey 1
+wait 100
+expect loopst 1 3
+wait 2500
+tapkey 1
+wait 100
+expect loopst 1 1
+expect loopfill 1 2000
+wait 600
+shot loop.png
+expect meter_min 8 0.01
+key 0 down
+wait 300
+expect loopst 1 9
+key 0 up
+wait 100
+expect loopst 1 1
+tap SEQ
+wait 150
+expect page LOOP TRIGS
+tapkey 7
+wait 100
+expect stepbits 8 5 1
+key 7 down
+wait 50
+tapkey 18
+wait 50
+key 7 up
+wait 100
+expect lprange 8 5 1 7
+shot loopseq.png
+kind 8 0
+wait 200
+expect tp 8 KIND 0

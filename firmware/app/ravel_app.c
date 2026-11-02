@@ -8,6 +8,7 @@
 #include "rv_mod.c"
 #include "rv_bus.c"
 #include "rv_seq.c"
+#include "rv_loop.c"
 #include "rv_engine.c"
 #include "rv_presets.c"
 #include "rv_project.c"

@@ -28,7 +28,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN };   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN, K_LP };   /* K_LP: LOOP TRIGS (LANE, TRIG, RANGE) */   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -44,10 +44,10 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP };   /* PR_STEP: the step pages, PRESETS steps through the steps */
@@ -78,6 +78,11 @@ static const page_t pages[] = {
     /* COMP (T8): the bus compressor on the main mix; a COMP track shows these and nothing else of a voice */
     {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP 2", {TP(TP_S4), TP(TP_S5), TP(TP_KIND), NO}},
+    /* LOOP (a TEST build): four lanes; the keys record, play and slice them (rv_loop.c) */
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP LEVEL", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP PITCH", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP SPEED", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP INPUT", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_KIND)}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
@@ -147,6 +152,9 @@ static const page_t pages[] = {
     {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP 2", {TP(TP_ARPGATE), TP(TP_ARPREP), TP(TP_ARPCHNC), NO}},
 
     {SEC_SEQ, V_COMP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), NO, NO}},   /* (a COMP track has no steps) */
+    {SEC_SEQ, V_LOOP, PIC_LOOPSEQ, PR_STEP, "LOOP TRIGS", {{K_LP, 0}, {K_LP, 1}, {K_LP, 2}, TP(TP_LEN)}},   /* record and play trigs, per lane, with a RANGE */
+    {SEC_SEQ, V_LOOP, PIC_LOOPSEQ, PR_STEP, "TRIG CHANCE", {SF(SF_CHANCE), SF(SF_COND), NO, NO}},
+    {SEC_SEQ, V_LOOP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
@@ -215,6 +223,7 @@ static struct {
     uint32_t turned_ms[4];
     uint8_t armed;
     int8_t srec_t;                  /* step recording on this track (-1: off) */
+    uint8_t lp_lane, lp_type;       /* LOOP TRIGS: the lane the keys write, and the trig (0 PLAY, 1 REC) */
     int8_t srec_seen;               /* the cursor last shown (the keys' page follows it) */
     uint8_t save_confirm;
     uint8_t cur_sound, bank_action, bank_cursor, bank_dirty;   /* SOUNDS: the slot, LOAD/SAVE/CLEAR, the name's cursor */
@@ -462,8 +471,10 @@ static int page_visible(int i)
     if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
         return 0;
     if (kind == KIND_COMP)                            /* COMP: its own pages where a voice's would be */
-        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_COMP : pages[i].vis != V_COMP;
-    if (pages[i].vis == V_COMP)
+        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_COMP : pages[i].vis != V_COMP && pages[i].vis != V_LOOP;
+    if (kind == KIND_LOOP)                            /* LOOP: its own pages too */
+        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_LOOP : pages[i].vis != V_LOOP && pages[i].vis != V_COMP;
+    if (pages[i].vis == V_COMP || pages[i].vis == V_LOOP)
         return 0;
     switch (pages[i].vis) {
     case V_SRC0: return src_page_visible(t, 0);
@@ -617,6 +628,29 @@ static void euc_write(int t, int hits, int rot)
 }
 
 static int stress_loaded(void);
+/* LOOP trigs on a step: bits 0-3 play lanes 1-4, bits 4-7 record them (the step's note byte); each lane's
+ * RANGE in steps (0: the whole loop) in the chord bytes and, for lane 4, the velocity (rv_loop.c) */
+static int loop_track_ui(int t) { return rv.tp[t][TP_KIND] == KIND_LOOP; }
+static int lp_range_get(const rv_step *s, int l)
+{
+    return l == 0 ? (uint8_t)s->chord[0] : l == 1 ? (uint8_t)s->chord[1] : l == 2 ? (uint8_t)s->chord[2] : s->vel;
+}
+static void lp_range_set(rv_step *s, int l, int v)
+{
+    if (l < 3)
+        s->chord[l] = (int8_t)(uint8_t)v;
+    else
+        s->vel = (uint8_t)v;
+}
+static int other_loop_track(int t)                    /* another track is LOOP already (one at a time: the memory) */
+{
+    int i;
+    for (i = 0; i < RV_TRACKS; i++)
+        if (i != t && rv.tp[i][TP_KIND] == KIND_LOOP)
+            return 1;
+    return 0;
+}
+
 static kinfo_t kb_info(kb_t k)
 {
     kinfo_t r = {0, 0, 0, PF_NUM, 0};
@@ -783,6 +817,21 @@ static kinfo_t kb_info(kb_t k)
         case 6: r.max = RV_SENV_SEG; r.fmt = PF_ENUM; r.names = lib_loop; break;
         default: r.max = RV_SENV; r.fmt = PF_ENUM; r.names = lib_next; break;
         }
+        break;
+    }
+    case K_LP: {
+        static const char *const lanes[] = {"1", "2", "3", "4"}, *const trig[] = {"PLAY", "REC"};
+        r.name = k.id == 0 ? "LANE" : k.id == 1 ? "TRIG" : "RANGE";
+        if (k.id == 0) {
+            r.max = 3;
+            r.fmt = PF_ENUM;
+            r.names = lanes;
+        } else if (k.id == 1) {
+            r.max = 1;
+            r.fmt = PF_ENUM;
+            r.names = trig;
+        } else
+            r.max = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS);   /* (0: the whole loop) */
         break;
     }
     case K_LRN: {
@@ -1011,6 +1060,9 @@ static int kb_get(kb_t k)
     }
     case K_LRN:
         return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : k.id == 4 ? prefs_stay() : 0;
+    case K_LP:
+        return k.id == 0 ? ui.lp_lane : k.id == 1 ? ui.lp_type
+             : lp_range_get(step_ptr(held_step() >= 0 ? held_step() : ui.step_cur), ui.lp_lane & 3);
     case K_SAVE:
         return k.id == 0 ? ui.save_action : k.id == 1 ? ui.proj_cursor + 1
              : rv_bank_char_index(rv.name[ui.proj_cursor % (sizeof rv.name - 1)]);
@@ -1032,7 +1084,8 @@ static void kb_set(kb_t k, int v)
     switch (k.kind) {
     case K_TP:
         if (k.id == TP_KIND && v != rv.tp[ui.track][TP_KIND]) {
-            if (is_kit_ui(ui.track) != (v == KIND_PERC) && track_has_steps(ui.track) && !confirmed(CONF_KIND, "TURN AGAIN: CLEARS STEPS"))
+            if ((is_kit_ui(ui.track) != (v == KIND_PERC) || loop_track_ui(ui.track) != (v == KIND_LOOP)) && track_has_steps(ui.track) &&
+                !confirmed(CONF_KIND, "TURN AGAIN: CLEARS STEPS"))
                 return;
             rv_track_set_kind(ui.track, v);
             ui.preset_idx[ui.track] = -1;
@@ -1363,6 +1416,16 @@ static void kb_set(kb_t k, int v)
         }
         break;
     }
+    case K_LP:
+        if (k.id == 0)
+            ui.lp_lane = (uint8_t)(v & 3);
+        else if (k.id == 1)
+            ui.lp_type = (uint8_t)(v & 1);
+        else {                                        /* RANGE of the step held (or on the knobs), for the lane */
+            rv_step *st = step_ptr(held_step() >= 0 ? held_step() : ui.step_cur);
+            lp_range_set(st, ui.lp_lane & 3, v);
+        }
+        break;
     case K_SAVE:
         if (k.id == 0)
             ui.save_action = (uint8_t)v;
@@ -1695,8 +1758,12 @@ static void knob_turn(int i, int d)
          * COMP is T8's alone) */
         if (((k.kind == K_TP && k.id == TP_KIND && nv == KIND_TAPE) || (k.kind == K_ROUTE && k.id == RF_TYPE && nv == RT_TAPE)))
             nv += d > 0 ? 1 : -1;
-        if (k.kind == K_TP && k.id == TP_KIND && nv >= KIND_COMP && ui.track != 7)
-            nv = KIND_PERC;
+        if (k.kind == K_TP && k.id == TP_KIND && nv == KIND_COMP && ui.track != 7)
+            nv += d > 0 ? 1 : -1;                     /* (COMP is T8's alone) */
+        if (k.kind == K_TP && k.id == TP_KIND && nv >= KIND_LOOP && other_loop_track(ui.track)) {
+            nv = rv.tp[ui.track][TP_KIND];            /* (one LOOP track at a time: it holds the buses' memory) */
+            msg("ONE LOOP TRACK AT A TIME");
+        }
         kb_set(k, nv);
         page_follow(gp);
         if (ui.srec_t == ui.track && k.kind == K_STEP && k.id == SF_LEN)   /* step recording: the notes to come take this length */
@@ -2042,6 +2109,51 @@ static void key_event(int k, int on)
                     rv_step_rec(SREC_TO, t, ui.step_page * 16 + wi);
                     return;
                 }
+                if (loop_track_ui(t) && !ui.step_turned) {   /* LOOP: a trig on, or off; a step still held: a range */
+                    int si = ui.step_page * 16 + wi, l = ui.lp_lane & 3, bit = 1 << (l + (ui.lp_type ? 4 : 0));
+                    int len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
+                    if (ui.step_key_held) {           /* held first (a key further on): from it to this one */
+                        int f = 0, fs, n;
+                        rv_step *fsp;
+                        while (!((ui.step_key_held >> f) & 1u))
+                            f++;
+                        fs = ui.step_page * 16 + f;
+                        n = ((si - fs) % len + len) % len + 1;
+                        fsp = step_ptr(fs);
+                        if (!(fsp->flags & ST_ON)) {
+                            fsp->chance = 100;
+                            fsp->cond = 0;
+                        }
+                        fsp->note |= (uint8_t)bit;
+                        fsp->flags |= ST_ON;
+                        lp_range_set(fsp, l, n);
+                        ui.step_turned = 1;           /* (its own let-go is no tap) */
+                        {
+                            char b[28] = "LANE ";
+                            b[5] = (char)('1' + l);
+                            b[6] = 0;
+                            sx_cat(b, ui.lp_type ? " REC " : " PLAY ");
+                            sx_int(b + sx_cat(b, ""), fs + 1);
+                            sx_cat(b, "-");
+                            sx_int(b + sx_cat(b, ""), (fs + n - 1) % len + 1);
+                            msg(b);
+                        }
+                        return;
+                    }
+                    {
+                        rv_step *sp = step_ptr(si);
+                        if (!(sp->flags & ST_ON)) {
+                            sp->chance = 100;
+                            sp->cond = 0;
+                            sp->note = 0;
+                        }
+                        sp->note ^= (uint8_t)bit;
+                        if (sp->note & bit)
+                            lp_range_set(sp, l, 0);
+                        sp->flags = (uint8_t)(sp->note ? sp->flags | ST_ON : sp->flags & ~ST_ON);
+                    }
+                    return;
+                }
                 if (!ui.step_turned) {
                     rv_step *s = step_ptr(ui.step_page * 16 + wi);
                     if (is_kit_ui(t)) {
@@ -2139,6 +2251,14 @@ static void key_event(int k, int on)
             }
             return;                             /* (let go: above) */
         }
+        if (bi >= 2 && bi < 6 && on && loop_track_ui(t)) {   /* LOOP: black keys 3-6, the lane the keys write */
+            char b[12] = "LANE ";
+            ui.lp_lane = (uint8_t)(bi - 2);
+            b[5] = (char)('1' + ui.lp_lane);
+            b[6] = 0;
+            msg(b);
+            return;
+        }
         if (bi >= 2 && bi < 2 + RV_LANES && on && is_kit_ui(t)) {   /* black keys 3-8: the kit's lanes */
             ui.lane[t] = (uint8_t)(bi - 2);
             lane_msg(t);
@@ -2182,6 +2302,39 @@ static void key_event(int k, int on)
         }
         if (on && bi >= 0 && bi < RV_PATTERNS)
             rv_pattern_launch(t, bi);
+        return;
+    }
+    /* --- LOOP: the keys play it. White: the slices, four a lane (1-4 lane 1 ...); black 1-4 record a
+     * lane by hand (on, off), 5-8 play it (on, off); black 9 held with a lane's record key clears the
+     * lane; black 11 twice clears them all --- */
+    if (loop_track_ui(t)) {
+        static uint8_t clr_held;
+        if (wi >= 0) {
+            rv_loop_cmd(on ? 3 : 4, 0, wi);
+            return;
+        }
+        if (bi == 8) {
+            clr_held = (uint8_t)on;
+            return;
+        }
+        if (!on || bi < 0)
+            return;
+        if (bi < 4) {
+            if (clr_held) {
+                char b[16] = "LANE ";
+                b[5] = (char)('1' + bi);
+                b[6] = 0;
+                sx_cat(b, " CLEARED");
+                rv_loop_cmd(2, bi, 0);
+                msg(b);
+            } else
+                rv_loop_cmd(0, bi, 0);
+        } else if (bi < 8)
+            rv_loop_cmd(1, bi - 4, 0);
+        else if (bi == 10 && confirmed(CONF_LCLR, "AGAIN: CLEAR ALL LANES")) {
+            rv_loop_cmd(2, 4, 0);
+            msg("ALL LANES CLEARED");
+        }
         return;
     }
     /* --- otherwise the keys play the track --- */
@@ -2796,6 +2949,10 @@ static void draw_footer(void)
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
     case PR_STEP:
     case PR_PATTERN:
+        if (loop_track_ui(ui.track)) {
+            hint = "TAP: TRIG  HOLD+TAP: RANGE  BLK 3-6: LANE";
+            break;
+        }
         hint = ui.srec_t >= 0 ? (prefs_stay() ? "STAY: PRESETS PICKS THE STEP" : "OCT+ REST  OCT- BACK")
                : pg->pr == PR_STEP && !seq_keys_play(ui.track) && !is_kit_ui(ui.track) ? "PRESETS: STEP  KEYS: STEPS"
                : seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
@@ -2859,6 +3016,8 @@ static void draw_footer(void)
             hint = "KEYS: HOLD NOTES TO ARPEGGIATE";
         else if (pg->pic == PIC_COMP)
             hint = "T8 SQUEEZES THE MAIN MIX";
+        else if (pg->pic == PIC_LOOP)
+            hint = "WHT: SLICES  BLK1-4 REC  5-8 PLAY";
         break;
     }
     if (rv_live.countin) {
@@ -4235,6 +4394,125 @@ static void pic_flash(void)
 }
 
 /* MIDI IN: where notes go, the clock (its tempo, or that none comes), the last note */
+/* LOOP: the four lanes, each its sound drawn small (worked out a few times a second), its play range
+ * with the four slices, where it plays, whether it records (red), waits for the threshold (amber),
+ * plays (green) or a slice of it is held (white); what comes in */
+static void pic_loop(void)
+{
+    static uint8_t ov[4][100];
+    static uint32_t ov_frame;
+    uint32_t n = rv_loop_lane_len();
+    int l, x, t = ui.track, y0 = PIC_Y + 4;
+    char b[24];
+    if (n && ui.frame - ov_frame > 6u) {               /* (every few frames: the outline of each lane) */
+        ov_frame = ui.frame;
+        for (l = 0; l < 4; l++)
+            for (x = 0; x < 100; x++) {
+                uint32_t a = (uint32_t)x * n / 100u, e = (uint32_t)(x + 1) * n / 100u, i;
+                int pk = 0;
+                for (i = a; i < e; i += 3) {
+                    int v = rv_loop_peek(l, i);
+                    v = v < 0 ? -v : v;
+                    if (v > pk)
+                        pk = v;
+                }
+                ov[l][x] = (uint8_t)(pk * 12 / 127);
+            }
+    }
+    for (l = 0; l < 4; l++) {
+        int y = y0 + l * 28, st = rv_live.loop_st[l], cy = y + 12, k;
+        uint16_t lc = st & 2 ? (st & 4 ? C_AMBER : C_RED) : st & 8 ? C_WHITE : st & 1 ? RGB(90, 210, 120) : C_DIM;
+        float pa = rv_live.loop_pa[l], pl = rv_live.loop_pl[l];
+        b[0] = (char)('1' + l);
+        b[1] = 0;
+        g_text(6, y + 6, &FONT_B, b, lc);
+        g_rbox(24, y, 200, 25, 3, C_PANEL, 1);
+        if (st & 1) {                                 /* the play range, its four slices */
+            int xa = 24 + (int)(pa * 200.0f), w = (int)(pl * 200.0f);
+            g_fill(xa, y, w > 200 ? 200 : w, 25, g_mix(C_PANEL, RGB(90, 210, 120), 0.18f));
+            for (k = 1; k < 4; k++)
+                g_vline(xa + w * k / 4, y + 2, 21, C_LINE);
+        }
+        for (x = 0; x < 100; x++) {
+            int h = ov[l][x];
+            if (h)
+                g_vline(24 + x * 2, cy - h, h * 2 + 1, lc == C_DIM ? C_MID : lc);
+        }
+        if (st & 3)                                   /* where it plays */
+            g_vline(24 + (int)(rv_live.loop_q[l] * 199.0f), y, 25, C_WHITE);
+        if (st & 2)                                   /* recording: where it writes */
+            g_vline(24 + (int)(rv_live.loop_pos * 199.0f), y, 25, C_RED);
+        g_fill(228, y + 25 - (int)(clampf(rv_live.loop_peak[l], 0.0f, 1.0f) * 25.0f), 6,
+               (int)(clampf(rv_live.loop_peak[l], 0.0f, 1.0f) * 25.0f), lc);
+    }
+    {
+        static const char *const src[] = {"MAIN", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+        int y = y0 + 114, w = (int)(clampf(rv_live.loop_in, 0.0f, 1.0f) * 60.0f);
+        b[0] = 0;
+        sx_cat(b, "IN ");
+        sx_cat(b, src[clampi(rv.tp[t][TP_S12], 0, 8)]);
+        g_text(6, y, &FONT_T, b, C_MID);
+        g_fill(50, y + 3, 60, 4, C_LINE);
+        g_fill(50, y + 3, w, 4, C_TEAL);
+        g_text_r(234, y, &FONT_T, "FX BUSES REST", C_DIM);
+    }
+}
+
+/* LOOP TRIGS: the four lanes against the steps on the keys: P (play) and R (record) trigs, their ranges
+ * as bars on, the lane the keys write lit, the playhead, the step on the knobs */
+static void pic_loopseq(void)
+{
+    int t = ui.track, len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), l, c, y0 = PIC_Y + 4, play = rv_live.step[t][0];
+    const rv_pattern *p = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
+    char b[24];
+    for (l = 0; l < 4; l++) {
+        int y = y0 + l * 26, sel = l == (ui.lp_lane & 3);
+        b[0] = (char)('1' + l);
+        b[1] = 0;
+        g_text(4, y + 7, &FONT_T, b, sel ? C_INK : C_DIM);
+        if (sel)
+            g_rbox(14, y - 1, 222, 25, 3, C_PANEL, 1);
+        for (c = 0; c < 16; c++) {                   /* the ranges first, under the trigs */
+            int si = ui.step_page * 16 + c, ty;
+            const rv_step *s = &p->s[si];
+            if (si >= len || !(s->flags & ST_ON))
+                continue;
+            for (ty = 0; ty < 2; ty++)
+                if ((s->note >> (l + ty * 4)) & 1) {
+                    int r = lp_range_get(s, l), n = r ? r : len, k;
+                    for (k = 1; k < n && c + k < 16; k++)
+                        g_fill(16 + (c + k) * 14, y + (ty ? 14 : 4), 13, 4, ty ? RGB(130, 40, 40) : RGB(40, 110, 60));
+                }
+        }
+        for (c = 0; c < 16; c++) {
+            int si = ui.step_page * 16 + c, x = 16 + c * 14;
+            const rv_step *s = &p->s[si];
+            if (si >= len)
+                continue;
+            g_rbox(x, y, 13, 22, 2, C_LINE, 0);
+            if (s->flags & ST_ON) {
+                if ((s->note >> l) & 1)
+                    g_fill(x + 2, y + 2, 9, 8, RGB(90, 210, 120));   /* P */
+                if ((s->note >> (l + 4)) & 1)
+                    g_fill(x + 2, y + 12, 9, 8, C_RED);              /* R */
+            }
+            if (si == play)
+                g_rbox(x, y, 13, 22, 2, C_WHITE, 0);
+            if (si == ui.step_cur && cur_page()->pr == PR_STEP)
+                g_rbox(x - 1, y - 1, 15, 24, 2, C_K1, 0);
+        }
+    }
+    {
+        char sb[24] = "STEP ";
+        int w;
+        sx_int(sb + 5, ui.step_cur + 1);
+        w = g_text_w(&FONT_B, sb);
+        g_text_r(232, PIC_Y + 118, &FONT_B, sb, C_K1);
+        g_text_r(232 - w - 6, PIC_Y + 124, &FONT_T, "PRESETS", C_DIM);
+        g_text(6, PIC_Y + 124, &FONT_T, ui.lp_type ? "KEYS: REC TRIGS" : "KEYS: PLAY TRIGS", ui.lp_type ? C_RED : RGB(90, 210, 120));
+    }
+}
+
 /* MIDI LEARN: what's learned (PRESETS picks one), the knobs on screen (CC 70-73), and how to learn */
 static void pic_learn(void)
 {
@@ -4904,6 +5182,8 @@ static void draw_picture(void)
     case PIC_MIDI: pic_midi(); break;
     case PIC_PANEL: pic_panel(); break;
     case PIC_LEARN: pic_learn(); break;
+    case PIC_LOOP: pic_loop(); break;
+    case PIC_LOOPSEQ: pic_loopseq(); break;
     default: break;
     }
 }
