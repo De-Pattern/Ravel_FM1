@@ -231,6 +231,34 @@ static void in_draw_splat(int k, int x, int y, int r, float age, float fade)
         g_pset(x + r / 2, y + r / 3, acc);
 }
 
+/* the maker's name in a lower-case pixel hand of its own (4 x 8, a bit a pixel, high bit left) */
+static const char in_lc_ch[] = "de-patrn";
+static const uint8_t in_lc[8][8] = {
+    {0x01, 0x01, 0x07, 0x09, 0x09, 0x09, 0x07, 0x00},   /* d */
+    {0x00, 0x00, 0x06, 0x09, 0x0f, 0x08, 0x07, 0x00},   /* e */
+    {0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00},   /* - */
+    {0x00, 0x00, 0x0e, 0x09, 0x09, 0x0e, 0x08, 0x08},   /* p */
+    {0x00, 0x00, 0x06, 0x01, 0x07, 0x09, 0x07, 0x00},   /* a */
+    {0x04, 0x04, 0x0e, 0x04, 0x04, 0x04, 0x03, 0x00},   /* t */
+    {0x00, 0x00, 0x0b, 0x0c, 0x08, 0x08, 0x08, 0x00},   /* r */
+    {0x00, 0x00, 0x0e, 0x09, 0x09, 0x09, 0x09, 0x00},   /* n */
+};
+
+static void in_lower(int x, int y, const char *str, uint16_t c)
+{
+    for (; *str; str++, x += 5) {
+        int g = 0, r, i;
+        while (in_lc_ch[g] && in_lc_ch[g] != *str)
+            g++;
+        if (!in_lc_ch[g])
+            continue;
+        for (r = 0; r < 8; r++)
+            for (i = 0; i < 4; i++)
+                if ((in_lc[g][r] >> (3 - i)) & 1u)
+                    g_pset(x + i, y + r, c);
+    }
+}
+
 /* one frame; 0 once it is over */
 static int intro_frame(void)
 {
@@ -352,9 +380,17 @@ static int intro_frame(void)
                 continue;
             in_draw_splat(i, x, y, r, age, fade);
         }
-        /* the version, small, once the word is there */
-        if (t > 3200 && b + GB_H > 214 && b < 226)
-            g_text_c(PLAT_W / 2, 214, &FONT_T, "RAVEL " RAVEL_BUILD, in_grey(0.38f * fade));
+        /* the maker's name, small, once the word is there: it flickers like a failing tube, now and then
+         * jumping a pixel with a teal or red ghost */
+        if (t > 3200 && b + GB_H > 212 && b < 228) {
+            uint32_t q = in_hash(t / 45u), q2 = in_hash(t / 45u + 991u);
+            int dark = (q & 7u) == 0u || ((q >> 3) & 15u) == 0u, jx = (q2 & 15u) == 0u ? ((q2 >> 4) & 1u ? 1 : -1) : 0;
+            float v = (0.30f + (float)((q >> 8) & 255u) * (0.32f / 255.0f)) * fade;
+            if (jx)
+                in_lower(PLAT_W / 2 - 25 - jx * 2, 214, "de-pattern", (q2 >> 5) & 1u ? IN_TEAL : IN_RED);
+            if (!dark)
+                in_lower(PLAT_W / 2 - 25 + jx, 214, "de-pattern", in_grey(v));
+        }
         g_send();
     }
     /* the keys' lights: all at a flash, a few with the rain, along the word as it forms */
