@@ -21,6 +21,7 @@
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect mutes M | solos S       the muted / soloed tracks as a bitmask (T1 = 1)
+ *   expect held T N               track T's synth voices held now
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
@@ -469,6 +470,9 @@ int main(int argc, char **argv)
             } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
                 got = rv_live.srec_step + 1;
                 want = atoi(w1);
+            } else if (!strcmp(b, "held")) {                 /* track T's synth voices held now */
+                got = rv_track_held(atoi(w1) - 1);
+                want = atoi(w2);
             } else if (!strcmp(b, "voices")) {               /* synth and strike voices sounding */
                 got = rv_live.voices_synth + rv_live.voices_strike;
                 want = atoi(w1);

@@ -233,7 +233,7 @@ The current track is highlighted.
 
 <p align="center"><img src="docs/manual/comp.png" alt="COMP: the gain reduction and the curve" width="320"></p>
 
-T8 can be a glue compressor for the whole mix, after the SSL G-series bus compressor. It is off by default (T8 is a drum). To turn it on, choose T8 with ALGORITHM, and on HOME › TRACKS (or EDIT › SOUND) turn **KIND** to **COMP**. T8 then plays nothing itself: EDIT shows the compressor's two pages, and it squeezes the mix (the tracks and the buses' returns) before the master's drive and limiter. To turn it off, turn KIND back (it is also KNOB 3 on COMP 2).
+T8 can be a glue compressor for the whole mix, after the SSL G-series bus compressor. It is off by default (T8 is a drum). To turn it on, choose T8 with ALGORITHM, and on HOME › TRACKS (or EDIT › SOUND) turn **KIND** to **COMP**. T8 then plays nothing itself: EDIT keeps its first page, SOUND, with KIND (ENGINE, VOICES and VELO greyed out), and the compressor's two pages follow it; it squeezes the mix (the tracks and the buses' returns) before the master's drive and limiter. To turn it off, turn KIND back on SOUND (or HOME › TRACKS; it is also KNOB 3 on COMP 2).
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -1337,6 +1337,11 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 - The audio is taking longer than it has. Open GLO › CPU: if RENDER is near or over 90 % and XRUNS is counting, that's it. The bars show which part costs most.
 - Fewer voices (EDIT › SOUND › VOICES), fewer tracks playing at once, or lower effect sends bring it down. The overload guard fades out voices on its own, but it can't help when the effects alone are too much.
 - To know this unit's limits, run GLO › STRESS with AUTO.
+
+**A long note gets cut off when other tracks play.**
+
+- Synth tracks share **eight voices** between them (strike tracks have four of their own, perc tracks twelve). When every one is sounding, a new note takes one: a voice that is already releasing first, then a note of the track holding the most voices (a chord loses a note before a lone line), the oldest of those. So a held note on a mono track keeps its voice unless every track is down to one.
+- If GLO › CPU shows **GUARD: n VOICES** in red, it is the overload guard, not the voice count: the FM-1 is near its limit and the guard is fading voices to keep up. Lower VOICES on chord tracks (each voice costs, held or releasing), shorten long RELEASE times, or lower effect sends.
 
 **Something got loud or stuck.**
 
