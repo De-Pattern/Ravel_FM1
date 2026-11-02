@@ -136,6 +136,21 @@ static void upgrade_from_2(void)
     rv.format = RV_FORMAT;
 }
 
+/* a kind this build doesn't know (a project from a test build: the LOOP track): a blank VA synth,
+ * its steps cleared */
+static void unknown_kinds(void)
+{
+    int t, pt;
+    for (t = 0; t < RV_TRACKS; t++)
+        if (rv.tp[t][TP_KIND] < 0 || rv.tp[t][TP_KIND] >= KIND_N) {
+            rv_track_defaults(t, KIND_SYNTH, ENG_VA);
+            pt = rv.pat_cur[t];
+            for (rv.pat_cur[t] = 0; rv.pat_cur[t] < RV_PATTERNS; rv.pat_cur[t]++)
+                rv_pattern_clear(t);
+            rv.pat_cur[t] = (uint8_t)pt;
+        }
+}
+
 int rv_load(int slot)
 {
     rv_head h;
@@ -145,6 +160,7 @@ int rv_load(int slot)
     if (h.format == RV_FORMAT) {
         if (plat_load(slot, &rv, sizeof(rv)) != (int)sizeof(rv))
             return -1;
+        unknown_kinds();
         return 0;
     }
     f = (int)h.format;
@@ -271,6 +287,7 @@ int rv_load(int slot)
             for (p = TP_ARPMODE; p <= TP_ARPCHNC; p++)
                 rv.tp[t][p] = (int16_t)rv_pinfo_track(t, p)->def;
     }
+    unknown_kinds();
     rv.format = RV_FORMAT;
     return 0;
 }

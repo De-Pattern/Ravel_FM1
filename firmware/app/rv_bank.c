@@ -258,7 +258,8 @@ int rv_bank_apply(int t, int i)
     if (!rv_bank_used(i))
         return -1;
     s = &bank.s[i];
-    if (s->kind == KIND_TAPE)                        /* (a tape sound, saved before the tape left: nothing to load) */
+    if (s->kind == KIND_TAPE || s->kind >= KIND_N)   /* (a tape sound, saved before the tape left, or a kind from a
+                                                      * newer build: nothing to load) */
         return -1;
     if (s->kind == KIND_COMP && (t & 7) != 7)        /* the compressor lives on T8 */
         return -1;
