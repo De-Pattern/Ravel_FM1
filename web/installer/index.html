@@ -88,7 +88,8 @@ const $ = (id) => document.getElementById(id);
 const TEXT = {
   ja: {
     latest: "最新リリース: ", ready: "準備完了: Ravel ", norel: "リリースはまだありません",
-    pick: "インストールする版", isLatest: "（最新リリース）", testb: "テストビルド ",
+    pick: "インストールする版", isLatest: "（最新リリース）", testb: "テストビルド ", testr: "TEST ",
+    testrwhy: "ブランチのテストビルドです（実験版で、通常のファームウェアではありません）。変更されたり、なくなったりすることがあります。先にプロジェクトを .ravel ファイルとして書き出してください。",
     testwhy: "最新リリース以降の変更を含むテストビルドです。まだリリースされておらず、FM-1 で試されていない変更があるかもしれません。",
     older: "古い版です。新しい版で保存したプロジェクトは開けないことがあり、古い版で保存すると上書きされることがあります。先にプロジェクトを .ravel ファイルとして書き出してください。",
     intro: "FM-1 を USB で接続してください。（Chrome か Edge で使えます）",
@@ -128,7 +129,8 @@ const TEXT = {
   },
   en: {
     latest: "Latest release: ", ready: "Ready to install Ravel ", norel: "No release yet",
-    pick: "Version to install", isLatest: " (latest release)", testb: "Test build ",
+    pick: "Version to install", isLatest: " (latest release)", testb: "Test build ", testr: "TEST ",
+    testrwhy: "A TEST build from a branch: an experiment, not the main firmware. It may change or be dropped. Export your projects as .ravel files first.",
     testwhy: "A test build with the changes since the latest release: not released yet, and it may have changes not yet tried on an FM-1.",
     older: "This is an older version. Projects saved with a newer one may not open in it, and saving in it can overwrite them. Export your projects as .ravel files first.",
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
@@ -181,7 +183,7 @@ function applyLang() {
 }
 /* the latest release at the top, and the versions to choose from (the FM-1 shows its own on GLO > FLASH
  * and at start) */
-const vname = (b) => b.release ? b.version : t("testb") + b.version;
+const vname = (b) => b.release ? b.version : b.test ? t("testr") + b.version : t("testb") + b.version;
 function showVer() {
   try { if (!meta || !$("latest")) return; } catch (e) { return; }   /* (meta comes later in the page) */
   const rel = meta.builds.find((b) => b.release);
@@ -208,7 +210,7 @@ function goLabel() {                                  /* the button names what i
 }
 function pickWarn() {
   const b = meta.builds[+$("pick").value], rel = meta.builds.find((x) => x.release);
-  $("pickwarn").textContent = !b ? "" : !b.release ? t("testwhy")
+  $("pickwarn").textContent = !b ? "" : b.test ? t("testrwhy") : !b.release ? t("testwhy")
     : rel && meta.builds.indexOf(b) > meta.builds.indexOf(rel) ? t("older") : "";
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });

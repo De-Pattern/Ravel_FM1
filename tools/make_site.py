@@ -6,9 +6,10 @@ firmware itself.
 
   tools/make_site.py OUT_DIR EMULATOR.html [PACKAGE.fwsc VERSION [RELEASES_DIR]]
 
-Without a package the site has no installer. RELEASES_DIR holds list.txt ("TAG DATE" a line, newest
-first) and TAG/Ravel-FM1.fwsc for each: the installer offers those releases too, the newest first,
+Without a package the site has no installer. RELEASES_DIR holds list.txt ("TAG DATE PRERELEASE" a line,
+newest first; a pre-release, or a 0.x once there is a 1.x, is listed as a TEST build) and TAG/Ravel-FM1.fwsc for each: the installer offers those releases too, the newest first,
 with this commit's build first, as the test build, when it is not one of them."""
+import re
 import json
 import shutil
 import sys
@@ -65,7 +66,10 @@ def main(argv):
         builds = []                                         # the releases, newest first, then the test build
         rel = Path(argv[5]) if len(argv) == 6 else None
         if rel and (rel / "list.txt").exists():
-            for line in (rel / "list.txt").read_text().splitlines():
+            lines = (rel / "list.txt").read_text().splitlines()
+            major = lambda tag: int(re.match(r"v?(\d+)", tag).group(1)) if re.match(r"v?\d", tag) else 0
+            has_1 = any(major(ln.split()[0]) >= 1 for ln in lines if ln.split())
+            for line in lines:
                 parts = line.split()
                 if len(parts) < 2 or not (rel / parts[0] / "Ravel-FM1.fwsc").exists():
                     continue
@@ -75,8 +79,11 @@ def main(argv):
                     continue
                 (out / "firmware" / tag).mkdir()
                 (out / "firmware" / tag / "Ravel-FM1.fwsc").write_bytes(rp)
-                builds.append({"version": tag, "product": product_of(rp), "built": date, "release": True,
-                               "pkg": f"../firmware/{tag}/Ravel-FM1.fwsc"})
+                # a TEST release (a branch's build, such as the looper): a pre-release, or a 0.x after 1.0. It is
+                # listed as a test build, never as the latest, so the installer never picks it by itself
+                test = (len(parts) > 2 and parts[2] == "true") or (has_1 and major(tag) == 0)
+                builds.append({"version": tag, "product": product_of(rp), "built": date, "release": not test,
+                               "test": test, "pkg": f"../firmware/{tag}/Ravel-FM1.fwsc"})
         if not any(b["version"].lstrip("v") == version.lstrip("v") for b in builds):
             builds.insert(0, {"version": version, "product": product, "built": built, "release": False,
                            "pkg": "../firmware/Ravel-FM1.fwsc"})
