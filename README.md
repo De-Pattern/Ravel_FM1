@@ -234,7 +234,7 @@ The current track is highlighted.
 
 <p align="center"><img src="docs/manual/comp.png" alt="COMP: the gain reduction and the curve" width="320"></p>
 
-T8 can be a glue compressor for the whole mix, after the SSL G-series bus compressor. It is off by default (T8 is a drum). To turn it on, choose T8 with ALGORITHM, and on HOME › TRACKS (or EDIT › SOUND) turn **KIND** to **COMP**. T8 then plays nothing itself: EDIT shows the compressor's two pages, and it squeezes the mix (the tracks and the buses' returns) before the master's drive and limiter. To turn it off, turn KIND back (it is also KNOB 3 on COMP 2).
+T8 can be a glue compressor for the whole mix, after the SSL G-series bus compressor. It is off by default (T8 is a drum). To turn it on, choose T8 with ALGORITHM, and on HOME › TRACKS (or EDIT › SOUND) turn **KIND** to **COMP**. T8 then plays nothing itself: EDIT keeps its first page, SOUND, with KIND (ENGINE, VOICES and VELO greyed out), and the compressor's two pages follow it; it squeezes the mix (the tracks and the buses' returns) before the master's drive and limiter. To turn it off, turn KIND back on SOUND (or HOME › TRACKS; it is also KNOB 3 on COMP 2).
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -251,7 +251,55 @@ The matrix and macros can move its knobs like any track's (THRESH on an LFO pump
 
 > This is in the **TEST** firmware only (listed as TEST in the installer). It is new and has not been played much on hardware yet.
 
-Turn **KIND** to **LOOP** on any one track (HOME › TRACKS, KNOB 3; turn it back there to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records.
+Turn **KIND** to **LOOP** on any one track (EDIT › SOUND, KNOB 1, or HOME › TRACKS, KNOB 3; turn it back the same way to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records. EDIT keeps its SOUND page (KIND; the other knobs greyed), and the looper's pages follow it.
+
+#### Step by step
+
+The keys below are counted from the left: **black key 1** is the first black key (F#), **white key 1** the first white key (F).
+
+**Your first loop**
+
+1. Get something playing: load a demo (SAVE › DEMO) or your project, and press **PLAY**.
+2. With **ALGORITHM**, pick a track you aren't using (T8, say). Press **EDIT**: the first page is **SOUND**. Turn **KNOB 1 (KIND)** until it reads **LOOP** (if the track had steps, the screen asks you to turn again). The effects stop; the screen's bottom line says FX BUSES REST.
+3. Turn **SELECT** one page to **LOOP LEVEL**: four empty lanes.
+4. Press **black key 1**. Lane 1 records (a red line runs along it) and plays what it has recorded, in time.
+5. Let it go round once (16 steps, a bar, unless you change LENGTH on SEQ), then press **black key 1** again. It stops recording and keeps playing.
+6. Mute the tracks you recorded (GLO › MUTE / SOLO, white keys 1–8) to hear the loop on its own, then bring them back in.
+
+**Shape it**
+
+7. **LOOP LEVEL**, **LOOP PITCH** and **LOOP SPEED** have a knob a lane: PITCH transposes without changing the time, SPEED changes the time (1/4 to 2, or REV) without changing the pitch.
+8. **Overdub:** press black key 1 again while the lane plays and play over it. **OVERDUB** (LOOP INPUT, KNOB 3) is how much of the old stays: 127 keeps all of it, 100 (the default) lets it fade a little each pass, 0 replaces it.
+9. **More lanes:** black keys 2–4 record lanes 2–4; black keys 5–8 start and stop lanes 1–4 playing.
+
+**Play slices**
+
+10. Hold **white key 1**: lane 1's first quarter plays, round and round, in place of the lane. White keys 1–4 are lane 1's quarters, 5–8 lane 2's, 9–12 lane 3's, 13–16 lane 4's.
+11. Hold two or more (even from different lanes): they take turns in the order you pressed them. Let go and the lanes carry on.
+
+**Wait for the sound**
+
+12. On **LOOP INPUT**, turn **THRESH** (KNOB 2) up. Now black key 1 only arms the lane; it starts writing when the sound gets that loud, so a take starts on the first hit.
+
+**Record with reverb (or delay)**
+
+13. On **LOOP INPUT**, turn **LOOPER** (KNOB 4) to **+SPACE** (or **+DELAY**). The lanes empty and get a little shorter; SPACE keeps running.
+14. Send the tracks into SPACE as usual (each track's EDIT › MIX or SENDS) and record from **SOURCE MAIN**: the reverb goes into the loop.
+
+**Sequence it** (the transport must be playing)
+
+15. Press **SEQ**: the **LOOP TRIGS** page. **KNOB 1** (or black keys 3–6) picks the lane, **KNOB 2** the trig: **REC** or **PLAY**.
+16. With TRIG on REC, tap **white key 1**: each time the pattern reaches step 1, that lane records the whole loop. Tap it again to remove it.
+17. With TRIG on PLAY, tap a step: the lane plays from there. **Hold a step and tap a later one** for a range: PLAY on step 9 to step 12 plays just steps 9–12 of the lane, round and round, until another trig moves it (MLR-style). A REC range records into just those steps.
+
+**Clear, and get the effects back**
+
+18. **Hold black key 9 and press a record key** (black 1–4) to clear that lane. **Press black key 11 twice** to clear all four.
+19. To have every effect back: **LOOPER** to **OFF** (the track keeps its settings and trigs; the loops are gone), or turn **KIND** back on EDIT › SOUND.
+
+Recordings are not saved with the project: save keeps the LOOP track's settings and trigs, and the lanes start empty.
+
+#### Reference
 
 **The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory, and the effects whose memory they hold stand still. **LOOPER** (LOOP INPUT, KNOB 4) says how much they take:
 
@@ -1390,6 +1438,11 @@ Step recording is for synth and strike tracks; a kit's keys stay its steps (tap 
 - The audio is taking longer than it has. Open GLO › CPU: if RENDER is near or over 90 % and XRUNS is counting, that's it. The bars show which part costs most.
 - Fewer voices (EDIT › SOUND › VOICES), fewer tracks playing at once, or lower effect sends bring it down. The overload guard fades out voices on its own, but it can't help when the effects alone are too much.
 - To know this unit's limits, run GLO › STRESS with AUTO.
+
+**A long note gets cut off when other tracks play.**
+
+- Synth tracks share **eight voices** between them (strike tracks have four of their own, perc tracks twelve). When every one is sounding, a new note takes one: a voice that is already releasing first, then a note of the track holding the most voices (a chord loses a note before a lone line), the oldest of those. So a held note on a mono track keeps its voice unless every track is down to one.
+- If GLO › CPU shows **GUARD: n VOICES** in red, it is the overload guard, not the voice count: the FM-1 is near its limit and the guard is fading voices to keep up. Lower VOICES on chord tracks (each voice costs, held or releasing), shorten long RELEASE times, or lower effect sends.
 
 **Something got loud or stuck.**
 

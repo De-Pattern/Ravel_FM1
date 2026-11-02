@@ -472,10 +472,13 @@ static int page_visible(int i)
         return 0;
     if (is_kit_ui(t) && pages[i].sec == SEC_VOICE && pages[i].title[0] == 'P' && pages[i].title[1] == 'I')   /* PITCH: a lane's own */
         return 0;
-    if (kind == KIND_COMP)                            /* COMP: its own pages where a voice's would be */
-        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_COMP : pages[i].vis != V_COMP && pages[i].vis != V_LOOP;
-    if (kind == KIND_LOOP)                            /* LOOP: its own pages too */
-        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ) ? pages[i].vis == V_LOOP : pages[i].vis != V_LOOP && pages[i].vis != V_COMP;
+    if (kind == KIND_COMP || kind == KIND_LOOP) {     /* COMP, LOOP: their own pages where a voice's would be, after
+                                                       * SOUND (KIND, to change it back; the rest greyed) */
+        int own = kind == KIND_COMP ? V_COMP : V_LOOP, other = kind == KIND_COMP ? V_LOOP : V_COMP;
+        return (pages[i].sec == SEC_VOICE || pages[i].sec == SEC_ARTIC || pages[i].sec == SEC_SEQ)
+                   ? pages[i].vis == own || (pages[i].sec == SEC_VOICE && pages[i].pr == PR_SOUND && pages[i].pic == PIC_SOURCE)
+                   : pages[i].vis != own && pages[i].vis != other;
+    }
     if (pages[i].vis == V_COMP || pages[i].vis == V_LOOP)
         return 0;
     switch (pages[i].vis) {
@@ -5200,7 +5203,14 @@ static void draw_picture(void)
     switch (cur_page()->pic) {
     case PIC_TRACKS: pic_tracks(); break;
     case PIC_INFL: pic_infl(); break;
-    case PIC_SOURCE: pic_source(); break;
+    case PIC_SOURCE:
+        if (rv.tp[ui.track][TP_KIND] == KIND_COMP)    /* (SOUND, on a COMP or LOOP track: its picture) */
+            pic_comp();
+        else if (rv.tp[ui.track][TP_KIND] == KIND_LOOP)
+            pic_loop();
+        else
+            pic_source();
+        break;
     case PIC_FILTER: pic_filter(); break;
     case PIC_SKIN: pic_skin(); break;
     case PIC_INSERT: pic_insert(); break;

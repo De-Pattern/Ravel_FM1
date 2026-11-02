@@ -1,0 +1,35 @@
+# Voice stealing: eight synth voices for all the tracks. A long note held on a mono track (T2) keeps
+# its voice when two chord tracks (T1, T3) ask for more than are left: a chord loses a note first
+wait 300
+settp 2 VOICES 0
+turn ALGO -20
+turn ALGO 1
+wait 50
+key 0 down
+wait 200
+turn ALGO -1
+wait 50
+key 2 down
+key 4 down
+key 6 down
+key 7 down
+wait 200
+turn ALGO 2
+wait 50
+key 9 down
+key 11 down
+key 12 down
+key 14 down
+wait 200
+expect held 2 1
+expect held 1 3
+expect held 3 4
+key 0 up
+key 2 up
+key 4 up
+key 6 up
+key 7 up
+key 9 up
+key 11 up
+key 12 up
+key 14 up

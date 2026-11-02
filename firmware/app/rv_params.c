@@ -693,6 +693,8 @@ int rv_tp_applies(int t, int p)
         return 0;
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
         return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
+    if (tp[TP_KIND] == KIND_LOOP && (p == TP_POLY || p == TP_VELO))  /* LOOP: no voices of its own (SOUND greys them) */
+        return 0;
     if (p >= TP_ARPMODE && p <= TP_ARPCHNC)                            /* ARP: note tracks (a kit's lanes are not notes) */
         return !(tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1) && (p == TP_ARPMODE || p == TP_ARPLATCH || tp[TP_ARPMODE] != ARP_OFF);
     if (p == TP_GRAIN)                                                 /* hits: strike and perc tracks */

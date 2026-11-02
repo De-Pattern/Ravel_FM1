@@ -12,6 +12,9 @@ turn ALGO 7
 wait 100
 tap EDIT
 wait 150
+expect page SOUND
+turn SELECT 1
+wait 150
 expect page LOOP LEVEL
 tapkey 1
 wait 100
@@ -65,6 +68,20 @@ wait 300
 expect loopst 1 0
 settp 8 LOOPER 1
 wait 100
+# KIND on SOUND, EDIT's first page, turns it back (it has trigs: turned twice; here T8: down to COMP,
+# then PERC)
+turn SELECT -20
+wait 150
+expect page SOUND
+turn K1 -1
+wait 300
+expect tp 8 KIND 5
+turn K1 -1
+wait 300
+expect tp 8 KIND 4
+turn K1 -1
+wait 300
+expect tp 8 KIND 3
 kind 8 0
 wait 200
 expect tp 8 KIND 0

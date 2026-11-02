@@ -19,6 +19,9 @@ expect tp 8 KIND 4
 tap EDIT
 turn SELECT -20
 wait 100
+expect page SOUND
+turn SELECT 1
+wait 100
 expect page COMP
 turn K1 -20
 wait 2000
@@ -31,6 +34,17 @@ turn K3 -1
 wait 300
 expect tp 8 KIND 3
 expect comp_gr_max 0
+# and back from SOUND, EDIT's first page, as on any track
+turn SELECT -20
+wait 100
+expect page SOUND
+turn K1 1
+wait 300
+expect tp 8 KIND 4
+expect page SOUND
+turn K1 -1
+wait 300
+expect tp 8 KIND 3
 turn ALGO -7
 tap HOME
 turn SELECT -20

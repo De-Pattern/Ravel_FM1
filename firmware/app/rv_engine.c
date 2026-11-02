@@ -406,6 +406,36 @@ RV_INL void perc_flush(perc_t *v)
     fm_flush_n(&v->hs.lps, 1);
 }
 
+/* a synth voice for a new note: a free one; else steal, after the Deluge: a released voice (the
+ * oldest), else a held one of the track holding the most (a chord loses a note before a lone line,
+ * so a long held note on a mono track outlives a busy chord track's), the oldest of those */
+static int synth_free_or_steal(void)
+{
+    int i, pick = -1, best = -1, cnt[RV_TRACKS] = {0};
+    uint32_t oldest = 0xFFFFFFFFu;
+    for (i = 0; i < RV_SYNTH_VOICES; i++)
+        if (!vs[i].on)
+            return i;
+    for (i = 0; i < RV_SYNTH_VOICES; i++)
+        if (!vs[i].a.gate && vs[i].age < oldest) {
+            oldest = vs[i].age;
+            pick = i;
+        }
+    if (pick >= 0)
+        return pick;
+    for (i = 0; i < RV_SYNTH_VOICES; i++)
+        cnt[vs[i].track & 7]++;
+    for (i = 0; i < RV_SYNTH_VOICES; i++) {
+        int c = cnt[vs[i].track & 7];
+        if (c > best || (c == best && vs[i].age < oldest)) {
+            best = c;
+            oldest = vs[i].age;
+            pick = i;
+        }
+    }
+    return pick < 0 ? 0 : pick;
+}
+
 static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
 {
     track_t *tr = &trk[t];
@@ -457,34 +487,11 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
                         pick = i;
                     }
                 }
-            if (count < poly) {
-                pick = -1;
-                for (i = 0; i < RV_SYNTH_VOICES && pick < 0; i++)
-                    if (!vs[i].on)
-                        pick = i;
-                if (pick < 0) {                       /* steal: a released voice first, else the oldest */
-                    oldest = 0xFFFFFFFFu;
-                    for (i = 0; i < RV_SYNTH_VOICES; i++)
-                        if (!vs[i].a.gate && vs[i].age < oldest) {
-                            oldest = vs[i].age;
-                            pick = i;
-                        }
-                    if (pick < 0)
-                        for (i = 0; i < RV_SYNTH_VOICES; i++)
-                            if (vs[i].age < oldest) {
-                                oldest = vs[i].age;
-                                pick = i;
-                            }
-                }
-            }
+            if (count < poly)
+                pick = synth_free_or_steal();
         }
-        if (pick < 0) {
-            for (i = 0; i < RV_SYNTH_VOICES && pick < 0; i++)
-                if (!vs[i].on)
-                    pick = i;
-            if (pick < 0)
-                pick = 0;
-        }
+        if (pick < 0)                                 /* (mono, no voice yet) */
+            pick = synth_free_or_steal();
         vo = &vs[pick];
         if (vo->on && vo->track != t)
             vo->on = 0;
@@ -1340,6 +1347,15 @@ static uint16_t guard_cool, guard_calm;
 static uint8_t guard_cap = 255;
 
 static int shedding(const hitshade_t *h) { return h->on && h->dk >= SHED_DK; }
+
+/* the synth voices track t holds now, its notes held (for the tests) */
+int rv_track_held(int t)
+{
+    int i, c = 0;
+    for (i = 0; i < RV_SYNTH_VOICES; i++)
+        c += vs[i].on && vs[i].a.gate && vs[i].track == t && !shedding(&vs[i].hs);
+    return c;
+}
 static void shed_start(hitshade_t *h)
 {
     if (!h->on) {
