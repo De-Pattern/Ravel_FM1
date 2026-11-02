@@ -20,6 +20,7 @@
  *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
+ *   expect mutes M | solos S       the muted / soloed tracks as a bitmask (T1 = 1)
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
@@ -490,6 +491,12 @@ int main(int argc, char **argv)
                 int tt = atoi(w1) - 1;
                 got = rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)].len;
                 want = atoi(w3);
+            } else if (!strcmp(b, "mutes")) {                /* the muted tracks, a bit a track (T1: 1) */
+                got = rv.mute;
+                want = atoi(w1);
+            } else if (!strcmp(b, "solos")) {                /* the soloed tracks, likewise */
+                got = rv.solo;
+                want = atoi(w1);
             } else if (!strcmp(b, "recording")) {            /* REC armed: 1 */
                 got = rv_live.recording;
                 want = atoi(w1);

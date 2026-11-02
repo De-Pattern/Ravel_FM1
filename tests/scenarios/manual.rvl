@@ -206,6 +206,25 @@ turn SELECT 1
 wait 40
 turn SELECT 1
 wait 40
+tapkey 4
+wait 40
+tapkey 21
+wait 150
+expect page MUTE / SOLO
+wait 2500
+shot song-mutes.png
+tapkey 4
+tapkey 21
+wait 40
+tap GLO
+turn SELECT -20
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
 turn SELECT 1
 wait 40
 turn SELECT 1
@@ -222,6 +241,8 @@ wait 600
 shot song-scenes.png
 tap GLO
 turn SELECT -20
+wait 40
+turn SELECT 1
 wait 40
 turn SELECT 1
 wait 40
@@ -264,13 +285,15 @@ turn SELECT 1
 wait 40
 turn SELECT 1
 wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page ARCS
 wait 600
 shot song-arcs.png
 tap GLO
 turn SELECT -20
-turn SELECT 2
+turn SELECT 3
 wait 150
 expect page CLOCK
 wait 600

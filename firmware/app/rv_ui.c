@@ -43,7 +43,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
-       PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
+       PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
@@ -179,6 +179,8 @@ static const page_t pages[] = {
 
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 1-4", {{K_TLEVEL, 0}, {K_TLEVEL, 1}, {K_TLEVEL, 2}, {K_TLEVEL, 3}}},
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 5-8", {{K_TLEVEL, 4}, {K_TLEVEL, 5}, {K_TLEVEL, 6}, {K_TLEVEL, 7}}},
+    /* MUTE / SOLO: the eight tracks on the keys, to bring parts in and out by hand */
+    {SEC_SONG, V_ALL, PIC_MUTES, PR_NONE, "MUTE / SOLO", {NO, NO, NO, NO}},
     /* the clock right after the mixers: the tempo two pages in */
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK", {GP(GP_TEMPO), GP(GP_SWING), GP(GP_CLKMODE), GP(GP_CLKDEPTH)}},
     {SEC_SONG, V_ALL, PIC_CLOCK, PR_NONE, "CLOCK B", {GP(GP_CLKSHAPE), GP(GP_CLKBRATE), GP(GP_CLKBSHAPE), GP(GP_CLKTHR)}},
@@ -2089,6 +2091,22 @@ static int seq_keys_play(int t)
     return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (kind == KIND_SYNTH || kind == KIND_STRIKE);
 }
 
+/* MUTE / SOLO: a track's mute or solo, turned over, and said */
+static void mute_key(int t, int solo)
+{
+    char b[16] = "T1 ";
+    uint8_t bit = (uint8_t)(1u << (t & 7));
+    b[1] = (char)('1' + (t & 7));
+    if (solo) {
+        rv.solo ^= bit;
+        sx_cat(b, rv.solo & bit ? "SOLO" : "SOLO OFF");
+    } else {
+        rv.mute ^= bit;
+        sx_cat(b, rv.mute & bit ? "MUTED" : "ON");
+    }
+    msg(b);
+}
+
 static void key_event(int k, int on)
 {
     uint32_t btn = plat_buttons();
@@ -2202,7 +2220,9 @@ static void key_event(int k, int on)
     }
     if (btn & (1u << B_GLO)) {
         if (on && wi >= 0) {
-            if (wi < 8)
+            if (wi < 8 && ui.sec == SEC_SONG && cur_page()->pic == PIC_MUTES)
+                mute_key(wi, 1);                      /* (on MUTE / SOLO the keys mute: GLO held, they solo) */
+            else if (wi < 8)
                 rv.mute ^= (uint8_t)(1u << wi);
             else
                 rv.solo ^= (uint8_t)(1u << (wi - 8));
@@ -2288,6 +2308,20 @@ static void key_event(int k, int on)
                 rv_pattern_clear(t);
                 msg("PATTERN CLEARED");
             }
+        }
+        return;
+    }
+    /* --- MUTE / SOLO: white 1-8 mute, 9-16 solo; black 1 unmutes all, black 2 ends the solo --- */
+    if (ui.sec == SEC_SONG && cur_page()->pic == PIC_MUTES) {
+        if (on && wi >= 0)
+            mute_key(wi & 7, wi >= 8);
+        if (on && bi == 0) {
+            rv.mute = 0;
+            msg("ALL TRACKS ON");
+        }
+        if (on && bi == 1) {
+            rv.solo = 0;
+            msg("SOLO OFF");
         }
         return;
     }
@@ -3018,6 +3052,8 @@ static void draw_footer(void)
             hint = "T8 SQUEEZES THE MAIN MIX";
         else if (pg->pic == PIC_LOOP)
             hint = "WHT: SLICES  BLK1-4 REC  5-8 PLAY";
+        else if (pg->pic == PIC_MUTES)
+            hint = "1-8 MUTE  9-16 SOLO";
         break;
     }
     if (rv_live.countin) {
@@ -3032,7 +3068,7 @@ static void draw_footer(void)
     else if (btn & (1u << B_FX))
         hint = "LOOP REV STUT FRZ LP HP THRW FILL";
     else if (btn & (1u << B_GLO))
-        hint = "1-8 MUTE  9-16 SOLO  BLK1 TAP";
+        hint = pg->pic == PIC_MUTES ? "1-8 SOLO  BLK1 TAP" : "1-8 MUTE  9-16 SOLO  BLK1 TAP";
     else if (btn & (1u << B_SAVE))
         hint = "WHITE KEY: STORE THE SCENE";
     else if (btn & (1u << B_SCL))
@@ -3129,7 +3165,7 @@ static void pic_tracks(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
-        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : "CMP", muted ? C_DIM : kc);
+        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : rv.tp[t][TP_KIND] == KIND_LOOP ? "LOOP" : "CMP", muted ? C_DIM : kc);
         /* the level, in the track's colour, and beside it the articulation (its envelope) */
         meter_bar(x + 6, PIC_Y + 32, 11, 66, fm_sqrtf(rv_live.meter[t]), C_LINE, muted ? C_DIM : kc);
         meter_bar(x + 19, PIC_Y + 32, 6, 66, rv_live.env[t], C_LINE, muted ? C_DIM : g_mix(kc, C_INK, 0.55f));
@@ -4975,6 +5011,28 @@ static void pic_mixer(void)
     }
 }
 
+/* MUTE / SOLO: a tile a track, lit while you hear it, dark when muted (or left out of a solo) */
+static void pic_mutes(void)
+{
+    int t;
+    for (t = 0; t < RV_TRACKS; t++) {
+        int x = 3 + t * 29, y = PIC_Y + 4, k = rv.tp[t][TP_KIND];
+        int muted = (rv.mute >> t) & 1u, solo = (rv.solo >> t) & 1u, out = muted || (rv.solo && !solo);
+        uint16_t kc = kind_col(t), fc = out ? C_DIM : kc;
+        char b[4];
+        g_rbox(x, y, 27, 96, 5, out ? C_BG : g_mix(C_PANEL, kc, 0.12f), 1);
+        g_rbox(x, y, 27, 96, 5, solo ? C_TRIG : out ? C_LINE : kc, 0);
+        b[0] = (char)('1' + t);
+        b[1] = 0;
+        g_text_c(x + 14, y + 6, &FONT_B, b, out ? C_DIM : t == ui.track ? C_WHITE : kc);
+        g_text_c(x + 14, y + 24, &FONT_T, k == KIND_SYNTH ? "SYN" : k == KIND_STRIKE ? "STK" : k == KIND_PERC ? "PRC" : k == KIND_LOOP ? "LOOP" : "CMP", fc);
+        meter_bar(x + 9, y + 38, 10, 40, out ? 0.0f : fm_sqrtf(rv_live.meter[t]), C_LINE, fc);
+        g_text_c(x + 14, y + 84, &FONT_T, muted ? "MUTE" : solo ? "SOLO" : out ? "-" : "ON", muted ? C_RED : solo ? C_TRIG : fc);
+    }
+    g_text(6, PIC_Y + 106, &FONT_T, "WHITE 1-8: MUTE   9-16 (OR GLO+1-8): SOLO", C_DIM);
+    g_text(6, PIC_Y + 118, &FONT_T, "BLACK 1: ALL ON   BLACK 2: SOLO OFF", C_DIM);
+}
+
 static void pic_scenes(void)
 {
     int s;
@@ -5167,6 +5225,7 @@ static void draw_picture(void)
     case PIC_GRAPH: pic_graph(); break;
     case PIC_MOTION: pic_motion(); break;
     case PIC_MIXER: pic_mixer(); break;
+    case PIC_MUTES: pic_mutes(); break;
     case PIC_SCENES: pic_scenes(); break;
     case PIC_ARR: pic_arr(); break;
     case PIC_ARCS: pic_arcs(); break;
@@ -5214,6 +5273,13 @@ static void leds(void)
         lk |= 1u << black_keys[rv.pat_cur[t] % RV_PATTERNS];
         if (kit) {
             lk |= 1u << black_keys[2 + l];
+        }
+    } else if (ui.sec == SEC_SONG && cur_page()->pic == PIC_MUTES) {   /* lit: the tracks you hear; 9-16: the solos */
+        for (i = 0; i < RV_TRACKS; i++) {
+            if (!((rv.mute >> i) & 1u) && (!rv.solo || ((rv.solo >> i) & 1u)))
+                lk |= 1u << white_keys[i];
+            if ((rv.solo >> i) & 1u)
+                lk |= 1u << white_keys[8 + i];
         }
     } else {
         lk = plat_keys();
@@ -5266,7 +5332,8 @@ static void draw_help(void)
     y += 12;
     g_text(6, y, &FONT_T, "KEYS", C_MID);
     g_text(64, y, &FONT_T, seq && !seq_keys_play(ui.track) ? (kit ? "STEPS, THE LANE CHOSEN" : "STEPS (HOLD + KNOB: A LOCK)")
-                           : seq ? "PLAY AND RECORD NOTES" : pg->pic == PIC_SCENES ? "LAUNCH SCENES" : "PLAY THE TRACK", C_INK);
+                           : seq ? "PLAY AND RECORD NOTES" : pg->pic == PIC_SCENES ? "LAUNCH SCENES"
+                           : pg->pic == PIC_MUTES ? "1-8 MUTE, 9-16 SOLO THE TRACKS" : "PLAY THE TRACK", C_INK);
     y += 12;
     g_text(6, y, &FONT_T, "OCT", C_MID);
     g_text(64, y, &FONT_T, ui.srec_t >= 0 ? "+ A REST, - BACK A STEP" : seq && !seq_keys_play(ui.track) ? "THE KEYS' STEPS 1-16 .. 49-64" : "THE KEYS' OCTAVE", C_INK);

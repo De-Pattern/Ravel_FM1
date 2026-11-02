@@ -26,6 +26,8 @@ turn SELECT 1
 wait 40
 turn SELECT 1
 wait 40
+turn SELECT 1
+wait 40
 wait 150
 expect page STRESS
 shot stress-idle.png
