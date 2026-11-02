@@ -1,5 +1,5 @@
 # LOOP (TEST build): T8 becomes a LOOP track; black key 1 records lane 1 from the main mix (the demo
-# playing) and plays it back; a white key holds a slice; on SEQ, trigs and ranges go on the steps
+# playing) and plays it back; LOOPER +SPACE and OFF; a white key holds a slice; on SEQ, trigs and ranges go on the steps
 wait 300
 demo 1
 wait 200
@@ -44,6 +44,27 @@ key 7 up
 wait 100
 expect lprange 8 5 1 7
 shot loopseq.png
+# LOOPER +SPACE: the lanes start again, smaller; SPACE runs on and is recorded with the mix
+settp 8 LOOPER 2
+wait 100
+expect loopst 1 0
+tap EDIT
+wait 150
+tapkey 1
+wait 1500
+tapkey 1
+wait 100
+expect loopst 1 1
+expect loopfill 1 1500
+# LOOPER OFF: silent, the keys do nothing, the effects have their memory back
+settp 8 LOOPER 0
+wait 100
+expect loopst 1 0
+tapkey 1
+wait 300
+expect loopst 1 0
+settp 8 LOOPER 1
+wait 100
 kind 8 0
 wait 200
 expect tp 8 KIND 0

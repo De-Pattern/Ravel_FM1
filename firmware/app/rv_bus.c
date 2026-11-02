@@ -6,8 +6,10 @@
  * Part of the engine unit (ravel_app.c). */
 #include "rv_int.h"
 
-/* a LOOP track (rv_loop.c) has the FEEDBACK, DELAY, SPACE and microcut buffers: they stand still */
-static volatile uint8_t loop_mem;
+/* a LOOP track (rv_loop.c) borrows the buses' buffers: those it has stand still. Its LOOPER knob says
+ * which: all four (ON), all but SPACE's, or all but DELAY's */
+enum { LM_DLY = 1, LM_CUT = 2, LM_FB = 4, LM_SPACE = 8 };
+static volatile uint8_t loop_mem;                     /* the buffers borrowed (0: none, the looper is off) */
 
 /* a bus setting as the matrix and the macros move it (GLOBAL destinations) */
 RV_INL float gv(int g) { return geff[g]; }
@@ -642,7 +644,7 @@ static uint32_t cut_rng = 0xA5A5A5u;
  * (0: the MASTER page's CUT SIZE, 1-7: 1/32, 1/16, 1/8, 1/6, 1/4, 1/3, 1/2 of step_s) */
 static void cut_now(int action, float step_s)
 {
-    if (loop_mem)                                     /* (the LOOP track has the buffer) */
+    if (loop_mem & LM_CUT)                            /* (the LOOP track has the buffer) */
         return;
     static const float frac[8] = {0.0f, 1.0f / 32.0f, 1.0f / 16.0f, 1.0f / 8.0f, 1.0f / 6.0f, 0.25f, 1.0f / 3.0f, 0.5f};
     int type = action & 3, size = (action >> 4) & 7;
@@ -668,7 +670,7 @@ static void cut_now(int action, float step_s)
 /* in place on the master: writes the ring, plays the cut over it */
 static void cuts_run(float *l, float *r, int n)
 {
-    if (loop_mem)
+    if (loop_mem & LM_CUT)
         return;
     int i;
     float mix = gv(GP_CUTMIX) * (1.0f / 127.0f);
@@ -711,9 +713,10 @@ static void cuts_run(float *l, float *r, int n)
 }
 
 /* clear every bus's memory: after a fault (see rv_engine.c), so a blown-up state cannot persist */
-static void buses_reset(void)
+static void buses_reset(void)                         /* (a buffer the LOOP track has is its own: left alone) */
 {
-    __builtin_memset(fb_buf, 0, sizeof(fb_buf));
+    if (!(loop_mem & LM_FB))
+        __builtin_memset(fb_buf, 0, sizeof(fb_buf));
     __builtin_memset(&fb_f, 0, sizeof(fb_f));
     __builtin_memset(fb_comb, 0, sizeof(fb_comb));
     __builtin_memset(fb_ap, 0, sizeof(fb_ap));
@@ -721,16 +724,19 @@ static void buses_reset(void)
     __builtin_memset(fb_hq, 0, sizeof(fb_hq));
     fb_env = fb_dcx = fb_dcy = fb_comblp = fb_shph = fb_crush = 0.0f;
     __builtin_memset(fb_bp, 0, sizeof(fb_bp));
-    __builtin_memset(dly_buf, 0, sizeof(dly_buf));
+    if (!(loop_mem & LM_DLY))
+        __builtin_memset(dly_buf, 0, sizeof(dly_buf));
     dly_lp = dly_fbv = dly_half = dly_age_lp = 0.0f;
-    __builtin_memset(space_mem, 0, sizeof(space_mem));
+    if (!(loop_mem & LM_SPACE))
+        __builtin_memset(space_mem, 0, sizeof(space_mem));
     __builtin_memset(grains, 0, sizeof(grains));
     __builtin_memset(hr_w, 0, sizeof hr_w);
     __builtin_memset(hr_lp, 0, sizeof hr_lp);
     __builtin_memset(hr_out, 0, sizeof hr_out);
     hr_in = hr_hp = 0.0f;
     gr_lpl = gr_lpr = 0.0f;
-    __builtin_memset(cut_buf, 0, sizeof(cut_buf));
+    if (!(loop_mem & LM_CUT))
+        __builtin_memset(cut_buf, 0, sizeof(cut_buf));
     cut_reps = 0;
     __builtin_memset(bed_y1, 0, sizeof(bed_y1));
     __builtin_memset(bed_y2, 0, sizeof(bed_y2));

@@ -473,6 +473,7 @@ static const rv_pinfo SRC_COMP[16] = {
  * level, and how much of what was there an overdub keeps */
 static const char *const lspeed_names[] = {"1/4", "1/2", "3/4", "1", "3/2", "2", "REV"};
 static const char *const lsrc_names[] = {"MAIN", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const looper_names[] = {"OFF", "ON", "+SPACE", "+DELAY"};   /* +: that effect keeps running */
 static const rv_pinfo SRC_LOOP[16] = {
     {"LEVEL 1", 0, 127, 100, PF_NUM, 0}, {"LEVEL 2", 0, 127, 100, PF_NUM, 0},
     {"LEVEL 3", 0, 127, 100, PF_NUM, 0}, {"LEVEL 4", 0, 127, 100, PF_NUM, 0},
@@ -483,6 +484,7 @@ static const rv_pinfo SRC_LOOP[16] = {
     {"SOURCE", 0, 8, 0, E(lsrc_names)},
     {"THRESH", 0, 127, 0, PF_NUM, 0},                /* 0: records at once */
     {"OVERDUB", 0, 127, 100, PF_NUM, 0},             /* what of the old stays under the new (0: replaced) */
+    {"LOOPER", 0, 3, 1, E(looper_names)},            /* OFF gives the effects their memory back; +SPACE, +DELAY keep one */
 };
 
 const rv_pinfo *rv_pinfo_track(int t, int p)

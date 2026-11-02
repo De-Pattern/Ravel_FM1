@@ -82,7 +82,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP LEVEL", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP PITCH", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP SPEED", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
-    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP INPUT", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_KIND)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP INPUT", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
@@ -4454,7 +4454,10 @@ static void pic_loop(void)
         g_text(6, y, &FONT_T, b, C_MID);
         g_fill(50, y + 3, 60, 4, C_LINE);
         g_fill(50, y + 3, w, 4, C_TEAL);
-        g_text_r(234, y, &FONT_T, "FX BUSES REST", C_DIM);
+        {
+            static const char *const fx[4] = {"LOOPER OFF: FX ON", "FX BUSES REST", "SPACE ON, FX REST", "DELAY ON, FX REST"};
+            g_text_r(234, y, &FONT_T, fx[clampi(rv.tp[t][TP_S15], 0, 3)], C_DIM);
+        }
     }
 }
 

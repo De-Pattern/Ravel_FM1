@@ -21,15 +21,21 @@ static int8_t loop_t = -1;                            /* which track it is (-1: 
 static struct { int8_t *p; uint32_t n; } lm_seg[4];
 static uint32_t lm_total, lm_lane;                    /* all of it, and a lane's (samples) */
 static float lm_dec[256];                             /* the companding, decoded */
-static void lm_init(void)
+static void lm_init(int mask)                         /* the buffers borrowed (LM_*), laid end to end */
 {
-    int i;
-    lm_seg[0].p = (int8_t *)dly_buf, lm_seg[0].n = sizeof dly_buf;
-    lm_seg[1].p = (int8_t *)cut_buf, lm_seg[1].n = sizeof cut_buf;
-    lm_seg[2].p = (int8_t *)fb_buf, lm_seg[2].n = sizeof fb_buf;
-    lm_seg[3].p = (int8_t *)space_mem, lm_seg[3].n = sizeof space_mem;
+    int8_t *const p[4] = {(int8_t *)dly_buf, (int8_t *)cut_buf, (int8_t *)fb_buf, (int8_t *)space_mem};
+    const uint32_t n[4] = {sizeof dly_buf, sizeof cut_buf, sizeof fb_buf, sizeof space_mem};
+    const uint8_t bit[4] = {LM_DLY, LM_CUT, LM_FB, LM_SPACE};
+    int i, k = 0;
+    for (i = 0; i < 4; i++)
+        if (mask & bit[i])
+            lm_seg[k].p = p[i], lm_seg[k++].n = n[i];
+    for (i = k; i < 4; i++)
+        lm_seg[i].p = lm_seg[0].p, lm_seg[i].n = 0;  /* (unused: lm_at never reaches them) */
     lm_total = lm_seg[0].n + lm_seg[1].n + lm_seg[2].n + lm_seg[3].n;
     lm_lane = lm_total / LP_LANES;
+    if (lm_dec[255] != 0.0f)
+        return;
     for (i = 0; i < 256; i++) {                       /* mu-law-like (mu 255) on a signed byte: 0 is silence */
         int c = (int)(int8_t)(uint8_t)i, m = c < 0 ? -c : c;
         float y = (fm_exp2f((float)m * (8.0f / 127.0f)) - 1.0f) * (1.0f / 255.0f);
@@ -140,7 +146,7 @@ static void loop_fire(int t, int si)
 {
     const rv_step *s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
     int l, len = loop_len(t);
-    if (!(s->flags & ST_ON))
+    if (!(s->flags & ST_ON) || !loop_mem)             /* (LOOPER OFF: the trigs wait) */
         return;
     for (l = 0; l < LP_LANES; l++) {
         int r = loop_range(s, l), n = r > 0 ? clampi(r, 1, len) : len;
@@ -208,28 +214,32 @@ static void loop_cmd(int op, int l, int v)
     }
 }
 
-/* the memory changes hands: to the LOOP track (cleared), or back to the buses (cleared too) */
+/* the memory changes hands, as the LOOPER knob says (OFF, ON, ON keeping SPACE, ON keeping DELAY):
+ * the buffers the LOOP track takes are cleared for its lanes, and those it gives back cleared for their
+ * buses. Any change empties the lanes: they are laid out again over what it has now */
 static void loop_mem_check(void)
 {
-    int t, f = -1;
+    static const uint8_t masks[4] = {0, LM_DLY | LM_CUT | LM_FB | LM_SPACE, LM_DLY | LM_CUT | LM_FB, LM_CUT | LM_FB | LM_SPACE};
+    int t, f = -1, m;
     for (t = 0; t < RV_TRACKS; t++)
         if (rv.tp[t][TP_KIND] == KIND_LOOP) {
             f = t;
             break;
         }
-    if (f >= 0 && !loop_mem) {
-        if (!lm_total)
-            lm_init();
-        loop_mem = 1;                                 /* (the buses skip their work from now on) */
-        lm_clear(-1);
+    m = f >= 0 ? masks[clampi(rv.tp[f][TP_S15], 0, 3)] : 0;
+    if (m != loop_mem) {
+        loop_mem = (uint8_t)m;                        /* (the buses skip the work of those borrowed from now on) */
+        buses_reset();                                /* (those given back: clean, before they run) */
         __builtin_memset(lane, 0, sizeof lane);
         sl_n = 0;
         loop_pos = 0.0f;
-    } else if (f < 0 && loop_mem) {
-        buses_reset();                                /* (their memory held the lanes: clean, before they run) */
-        loop_mem = 0;
+        if (m) {
+            lm_init(m);
+            lm_clear(-1);
+        } else
+            lm_total = lm_lane = 0;
     }
-    loop_t = (int8_t)f;
+    loop_t = (int8_t)(m ? f : -1);
 }
 
 /* one lane's playing, into out: the loop's position runs at its SPEED; PITCH moves the grains' reading */
@@ -289,6 +299,12 @@ static void loop_render(int t, float *buf, int n)
 {
     int l, L = loop_len(t), held[LP_LANES] = {0, 0, 0, 0};
     float sd = step_seconds(t), dstep = 1.0f / (sd * RV_FS), spb = (float)lm_lane / (float)L;
+    if (!loop_mem) {                                  /* LOOPER OFF: silent, the effects have the memory */
+        for (l = 0; l < LP_LANES; l++)
+            rv_live.loop_st[l] = 0, rv_live.loop_peak[l] = 0.0f;
+        rv_live.loop_in = 0.0f;
+        return;
+    }
     if (playing && sq[t].step[0] >= 0) {              /* the loop's clock: the sequencer's, while it plays */
         float fr = (float)(now_s - sq[t].step_time) * RV_DT / (sq[t].step_dur > 0.0f ? sq[t].step_dur : sd);
         loop_pos = (float)sq[t].step[0] + clampf(fr, 0.0f, 0.999f);

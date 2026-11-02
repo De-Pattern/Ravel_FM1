@@ -1262,13 +1262,7 @@ static __attribute__((noinline)) void bus_job(void)
     c1 = plat_par_cycles();
     bo_cyc[0] += c1 - c;
     c = c1;
-    if (loop_mem) {                                   /* a LOOP track has their memory: FEEDBACK, DELAY and SPACE stand still */
-        for (i = 0; i < n; i++)
-            bo_fb[i] = 0.0f;
-        bo_all += plat_par_cycles() - c0;
-        return;
-    }
-    if (bus_skip(BUS_FB, fin, n)) {
+    if ((loop_mem & LM_FB) || bus_skip(BUS_FB, fin, n)) {   /* (a LOOP track may have a bus's memory: it stands still) */
         for (i = 0; i < n; i++)
             bo_fb[i] = 0.0f;
     } else {
@@ -1286,13 +1280,15 @@ static __attribute__((noinline)) void bus_job(void)
     c = c1;
     if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
         bus_quiet[BUS_DLY] = 0;
-    bus_stereo(BUS_DLY, delay_run, din, n, bo_l, bo_r);
+    if (!(loop_mem & LM_DLY))
+        bus_stereo(BUS_DLY, delay_run, din, n, bo_l, bo_r);
     if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
         bo_fault = 800;
     c1 = plat_par_cycles();
     bo_cyc[2] += c1 - c;
     c = c1;
-    bus_stereo(BUS_SPACE, halfrate_run, rin, n, bo_l, bo_r);
+    if (!(loop_mem & LM_SPACE))
+        bus_stereo(BUS_SPACE, halfrate_run, rin, n, bo_l, bo_r);
     if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
         bo_fault = 900;
     c1 = plat_par_cycles();
@@ -1904,8 +1900,6 @@ static void render_sub(float *outl, float *outr, int n)
         tr->lead_env *= fm_expf(-0.005013f * (float)n * (1.0f / 32.0f));   /* (0.995 a 32-frame step) */
     }
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
-    if (loop_t >= 0)
-        loop_record(loop_t, lp_cap, n);
     {   /* the chains: all the tracks' loop */
         uint32_t c = plat_cycles();
         prof_acc[PF_CHAIN] += c - prof_t;
@@ -1964,6 +1958,13 @@ static void render_sub(float *outl, float *outr, int n)
             fb_out[i] = bo_fb[i];                    /* (the feedback return next step) */
             outl[i] += bo_l[i];
             outr[i] += bo_r[i];
+        }
+        if (loop_t >= 0) {                           /* the LOOP track records: the main mix with the effects still
+                                                      * running (SPACE or DELAY, kept), or one track */
+            if (lp_src == 0)
+                for (i = 0; i < n; i++)
+                    lp_cap[i] += (bo_l[i] + bo_r[i]) * 0.5f;
+            loop_record(loop_t, lp_cap, n);
         }
     }
 

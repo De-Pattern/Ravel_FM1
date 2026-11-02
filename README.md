@@ -196,7 +196,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
-| **LOOP** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [LOOP](#loop-the-looper-test-build)). One track at most; the effects buses rest while it exists | – |
+| **LOOP** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [LOOP](#loop-the-looper-test-build)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
 
 How the sound flows:
 
@@ -251,18 +251,29 @@ The matrix and macros can move its knobs like any track's (THRESH on an LFO pump
 
 > This is in the **TEST** firmware only (listed as TEST in the installer). It is new and has not been played much on hardware yet.
 
-Turn **KIND** to **LOOP** on any one track. It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records.
+Turn **KIND** to **LOOP** on any one track (HOME › TRACKS, KNOB 3; turn it back there to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records.
 
-**The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory. **While a project has a LOOP track, DELAY, FEEDBACK, SPACE and the microcuts are off** (the screen says FX BUSES REST). Turn KIND away from LOOP and they come back, cleared. Each lane holds about 16 000 samples spread over the loop's LENGTH, stored 8-bit: lo-fi on purpose. A short loop at a quick tempo sounds clearer than a long, slow one (16 steps at 120 BPM is about 8 kHz).
+**The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory, and the effects whose memory they hold stand still. **LOOPER** (LOOP INPUT, KNOB 4) says how much they take:
 
-**What it records.** SOURCE MAIN (the default) is the main mix without the LOOP track itself, so it never records its own playback. SOURCE T1–T8 records one track, after its own effects. The FM-1 has no audio input, so the looper can only record Ravel.
+| LOOPER | The effects | A lane holds | 16 steps at 120 BPM |
+| --- | --- | --- | --- |
+| **ON** (the default) | DELAY, FEEDBACK, SPACE and the microcuts rest | about 16 000 samples | about 8 kHz |
+| **+SPACE** | SPACE keeps running; the rest rest | about 13 300 | about 6.7 kHz |
+| **+DELAY** | DELAY keeps running; the rest rest | about 10 000 | about 5 kHz |
+| **OFF** | all of them run; the looper is silent and its keys and trigs wait | – | – |
+
+The lanes are stored 8-bit, spread over the loop's LENGTH: lo-fi on purpose, and a short loop at a quick tempo sounds clearer than a long, slow one. **Every change of LOOPER empties the lanes** (their memory is laid out again, or handed back), and an effect handed back starts clean. The screen's bottom line says what is running.
+
+**Recording with an effect:** set LOOPER to +SPACE (or +DELAY), send the tracks into it as usual, and record from MAIN: the reverb (or the echoes) go into the loop. Then, to play with every effect again, turn LOOPER to OFF; the loops are gone, but the track keeps its settings and trigs, ready for the next take. The LOOP track's own playback is dry: it sends nothing into the effects.
+
+**What it records.** SOURCE MAIN (the default) is the main mix, with whatever effect LOOPER keeps running, without the LOOP track itself, so it never records its own playback. SOURCE T1–T8 records one track, after its own effects. The FM-1 has no audio input, so the looper can only record Ravel.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
 | **LOOP LEVEL** | LEVEL 1 | LEVEL 2 | LEVEL 3 | LEVEL 4 |
 | **LOOP PITCH** | PITCH 1 (±24 semitones) | PITCH 2 | PITCH 3 | PITCH 4 |
 | **LOOP SPEED** | SPEED 1: 1/4, 1/2, 3/4, 1, 3/2, 2, REV | SPEED 2 | SPEED 3 | SPEED 4 |
-| **LOOP INPUT** | SOURCE: MAIN, T1–T8 | THRESH: 0 records at once; above 0, an armed lane waits until the sound is that loud | OVERDUB: how much of the old stays under the new (0 replaces it) | KIND |
+| **LOOP INPUT** | SOURCE: MAIN, T1–T8 | THRESH: 0 records at once; above 0, an armed lane waits until the sound is that loud | OVERDUB: how much of the old stays under the new (0 replaces it) | LOOPER: OFF, ON, +SPACE, +DELAY (see above) |
 
 PITCH and SPEED are apart: SPEED changes how fast the loop runs, and PITCH transposes it without changing its time (a two-grain stretch). Both can be moved by the LFOs and the matrix.
 
