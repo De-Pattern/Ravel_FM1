@@ -151,7 +151,20 @@ EXPORT(web_page_title) const char *web_page_title(void) { return ui_page_title()
 EXPORT(web_kind) int web_kind(int t) { return rv.tp[t & 7][TP_KIND]; }
 EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
 EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
-EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine) { if (kind == KIND_TAPE || (kind == KIND_COMP && (t & 7) != 7)) return; if (kind == KIND_PERC) rv_track_set_kind(t & 7, kind); else rv_track_defaults(t & 7, kind, engine); }   /* (COMP: T8 only) */
+EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine)   /* (COMP: T8 only; one GLITCH LOOPER at a time) */
+{
+    int i;
+    if (kind == KIND_TAPE || kind < 0 || kind >= KIND_N || (kind == KIND_COMP && (t & 7) != 7))
+        return;
+    if (kind == KIND_LOOP)
+        for (i = 0; i < RV_TRACKS; i++)
+            if (i != (t & 7) && rv.tp[i][TP_KIND] == KIND_LOOP)
+                return;
+    if (kind == KIND_PERC || kind == KIND_LOOP || rv.tp[t & 7][TP_KIND] == KIND_LOOP)
+        rv_track_set_kind(t & 7, kind);               /* (a kit's lanes, a looper's trigs: the steps start clean) */
+    else
+        rv_track_defaults(t & 7, kind, engine);
+}
 EXPORT(web_comp_gr) float web_comp_gr(void) { return rv_live.comp_gr; }
 void host_midi_push(int a, int b, int c);
 EXPORT(web_midi) void web_midi(int a, int b, int c) { host_midi_push(a, b, c); }   /* MIDI in, from the page's Web MIDI */
