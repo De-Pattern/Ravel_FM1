@@ -79,10 +79,10 @@ static const page_t pages[] = {
     {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP 2", {TP(TP_S4), TP(TP_S5), TP(TP_KIND), NO}},
     /* LOOP (a TEST build): four lanes; the keys record, play and slice them (rv_loop.c) */
-    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP LEVEL", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
-    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP PITCH", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
-    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP SPEED", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
-    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "LOOP INPUT", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH LEVEL", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH PITCH", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH SPEED", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
+    {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH INPUT", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
@@ -152,7 +152,7 @@ static const page_t pages[] = {
     {SEC_ARP, V_ALL, PIC_ARP, PR_NONE, "ARP 2", {TP(TP_ARPGATE), TP(TP_ARPREP), TP(TP_ARPCHNC), NO}},
 
     {SEC_SEQ, V_COMP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), NO, NO}},   /* (a COMP track has no steps) */
-    {SEC_SEQ, V_LOOP, PIC_LOOPSEQ, PR_STEP, "LOOP TRIGS", {{K_LP, 0}, {K_LP, 1}, {K_LP, 2}, TP(TP_LEN)}},   /* record and play trigs, per lane, with a RANGE */
+    {SEC_SEQ, V_LOOP, PIC_LOOPSEQ, PR_STEP, "GLITCH TRIGS", {{K_LP, 0}, {K_LP, 1}, {K_LP, 2}, TP(TP_LEN)}},   /* record and play trigs, per lane, with a RANGE */
     {SEC_SEQ, V_LOOP, PIC_LOOPSEQ, PR_STEP, "TRIG CHANCE", {SF(SF_CHANCE), SF(SF_COND), NO, NO}},
     {SEC_SEQ, V_LOOP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
@@ -1767,7 +1767,7 @@ static void knob_turn(int i, int d)
             nv += d > 0 ? 1 : -1;                     /* (COMP is T8's alone) */
         if (k.kind == K_TP && k.id == TP_KIND && nv >= KIND_LOOP && other_loop_track(ui.track)) {
             nv = rv.tp[ui.track][TP_KIND];            /* (one LOOP track at a time: it holds the buses' memory) */
-            msg("ONE LOOP TRACK AT A TIME");
+            msg("ONE GLITCH LOOPER AT A TIME");
         }
         kb_set(k, nv);
         page_follow(gp);
@@ -2133,30 +2133,45 @@ static void key_event(int k, int on)
                 if (loop_track_ui(t) && !ui.step_turned) {   /* LOOP: a trig on, or off; a step still held: a range */
                     int si = ui.step_page * 16 + wi, l = ui.lp_lane & 3, bit = 1 << (l + (ui.lp_type ? 4 : 0));
                     int len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
-                    if (ui.step_key_held) {           /* held first (a key further on): from it to this one */
-                        int f = 0, fs, n;
-                        rv_step *fsp;
+                    if (ui.step_key_held) {           /* a step held, then another: the section between them, both
+                                                       * ends in; it starts on the left one (its trig), the RANGE
+                                                       * reaches the right one, and no other trig of this lane and
+                                                       * kind is left inside it */
+                        int f = 0, fs, st, n, j;
+                        rv_step *sp;
                         while (!((ui.step_key_held >> f) & 1u))
                             f++;
                         fs = ui.step_page * 16 + f;
-                        n = ((si - fs) % len + len) % len + 1;
-                        fsp = step_ptr(fs);
-                        if (!(fsp->flags & ST_ON)) {
-                            fsp->chance = 100;
-                            fsp->cond = 0;
+                        st = si < fs ? si : fs;
+                        n = (si < fs ? fs - si : si - fs) + 1;
+                        if (st + n > len)
+                            n = len - st > 0 ? len - st : 1;
+                        for (j = st; j < st + n && j < RV_STEPS; j++) {   /* (the other trigs in it go) */
+                            sp = step_ptr(j);
+                            if (j == st || !(sp->note & bit))
+                                continue;
+                            sp->note &= (uint8_t)~bit;
+                            if (!sp->note)
+                                sp->flags &= (uint8_t)~ST_ON;
                         }
-                        fsp->note |= (uint8_t)bit;
-                        fsp->flags |= ST_ON;
-                        lp_range_set(fsp, l, n);
-                        ui.step_turned = 1;           /* (its own let-go is no tap) */
+                        sp = step_ptr(st);
+                        if (!(sp->flags & ST_ON)) {
+                            sp->chance = 100;
+                            sp->cond = 0;
+                            sp->note = 0;
+                        }
+                        sp->note |= (uint8_t)bit;
+                        sp->flags |= ST_ON;
+                        lp_range_set(sp, l, n);
+                        ui.step_turned = 1;           /* (the held one's let-go is no tap) */
                         {
                             char b[28] = "LANE ";
                             b[5] = (char)('1' + l);
                             b[6] = 0;
                             sx_cat(b, ui.lp_type ? " REC " : " PLAY ");
-                            sx_int(b + sx_cat(b, ""), fs + 1);
+                            sx_int(b + sx_cat(b, ""), st + 1);
                             sx_cat(b, "-");
-                            sx_int(b + sx_cat(b, ""), (fs + n - 1) % len + 1);
+                            sx_int(b + sx_cat(b, ""), st + n);
                             msg(b);
                         }
                         return;
@@ -3168,7 +3183,7 @@ static void pic_tracks(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
-        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : rv.tp[t][TP_KIND] == KIND_LOOP ? "LOOP" : "CMP", muted ? C_DIM : kc);
+        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : rv.tp[t][TP_KIND] == KIND_LOOP ? "GLT" : "CMP", muted ? C_DIM : kc);
         /* the level, in the track's colour, and beside it the articulation (its envelope) */
         meter_bar(x + 6, PIC_Y + 32, 11, 66, fm_sqrtf(rv_live.meter[t]), C_LINE, muted ? C_DIM : kc);
         meter_bar(x + 19, PIC_Y + 32, 6, 66, rv_live.env[t], C_LINE, muted ? C_DIM : g_mix(kc, C_INK, 0.55f));
@@ -5028,7 +5043,7 @@ static void pic_mutes(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(x + 14, y + 6, &FONT_B, b, out ? C_DIM : t == ui.track ? C_WHITE : kc);
-        g_text_c(x + 14, y + 24, &FONT_T, k == KIND_SYNTH ? "SYN" : k == KIND_STRIKE ? "STK" : k == KIND_PERC ? "PRC" : k == KIND_LOOP ? "LOOP" : "CMP", fc);
+        g_text_c(x + 14, y + 24, &FONT_T, k == KIND_SYNTH ? "SYN" : k == KIND_STRIKE ? "STK" : k == KIND_PERC ? "PRC" : k == KIND_LOOP ? "GLT" : "CMP", fc);
         meter_bar(x + 9, y + 38, 10, 40, out ? 0.0f : fm_sqrtf(rv_live.meter[t]), C_LINE, fc);
         g_text_c(x + 14, y + 84, &FONT_T, muted ? "MUTE" : solo ? "SOLO" : out ? "-" : "ON", muted ? C_RED : solo ? C_TRIG : fc);
     }
@@ -5272,9 +5287,22 @@ static void leds(void)
     if (ui.sec == SEC_SEQ || (plat_buttons() & (1u << B_SEQ))) {
         const rv_pattern *p = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
         int kit = is_kit_ui(t), l = ui.lane[t] % RV_LANES;
+        uint8_t lit[RV_STEPS / 8] = {0};
+        if (loop_track_ui(t)) {                       /* a GLITCH LOOPER: the chosen lane's trigs of the chosen kind,
+                                                       * each lit over its section */
+            int ll = ui.lp_lane & 3, bit = 1 << (ll + (ui.lp_type ? 4 : 0)), len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), j, r;
+            for (i = 0; i < len; i++)
+                if ((p->s[i].flags & ST_ON) && (p->s[i].note & bit)) {
+                    r = lp_range_get(&p->s[i], ll);
+                    for (j = i; j < (r > 0 ? i + r : i + 1) && j < len; j++)
+                        lit[j >> 3] |= (uint8_t)(1u << (j & 7));
+                }
+        }
         for (i = 0; i < 16; i++) {
             int si = ui.step_page * 16 + i, on = kit ? (p->s[si].flags & ST_ON) && ((p->s[si].note >> l) & 1) : (p->s[si].flags & ST_ON) != 0;
             int here = kit ? rv_live.playing && si == rv_live.lane_step[t][l] : si == rv_live.step[t][0];
+            if (loop_track_ui(t))
+                on = (lit[si >> 3] >> (si & 7)) & 1;
             if (ui.srec_t == t && si == rv_live.srec_step)
                 on = (plat_ms() / 200u) & 1u, here = 0;   /* step recording: the cursor's key blinks */
             if (on ^ here)

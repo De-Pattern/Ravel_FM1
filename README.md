@@ -196,7 +196,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
-| **LOOP** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [LOOP](#loop-the-looper-test-build)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
+| **GLITCH** | **TEST build only.** Four lanes of recorded audio, played back and overdubbed (see [GLITCH LOOPER](#glitch-looper-test-build)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
 
 How the sound flows:
 
@@ -225,7 +225,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP; on the TEST build also LOOP). **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP; on the TEST build also GLITCH, the GLITCH LOOPER). **Changing it resets the track to that kind's defaults.** |
 | 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
@@ -245,13 +245,13 @@ The meter falls from the top as it squeezes (0 to 20 dB of gain reduction); besi
 
 The matrix and macros can move its knobs like any track's (THRESH on an LFO pumps). A scene or a sound loaded onto T8 can change its kind like any track's.
 
-### LOOP: the looper (TEST build)
+### GLITCH LOOPER (TEST build)
 
-<p align="center"><img src="docs/manual/loop.png" alt="LOOP: the four lanes" width="320"> <img src="docs/manual/loopseq.png" alt="LOOP TRIGS" width="320"></p>
+<p align="center"><img src="docs/manual/loop.png" alt="GLITCH LOOPER: the four lanes" width="320"> <img src="docs/manual/loopseq.png" alt="GLITCH TRIGS" width="320"></p>
 
 > This is in the **TEST** firmware only (listed as TEST in the installer). It is new and has not been played much on hardware yet.
 
-Turn **KIND** to **LOOP** on any one track (EDIT › SOUND, KNOB 1, or HOME › TRACKS, KNOB 3; turn it back the same way to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records. EDIT keeps its SOUND page (KIND; the other knobs greyed), and the looper's pages follow it.
+Turn **KIND** to **GLITCH** on any one track (EDIT › SOUND, KNOB 1, or HOME › TRACKS, KNOB 3; turn it back the same way to remove the looper). It plays nothing of its own: it records what you hear into **four lanes** and plays them back, each lane overdubbing as it records. EDIT keeps its SOUND page (KIND; the other knobs greyed), and the looper's pages follow it.
 
 #### Step by step
 
@@ -260,16 +260,16 @@ The keys below are counted from the left: **black key 1** is the first black key
 **Your first loop**
 
 1. Get something playing: load a demo (SAVE › DEMO) or your project, and press **PLAY**.
-2. With **ALGORITHM**, pick a track you aren't using (T8, say). Press **EDIT**: the first page is **SOUND**. Turn **KNOB 1 (KIND)** until it reads **LOOP** (if the track had steps, the screen asks you to turn again). The effects stop; the screen's bottom line says FX BUSES REST.
-3. Turn **SELECT** one page to **LOOP LEVEL**: four empty lanes.
+2. With **ALGORITHM**, pick a track you aren't using (T8, say). Press **EDIT**: the first page is **SOUND**. Turn **KNOB 1 (KIND)** until it reads **GLITCH** (if the track had steps, the screen asks you to turn again). The effects stop; the screen's bottom line says FX BUSES REST.
+3. Turn **SELECT** one page to **GLITCH LEVEL**: four empty lanes.
 4. Press **black key 1**. Lane 1 records (a red line runs along it) and plays what it has recorded, in time.
 5. Let it go round once (16 steps, a bar, unless you change LENGTH on SEQ), then press **black key 1** again. It stops recording and keeps playing.
 6. Mute the tracks you recorded (GLO › MUTE / SOLO, white keys 1–8) to hear the loop on its own, then bring them back in.
 
 **Shape it**
 
-7. **LOOP LEVEL**, **LOOP PITCH** and **LOOP SPEED** have a knob a lane: PITCH transposes without changing the time, SPEED changes the time (1/4 to 2, or REV) without changing the pitch.
-8. **Overdub:** press black key 1 again while the lane plays and play over it. **OVERDUB** (LOOP INPUT, KNOB 3) is how much of the old stays: 127 keeps all of it, 100 (the default) lets it fade a little each pass, 0 replaces it.
+7. **GLITCH LEVEL**, **GLITCH PITCH** and **GLITCH SPEED** have a knob a lane: PITCH transposes without changing the time, SPEED changes the time (1/4 to 2, or REV) without changing the pitch.
+8. **Overdub:** press black key 1 again while the lane plays and play over it. **OVERDUB** (GLITCH INPUT, KNOB 3) is how much of the old stays: 127 keeps all of it, 100 (the default) lets it fade a little each pass, 0 replaces it.
 9. **More lanes:** black keys 2–4 record lanes 2–4; black keys 5–8 start and stop lanes 1–4 playing.
 
 **Play slices**
@@ -279,29 +279,29 @@ The keys below are counted from the left: **black key 1** is the first black key
 
 **Wait for the sound**
 
-12. On **LOOP INPUT**, turn **THRESH** (KNOB 2) up. Now black key 1 only arms the lane; it starts writing when the sound gets that loud, so a take starts on the first hit.
+12. On **GLITCH INPUT**, turn **THRESH** (KNOB 2) up. Now black key 1 only arms the lane; it starts writing when the sound gets that loud, so a take starts on the first hit.
 
 **Record with reverb (or delay)**
 
-13. On **LOOP INPUT**, turn **LOOPER** (KNOB 4) to **+SPACE** (or **+DELAY**). The lanes empty and get a little shorter; SPACE keeps running.
+13. On **GLITCH INPUT**, turn **LOOPER** (KNOB 4) to **+SPACE** (or **+DELAY**). The lanes empty and get a little shorter; SPACE keeps running.
 14. Send the tracks into SPACE as usual (each track's EDIT › MIX or SENDS) and record from **SOURCE MAIN**: the reverb goes into the loop.
 
 **Sequence it** (the transport must be playing)
 
-15. Press **SEQ**: the **LOOP TRIGS** page. **KNOB 1** (or black keys 3–6) picks the lane, **KNOB 2** the trig: **REC** or **PLAY**.
+15. Press **SEQ**: the **GLITCH TRIGS** page. **KNOB 1** (or black keys 3–6) picks the lane, **KNOB 2** the trig: **REC** or **PLAY**.
 16. With TRIG on REC, tap **white key 1**: each time the pattern reaches step 1, that lane records the whole loop. Tap it again to remove it.
-17. With TRIG on PLAY, tap a step: the lane plays from there. **Hold a step and tap a later one** for a range: PLAY on step 9 to step 12 plays just steps 9–12 of the lane, round and round, until another trig moves it (MLR-style). A REC range records into just those steps.
+17. With TRIG on PLAY, tap a step: the lane plays from there. For a section, **hold one step and tap another**: the section runs from the left one to the right one, both included, whichever you held first (hold 9 and tap 12, or hold 12 and tap 9: steps 9–12). The trig goes on its first step, RANGE (KNOB 3) is set to reach the last, and the keys light along it. A PLAY section plays just those steps of the lane, round and round, until another trig moves it (MLR-style); a REC section records into just those steps. Any other trig of the same lane and kind inside it is removed.
 
 **Clear, and get the effects back**
 
 18. **Hold black key 9 and press a record key** (black 1–4) to clear that lane. **Press black key 11 twice** to clear all four.
 19. To have every effect back: **LOOPER** to **OFF** (the track keeps its settings and trigs; the loops are gone), or turn **KIND** back on EDIT › SOUND.
 
-Recordings are not saved with the project: save keeps the LOOP track's settings and trigs, and the lanes start empty.
+Recordings are not saved with the project: save keeps the GLITCH LOOPER's settings and trigs, and the lanes start empty.
 
 #### Reference
 
-**The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory, and the effects whose memory they hold stand still. **LOOPER** (LOOP INPUT, KNOB 4) says how much they take:
+**The memory.** The FM-1 has no RAM to spare, so the lanes borrow the effects buses' memory, and the effects whose memory they hold stand still. **LOOPER** (GLITCH INPUT, KNOB 4) says how much they take:
 
 | LOOPER | The effects | A lane holds | 16 steps at 120 BPM |
 | --- | --- | --- | --- |
@@ -312,20 +312,20 @@ Recordings are not saved with the project: save keeps the LOOP track's settings 
 
 The lanes are stored 8-bit, spread over the loop's LENGTH: lo-fi on purpose, and a short loop at a quick tempo sounds clearer than a long, slow one. **Every change of LOOPER empties the lanes** (their memory is laid out again, or handed back), and an effect handed back starts clean. The screen's bottom line says what is running.
 
-**Recording with an effect:** set LOOPER to +SPACE (or +DELAY), send the tracks into it as usual, and record from MAIN: the reverb (or the echoes) go into the loop. Then, to play with every effect again, turn LOOPER to OFF; the loops are gone, but the track keeps its settings and trigs, ready for the next take. The LOOP track's own playback is dry: it sends nothing into the effects.
+**Recording with an effect:** set LOOPER to +SPACE (or +DELAY), send the tracks into it as usual, and record from MAIN: the reverb (or the echoes) go into the loop. Then, to play with every effect again, turn LOOPER to OFF; the loops are gone, but the track keeps its settings and trigs, ready for the next take. The GLITCH LOOPER's own playback is dry: it sends nothing into the effects.
 
-**What it records.** SOURCE MAIN (the default) is the main mix, with whatever effect LOOPER keeps running, without the LOOP track itself, so it never records its own playback. SOURCE T1–T8 records one track, after its own effects. The FM-1 has no audio input, so the looper can only record Ravel.
+**What it records.** SOURCE MAIN (the default) is the main mix, with whatever effect LOOPER keeps running, without the GLITCH LOOPER itself, so it never records its own playback. SOURCE T1–T8 records one track, after its own effects. The FM-1 has no audio input, so the looper can only record Ravel.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **LOOP LEVEL** | LEVEL 1 | LEVEL 2 | LEVEL 3 | LEVEL 4 |
-| **LOOP PITCH** | PITCH 1 (±24 semitones) | PITCH 2 | PITCH 3 | PITCH 4 |
-| **LOOP SPEED** | SPEED 1: 1/4, 1/2, 3/4, 1, 3/2, 2, REV | SPEED 2 | SPEED 3 | SPEED 4 |
-| **LOOP INPUT** | SOURCE: MAIN, T1–T8 | THRESH: 0 records at once; above 0, an armed lane waits until the sound is that loud | OVERDUB: how much of the old stays under the new (0 replaces it) | LOOPER: OFF, ON, +SPACE, +DELAY (see above) |
+| **GLITCH LEVEL** | LEVEL 1 | LEVEL 2 | LEVEL 3 | LEVEL 4 |
+| **GLITCH PITCH** | PITCH 1 (±24 semitones) | PITCH 2 | PITCH 3 | PITCH 4 |
+| **GLITCH SPEED** | SPEED 1: 1/4, 1/2, 3/4, 1, 3/2, 2, REV | SPEED 2 | SPEED 3 | SPEED 4 |
+| **GLITCH INPUT** | SOURCE: MAIN, T1–T8 | THRESH: 0 records at once; above 0, an armed lane waits until the sound is that loud | OVERDUB: how much of the old stays under the new (0 replaces it) | LOOPER: OFF, ON, +SPACE, +DELAY (see above) |
 
 PITCH and SPEED are apart: SPEED changes how fast the loop runs, and PITCH transposes it without changing its time (a two-grain stretch). Both can be moved by the LFOs and the matrix.
 
-**Playing it by hand** (on the LOOP pages):
+**Playing it by hand** (with the GLITCH LOOPER's track chosen, on any page but SEQ):
 
 - **Black keys 1–4** record lanes 1–4: one tap starts (or arms, with THRESH above 0), the next stops. A lane that records also plays, the loop's whole length, in time.
 - **Black keys 5–8** start and stop lanes 1–4 playing.
@@ -336,14 +336,14 @@ PITCH and SPEED are apart: SPEED changes how fast the loop runs, and PITCH trans
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **LOOP TRIGS** | LANE: the lane the keys write | TRIG: PLAY or REC | RANGE: how many steps the trig plays or records (0: the whole loop) | LENGTH of the loop |
+| **GLITCH TRIGS** | LANE: the lane the keys write | TRIG: PLAY or REC | RANGE: how many steps the trig plays or records (0: the whole loop) | LENGTH of the loop |
 | **TRIG CHANCE** | CHANCE | CONDITN | – | – |
 
 - **Tap a step** to place or remove a trig of the chosen kind on the chosen lane; **black keys 3–6** choose the lane.
-- **Hold a step and tap a later one** to set a range (MLR-style): REC on step 5 with a range to 11 records into steps 5–11 and stops; PLAY on step 8 with a range to 14 plays steps 8–14 of that lane, looping that stretch until another trig moves it.
+- **Hold a step and tap another** to set a section (MLR-style), from the left one to the right one, both included, in either order: REC over steps 5–11 records into them and stops; PLAY over steps 8–14 plays that stretch of the lane, looping it until another trig moves it. The trig sits on the section's first step with its RANGE reaching the last; other trigs of the same lane and kind inside it go. On SEQ the keys light the chosen lane's trigs of the chosen kind (TRIG), each along its section.
 - A REC trig with THRESH above 0 waits for the sound before it writes.
 
-The recordings are not saved: a project keeps the LOOP track's settings and trigs, and its lanes start empty when it loads or the FM-1 starts. The loop's clock follows the LOOP track's sequencer while it plays, and keeps running at the tempo while stopped. If you go back to the normal firmware (v1.5.1 or later), a project's LOOP track loads as a blank synth, its steps cleared.
+The recordings are not saved: a project keeps the GLITCH LOOPER's settings and trigs, and its lanes start empty when it loads or the FM-1 starts. The loop's clock follows the GLITCH LOOPER's sequencer while it plays, and keeps running at the tempo while stopped. If you go back to the normal firmware (v1.5.1 or later), a project's GLITCH LOOPER loads as a blank synth, its steps cleared.
 
 ### INFLUENCE
 

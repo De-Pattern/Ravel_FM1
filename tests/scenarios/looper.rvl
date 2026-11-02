@@ -1,4 +1,4 @@
-# LOOP (TEST build): T8 becomes a LOOP track; black key 1 records lane 1 from the main mix (the demo
+# GLITCH LOOPER (TEST build): T8 becomes a LOOP track; black key 1 records lane 1 from the main mix (the demo
 # playing) and plays it back; LOOPER +SPACE and OFF; a white key holds a slice; on SEQ, trigs and ranges go on the steps
 wait 300
 demo 1
@@ -15,7 +15,7 @@ wait 150
 expect page SOUND
 turn SELECT 1
 wait 150
-expect page LOOP LEVEL
+expect page GLITCH LEVEL
 tapkey 1
 wait 100
 expect loopst 1 3
@@ -35,7 +35,7 @@ wait 100
 expect loopst 1 1
 tap SEQ
 wait 150
-expect page LOOP TRIGS
+expect page GLITCH TRIGS
 tapkey 7
 wait 100
 expect stepbits 8 5 1
@@ -46,6 +46,21 @@ wait 50
 key 7 up
 wait 100
 expect lprange 8 5 1 7
+# held on the right, tapped on the left: the section starts on the left (8-14), the trig there; the
+# held step gets none, and a trig inside (step 10) goes
+tapkey 16
+wait 50
+expect stepbits 8 10 1
+key 23 down
+wait 50
+tapkey 12
+wait 50
+key 23 up
+wait 100
+expect stepbits 8 8 1
+expect lprange 8 8 1 7
+expect stepnote 8 14 -1
+expect stepnote 8 10 -1
 shot loopseq.png
 # LOOPER +SPACE: the lanes start again, smaller; SPACE runs on and is recorded with the mix
 settp 8 LOOPER 2

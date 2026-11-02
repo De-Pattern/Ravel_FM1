@@ -6,7 +6,7 @@
 #include "rv_organ.h"
 
 /* ------------------------------------------------------------------ names --- */
-const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "LOOP"};
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND"};
