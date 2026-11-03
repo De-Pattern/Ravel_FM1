@@ -112,6 +112,10 @@ static lfo_t lfo[2];
 static float dust_v;
 static uint32_t dust_rng = 0xD057D057u;
 static uint8_t lfo_wrapped[2], dust_fired;
+/* WEFT (rv_weft.c): its clock fired (CLK OUT) or asked the tracks it clocks back to step 1, its matrix source
+ * (MOD OUT), and where it is on the tempo's grid (sixteenths since the transport started; TICK) */
+static uint8_t weft_clk_fired, weft_clk_reset;
+static float weft_mod_v, weft_pos16;
 static float dust_acc, dust_due = 1.0f;               /* the mean intervals gone since the last grain, and the next one's */
 
 static uint8_t lfo_note_trig;                          /* a note started: RETRIG and 1 SHOT LFOs start over */
@@ -379,6 +383,7 @@ RV_HOT static void eff_compute(void)
     src[MS_LFO1] = lfo[0].value;
     src[MS_LFO2] = lfo[1].value;
     src[MS_DUST] = dust_v;
+    src[MS_WEFT] = weft_mod_v;
     src[MS_WHEEL] = midi_wheel;
     midi_touch_s += (midi_touch - midi_touch_s) * 0.25f;
     src[MS_TOUCH] = midi_touch_s;

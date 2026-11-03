@@ -10,7 +10,7 @@
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
-const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND"};
+const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND", "WEFT"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
 static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE", "SEM"};
@@ -24,7 +24,7 @@ static const char *const comb_names[] = {"x CLOCK", "+ CLOCK"};
 static const char *const target_names[] = {"THIS", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const rate_names[] = {"1/4", "1/3", "1/2", "2/3", "1", "3/2", "2", "3", "4"};
 const char *const rv_lrate_names[] = {"X1/4", "X1/3", "X1/2", "X2/3", "TRK", "X3/2", "X2", "X3", "X4"};   /* a kit lane's, against the track's */
-static const char *const clksrc_names[] = {"MASTER", "LFO1", "LFO2", "DUST"};
+static const char *const clksrc_names[] = {"MASTER", "LFO1", "LFO2", "DUST", "WEFT"};
 static const char *const branch_names[] = {"CHANCE", "TURNS", "LFO1", "LFO2", "MOTION"};
 static const char *const onoff_names[] = {"OFF", "ON"};
 static const char *const arpmode_names[] = {"OFF", "UP", "DOWN", "UP-DN", "DN-UP", "PLAYED", "RANDOM"};
@@ -490,23 +490,25 @@ static const rv_pinfo SRC_LOOP[16] = {
 
 const rv_pinfo *rv_pinfo_track(int t, int p)
 {
+    if (rv.tp[t & 7][TP_KIND] == KIND_WEFT && wf_spi(p) >= 0) {   /* WEFT: block s/2's setting, named for its type */
+        static rv_pinfo wp[WF_SETS];
+        int s = wf_spi(p);
+        const wf_type_t *ty = &wf_types[rv.weft[t & 7].type[s >> 1] % WO_N];
+        rv_pinfo *q = &wp[s];
+        int m = s & 1 ? ty->m2 : ty->m1;
+        if (!rv.weft[t & 7].type[s >> 1])
+            return &NONE;
+        q->name = s & 1 ? ty->p2 : ty->p1;
+        q->min = 0;
+        q->max = m ? m - 1 : 127;
+        q->def = s & 1 ? ty->d2 : ty->d1;
+        q->fmt = m ? PF_ENUM : PF_NUM;
+        q->names = m ? (s & 1 ? ty->n2 : ty->n1) : 0;
+        return q;
+    }
     if (p >= TP_S0 && p <= TP_S15) {
         int kind = rv.tp[t & 7][TP_KIND], s = p - TP_S0;
         const rv_pinfo *tab;
-        if (kind == KIND_WEFT) {                     /* WEFT: block s/2's setting, named for its type */
-            static rv_pinfo wp[16];
-            const wf_type_t *ty = &wf_types[rv.weft[t & 7].type[s >> 1] % WO_N];
-            rv_pinfo *q = &wp[s];
-            if (!rv.weft[t & 7].type[s >> 1])
-                return &NONE;
-            q->name = s & 1 ? ty->p2 : ty->p1;
-            q->min = 0;
-            q->max = !(s & 1) && ty->m1 ? ty->m1 - 1 : 127;
-            q->def = s & 1 ? ty->d2 : ty->d1;
-            q->fmt = !(s & 1) && ty->m1 ? PF_ENUM : PF_NUM;
-            q->names = !(s & 1) && ty->m1 ? wf_ratio : 0;
-            return q;
-        }
         if (kind == KIND_PERC) {
             const rv_pinfo *q = perc_pinfo(rv.tp[t & 7][TP_S0], s);
             if (rv.tp[t & 7][TP_ENGINE] == 1 && s <= 8)   /* a KIT: the lanes hold the machines (LANE pages) */
@@ -670,7 +672,7 @@ void rv_param_format(int pid, int v, char *o, int max)
         break;
     }
     case PF_DEST:
-        put_str(o, 0, max, pid < RV_GPID && v >= TP_S0 && v <= TP_S15 ? rv_pinfo_track(pid / RV_TP, v)->name ? rv_pinfo_track(pid / RV_TP, v)->name : "-" : dest_name(v));
+        put_str(o, 0, max, pid < RV_GPID && ((v >= TP_S0 && v <= TP_S15) || (rv.tp[(pid / RV_TP) & 7][TP_KIND] == KIND_WEFT && wf_spi(v) >= 0)) ? rv_pinfo_track(pid / RV_TP, v)->name ? rv_pinfo_track(pid / RV_TP, v)->name : "-" : dest_name(v));
         break;
     case PF_BPM:
     default:
@@ -708,8 +710,8 @@ int rv_tp_applies(int t, int p)
         return 0;
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
         return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
-    if (tp[TP_KIND] == KIND_WEFT && p >= TP_S0 && p <= TP_S15)       /* WEFT: the settings of the blocks there are */
-        return rv.weft[t & 7].type[(p - TP_S0) >> 1] != 0;
+    if (tp[TP_KIND] == KIND_WEFT && wf_spi(p) >= 0)                  /* WEFT: the settings of the blocks there are */
+        return rv.weft[t & 7].type[wf_spi(p) >> 1] != 0;
     if (tp[TP_KIND] == KIND_LOOP && (p == TP_POLY || p == TP_VELO))  /* LOOP: no voices of its own (SOUND greys them) */
         return 0;
     if (p >= TP_ARPMODE && p <= TP_ARPCHNC)                            /* ARP: note tracks (a kit's lanes are not notes) */
@@ -839,7 +841,7 @@ int rv_is_moddest(int p)
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
-        return p >= TP_S0 && p <= TP_S15;
+        return (p >= TP_S0 && p <= TP_S15) || (p >= TP_WX0 && p <= TP_WX5) || p == TP_VOC || p == TP_PAIRS;   /* (the last: WEFT's blocks 9-12) */
     }
 }
 

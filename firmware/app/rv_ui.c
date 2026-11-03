@@ -475,9 +475,9 @@ static kb_t page_knob(const page_t *pg, int i)
             k.kind = K_NONE;
     } else if (k.kind == K_WF && (k.id == 6 || k.id == 7 || (k.id >= 10 && k.id <= 13))) {
         const rv_weft *w = &rv.weft[ui.track];     /* a block's setting: an ordinary parameter (locks, the matrix) */
-        int sp = k.id <= 7 ? (ui.wf_blk & 7) * 2 + (k.id - 6) : w->map[k.id - 10] - 1;
-        k.kind = sp >= 0 && sp < 16 && w->type[sp >> 1] ? K_TP : K_NONE;
-        k.id = (uint16_t)(TP_S0 + (sp < 0 ? 0 : sp));
+        int sp = k.id <= 7 ? (ui.wf_blk % WF_BLOCKS) * 2 + (k.id - 6) : w->map[k.id - 10] - 1;
+        k.kind = sp >= 0 && sp < WF_SETS && w->type[sp >> 1] ? K_TP : K_NONE;
+        k.id = (uint16_t)wf_sp(sp < 0 ? 0 : sp);
     } else if (k.kind == K_OSC) {
         const uint8_t *m = osc_mix_map(rv.tp[ui.track][TP_ENGINE]);
         int p = m ? m[k.id & 3] : 0;
@@ -901,15 +901,15 @@ static kinfo_t kb_info(kb_t k)
     }
     case K_WF: {                                      /* WEFT: the patch's routing (the settings are TP, page_knob) */
         static const char *const nm[16] = {"BLOCK", "TYPE", "IN A", "AMT A", "IN B", "AMT B", "", "", "KNOB", "SETTING", "", "", "", "", "OUT", ""};
-        static char src[WS_N][10], set[17][14], outn[9][10];
-        static const char *srcp[WS_N], *setp[17], *outp[9];
-        static const char *const blk[8] = {"1", "2", "3", "4", "5", "6", "7", "8"}, *const kn[4] = {"1", "2", "3", "4"};
+        static char src[WS_N][10], set[WF_SETS + 1][14], outn[WF_BLOCKS + 1][10];
+        static const char *srcp[WS_N], *setp[WF_SETS + 1], *outp[WF_BLOCKS + 1];
+        static const char *const blk[WF_BLOCKS] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}, *const kn[4] = {"1", "2", "3", "4"};
         static const char *typ[WO_N];
         const rv_weft *w = &rv.weft[ui.track];
         int i;
         r.name = nm[k.id & 15];
         switch (k.id) {
-        case 0: r.min = 0; r.max = 7; r.fmt = PF_ENUM; r.names = blk; break;
+        case 0: r.min = 0; r.max = WF_BLOCKS - 1; r.fmt = PF_ENUM; r.names = blk; break;
         case 1:
             for (i = 0; i < WO_N; i++)
                 typ[i] = wf_types[i].name;
@@ -917,36 +917,41 @@ static kinfo_t kb_info(kb_t k)
         case 2: case 4:                               /* a source: a block (named), or a built-in */
             for (i = 0; i < WS_N; i++) {
                 src[i][0] = 0;
-                if (i >= 1 && i <= 8) {
-                    src[i][0] = (char)('0' + i), src[i][1] = ' ', src[i][2] = 0;
+                if (i >= 1 && i <= WF_BLOCKS) {
+                    sx_int(src[i], i);
+                    sx_cat(src[i], " ");
                     sx_cat(src[i], w->type[i - 1] ? wf_types[w->type[i - 1] % WO_N].name : "-");
                 } else
                     sx_cat(src[i], wf_src_names[i]);
                 srcp[i] = src[i];
             }
-            r.max = WS_N - 1; r.fmt = PF_ENUM; r.names = srcp; break;
+            r.max = WS_MENU - 1; r.fmt = PF_ENUM; r.names = srcp; break;
         case 3: case 5: r.min = -100; r.max = 100; r.fmt = PF_BI; break;
         case 8: r.max = 3; r.fmt = PF_ENUM; r.names = kn; break;
         case 9:                                       /* a setting of any block, or none */
             setp[0] = "-";
-            for (i = 0; i < 16; i++) {
-                set[i + 1][0] = (char)('1' + (i >> 1)), set[i + 1][1] = ' ', set[i + 1][2] = 0;
+            for (i = 0; i < WF_SETS; i++) {
+                set[i + 1][0] = 0;
+                sx_int(set[i + 1], (i >> 1) + 1);
+                sx_cat(set[i + 1], " ");
                 sx_cat(set[i + 1], w->type[i >> 1] ? (i & 1 ? wf_types[w->type[i >> 1] % WO_N].p2 : wf_types[w->type[i >> 1] % WO_N].p1) : "-");
                 setp[i + 1] = set[i + 1];
             }
-            r.max = 16; r.fmt = PF_ENUM; r.names = setp; break;
+            r.max = WF_SETS; r.fmt = PF_ENUM; r.names = setp; break;
         case 16: { uint8_t l[64]; r.name = "PATCH"; r.max = wl_list(l) - 1; break; }
         case 17: { static const char *const bk[4] = {"A", "B", "C", "D"}; r.name = "BANK"; r.max = 3; r.fmt = PF_ENUM; r.names = bk; break; }
         case 18: r.name = "CURSOR"; r.min = 1; r.max = 11; break;
         case 19: r.name = "LETTER"; r.max = rv_bank_nchars() - 1; break;
         case 14:
             outp[0] = "-";
-            for (i = 0; i < 8; i++) {
-                outn[i + 1][0] = (char)('1' + i), outn[i + 1][1] = ' ', outn[i + 1][2] = 0;
+            for (i = 0; i < WF_BLOCKS; i++) {
+                outn[i + 1][0] = 0;
+                sx_int(outn[i + 1], i + 1);
+                sx_cat(outn[i + 1], " ");
                 sx_cat(outn[i + 1], w->type[i] ? wf_types[w->type[i] % WO_N].name : "-");
                 outp[i + 1] = outn[i + 1];
             }
-            r.max = 8; r.fmt = PF_ENUM; r.names = outp; break;
+            r.max = WF_BLOCKS; r.fmt = PF_ENUM; r.names = outp; break;
         default: r.name = 0; break;
         }
         break;
@@ -1179,7 +1184,7 @@ static int kb_get(kb_t k)
         return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : k.id == 4 ? prefs_stay() : 0;
     case K_WF: {
         const rv_weft *w = &rv.weft[ui.track];
-        int b = ui.wf_blk & 7;
+        int b = ui.wf_blk % WF_BLOCKS;
         switch (k.id) {
         case 0: return b;
         case 1: return w->type[b] % WO_N;
@@ -1188,8 +1193,8 @@ static int kb_get(kb_t k)
         case 4: return w->b[b] % WS_N;
         case 5: return w->amtb[b];
         case 8: return ui.wf_map & 3;
-        case 9: return w->map[ui.wf_map & 3] % 17;
-        case 14: return w->out % 9;
+        case 9: return w->map[ui.wf_map & 3] % (WF_SETS + 1);
+        case 14: return w->out % (WF_BLOCKS + 1);
         case 16: { uint8_t l[64]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
         case 17: return rv_bank_current();
         case 18: return ui.wl_cursor + 1;
@@ -1562,12 +1567,13 @@ static void kb_set(kb_t k, int v)
     }
     case K_WF: {
         rv_weft *w = &rv.weft[ui.track];
-        int b = ui.wf_blk & 7;
+        int b = ui.wf_blk % WF_BLOCKS;
         switch (k.id) {
-        case 0: ui.wf_blk = (uint8_t)(v & 7); break;
+        case 0: ui.wf_blk = (uint8_t)(v % WF_BLOCKS); break;
         case 1:                                       /* a new type: its own settings, its inputs kept */
             if (v != w->type[b]) {
                 w->type[b] = (uint8_t)v;
+                w->bmove &= (uint16_t)~(1u << b);      /* (B back to its own job) */
                 weft_block_defaults(ui.track, b);
                 if (v && !w->out)
                     w->out = (uint8_t)(b + 1);       /* (the first block made is heard) */
@@ -2656,6 +2662,25 @@ static void key_event(int k, int on)
             wl_do(bi);
         return;
     }
+    /* --- WEFT BLOCK: black key 1, what input B does (its own job, or the second setting) --- */
+    if (cur_page()->pic == PIC_WEFTBLK && bi == 0) {
+        if (on) {
+            rv_weft *w = &rv.weft[t];
+            int b = ui.wf_blk % WF_BLOCKS;
+            if (!w->type[b])
+                msg("MAKE A BLOCK FIRST (WEFT PATCH)");
+            else {
+                char m[40];
+                w->bmove ^= (uint16_t)(1u << b);
+                m[0] = 0;
+                sx_cat(m, "B MOVES ");
+                sx_cat(m, (w->bmove >> b) & 1u ? wf_types[w->type[b] % WO_N].p2 : wf_types[w->type[b] % WO_N].b);
+                msg(m);
+                ui.wf_pre[t] = -1;
+            }
+        }
+        return;
+    }
     /* --- otherwise the keys play the track --- */
     if (on) {
         if (is_kit_ui(t)) {                           /* a kit: the white keys play the lanes, 1-6 and again */
@@ -3304,7 +3329,7 @@ static void draw_footer(void)
     case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
     case PR_WLIB: hint = "BLK1 LOAD BLK2 SAVE BLK3 DEL"; break;
     case PR_WEFT:
-        hint = pg->pic == PIC_WEFTBLK ? "BLOCK: PICK IT ON WEFT PATCH" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
+        hint = pg->pic == PIC_WEFTBLK ? "BLK1: WHAT B MOVES" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
         break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
         static char gh[40];
@@ -4797,7 +4822,7 @@ static void pic_loop(void)
 static void wf_scope(int b, int x, int y, int w, int h, uint16_t c)
 {
     int i, py = 0;
-    const int8_t *sc = (const int8_t *)rv_live.wscope[b & 7];
+    const int8_t *sc = (const int8_t *)rv_live.wscope[b % WF_BLOCKS];
     g_hline(x, y + h / 2, w, C_LINE);
     for (i = 0; i <= w; i++) {
         int k = i * 31 / (w > 0 ? w : 1), yy = y + h / 2 - sc[k] * (h / 2 - 1) / 100;
@@ -4810,24 +4835,30 @@ static void wf_scope(int b, int x, int y, int w, int h, uint16_t c)
         py = yy;
     }
 }
-static uint16_t wf_src_col(int s) { return s == WS_PITCH ? C_TEAL : s == WS_GATE || s == WS_TRIG ? C_RED : s == WS_LFO1 || s == WS_LFO2 ? C_AMBER : C_MID; }
+static uint16_t wf_src_col(int s)
+{
+    return s == WS_PITCH ? C_TEAL : s == WS_GATE || s == WS_TRIG ? C_RED : s == WS_LFO1 || s == WS_LFO2 ? C_AMBER : s >= WS_SW1 ? C_WHITE : C_MID;
+}
 static void wf_setting_str(int t, int b, int k, char *o)
 {
-    kb_t kk = {K_TP, (uint16_t)(TP_S0 + 2 * b + k)};
-    kb_format(kk, rv.tp[t][TP_S0 + 2 * b + k], o);
+    kb_t kk = {K_TP, (uint16_t)wf_sp(2 * b + k)};
+    kb_format(kk, rv.tp[t][wf_sp(2 * b + k)], o);
 }
+static int wf_isblk(const rv_weft *w, int s) { return s >= 1 && s <= WF_BLOCKS && w->type[s - 1]; }
 
-#define WF_BW 46
-#define WF_BH 44
-static int wf_bx(int i) { return 9 + (i % 4) * 58; }
-static int wf_by(int i) { return 80 + (i / 4) * 58; }
+/* the tiles: three rows of four */
+#define WF_BW 48
+#define WF_BH 32
+static int wf_bx(int i) { return 8 + (i % 4) * 58; }
+static int wf_by(int i) { return 76 + (i / 4) * 44; }
 
 /* a cord from block s's output to block d's input (port 0: A, 1: B): next door, straight across; else out into
- * the gap, along a lane in a corridor and in. Cords back to an earlier block (a sample late) are verdigris */
+ * the gap, along a lane in the corridor under a row and in. Cords back to an earlier block (a sample late) are
+ * verdigris */
 static void wf_cord(int s, int d, int port, int lit)
 {
-    int x0 = wf_bx(s) + WF_BW, y0 = wf_by(s) + WF_BH / 2, x1 = wf_bx(d), y1 = wf_by(d) + (port ? 31 : 15);
-    int back = d <= s, lane, xo = x0 + 5, xi = x1 - 6;
+    int x0 = wf_bx(s) + WF_BW, y0 = wf_by(s) + WF_BH / 2, x1 = wf_bx(d), y1 = wf_by(d) + (port ? 24 : 9);
+    int back = d <= s, lane, r, xo = x0 + 4 + (port ? 2 : 0), xi = x1 - 4 - (port ? 2 : 0);
     uint16_t c = back ? (lit ? C_AMBER : C_AMBER_D) : lit ? C_INK : C_DIM;
     if (!back && wf_by(s) == wf_by(d) && d == s + 1) {
         g_line(x0, y0, x0 + 3, y0, c);
@@ -4835,8 +4866,8 @@ static void wf_cord(int s, int d, int port, int lit)
         g_line(x1 - 3, y1, x1, y1, c);
         return;
     }
-    lane = (wf_by(s) < 120 || wf_by(d) < 120) ? 128 : 188;
-    lane += ((s * 3 + d + port) % 3) * 3;
+    r = back ? (s / 4 > d / 4 ? s / 4 : d / 4) : (s / 4 < d / 4 ? s / 4 : d / 4);
+    lane = wf_by(r * 4) + WF_BH + 3 + ((s * 3 + d + port) % 3) * 3;
     g_line(x0, y0, xo, y0, c);
     g_line(xo, y0, xo, lane, c);
     g_line(xo, lane, xi, lane, c);
@@ -4844,42 +4875,42 @@ static void wf_cord(int s, int d, int port, int lit)
     g_line(xi, y1, x1, y1, c);
 }
 
-/* WEFT PATCH: the eight blocks as tiles (a scope of each), their cords, the chosen one lit */
+/* WEFT PATCH: the twelve blocks as tiles (a scope of each), their cords, the chosen one lit */
 static void pic_weft(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
-    int i, pass, sel = ui.wf_blk & 7, out = w->out ? (w->out - 1) & 7 : -1;
+    int i, pass, sel = ui.wf_blk % WF_BLOCKS, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
     char b[48];
     for (pass = 0; pass < 2; pass++)                  /* cords under the tiles, those going back on top */
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < WF_BLOCKS; i++) {
             if (!w->type[i])
                 continue;
-            if (w->a[i] >= 1 && w->a[i] <= 8 && w->type[w->a[i] - 1] && ((w->a[i] - 1 >= i) == pass))
+            if (wf_isblk(w, w->a[i]) && ((w->a[i] - 1 >= i) == pass))
                 wf_cord(w->a[i] - 1, i, 0, i == sel || w->a[i] - 1 == sel);
-            if (w->b[i] >= 1 && w->b[i] <= 8 && w->type[w->b[i] - 1] && ((w->b[i] - 1 >= i) == pass))
+            if (wf_isblk(w, w->b[i]) && ((w->b[i] - 1 >= i) == pass))
                 wf_cord(w->b[i] - 1, i, 1, i == sel || w->b[i] - 1 == sel);
         }
-    for (i = 0; i < 8; i++) {
-        int x = wf_bx(i), y = wf_by(i), on = i == sel;
-        char n[2] = {(char)('1' + i), 0};
-        if (!w->type[i]) {
-            g_rbox(x, y, WF_BW, WF_BH, 5, on ? C_INK : C_LINE, 0);
-            g_text(x + 4, y + 3, &FONT_T, n, C_DIM);
-            g_text_c(x + WF_BW / 2, y + 16, &FONT_T, "+", on ? C_INK : C_DIM);
+    for (i = 0; i < WF_BLOCKS; i++) {
+        int x = wf_bx(i), y = wf_by(i), on = i == sel, ty = w->type[i] % WO_N;
+        char n[4];
+        n[0] = 0;
+        sx_int(n, i + 1);
+        if (!ty) {
+            g_rbox(x, y, WF_BW, WF_BH, 4, on ? C_INK : C_LINE, 0);
+            g_text(x + 3, y + 2, &FONT_T, n, C_DIM);
+            g_text_c(x + WF_BW / 2, y + 10, &FONT_T, "+", on ? C_INK : C_DIM);
             continue;
         }
-        g_rbox(x, y, WF_BW, WF_BH, 5, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);
-        g_rbox(x, y, WF_BW, WF_BH, 5, i == out ? C_RED : on ? C_WHITE : C_KDIV, 0);
-        g_text(x + 4, y + 3, &FONT_T, n, on ? C_WHITE : C_DIM);
-        g_text(x + 11, y + 3, &FONT_T, wf_types[w->type[i] % WO_N].name, on ? C_WHITE : C_INK);
-        wf_scope(i, x + 4, y + 16, WF_BW - 8, 16, on ? C_TEAL : C_MID);
-        wf_setting_str(ui.track, i, 0, b);
-        g_text(x + 4, y + 33, &FONT_T, b, C_DIM);
-        g_disc(x, y + 15, 2, w->a[i] > 8 ? wf_src_col(w->a[i]) : w->a[i] ? C_INK : C_KDIV);
-        g_disc(x, y + 31, 2, w->b[i] > 8 ? wf_src_col(w->b[i]) : w->b[i] ? C_INK : C_KDIV);
+        g_rbox(x, y, WF_BW, WF_BH, 4, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);
+        g_rbox(x, y, WF_BW, WF_BH, 4, i == out ? C_RED : on ? C_WHITE : C_KDIV, 0);
+        g_text(x + 3, y + 2, &FONT_T, n, on ? C_WHITE : C_DIM);
+        g_text(x + (i < 9 ? 12 : 17), y + 2, &FONT_T, wf_types[ty].name, on ? C_WHITE : C_INK);
+        wf_scope(i, x + 4, y + 14, WF_BW - 8, 14, on ? C_TEAL : C_MID);
+        g_disc(x, y + 9, 2, w->a[i] > WF_BLOCKS ? wf_src_col(w->a[i]) : w->a[i] ? C_INK : C_KDIV);
+        g_disc(x, y + 24, 2, w->b[i] > WF_BLOCKS ? wf_src_col(w->b[i]) : w->b[i] ? ((w->bmove >> i) & 1u ? C_TEAL : C_INK) : C_KDIV);
         g_disc(x + WF_BW, y + WF_BH / 2, 2, i == out ? C_RED : C_INK);
         if (i == out)
-            g_fill(x + WF_BW + 3, y + WF_BH / 2 - 1, 5, 3, C_RED);
+            g_fill(x + WF_BW + 3, y + WF_BH / 2 - 1, 4, 3, C_RED);
     }
     b[0] = 0;                                         /* the chosen block's inputs, in words */
     if (w->type[sel]) {
@@ -4893,23 +4924,23 @@ static void pic_weft(void)
         sx_cat(b, s1);
     } else
         sx_cat(b, "TYPE: TURN KNOB 2 TO MAKE A BLOCK");
-    g_text(9, 200, &FONT_T, b, C_DIM);
+    g_text(9, 206, &FONT_T, b, C_DIM);
 }
 
 /* WEFT BLOCK: the chosen block close up: what comes in, what it does, what goes out and where */
 static void pic_weftblk(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
-    int sel = ui.wf_blk & 7, ty = w->type[sel] % WO_N, i, k, x;
-    char b[40], s1[16];
+    int sel = ui.wf_blk % WF_BLOCKS, ty = w->type[sel] % WO_N, i, k, x, bm = (w->bmove >> sel) & 1u;
+    char b[48], s1[16];
     for (k = 0; k < 2; k++) {                         /* A and B */
         int src = k ? w->b[sel] : w->a[sel], y = 80 + k * 50, amt = k ? w->amtb[sel] : w->amta[sel];
         kb_t ks = {K_WF, (uint16_t)(k ? 4 : 2)};
         b[0] = k ? 'B' : 'A', b[1] = ' ', b[2] = 0;
-        sx_cat(b, wf_types[ty].a && k == 0 ? wf_types[ty].a : wf_types[ty].b);
-        g_text(8, y, &FONT_T, b, C_MID);
+        sx_cat(b, k == 0 ? wf_types[ty].a : bm ? wf_types[ty].p2 : wf_types[ty].b);
+        g_text(8, y, &FONT_T, b, k && bm ? C_TEAL : C_MID);
         g_rbox(8, y + 11, 72, 30, 4, C_PANEL, 1);
-        if (src >= 1 && src <= 8 && w->type[src - 1])
+        if (wf_isblk(w, src))
             wf_scope(src - 1, 12, y + 15, 64, 22, C_INK);
         else {
             kb_format(ks, src, s1);
@@ -4920,8 +4951,10 @@ static void pic_weftblk(void)
             x = amt > 0;
             sx_int(b + x, amt);
             g_text_r(80, y, &FONT_T, b, C_DIM);
-            if (src >= 1 && src <= 8) {               /* (which block it comes from) */
-                char d[2] = {(char)('0' + src), 0};
+            if (src >= 1 && src <= WF_BLOCKS) {       /* (which block it comes from) */
+                char d[4];
+                d[0] = 0;
+                sx_int(d, src);
                 g_text(11, y + 13, &FONT_T, d, C_DIM);
             }
             g_line(80, y + 26, 92, 118, k ? C_AMBER : C_INK);
@@ -4929,7 +4962,9 @@ static void pic_weftblk(void)
     }
     g_rbox(92, 96, 56, 46, 6, g_mix(C_PANEL, C_INK, 0.10f), 1);
     g_rbox(92, 96, 56, 46, 6, C_WHITE, 0);
-    b[0] = (char)('1' + sel), b[1] = ' ', b[2] = 0;
+    b[0] = 0;
+    sx_int(b, sel + 1);
+    sx_cat(b, " ");
     sx_cat(b, wf_types[ty].name);
     g_text_c(120, 101, &FONT_T, b, C_WHITE);
     wf_setting_str(ui.track, sel, 0, s1);
@@ -4944,9 +4979,12 @@ static void pic_weftblk(void)
     g_text(8, 182, &FONT_T, wf_desc[ty], C_INK);
     b[0] = 0;                                         /* where it goes */
     sx_cat(b, "TO ");
-    for (i = 0, k = 0; i < 8; i++)
+    for (i = 0, k = 0; i < WF_BLOCKS; i++)
         if (w->type[i] && (w->a[i] == sel + 1 || w->b[i] == sel + 1) && k < 4) {
-            char e[8] = {(char)('1' + i), w->a[i] == sel + 1 ? 'A' : 'B', ' ', 0};
+            char e[8];
+            e[0] = 0;
+            sx_int(e, i + 1);
+            sx_cat(e, w->a[i] == sel + 1 ? "A " : "B ");
             sx_cat(b, e);
             k++;
         }
@@ -4962,7 +5000,7 @@ static void pic_weftmap(void)
     int i;
     char b[24], s1[16];
     for (i = 0; i < 4; i++) {
-        int y = 78 + i * 22, on = i == (ui.wf_map & 3), m = w->map[i];
+        int y = 78 + i * 22, on = i == (ui.wf_map & 3), m = w->map[i] % (WF_SETS + 1);
         kb_t ks = {K_WF, 9};
         g_rbox(6, y, 228, 19, 4, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);
         if (on)
@@ -4974,8 +5012,8 @@ static void pic_weftmap(void)
         kb_format(ks, m, s1);
         g_text(64, y + 4, &FONT_T, m ? s1 : "-", on ? C_WHITE : C_INK);
         if (m && w->type[(m - 1) >> 1]) {
-            int v = rv.tp[ui.track][TP_S0 + m - 1];
-            const rv_pinfo *pi = rv_pinfo_track(ui.track, TP_S0 + m - 1);
+            int v = rv.tp[ui.track][wf_sp(m - 1)];
+            const rv_pinfo *pi = rv_pinfo_track(ui.track, wf_sp(m - 1));
             wf_setting_str(ui.track, (m - 1) >> 1, (m - 1) & 1, s1);
             g_text(150, y + 4, &FONT_T, s1, C_TEAL);
             g_fill(196, y + 8, 32, 2, C_KTRACK);
@@ -4985,11 +5023,11 @@ static void pic_weftmap(void)
     g_hline(6, 170, 228, C_LINE);
     {
         kb_t ko = {K_WF, 14};
-        kb_format(ko, w->out % 9, s1);
+        kb_format(ko, w->out % (WF_BLOCKS + 1), s1);
         g_text(12, 176, &FONT_T, "OUT", C_MID);
         g_text(64, 176, &FONT_T, w->out ? s1 : "- (SILENT)", w->out ? C_RED : C_DIM);
-        g_text(150, 176, &FONT_T, rv.tp[ui.track][TP_POLY] > 0 ? "VOICES 2" : "VOICES 1", C_INK);
-        g_text(12, 192, &FONT_T, "VOICES: ON SOUND", C_DIM);
+        g_text(150, 176, &FONT_T, rv_weft_poly(ui.track) > 1 ? "VOICES 2" : "VOICES 1", C_INK);
+        g_text(12, 192, &FONT_T, rv.tp[ui.track][TP_POLY] > 0 && rv_weft_poly(ui.track) < 2 ? "VOICES: 1 (MORE THAN 8 BLOCKS)" : "VOICES: ON SOUND", C_DIM);
     }
 }
 
@@ -5039,25 +5077,27 @@ static __attribute__((noinline)) void pic_weftlib(void)
 static void pic_weftplay(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
-    int i, k, out = w->out ? (w->out - 1) & 7 : -1;
+    int i, k, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
     g_rbox(6, 78, 228, 76, 5, C_PANEL, 1);
     if (out >= 0 && w->type[out])
         wf_scope(out, 12, 82, 216, 68, C_TEAL);
     else
         g_text_c(120, 110, &FONT_T, "NO OUTPUT: CHOOSE ONE ON WEFT MAP", C_DIM);
-    for (i = 0; i < 8; i++) {
-        int x = 10 + i * 28, y = 162, lit = 0;
-        char d[2] = {(char)('1' + i), 0};
+    for (i = 0; i < WF_BLOCKS; i++) {
+        int x = 7 + i * 19, y = 162, lit = 0;
+        char d[4];
+        d[0] = 0;
+        sx_int(d, i + 1);
         for (k = 0; k < 4; k++)
             lit |= w->map[k] && ((w->map[k] - 1) >> 1) == i;
         if (!w->type[i]) {
-            g_rbox(x, y, 24, 22, 3, C_LINE, 0);
+            g_rbox(x, y, 17, 22, 3, C_LINE, 0);
             continue;
         }
-        g_rbox(x, y, 24, 22, 3, lit ? g_mix(C_PANEL, C_INK, 0.12f) : C_PANEL, 1);
-        g_rbox(x, y, 24, 22, 3, i == out ? C_RED : lit ? C_INK : C_KDIV, 0);
-        g_text_c(x + 12, y + 2, &FONT_T, d, lit ? C_WHITE : C_DIM);
-        wf_scope(i, x + 3, y + 12, 18, 8, lit ? C_TEAL : C_DIM);
+        g_rbox(x, y, 17, 22, 3, lit ? g_mix(C_PANEL, C_INK, 0.12f) : C_PANEL, 1);
+        g_rbox(x, y, 17, 22, 3, i == out ? C_RED : lit ? C_INK : C_KDIV, 0);
+        g_text_c(x + 9, y + 2, &FONT_T, d, lit ? C_WHITE : C_DIM);
+        wf_scope(i, x + 2, y + 12, 13, 8, lit ? C_TEAL : C_DIM);
     }
     g_text(10, 192, &FONT_T, rv_live.wvoices ? "PLAYING" : "PLAY THE KEYS", C_DIM);
 }
@@ -6056,8 +6096,8 @@ int ui_track(void) { return ui.track; }
 const char *ui_page_title(void) { return cur_page()->title; }
 const char *ui_sound_name(int t) { return sound_name(t & 7); }
 /* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */
-void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b & 7); }
-int ui_weft_selected(void) { return ui.wf_blk & 7; }
+void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b % WF_BLOCKS); }
+int ui_weft_selected(void) { return ui.wf_blk % WF_BLOCKS; }
 void ui_weft_touch(int t, int pre)
 {
     ui.wf_pre[t & 7] = (int8_t)pre;

@@ -22,6 +22,8 @@ static int old_size(int f)
     int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
     if (f < 24)
         n -= (int)sizeof(rv.weft);                    /* no WEFT patches before format 24 */
+    else if (f == 24)
+        n -= (int)sizeof(rv.weft) - RV_TRACKS * 48;   /* (24: eight blocks, 48 bytes a patch) */
     if (f < 16)
         n -= (int)sizeof(rv.kit_rate);                /* no lane rates before format 16 */
     if (f < 17)
@@ -285,6 +287,19 @@ int rv_load(int slot)
     }
     if (f <= 23)                                     /* (24) WEFT: no patches yet */
         __builtin_memset(rv.weft, 0, sizeof rv.weft);
+    if (f == 24) {                                   /* (25) WEFT's twelve blocks: the eight-block patches reshaped */
+        static uint8_t o[RV_TRACKS][48];
+        int t;
+        __builtin_memcpy(o, rv.weft, sizeof o);
+        for (t = 0; t < RV_TRACKS; t++)
+            rv_weft_from24(&rv.weft[t], o[t]);
+    }
+    if (f <= 24) {                                   /* (25) blocks 9-12's settings */
+        int t, p;
+        for (t = 0; t < RV_TRACKS; t++)
+            for (p = TP_WX0; p <= TP_WX5; p++)
+                rv.tp[t][p] = 0;
+    }
     if (f <= 22) {                                   /* (23) the arpeggiator: off, its settings at their defaults */
         int t, p;
         for (t = 0; t < RV_TRACKS; t++)

@@ -25,6 +25,12 @@
  *   expect held T N               track T's synth voices held now
  *   expect wtype T B N | wsrc T B S   WEFT: track T's block B's type / input A's source
  *   expect wvoices N              WEFT voices sounding
+ *   expect wbmove T B 0|1         WEFT: track T's block B's input B moves its second setting
+ *   expect playstep T S           track T's playhead is on step S (1..64; 0: none)
+ *   wpreset T K                   WEFT: factory patch K (0..) onto track T
+ *   wset T F I V                  WEFT: a field of track T's patch, as the emulator's patcher sets it (F: 0 type,
+ *                                 1 input A, 2 input B, 3 amount A, 4 amount B (block I, 1..12), 5 the output,
+ *                                 7 setting I (1..24), 9 B moves (block I))
  *   expect soundused N K          the bank's slot N holds a sound of kind K (-1: empty)
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
@@ -55,6 +61,14 @@ int ui_step_cur(void);
 void ui_intro(void);
 int rv_bank_used(int i);
 int rv_bank_kind(int i);
+int rv_save(int slot);
+int rv_load(int slot);
+int rv_bank_store(int t, int i, const char *name);
+int rv_bank_apply(int t, int i);
+int rv_bank_flush(void);
+void rv_bank_reload(int slot);
+void rv_weft_preset(int t, int k);
+void rv_weft_block_defaults(int t, int i);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -351,6 +365,59 @@ int main(int argc, char **argv)
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);
             rv_track_set_kind((tt - 1) & 7, kk);
+        } else if (!strcmp(a, "wpreset")) {   /* wpreset T K: WEFT factory patch K onto track T */
+            int tt = 0, kk = 0;
+            sscanf(line, "%*s %d %d", &tt, &kk);
+            rv_weft_preset((tt - 1) & 7, kk);
+        } else if (!strcmp(a, "wset")) {      /* wset T F I V: a field of track T's WEFT patch */
+            int tt = 0, ff = 0, ii = 0, vv = 0, bb;
+            rv_weft *w;
+            sscanf(line, "%*s %d %d %d %d", &tt, &ff, &ii, &vv);
+            w = &rv.weft[(tt - 1) & 7];
+            bb = (ii - 1 + WF_BLOCKS) % WF_BLOCKS;
+            switch (ff) {
+            case 0: w->type[bb] = (uint8_t)vv; rv_weft_block_defaults((tt - 1) & 7, bb); break;
+            case 1: w->a[bb] = (uint8_t)vv; break;
+            case 2: w->b[bb] = (uint8_t)vv; break;
+            case 3: w->amta[bb] = (int8_t)vv; break;
+            case 4: w->amtb[bb] = (int8_t)vv; break;
+            case 5: w->out = (uint8_t)vv; break;
+            case 7: rv.tp[(tt - 1) & 7][wf_sp(ii - 1)] = (int16_t)vv; break;
+            case 9: w->bmove = (uint16_t)(vv ? w->bmove | (1u << bb) : w->bmove & ~(1u << bb)); break;
+            default: break;
+            }
+        } else if (!strcmp(a, "storedump") || !strcmp(a, "storeput")) {   /* storedump|storeput SLOT FILE: a storage slot to or from a file */
+            int sl = 0;
+            char fn[256] = "";
+            FILE *fp;
+            sscanf(line, "%*s %d %255s", &sl, fn);
+            fp = fopen(fn, a[5] == 'd' ? "wb" : "rb");
+            if (!fp || sl < 0 || sl >= PLAT_STORES) {
+                fprintf(stderr, "line %d: %s\n", lineno, fn);
+                return 2;
+            }
+            if (a[5] == 'd')
+                fwrite(store[sl], 1, (size_t)(store_len[sl] > 0 ? store_len[sl] : 0), fp);
+            else
+                store_len[sl] = (int32_t)fread(store[sl], 1, PLAT_SLOT_MAX, fp);
+            fclose(fp);
+        } else if (!strcmp(a, "rvsave")) {    /* rvsave SLOT | rvload SLOT: the project, straight */
+            rv_save(atoi(b));
+        } else if (!strcmp(a, "rvload")) {
+            if (rv_load(atoi(b)) != 0)
+                fprintf(stderr, "line %d: load failed\n", lineno);
+        } else if (!strcmp(a, "bankstore")) { /* bankstore T I NAME: track T's sound into the bank's slot I (1..32), kept */
+            int tt = 0, ii = 0;
+            char nm[32] = "";
+            sscanf(line, "%*s %d %d %31s", &tt, &ii, nm);
+            rv_bank_store((tt - 1) & 7, ii - 1, nm);
+            rv_bank_flush();
+        } else if (!strcmp(a, "bankapply")) { /* bankapply T I: the bank's slot I onto track T */
+            int tt = 0, ii = 0;
+            sscanf(line, "%*s %d %d", &tt, &ii);
+            rv_bank_apply((tt - 1) & 7, ii - 1);
+        } else if (!strcmp(a, "bankreload")) {
+            rv_bank_reload(PLAT_BANK0);
         } else if (!strcmp(a, "settp")) {     /* settp T NAME VALUE: track T's (1..8) parameter, straight */
             char nm[64] = "";
             int tt = 0, vv = 0, pp;
@@ -518,11 +585,17 @@ int main(int argc, char **argv)
                 got = rv_bank_used(sl) ? rv_bank_kind(sl) : -1;
                 want = atoi(w2);
             } else if (!strcmp(b, "wtype")) {                /* WEFT: track T's block B (1..8) is of type N */
-                got = rv.weft[(atoi(w1) - 1) & 7].type[(atoi(w2) - 1) & 7];
+                got = rv.weft[(atoi(w1) - 1) & 7].type[(unsigned)(atoi(w2) - 1) % WF_BLOCKS];
                 want = atoi(w3);
             } else if (!strcmp(b, "wsrc")) {                 /* WEFT: track T's block B's input A comes from S */
-                got = rv.weft[(atoi(w1) - 1) & 7].a[(atoi(w2) - 1) & 7];
+                got = rv.weft[(atoi(w1) - 1) & 7].a[(unsigned)(atoi(w2) - 1) % WF_BLOCKS];
                 want = atoi(w3);
+            } else if (!strcmp(b, "wbmove")) {               /* WEFT: track T's block B's input B moves its second setting */
+                got = (rv.weft[(atoi(w1) - 1) & 7].bmove >> ((unsigned)(atoi(w2) - 1) % WF_BLOCKS)) & 1;
+                want = atoi(w3);
+            } else if (!strcmp(b, "playstep")) {             /* track T's playhead (1..64; 0 none) */
+                got = rv_live.step[(atoi(w1) - 1) & 7][0] + 1;
+                want = atoi(w2);
             } else if (!strcmp(b, "wvoices")) {              /* WEFT: voices sounding */
                 got = rv_live.wvoices;
                 want = atoi(w1);

@@ -1044,12 +1044,17 @@ static void seq_pulse(int off)
 /* other clocks: LFO wraps and dust fire the tracks that follow them */
 static void seq_other_clocks(void)
 {
-    int t;
+    int t, wf = weft_clk_fired, wr = weft_clk_reset;
+    weft_clk_fired = weft_clk_reset = 0;              /* (WEFT's clock: from the last step's sound) */
     if (!playing)
         return;
     for (t = 0; t < RV_TRACKS; t++) {
         int src = rv.tp[t][TP_CLKSRC];
-        if ((src == 1 && lfo_wrapped[0]) || (src == 2 && lfo_wrapped[1]) || (src == 3 && dust_fired))
+        if (src == 4 && wr) {                         /* WEFT asks for step 1 */
+            sq[t].step[0] = sq[t].step[1] = -1;
+            sq[t].dir[0] = sq[t].dir[1] = 1;
+        }
+        if ((src == 1 && lfo_wrapped[0]) || (src == 2 && lfo_wrapped[1]) || (src == 3 && dust_fired) || (src == 4 && wf))
             track_advance(t, now_s);
     }
 }
@@ -1058,6 +1063,7 @@ static void seq_start(void)
 {
     int t;
     clock_reset();
+    weft_pos16 = 0.0f;                                /* (WEFT's TICKs on the transport's grid) */
     mpulse = 0;
     mpulse_f = 0.0f;
     song_bar = 0;

@@ -1633,7 +1633,7 @@ static void render_sub(float *outl, float *outr, int n)
     uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
     prof_t = cyc0 = plat_cycles();
     loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
-    weft_tidy();                                    /* (WEFT voices of tracks that changed kind go) */
+    weft_tidy(n);                                   /* (WEFT voices of tracks that changed kind go; outputs keep one) */
     movement_tick(n);
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */

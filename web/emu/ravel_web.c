@@ -309,55 +309,60 @@ void rv_weft_preset(int t, int k);
 void rv_weft_block_defaults(int t, int i);
 int rv_weft_presets(void);
 const char *rv_weft_preset_name(int k);
-/* a field of track t's patch: 0 type, 1 input A, 2 input B, 3 amount A, 4 amount B (block i); 5 the output;
- * 6 KNOB i's setting (1 + 0-15, 0 none); 7 setting i (0-15, the track's S0-S15); 8 voices (0: one, 1: two) */
+/* a field of track t's patch: 0 type, 1 input A, 2 input B, 3 amount A, 4 amount B (block i, 0-11); 5 the output;
+ * 6 KNOB i's setting (1 + 0-23, 0 none); 7 setting i (0-23); 8 voices (0: one, 1: two); 9 block i's B moves its
+ * second setting (1) or does its own job (0) */
 EXPORT(web_wf_get) int web_wf_get(int t, int f, int i)
 {
     const rv_weft *w = &rv.weft[t & 7];
-    i &= 15;
+    int b = (unsigned)i % WF_BLOCKS;
     switch (f) {
-    case 0: return w->type[i & 7];
-    case 1: return w->a[i & 7];
-    case 2: return w->b[i & 7];
-    case 3: return w->amta[i & 7];
-    case 4: return w->amtb[i & 7];
+    case 0: return w->type[b];
+    case 1: return w->a[b];
+    case 2: return w->b[b];
+    case 3: return w->amta[b];
+    case 4: return w->amtb[b];
     case 5: return w->out;
     case 6: return w->map[i & 3];
-    case 7: return rv.tp[t & 7][TP_S0 + i];
+    case 7: return rv.tp[t & 7][wf_sp(i)];
     case 8: return rv.tp[t & 7][TP_POLY] > 0;
+    case 9: return (w->bmove >> b) & 1;
     default: return 0;
     }
 }
 EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
 {
     rv_weft *w = &rv.weft[t & 7];
-    i &= 15;
+    int b = (unsigned)i % WF_BLOCKS;
     switch (f) {
     case 0:
         v = v < 0 || v >= WO_N ? 0 : v;
-        if (w->type[i & 7] != v) {
-            w->type[i & 7] = (uint8_t)v;
-            rv_weft_block_defaults(t, i);
+        if (w->type[b] != v) {
+            w->type[b] = (uint8_t)v;
+            w->bmove &= (uint16_t)~(1u << b);
+            rv_weft_block_defaults(t, b);
             if (v && !w->out)
-                w->out = (uint8_t)((i & 7) + 1);
+                w->out = (uint8_t)(b + 1);
         }
         break;
-    case 1: w->a[i & 7] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
-    case 2: w->b[i & 7] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
-    case 3: w->amta[i & 7] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
-    case 4: w->amtb[i & 7] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
-    case 5: w->out = (uint8_t)(v < 0 || v > 8 ? 0 : v); break;
-    case 6: w->map[i & 3] = (uint8_t)(v < 0 || v > 16 ? 0 : v); break;
-    case 7: rv.tp[t & 7][TP_S0 + i] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
+    case 1: w->a[b] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
+    case 2: w->b[b] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
+    case 3: w->amta[b] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
+    case 4: w->amtb[b] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
+    case 5: w->out = (uint8_t)(v < 0 || v > WF_BLOCKS ? 0 : v); break;
+    case 6: w->map[i & 3] = (uint8_t)(v < 0 || v > WF_SETS ? 0 : v); break;
+    case 7: rv.tp[t & 7][wf_sp(i)] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
     case 8: rv.tp[t & 7][TP_POLY] = (int16_t)(v ? 1 : 0); break;
+    case 9: w->bmove = (uint16_t)(v ? w->bmove | (1u << b) : w->bmove & ~(1u << b)); break;
     default: return;
     }
     ui_weft_touch(t, -1);
 }
-EXPORT(web_wf_scope) int web_wf_scope(int b, int k) { return rv_live.wscope[b & 7][k & 31]; }
+EXPORT(web_wf_scope) int web_wf_scope(int b, int k) { return rv_live.wscope[(unsigned)b % WF_BLOCKS][k & 31]; }
 EXPORT(web_wf_voices) int web_wf_voices(void) { return rv_live.wvoices; }
 EXPORT(web_wf_ntypes) int web_wf_ntypes(void) { return WO_N; }
-EXPORT(web_wf_nsrc) int web_wf_nsrc(void) { return WS_N; }
+EXPORT(web_wf_nsrc) int web_wf_nsrc(void) { return WS_MENU; }
+EXPORT(web_wf_nblocks) int web_wf_nblocks(void) { return WF_BLOCKS; }
 EXPORT(web_wf_type_name) const char *web_wf_type_name(int k) { return wf_types[(unsigned)k % WO_N].name; }
 EXPORT(web_wf_desc) const char *web_wf_desc(int k) { return wf_desc[(unsigned)k % WO_N]; }
 /* what a type calls its settings (s 0, 1) and inputs (s 2: A, 3: B) */
@@ -366,8 +371,14 @@ EXPORT(web_wf_label) const char *web_wf_label(int k, int s)
     const wf_type_t *ty = &wf_types[(unsigned)k % WO_N];
     return s == 0 ? ty->p1 : s == 1 ? ty->p2 : s == 2 ? ty->a : ty->b;
 }
-EXPORT(web_wf_ratio_n) int web_wf_ratio_n(int k) { return wf_types[(unsigned)k % WO_N].m1; }
-EXPORT(web_wf_ratio_name) const char *web_wf_ratio_name(int v) { return wf_ratio[(unsigned)v & 15]; }
+/* a type's setting s (0, 1) as a list: how many names (0: a number 0-127), and name v */
+EXPORT(web_wf_list_n) int web_wf_list_n(int k, int s) { return s ? wf_types[(unsigned)k % WO_N].m2 : wf_types[(unsigned)k % WO_N].m1; }
+EXPORT(web_wf_list_name) const char *web_wf_list_name(int k, int s, int v)
+{
+    const wf_type_t *ty = &wf_types[(unsigned)k % WO_N];
+    int m = s ? ty->m2 : ty->m1;
+    return m ? (s ? ty->n2 : ty->n1)[(unsigned)v % (unsigned)m] : "";
+}
 EXPORT(web_wf_src_name) const char *web_wf_src_name(int s) { return wf_src_names[(unsigned)s % WS_N]; }
 EXPORT(web_wf_npresets) int web_wf_npresets(void) { return rv_weft_presets(); }
 EXPORT(web_wf_preset_name) const char *web_wf_preset_name(int k) { return rv_weft_preset_name(k); }

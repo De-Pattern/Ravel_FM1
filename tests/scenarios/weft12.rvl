@@ -1,0 +1,65 @@
+# WEFT's twelve blocks: block 10 made on WEFT PATCH; B MOVES on WEFT BLOCK (black key 1); a twelve-block patch
+# sounds; CLK OUT clocks another track's sequencer (CLOCK = WEFT); MOD OUT is the matrix's WEFT source; a patch with
+# an output block keeps a voice running with no notes
+wait 300
+kind 1 6
+wpreset 1 0
+tap EDIT
+wait 50
+turn SELECT 2
+wait 100
+expect page WEFT PATCH
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K2 1
+wait 100
+expect wtype 1 10 1
+shot w12patch.png
+turn SELECT 1
+wait 100
+expect page WEFT BLOCK
+tapkey 1
+wait 100
+expect wbmove 1 10 1
+tapkey 1
+wait 100
+expect wbmove 1 10 0
+# DUST SKIN: ten blocks, heard
+wpreset 1 10
+wait 50
+key 12 down
+wait 400
+expect meter_min 1 0.005
+key 12 up
+wait 600
+# TICK CLOCK on T1 at quarter notes clocks T2; MOD OUT on T3 (A: ONE at 50) is the matrix's WEFT source
+wpreset 1 14
+wset 1 7 1 4
+settp 2 CLOCK 4
+kind 3 6
+wpreset 3 15
+wset 3 1 3 21
+wset 3 3 3 50
+wait 300
+expect wvoices 2
+expect msrc WEFT 0.45 0.55
+tap PLAY
+wait 2000
+expect playstep 2 4
+expect playstep 4 15

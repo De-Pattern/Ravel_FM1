@@ -83,10 +83,55 @@ wait 500
 expect meter_min 1 0.005
 key 12 up
 wait 900
-# back to INIT (the tenth patch, then round), then patch block 5 by hand: a high pass after the low pass, heard
-# (with no envelope after it: let go, it sounds on, as a patch with no envelope does)
+# the tenth patch and the twelve-block ones (S&H BLIPS, DUST SKIN, PLONK, TOM SKIN, PINGS, TICK CLOCK) sound;
+# DUST MOD is silent (a source for the matrix); then round to INIT, and patch block 5 by hand: a high pass after
+# the low pass, heard (with no envelope after it: let go, it sounds on, as a patch with no envelope does)
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 60
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 60
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 60
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
 turn PRESET 1
 wait 100
+expect wtype 1 1 23
+expect wtype 1 3 36
 turn PRESET 1
 wait 100
 expect wtype 1 1 2

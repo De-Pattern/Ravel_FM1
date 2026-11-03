@@ -1,0 +1,19 @@
+# a format-24 project (eight-block WEFT patches: PLUCK on T1, SYNC LEAD on T2) and a version-8 bank (PLUCK in A1),
+# kept by v1.10.0, load into twelve-block WEFT: the same blocks, the built-in sources renumbered
+wait 300
+storeput 0 tests/fixtures/format24.proj
+rvload 0
+expect wtype 1 1 3
+expect wsrc 1 1 15
+expect wtype 1 4 20
+expect wtype 2 2 1
+expect wsrc 2 2 7
+expect wtype 1 9 0
+storeput 9 tests/fixtures/bank-v8.bank
+bankreload
+kind 3 1
+bankapply 3 1
+expect wtype 3 1 3
+expect wsrc 3 1 15
+expect wsrc 3 2 17
+expect soundused 1 6

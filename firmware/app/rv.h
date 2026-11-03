@@ -86,6 +86,8 @@ enum {
     /* (format 23) the arpeggiator (ARP): what it plays the held notes in, how fast, over how many
      * octaves, how long each note, latch, each note's repeats, the chance a step plays */
     TP_ARPMODE, TP_ARPRATE, TP_ARPOCT, TP_ARPGATE, TP_ARPLATCH, TP_ARPREP, TP_ARPCHNC,
+    /* (format 25) WEFT's blocks 9-12: six of their eight settings (the other two in TP_VOC and TP_PAIRS, unused since format 20) */
+    TP_WX0, TP_WX1, TP_WX2, TP_WX3, TP_WX4, TP_WX5,
     TP_N
 };
 #define RV_TP 112                   /* room for more track parameters without moving pids (format 15: was 96; format 6: was 80) */
@@ -224,7 +226,7 @@ typedef struct {
 } rv_route;
 
 /* --------------------------------------------------------- matrix, macros --- */
-enum { MS_OFF, MS_LFO1, MS_LFO2, MS_DUST, MS_ENV, MS_VEL, MS_WHEEL, MS_M1, MS_M2, MS_M3, MS_M4, MS_CLOCK, MS_KEY, MS_TOUCH, MS_BEND, MS_N };
+enum { MS_OFF, MS_LFO1, MS_LFO2, MS_DUST, MS_ENV, MS_VEL, MS_WHEEL, MS_M1, MS_M2, MS_M3, MS_M4, MS_CLOCK, MS_KEY, MS_TOUCH, MS_BEND, MS_WEFT, MS_N };   /* WEFT: a WEFT patch's MOD OUT (format 25) */
 typedef struct { uint8_t src; uint16_t dst; int8_t amt; } rv_mslot;
 typedef struct { uint16_t dst; int8_t start, end; uint8_t curve, lo, hi; } rv_mdest;   /* curve: lin, exp, log, s; lo/hi: window 0..100 */
 typedef struct { rv_mdest d[RV_MACRO_DESTS]; } rv_macro;
@@ -240,7 +242,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 24                /* 24: WEFT patches (rv.weft); 23: the arpeggiator (its settings at their defaults), COMP on T8; 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 25                /* 25: WEFT has twelve blocks (rv_weft reshaped, its built-in sources renumbered); 24: WEFT patches (rv.weft); 23: the arpeggiator (its settings at their defaults), COMP on T8; 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -270,19 +272,37 @@ typedef struct {
 #define RV_KITLOCKS 48
 #define KL_LEVEL 8
 typedef struct { uint8_t step, what, val; } rv_kitlock;
-/* a WEFT track's patch (format 24): eight blocks, each an operation (WT_*) with two inputs, A and B: a
- * source (0 none, 1-8 a block's output, WS_* a built-in) and an amount (-100..100). The blocks'
- * two settings each are the track's S0-S15 (block i: S(2i), S(2i+1)), so they lock, modulate and
- * go on the knobs like any parameter */
-#define WF_BLOCKS 8
+/* a WEFT track's patch (format 25; 24 had eight blocks): twelve blocks, each an operation (WO_*) with two
+ * inputs, A and B: a source (0 none, 1-12 a block's output, WS_* a built-in) and an amount (-100..100).
+ * The blocks' two settings each are track parameters (setting k of the 24: wf_sp(k); blocks 1-8 in
+ * S0-S15), so they lock, modulate and go on the knobs like any parameter. bmove: bit i, block i's input B
+ * moves its second setting instead of doing its own job */
+#define WF_BLOCKS 12
+#define WF_SETS (2 * WF_BLOCKS)
 typedef struct {
     uint8_t type[WF_BLOCKS];
     uint8_t a[WF_BLOCKS], b[WF_BLOCKS];
     int8_t amta[WF_BLOCKS], amtb[WF_BLOCKS];
-    uint8_t out;                           /* the block whose output is the voice (1-8; 0 none) */
-    uint8_t map[4];                        /* WEFT PLAY's KNOB 1-4: 1 + a setting (0-15), 0 none */
-    uint8_t rsv[3];
+    uint8_t out;                           /* the block whose output is the voice (1-12; 0 none) */
+    uint8_t map[4];                        /* WEFT PLAY's KNOB 1-4: 1 + a setting (0-23), 0 none */
+    uint8_t rsv;
+    uint16_t bmove;
 } rv_weft;
+/* WEFT setting k (block k/2, its first or second) as a track parameter, and back (-1: not one) */
+static inline int wf_sp(int k)
+{
+    static const uint8_t x[8] = {TP_WX0, TP_WX1, TP_WX2, TP_WX3, TP_WX4, TP_WX5, TP_VOC, TP_PAIRS};
+    k = k < 0 ? 0 : k % WF_SETS;
+    return k < 16 ? TP_S0 + k : x[k - 16];
+}
+static inline int wf_spi(int p)
+{
+    if (p >= TP_S0 && p <= TP_S15)
+        return p - TP_S0;
+    if (p >= TP_WX0 && p <= TP_WX5)
+        return 16 + p - TP_WX0;
+    return p == TP_VOC ? 22 : p == TP_PAIRS ? 23 : -1;
+}
 typedef struct {
     uint32_t magic, format;
     char name[12];
@@ -400,7 +420,7 @@ typedef struct {
     uint8_t loop_st[4];                    /* LOOP: each lane's state: 1 playing, 2 recording, 4 waiting for the threshold, 8 a slice held */
     float loop_q[4], loop_pa[4], loop_pl[4], loop_ra[4], loop_peak[4];   /* where it plays, its play range, its record start (0..1), its level */
     float loop_pos, loop_in;               /* the loop's clock (0..1), the level coming in */
-    int8_t wscope[8][32];                  /* WEFT: each block's output, a moment of it (the newest voice of the track on screen) */
+    int8_t wscope[WF_BLOCKS][32];                  /* WEFT: each block's output, a moment of it (the newest voice of the track on screen) */
     uint8_t wvoices;                       /* WEFT: voices sounding (all tracks) */
     uint8_t take_res;                      /* TAKE done: the steps it kept + 1 (the interface clears it) */
     int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */

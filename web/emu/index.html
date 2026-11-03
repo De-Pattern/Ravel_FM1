@@ -346,7 +346,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
           <input type="file" id="wffile" accept=".json,.weft,application/json" hidden>
         </div>
         <div class="wf">
-          <svg class="wfcanvas" id="wfsvg" viewBox="0 0 880 440" role="img" aria-label="The patch: eight blocks and their cords"></svg>
+          <svg class="wfcanvas" id="wfsvg" viewBox="0 0 880 560" role="img" aria-label="The patch: twelve blocks and their cords"></svg>
           <div class="wfins" id="wfins"></div>
         </div>
         <div class="wfmap" id="wfmap"></div>
@@ -819,7 +819,7 @@ const GUIDE = {
 <tr><td>WEFT BLOCK</td><td>input B and its amount, then the block's two settings</td></tr>
 <tr><td>WEFT MAP</td><td>which setting each of PLAY's knobs turns; the output block; LEVEL</td></tr>
 <tr><td>WEFT LIBRARY</td><td>your patches and the factory ones: KNOB 1 picks, black key 1 loads, 2 saves into a bank slot, 3 deletes (press twice); KNOB 3–4 rename</td></tr></table>
-<p>Blocks: PHASE, WAVE (oscillators) · SLOPE, CYCLE, SLEW (rise and fall) · LP, BP, HP · ADD, MULT, MIX, MIN, MAX, FOLD · COMP, AND, OR, XOR, FLIP · DELAY, BANDS, HOLD. Inputs also take PITCH, GATE, TRIG, VEL, NOISE, the LFOs, the wheel or a constant. PRESETS on the WEFT pages walks ten factory patches. The manual has <a href="#" onclick="openManual('#weft-a-voice-you-patch'); return false">every block, step by step</a>.</p>`,
+<p>Twelve blocks a patch: PHASE, WAVE (oscillators) · SLOPE, CYCLE, SLEW (rise and fall) · LP, BP, HP · ADD, MULT, MIX, MIN, MAX, FOLD · COMP, AND, OR, XOR, FLIP · DELAY, BANDS, HOLD · DUST, TICK (particles, clocks) · RING and the six-mode bodies SKIN, BAR, PLATE, BELL, HARMS, FIXED (struck resonators) · SAT, ABS, DIFFUSE (for loops) · CLK OUT, MOD OUT (a clock for the sequencers, a source for the matrix). Inputs also take PITCH, GATE, TRIG, VEL, NOISE, the LFOs, the wheel or a constant. On WEFT BLOCK, black key 1 sets what input B does: its own job, or moving the block's second setting (B MOVES). PRESETS on the WEFT pages walks the factory patches. The manual has <a href="#" onclick="openManual('#weft-a-voice-you-patch'); return false">every block, step by step</a>.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
 <p>The page after STEPS is <b>TEMPO</b>: the master tempo and swing (the same values as GLO › CLOCK, so turning either moves both), with the track's LENGTH and RATE.</p>
 <p>TRACK sets the MODE (steps or graph), length, rate and the clock (master, LFOs, dust); DIRECTION plays forward, reverse, ping-pong or snake. PRESETS or the first two black keys switch patterns A and B.</p>`,
@@ -1082,53 +1082,56 @@ function slowUpdate() {
 }
 
 /* ------------------------------------------------------------ WEFT: the patcher */
-const WF = { pos: null, drag: null, sig: "", ready: false, names: null, nodeW: 160, nodeH: 110, mode: "", W: 880, H: 440, pr: 8 };
-const WF_SRC_COL = { 9: "#e2d6be", 10: "#c8242b", 11: "#c8242b", 14: "#68927f", 15: "#68927f" };
-/* two layouts: wide (four blocks a row) and, on a phone, tall (two a row, bigger to touch); each keeps its own places */
+const WF = { pos: null, drag: null, sig: "", ready: false, names: null, nodeW: 160, nodeH: 110, mode: "", W: 880, H: 540, pr: 8, nb: 12 };
+/* a built-in source's colour, by name: the note bone, gate and trig red, the LFOs verdigris, the switch's outs white */
+const WF_SRC_COL = { PITCH: "#e2d6be", GATE: "#c8242b", TRIG: "#c8242b", "LFO 1": "#68927f", "LFO 2": "#68927f" };
+const wfSrcCol = s => { const n = wfNames().src[s] || ""; return WF_SRC_COL[n] || (n.startsWith("SW") ? "#ffffff" : "#bdbdbd"); };
+/* two layouts: wide (four blocks a row, three rows) and, on a phone, tall (two a row, bigger to touch); each keeps its own places */
 function wfLoadPos() {
   const tall = $("wfsvg").clientWidth > 0 && $("wfsvg").clientWidth < 600, mode = tall ? "tall" : "wide";
   if (mode === WF.mode && WF.pos) return false;
   WF.mode = mode;
+  WF.nb = rv.web_wf_nblocks ? rv.web_wf_nblocks() : 8;
   WF.W = tall ? 420 : 880;
-  WF.H = tall ? 770 : 440;
+  WF.H = tall ? 1140 : 560;
   WF.pr = tall ? 12 : 8;
   $("wfsvg").setAttribute("viewBox", `0 0 ${WF.W} ${WF.H}`);
   let p = null;
   try { p = JSON.parse(localStorage.getItem("ravel.weft.pos." + mode) || "null"); } catch (e) { /* (none) */ }
-  if (!Array.isArray(p) || p.length !== 8)
-    p = [...Array(8)].map((_, i) => tall ? { x: 34 + (i % 2) * 206, y: 24 + Math.floor(i / 2) * 186 } : { x: 26 + (i % 4) * 215, y: 30 + Math.floor(i / 4) * 230 });
+  if (!Array.isArray(p) || p.length !== WF.nb)
+    p = [...Array(WF.nb)].map((_, i) => tall ? { x: 44 + (i % 2) * 200, y: 24 + Math.floor(i / 2) * 186 } : { x: 40 + (i % 4) * 210, y: 24 + Math.floor(i / 4) * 178 });
   WF.pos = p;
   return true;
 }
 function wfSavePos() { try { localStorage.setItem("ravel.weft.pos." + WF.mode, JSON.stringify(WF.pos)); } catch (e) { /* (fine) */ } }
 function wfNames() {
   if (WF.names) return WF.names;
-  const n = { types: [], src: [], presets: [], label: [], desc: [], m1: [] };
+  const n = { types: [], src: [], presets: [], label: [], desc: [], lists: [] };
   for (let k = 0; k < rv.web_wf_ntypes(); k++) {
     n.types.push(cstr(rv.web_wf_type_name(k)));
     n.desc.push(cstr(rv.web_wf_desc(k)));
     n.label.push([0, 1, 2, 3].map(s => cstr(rv.web_wf_label(k, s))));
-    n.m1.push(rv.web_wf_ratio_n(k));
+    n.lists.push([0, 1].map(s => [...Array(rv.web_wf_list_n(k, s))].map((_, v) => cstr(rv.web_wf_list_name(k, s, v)))));   /* (a setting that is a list of names) */
   }
   for (let s = 0; s < rv.web_wf_nsrc(); s++) n.src.push(cstr(rv.web_wf_src_name(s)));
   for (let k = 0; k < rv.web_wf_npresets(); k++) n.presets.push(cstr(rv.web_wf_preset_name(k)));
-  n.ratio = [...Array(16)].map((_, v) => cstr(rv.web_wf_ratio_name(v)));
   return (WF.names = n);
 }
 function wfRead(t) {
   const g = (f, i) => rv.web_wf_get(t, f, i), b = [];
-  for (let i = 0; i < 8; i++) b.push({ type: g(0, i), a: g(1, i), b: g(2, i), amtA: g(3, i), amtB: g(4, i), p1: g(7, 2 * i), p2: g(7, 2 * i + 1) });
+  for (let i = 0; i < WF.nb; i++) b.push({ type: g(0, i), a: g(1, i), b: g(2, i), amtA: g(3, i), amtB: g(4, i), p1: g(7, 2 * i), p2: g(7, 2 * i + 1), bMoves: g(9, i) });
   return { blocks: b, out: g(5, 0), map: [0, 1, 2, 3].map(k => g(6, k)), voices: g(8, 0) };
 }
 const wfEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 function wfSrcName(p, s) {
   const N = wfNames();
-  if (s >= 1 && s <= 8) return `${s} ${p.blocks[s - 1].type ? N.types[p.blocks[s - 1].type] : "-"}`;
+  if (s >= 1 && s <= WF.nb) return `${s} ${p.blocks[s - 1].type ? N.types[p.blocks[s - 1].type] : "-"}`;
   return s ? N.src[s] : "-";
 }
 function wfSetVal(p, b, k) {
   const N = wfNames(), ty = p.blocks[b].type, v = k ? p.blocks[b].p2 : p.blocks[b].p1;
-  return !k && N.m1[ty] ? N.ratio[v & 15] : String(v);
+  const l = N.lists[ty][k];
+  return l.length ? l[Math.min(v, l.length - 1)] : String(v);
 }
 function wfPorts(i) { const q = WF.pos[i]; return { out: [q.x + WF.nodeW, q.y + 58], a: [q.x, q.y + 44], b: [q.x, q.y + 78] }; }
 function wfCordPath(s, d, port) {
@@ -1148,7 +1151,7 @@ function wfRender() {
     p.blocks.forEach((bk, i) => {
       if (!bk.type) return;
       [[bk.a, 0], [bk.b, 1]].forEach(([s, port]) => {
-        if (s < 1 || s > 8 || !p.blocks[s - 1].type) return;
+        if (s < 1 || s > WF.nb || !p.blocks[s - 1].type) return;
         const back = s - 1 >= i;
         if ((back ? 1 : 0) !== pass) return;
         const d = wfCordPath(s - 1, i, port), lit = i === sel || s - 1 === sel;
@@ -1167,13 +1170,13 @@ function wfRender() {
     h += `<rect class="body" width="${WF.nodeW}" height="${WF.nodeH}" rx="10"/>`;
     h += `<rect class="hd" width="${WF.nodeW}" height="30" rx="10" fill="transparent"/>`;
     h += `<text class="hd" x="12" y="22" font-size="15" fill="#8f8f8f" pointer-events="none">${i + 1}</text>`;
-    h += `<text x="30" y="22" font-size="15" font-weight="500" fill="#f0f0f0" pointer-events="none">${wfEsc(N.types[bk.type])}</text>`;
+    h += `<text x="${i < 9 ? 30 : 38}" y="22" font-size="15" font-weight="500" fill="#f0f0f0" pointer-events="none">${wfEsc(N.types[bk.type])}</text>`;
     h += `<polyline id="wfsc${i}" points="" fill="none" stroke="${i === sel ? "#e2d6be" : "#9a9a9a"}" stroke-width="1.5" pointer-events="none"/>`;
     h += `<text x="12" y="${WF.nodeH - 10}" font-size="11" fill="#8f8f8f" pointer-events="none">${wfEsc(N.label[bk.type][0])} ${wfEsc(wfSetVal(p, i, 0))} · ${wfEsc(N.label[bk.type][1])} ${wfEsc(wfSetVal(p, i, 1))}</text>`;
     [["a", 44, bk.a, N.label[bk.type][2]], ["b", 78, bk.b, N.label[bk.type][3]]].forEach(([port, y, s, lab]) => {
-      const col = s > 8 ? (WF_SRC_COL[s] || "#bdbdbd") : s ? "#e8e8e8" : "#555";
+      const col = s > WF.nb ? wfSrcCol(s) : s ? (port === "b" && bk.bMoves ? "#e2d6be" : "#e8e8e8") : "#555";
       h += `<circle class="wfport" data-in="${i},${port === "b" ? 1 : 0}" cx="0" cy="${y}" r="${WF.pr}" fill="${col}" stroke="#0c0c0c" stroke-width="2"><title>Input ${port.toUpperCase()}: ${wfEsc(lab)}</title></circle>`;
-      if (s > 8) h += `<text x="-11" y="${y + 4}" font-size="10" fill="${col}" text-anchor="end" pointer-events="none">${wfEsc(N.src[s])}</text>`;
+      if (s > WF.nb) h += `<text x="-11" y="${y + 4}" font-size="10" fill="${col}" text-anchor="end" pointer-events="none">${wfEsc(N.src[s])}</text>`;
     });
     h += `<circle class="wfport" data-out="${i}" cx="${WF.nodeW}" cy="58" r="${WF.pr}" fill="${p.out === i + 1 ? "#c8242b" : "#e8e8e8"}" stroke="#0c0c0c" stroke-width="2"><title>Output: drag to an input</title></circle>`;
     h += `</g>`;
@@ -1196,21 +1199,22 @@ function wfRender() {
 }
 function wfInspector(t, p, sel) {
   const N = wfNames(), bk = p.blocks[sel], ins = $("wfins");
-  const srcOpts = cur => [...Array(N.src.length)].map((_, s) => s >= 1 && s <= 8 && !p.blocks[s - 1].type ? "" : `<option value="${s}"${s === cur ? " selected" : ""}>${wfEsc(wfSrcName(p, s))}</option>`).join("");
+  const srcOpts = cur => [...Array(N.src.length)].map((_, s) => s >= 1 && s <= WF.nb && !p.blocks[s - 1].type ? "" : `<option value="${s}"${s === cur ? " selected" : ""}>${wfEsc(wfSrcName(p, s))}</option>`).join("");
   let h = `<h3>Block ${sel + 1}</h3>`;
   h += `<label>TYPE<select id="wfity">${N.types.map((n, k) => `<option value="${k}"${k === bk.type ? " selected" : ""}>${k ? wfEsc(n) : "- (empty)"}</option>`).join("")}</select></label>`;
   h += `<p class="wfdesc">${wfEsc(N.desc[bk.type])}</p>`;
   if (bk.type) {
     [["A", "a", "amtA", 2], ["B", "b", "amtB", 3]].forEach(([L, f, af, li]) => {
-      h += `<label>INPUT ${L}: ${wfEsc(N.label[bk.type][li])}<select data-src="${f}">${srcOpts(bk[f])}</select></label>`;
+      h += `<label>INPUT ${L}: ${wfEsc(L === "B" && bk.bMoves ? "moves " + N.label[bk.type][1] : N.label[bk.type][li])}<select data-src="${f}">${srcOpts(bk[f])}</select></label>`;
       h += `<div class="wfrow"><input type="range" min="-100" max="100" value="${bk[af]}" data-amt="${f}" aria-label="Amount ${L}"><output>${bk[af] > 0 ? "+" : ""}${bk[af]}</output></div>`;
     });
     [0, 1].forEach(k => {
-      const v = k ? bk.p2 : bk.p1, en = !k && N.m1[bk.type];
+      const v = k ? bk.p2 : bk.p1, l = N.lists[bk.type][k];
       h += `<label>${wfEsc(N.label[bk.type][k])}</label>`;
-      h += en ? `<select data-set="${k}">${N.ratio.slice(0, N.m1[bk.type]).map((r, j) => `<option value="${j}"${j === v ? " selected" : ""}>${wfEsc(r)}</option>`).join("")}</select>`
+      h += l.length ? `<select data-set="${k}">${l.map((r, j) => `<option value="${j}"${j === v ? " selected" : ""}>${wfEsc(r)}</option>`).join("")}</select>`
               : `<div class="wfrow"><input type="range" min="0" max="127" value="${v}" data-set="${k}" aria-label="${wfEsc(N.label[bk.type][k])}"><output>${v}</output></div>`;
     });
+    h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfbmove"${bk.bMoves ? " checked" : ""}> Input B moves ${wfEsc(N.label[bk.type][1])} (B MOVES)</label>`;
     h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfisout"${p.out === sel + 1 ? " checked" : ""}> This block is the voice's output</label>`;
   }
   ins.innerHTML = h;
@@ -1222,6 +1226,8 @@ function wfInspector(t, p, sel) {
     if (e.target.nextElementSibling) e.target.nextElementSibling.textContent = e.target.value;
     rv.web_wf_set(t, 7, 2 * sel + +e.target.dataset.set, +e.target.value);
   }));
+  const bmv = $("wfbmove");
+  if (bmv) bmv.addEventListener("change", e => set(9, sel, e.target.checked ? 1 : 0));
   const ob = $("wfisout");
   if (ob) ob.addEventListener("change", e => set(5, 0, e.target.checked ? sel + 1 : 0));
 }
@@ -1242,7 +1248,7 @@ function wfSync() {
 }
 function wfScopes() {
   if ($("wfon").hidden) return;
-  for (let b = 0; b < 8; b++) {
+  for (let b = 0; b < WF.nb; b++) {
     const el = document.getElementById("wfsc" + b);
     if (!el) continue;
     let pts = "";
@@ -1327,10 +1333,10 @@ function wfInit() {
 /* a patch as a file anyone can read: block types and sources by name */
 function wfExport() {
   const t = rv.web_track(), p = wfRead(t), N = wfNames();
-  const src = s => s >= 1 && s <= 8 ? s : N.src[s] || null;
+  const src = s => s >= 1 && s <= WF.nb ? s : N.src[s] || null;
   const doc = {
-    format: "ravel-weft", version: 1, name: cstr(rv.web_sound_name(t)),
-    blocks: p.blocks.map(b => b.type ? { type: N.types[b.type], a: b.a ? src(b.a) : null, amtA: b.amtA, b: b.b ? src(b.b) : null, amtB: b.amtB, p1: b.p1, p2: b.p2 } : null),
+    format: "ravel-weft", version: 2, name: cstr(rv.web_sound_name(t)),
+    blocks: p.blocks.map(b => b.type ? { type: N.types[b.type], a: b.a ? src(b.a) : null, amtA: b.amtA, b: b.b ? src(b.b) : null, amtB: b.amtB, p1: b.p1, p2: b.p2, bMoves: !!b.bMoves } : null),
     out: p.out, map: p.map, voices: p.voices + 1,
   };
   const a = document.createElement("a");
@@ -1345,14 +1351,15 @@ function wfImport(text) {
   try { doc = JSON.parse(text); } catch (e) { setStatus("That file isn't a WEFT patch."); return; }
   if (!doc || doc.format !== "ravel-weft" || !Array.isArray(doc.blocks)) { setStatus("That file isn't a WEFT patch."); return; }
   if (rv.web_kind(t) !== 6) rv.web_set_kind(t, 6, 0);
-  const src = v => typeof v === "number" ? Math.max(0, Math.min(8, v | 0)) : v ? Math.max(0, N.src.indexOf(String(v).toUpperCase())) : 0;
-  for (let i = 0; i < 8; i++) {
+  const src = v => typeof v === "number" ? Math.max(0, Math.min(WF.nb, v | 0)) : v ? Math.max(0, N.src.indexOf(String(v).toUpperCase())) : 0;
+  for (let i = 0; i < WF.nb; i++) {
     const b = doc.blocks[i];
     rv.web_wf_set(t, 0, i, b ? Math.max(0, N.types.indexOf(String(b.type).toUpperCase())) : 0);
     if (!b) { rv.web_wf_set(t, 1, i, 0); rv.web_wf_set(t, 2, i, 0); continue; }
     rv.web_wf_set(t, 1, i, src(b.a)); rv.web_wf_set(t, 3, i, b.amtA | 0);
     rv.web_wf_set(t, 2, i, src(b.b)); rv.web_wf_set(t, 4, i, b.amtB | 0);
     rv.web_wf_set(t, 7, 2 * i, b.p1 | 0); rv.web_wf_set(t, 7, 2 * i + 1, b.p2 | 0);
+    rv.web_wf_set(t, 9, i, b.bMoves ? 1 : 0);
   }
   rv.web_wf_set(t, 5, 0, doc.out | 0);
   (doc.map || []).slice(0, 4).forEach((m, k) => rv.web_wf_set(t, 6, k, m | 0));

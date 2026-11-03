@@ -26,7 +26,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Arpeggiator** on any note track (ARP): up, down, up-down, down-up, as played or random, 1/4 to 1/32 of the clock, over up to four octaves, with gate, hold, repeats and chance; it plays held keys, the track's own steps and influence triggers alike.
 - **COMP** (T8, off until you choose it): a glue compressor on the main mix after the SSL G-series bus compressor, with its stepped ratios, attacks and releases (and AUTO), threshold, makeup and a dry mix.
-- **WEFT** (any track, KIND WEFT): a voice you patch from eight blocks, as in Max or Pure Data: PHASE and WAVE oscillators, Serge-style SLOPE, CYCLE and SLEW, LP/BP/HP filters, ADD, MULT, MIX, MIN, MAX and FOLD, logic (COMP, AND, OR, XOR, FLIP), a short DELAY, harmonic BANDS and sample-and-hold, cross-patched with feedback anywhere; built-in pitch, gate, trigger, velocity, noise and LFOs; live scopes on every block; ten factory patches; patched on the FM-1 or in the emulator's drag-and-drop patcher, and shared as files.
+- **WEFT** (any track, KIND WEFT): a voice you patch from twelve blocks, as in Max or Pure Data: PHASE and WAVE oscillators, Serge-style SLOPE, CYCLE and SLEW, LP/BP/HP filters, ADD, MULT, MIX, MIN, MAX and FOLD, logic (COMP, AND, OR, XOR, FLIP), a short DELAY, harmonic BANDS and sample-and-hold; DUST (particles in clumps) and TICK (pings on the tempo's grid); struck resonators (RING, and six-mode SKIN, BAR, PLATE, BELL, HARMS and a FIXED filterbank); SAT, ABS and DIFFUSE for feedback networks; CLK OUT (a clock any track's sequencer can follow) and MOD OUT (a matrix source); cross-patched with feedback anywhere, input B able to move any block's second setting; built-in pitch, gate, trigger, velocity, noise and LFOs; live scopes on every block; sixteen factory patches; a patch library on the FM-1; patched on the FM-1 or in the emulator's drag-and-drop patcher, and shared as files.
 - **GLITCH LOOPER** (any one track, KIND GLITCH): four lanes recorded from the main mix or one track, overdubbing, each with its own level, pitch and speed (pitch and speed apart, by a grain stretch); a threshold to arm a take; quarter slices on the keys that take turns in the order held; PLAY and REC trigs on the steps with sections, Octatrack- and MLR-style. It borrows the effects' memory (it can keep SPACE or DELAY running).
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
@@ -199,7 +199,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
-| **WEFT** | A voice you patch from eight blocks (see [WEFT](#weft-a-voice-you-patch)). Any track; four voices shared | – |
+| **WEFT** | A voice you patch from twelve blocks (see [WEFT](#weft-a-voice-you-patch)). Any track; four voices shared | – |
 | **GLITCH** | The GLITCH LOOPER: four lanes of recorded audio, played back and overdubbed (see [GLITCH LOOPER](#glitch-looper)). One track at most; the effects buses rest while it is on (it can keep SPACE or DELAY running) | – |
 
 How the sound flows:
@@ -351,7 +351,7 @@ The recordings are not saved: a project keeps the GLITCH LOOPER's settings and t
 
 <p align="center"><img src="docs/manual/weft-play.png" alt="WEFT PLAY" width="240"> <img src="docs/manual/weft-patch.png" alt="WEFT PATCH" width="240"> <img src="docs/manual/weft-block.png" alt="WEFT BLOCK" width="240"> <img src="docs/manual/weft-map.png" alt="WEFT MAP" width="240"> <img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
 
-A **WEFT** track has no engine of its own: you build its voice from eight **blocks**, the way a Max or Pure Data patch is built from objects, or a modular from modules. Each block does one thing (makes a ramp, reads it as a wave, rises and falls, filters, multiplies, compares, delays) to its two inputs, **A** and **B**. An input takes the output of any block, the block itself included, or one of the **built-in sources**, with an amount (−100 to +100). Any track can be WEFT, as many as you like; they share four voices.
+A **WEFT** track has no engine of its own: you build its voice from twelve **blocks**, the way a Max or Pure Data patch is built from objects, or a modular from modules. Each block does one thing (makes a ramp, reads it as a wave, rises and falls, filters, multiplies, compares, delays, throws particles, rings when struck) to its two inputs, **A** and **B**. An input takes the output of any block, the block itself included, or one of the **built-in sources**, with an amount (−100 to +100). Any track can be WEFT, as many as you like; they share four voices.
 
 Patch it on the FM-1's pages, or with the mouse or a finger in the emulator's **WEFT patcher** (below), and move patches between the two.
 
@@ -361,13 +361,13 @@ Patch it on the FM-1's pages, or with the mouse or a finger in the emulator's **
 
 1. Turn **ALGORITHM** to a track (T1, say) and press **EDIT**. On **SOUND**, turn **KNOB 1 (KIND)** to **WEFT**. The track starts from the **INIT** patch: a saw (WAVE) through a low pass (LP), an envelope (SLOPE) opening both, into a VCA (MULT).
 2. Play the keys. **SELECT** one page on is **WEFT PLAY**: the voice's output as a scope, and four of the patch's settings on the knobs (here CUTOFF, RES, FALL and SHAPE).
-3. Turn **PRESETS** on any WEFT page to hear the ten factory patches (below). Keep your own on **WEFT LIBRARY**, the last WEFT page (below).
+3. Turn **PRESETS** on any WEFT page to hear the sixteen factory patches (below). Keep your own on **WEFT LIBRARY**, the last WEFT page (below).
 
 **Patch a block by hand**
 
-4. **SELECT** to **WEFT PATCH**: the eight blocks as tiles, each with a live scope of its output and its first setting under it. Cords run from a block's output (right) to an input (left: A above, B below); a coloured dot on an input is a built-in source (bone: PITCH; red: GATE or TRIG; verdigris: an LFO).
+4. **SELECT** to **WEFT PATCH**: the twelve blocks as tiles in three rows, each with its number, its type and a live scope of its output. Cords run from a block's output (right) to an input (left: A above, B below); a coloured dot on an input is a built-in source (bone: PITCH; red: GATE or TRIG; verdigris: an LFO).
 5. **KNOB 1 (BLOCK)** picks a block, **KNOB 2 (TYPE)** sets what it is (an empty block becomes one; the voice is heard from the first block you make), **KNOB 3 (IN A)** picks where input A comes from and **KNOB 4** its amount.
-6. **SELECT** to **WEFT BLOCK** for the same block close up: KNOB 1–2 are input B and its amount, KNOB 3–4 the block's two settings. The picture shows what comes in on A and B, the block, what goes out, and where it goes.
+6. **SELECT** to **WEFT BLOCK** for the same block close up: KNOB 1–2 are input B and its amount, KNOB 3–4 the block's two settings. The picture shows what comes in on A and B, the block, what goes out, and where it goes. **Black key 1** sets what input B does: its own job (the table below), or **B MOVES**: B turns the block's second setting instead (a filter's RES, a ring's DECAY, a clip's BIAS…), up and down from where the knob leaves it, at audio rate. The B label says which; on WEFT PATCH a B port that moves a setting is bone.
 7. **SELECT** to **WEFT MAP**: KNOB 1 picks one of PLAY's four knobs, KNOB 2 the setting it turns (any block's), KNOB 3 **OUT**, the block the voice is heard from, KNOB 4 the track's LEVEL. **VOICES** (1 or 2) is on SOUND.
 
 **Example: a plucked string from nothing**
@@ -377,7 +377,12 @@ Patch it on the FM-1's pages, or with the mouse or a finger in the emulator's **
 10. Block 3 **ADD**: A = block 2, B = block 5 (a cord back: feedback). Block 4 **DELAY**: A = block 3, TIME **0** (the note's own period). Block 5 **LP**: A = block 4, CUTOFF high. The burst circles round the delay, a little darker each time: a string, at the note you play.
 11. On WEFT MAP set OUT to block 4. That is Karplus-Strong; the factory **PLUCK** is the same, with an envelope to stop it when the key is let go.
 
-Any setting of any block also takes **step locks** (hold SEQ and a step, turn the knob on WEFT BLOCK or PLAY), the **matrix** and **macros**, like any parameter: they are the track's sixteen source settings.
+Any setting of any block also takes **step locks** (hold SEQ and a step, turn the knob on WEFT BLOCK or PLAY), the **matrix** and **macros**, like any parameter: they are track parameters, two a block.
+
+**Example: dust on a drum skin**
+
+12. Load **DUST SKIN** (PRESETS) and hold a key: block 1 **DUST** throws particles (DENSITY a second, CLUSTER how much each one makes more follow, so they come in clumps that spread out), block 2 **HOLD** takes a new random pitch at each, and block 3 **SKIN** rings at it, a drum skin's six modes. **DIFFUSE** smears the hits, and a loop back through **MULT** (moved by a slow CYCLE) and **SAT** keeps some of the smear going. On PLAY, KNOB 1–4 are DENSITY, CLUSTER, the skin's DECAY and the smear's AMOUNT.
+13. Resonators in a loop sing: a ring at its pitch passes almost all of what it gets, so feeding a SKIN or a RING back into itself makes a tone that holds. Keep the loop outside the resonator (as here), or the amount small, and put SAT in it.
 
 #### The blocks
 
@@ -402,20 +407,29 @@ All signals run about −1 to +1; SLOPE and SLEW run 0 to 1 (envelopes). An inpu
 | **DELAY** | A, later, with its own feedback. Up to 11 ms: combs, flangers, strings, resonators | IN | TIME: two octaves each way | TIME (0 = the note's period, for strings; notes below F2 sound an octave up), FEEDBK (64 = none; up: positive, down: negative) |
 | **BANDS** | four resonant bands on the note's harmonics (1st–4th), summed | IN | SCAN: which band speaks (−1: the 1st … +1: the 4th) | SPREAD (64: harmonic; down squeezes them, up stretches them), RES |
 | **HOLD** | takes A each time B rises (with nothing on B, each note): sample and hold | IN | CLOCK | STEPS (0: smooth; up: fewer levels), GLIDE |
+| **DUST** | random particles: one-sample clicks, each its own height. Each one makes more likely just after it, so they come in clumps that spread out | DENSITY (exponential: ±6 octaves) | BURST: a clump each time B rises (with nothing on B, each note) | DENSITY (0.5 … 2000 a second), CLUSTER (0: an even scatter; up: clumps) |
+| **TICK** | a click on each DIV of the tempo, on the transport's grid (it runs with the transport stopped too) | GATE: ticks only while A is up | JITTER: each click late by up to B × half a DIV | DIV (4 BAR … 1/64, with triplets), CHANCE (127: every one) |
+| **RING** | one resonator, struck: a click in rings at the note × RATIO, dying away over DECAY | STRIKE | PITCH: two octaves each way | RATIO (1/4 … 16), DECAY (2 ms … 8 s) |
+| **SKIN · BAR · PLATE · BELL · HARMS · FIXED** | six resonators tuned as a body's modes, struck by A: a drum skin, a free bar, a plate, a bell (hum, prime, tierce …), the harmonics; FIXED is a filterbank at 150 Hz … 5.5 kHz whatever the note. Three to a patch | STRIKE | PITCH: two octaves each way | DECAY, BRIGHT (down: the high modes softer and shorter) |
+| **SAT** | A driven into a soft clip (tanh-like): what keeps a loop alive without blowing up | IN | DRIVE: more | DRIVE (1× … 16×), BIAS (64 = none; off centre: even harmonics) |
+| **ABS** | A + B + OFFSET, made positive (full-wave rectifying) | A | B | OFFSET, GAIN |
+| **DIFFUSE** | four allpasses in a row: smears clicks into washes and spreads a loop's echoes without changing its level. Shares the DELAY's memory: DELAY and DIFFUSE, two to a patch together | IN | SIZE: an octave each way | SIZE, AMOUNT |
+| **CLK OUT** | each rise of A through THRESH (every DIV-th) is a step of the **WEFT clock**: choose **WEFT** for CLOCK on any track's TRACK page (this one too) and its sequencer follows. Passes A on | CLOCK | RESET: the tracks it clocks back to step 1 | DIV (1 … 16), THRESH |
+| **MOD OUT** | A, smoothed, is the matrix's **WEFT** source | IN | LEVEL: A × B | SMOOTH, RANGE (−1..1 or 0..1) |
 
-**Built-in sources** (an input's menu, after the blocks): **PITCH** (the note, ±1 over four octaves round middle C), **GATE** (high while the key is held), **TRIG** (one sample at each note), **VEL**, **NOISE** (white), **LFO 1**, **LFO 2** (the global LFOs), **WHEEL** (MIDI mod wheel) and **ONE** (a constant 1, for offsets).
+**Built-in sources** (an input's menu, after the twelve blocks): **PITCH** (the note, ±1 over four octaves round middle C), **GATE** (high while the key is held), **TRIG** (one sample at each note), **VEL**, **NOISE** (white), **LFO 1**, **LFO 2** (the global LFOs), **WHEEL** (MIDI mod wheel) and **ONE** (a constant 1, for offsets).
 
-**Order and feedback.** The blocks run in their order, 1 to 8, once a sample. A block reads the blocks before it from this sample, and itself and the blocks after it from the one before. So any cord can go anywhere, and a loop (a cord back, verdigris on the screen) is feedback one sample late, as in Max's `gen~` with `history`. A patch can't run away: the voice is gently limited, and a filter that blows up starts over.
+**Order and feedback.** The blocks run in their order, 1 to 12, once a sample. A block reads the blocks before it from this sample, and itself and the blocks after it from the one before. So any cord can go anywhere, and a loop (a cord back, verdigris on the screen) is feedback one sample late, as in Max's `gen~` with `history`. A patch can't run away: the voice is gently limited, and a filter that blows up starts over.
 
-**Voices and cost.** WEFT tracks share **four voices**; a track takes one or two (VOICES on SOUND; with one, the voice carries on from note to note, its oscillators and delays unbroken). Each voice runs every block it has at the full sample rate, so a big patch costs about as much as three or four voices of a synth engine: watch GLO › CPU. A released voice ends once it has been quiet a moment (a patch with no envelope after its last block rings on until 12 s after release). When the overload guard is holding voices back, WEFT keeps to two.
+**Voices and cost.** WEFT tracks share **four voices**; a track takes one or two (VOICES on SOUND; with one, the voice carries on from note to note, its oscillators and delays unbroken). Each voice runs every block it has at the full sample rate, so a big patch costs about as much as three or four voices of a synth engine: watch GLO › CPU. A released voice ends once it has been quiet a moment (a patch with no envelope after its last block rings on until 12 s after release). When the overload guard is holding voices back, WEFT keeps to two. A patch using more than eight blocks plays one voice, whatever VOICES says (WEFT MAP shows it), until its cost on the FM-1 is measured. A patch with **CLK OUT** or **MOD OUT** keeps one voice running all the time, notes or not, so its clock and its source go on (the lowest track with one is the one heard, if several have them); it takes one of the four for as long as the block is there.
 
-**Factory patches** (PRESETS on the WEFT pages): **INIT** (saw, low pass, one envelope), **SYNC LEAD** (hard sync, a slow LFO on the synced ramp), **DX BELL** (two-operator FM at 7:1, its index falling), **PLUCK** (Karplus-Strong), **CMOS XOR** (two ramps XORed, a FLIP sub-octave, scanned BANDS), **PHASE DIST** (an envelope bending a sine, CZ-style), **DRONE** (two saws a fifth apart, a slowly swept band pass), **TANGLE** (a triangle phase-modulated by its own folded, filtered self), **SPECTRA** (noise through four harmonic bands, scanned) and **S&H BLIPS** (a clock sampling noise into the pitch, each tick an envelope).
+**Factory patches** (PRESETS on the WEFT pages): **INIT** (saw, low pass, one envelope), **SYNC LEAD** (hard sync, a slow LFO on the synced ramp), **DX BELL** (two-operator FM at 7:1, its index falling), **PLUCK** (Karplus-Strong), **CMOS XOR** (two ramps XORed, a FLIP sub-octave, scanned BANDS), **PHASE DIST** (an envelope bending a sine, CZ-style), **DRONE** (two saws a fifth apart, a slowly swept band pass), **TANGLE** (a triangle phase-modulated by its own folded, filtered self), **SPECTRA** (noise through four harmonic bands, scanned), **S&H BLIPS** (a clock sampling noise into the pitch, each tick an envelope), **DUST SKIN** (clumped particles on a drum skin, smeared, fed back), **PLONK** (a click of noise strikes a bar, its pitch falling), **TOM SKIN** (a pulse on a skin, its brightness moved by velocity with B MOVES), **PINGS** (two clocks on the tempo's grid strike tuned rings while a key is held), **TICK CLOCK** (sixteenths with a CLK OUT: set another track's CLOCK to WEFT) and **DUST MOD** (smoothed clumps of dust as the matrix's WEFT source; silent).
 
 #### WEFT LIBRARY: load, save and delete patches on the FM-1
 
 <p align="center"><img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
 
-The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds the ten factory patches (**F1–F10**) and then the slots of the current sound bank (**A1…**): the empty ones and those holding WEFT patches (slots holding other sounds are left out). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
+The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds the factory patches (**F1–F16**) and then the slots of the current sound bank (**A1…**): the empty ones and those holding WEFT patches (slots holding other sounds are left out). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
 
 - **KNOB 1 (PATCH)** (or PRESETS) moves through the list; **KNOB 2 (BANK)** picks bank A–D.
 - **Black key 1: LOAD** the highlighted patch onto the track.
@@ -435,17 +449,18 @@ Under the instrument in the emulator, the **WEFT patcher** shows the current tra
 - **Click a block** to edit it on the right: its TYPE, each input's source (blocks and built-ins) and amount, its two settings, and whether it is the voice's output. Clicking also picks it on the FM-1's screen in the emulator.
 - **Patch** loads a factory patch; **Output**, **Voices** and **KNOB 1–4 on WEFT PLAY** are the MAP page's settings.
 - Each block shows its output live while you play. Everything you change plays at once, and the emulator's own FM-1 screen follows (and the other way round).
+- **Input B moves …** (under the settings) is B MOVES.
 - On a phone the blocks stack two a row, larger to touch.
 
 **Getting a patch onto your FM-1.** A patch belongs to its track, so it travels with the project and in your sound banks: **SAVE** the project (or **Save sound…** in the emulator's Sound section), then **Send to FM-1** (Projects & sounds). On the FM-1 you can go on editing it on the WEFT pages. **Export patch** saves it as a small `.weft.json` file to keep or share; **Import patch** puts one onto the current track. The file is plain JSON, block types and sources by name:
 
 ```json
-{"format": "ravel-weft", "version": 1, "name": "PLUCK",
- "blocks": [{"type": "SLOPE", "a": "TRIG", "amtA": 100, "b": null, "amtB": 0, "p1": 0, "p2": 34}, ...],
+{"format": "ravel-weft", "version": 2, "name": "PLUCK",
+ "blocks": [{"type": "SLOPE", "a": "TRIG", "amtA": 100, "b": null, "amtB": 0, "p1": 0, "p2": 34, "bMoves": false}, ...],
  "out": 7, "map": [9, 6, 2, 12], "voices": 2}
 ```
 
-A source is a block number (1–8) or a built-in's name; `p1` and `p2` are the settings (0–127, RATIO 0–15); `map` holds 1 + a setting number (block *n*'s settings are 2(*n*−1) and 2(*n*−1)+1), 0 for none.
+A source is a block number (1–12) or a built-in's name; `p1` and `p2` are the settings (0–127, or a list's entry from 0: RATIO, DIV, RANGE); `bMoves`, input B moving the second setting; `map` holds 1 + a setting number (block *n*'s settings are 2(*n*−1) and 2(*n*−1)+1), 0 for none. Version 1 files (eight blocks) import as they are.
 
 ### INFLUENCE
 
@@ -929,6 +944,7 @@ Editing a segment past the last one adds it. The twelve factory envelopes, all s
 - **KEY:** the note the *target* track is playing, centred on C4. At AMOUNT **+63** the parameter follows the keyboard exactly, one semitone per key (see below);
 - **WHEEL:** MIDI CC 1 (the mod wheel) from MIDI in;
 - **TOUCH:** aftertouch from MIDI in: channel pressure, or a keyboard's poly pressure (the latest key's). How hard you keep pressing a held key, for vibrato, a filter opening up, a swell;
+- **WEFT:** a WEFT patch's **MOD OUT** block (the lowest track with one), anything you patch into it, from smoothed dust to a feedback network's wander;
 - **BEND:** the pitch bend wheel from MIDI in, −1 to +1, centred at rest. Its AMOUNT is the bend's range in semitones: BEND › the track's PITCH at **+2** bends a whole tone each way, **+12** an octave (on CUTOFF it follows the keyboard's scale the same way; on other knobs, a step of the knob per unit). The matrix row names its track, so to bend several tracks, give each its own row.
 
 The FM-1's own keys are switches: they play every note at the same velocity and have no pressure. VELO and TOUCH come alive with a MIDI keyboard that sends them (GLO › MIDI IN). For movement under your fingers on the FM-1 itself, map MACRO1–4 to the knobs you want and ride them, or record the knob moves.
@@ -1080,7 +1096,7 @@ Editing a held empty step switches it on.
 | **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER, BOUNCE (see below); "-F" versions fade out | CONDITN, see below |
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
-| **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST |
+| **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST, WEFT (a WEFT patch's CLK OUT) |
 | **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | STEP REC: NEXT (step recording moves on after each note) or STAY (it stays on the step: note input, see Recording). Kept through power-off | – | – |
 | **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
 
@@ -1506,6 +1522,8 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 | Effects back from the looper | GLITCH INPUT, KNOB 4 (LOOPER) = OFF, or KIND back |
 | Patch a voice from blocks | EDIT › SOUND, KIND = WEFT; WEFT PATCH: KNOB 1 block, 2 type, 3–4 input A; WEFT BLOCK: input B, settings |
 | Load, save, delete WEFT patches | WEFT LIBRARY: KNOB 1 picks, black key 1 load, 2 save, 3 delete (twice); KNOB 3–4 rename |
+| WEFT: input B moves a setting | WEFT BLOCK: black key 1 |
+| A WEFT patch clocks a sequencer | CLK OUT in the patch; that track's TRACK › CLOCK = WEFT |
 | Patch with the mouse | Emulator: WEFT patcher, drag an output to an input |
 | Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |
