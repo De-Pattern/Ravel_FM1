@@ -61,6 +61,8 @@ static void weft_preset_apply(int t, int k)
         w->map[i] = p->map[i];
     rv.tp[t & 7][TP_POLY] = (int16_t)(p->poly > 1);
 }
+void rv_weft_preset(int t, int k) { weft_preset_apply(t & 7, k); }
+void rv_weft_block_defaults(int t, int i) { weft_block_defaults(t & 7, i & 7); }
 int rv_weft_presets(void) { return WF_NPRESETS; }
 const char *rv_weft_preset_name(int k) { return wf_presets[(k < 0 ? 0 : k) % WF_NPRESETS].name; }
 

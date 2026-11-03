@@ -1545,7 +1545,8 @@ static void kb_set(kb_t k, int v)
         case 14: w->out = (uint8_t)v; break;
         default: break;
         }
-        ui.wf_pre[ui.track] = -1;                    /* (its own patch now) */
+        if (k.id != 0 && k.id != 8)
+            ui.wf_pre[ui.track] = -1;                /* (its own patch now) */
         break;
     }
     case K_LP:
@@ -5877,6 +5878,11 @@ int ui_section(void) { return ui.sec; }
 int ui_step_cur(void) { return ui.step_cur; }   /* (the scenarios: the step on the knobs) */
 int ui_track(void) { return ui.track; }
 const char *ui_page_title(void) { return cur_page()->title; }
+const char *ui_sound_name(int t) { return sound_name(t & 7); }
+/* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */
+void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b & 7); }
+int ui_weft_selected(void) { return ui.wf_blk & 7; }
+void ui_weft_touch(int t, int pre) { ui.wf_pre[t & 7] = (int8_t)pre; }
 void ui_goto(int sec, int page)
 {
     if (sec >= 0 && sec < NSEC) {

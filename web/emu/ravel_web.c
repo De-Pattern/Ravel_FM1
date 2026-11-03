@@ -151,6 +151,7 @@ EXPORT(web_page_title) const char *web_page_title(void) { return ui_page_title()
 EXPORT(web_kind) int web_kind(int t) { return rv.tp[t & 7][TP_KIND]; }
 EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
 EXPORT(web_src0) int web_src0(int t) { return rv.tp[t & 7][TP_S0]; }
+void ui_weft_touch(int t, int pre);
 EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine)   /* (COMP: T8 only; one GLITCH LOOPER at a time) */
 {
     int i;
@@ -160,10 +161,12 @@ EXPORT(web_set_kind) void web_set_kind(int t, int kind, int engine)   /* (COMP: 
         for (i = 0; i < RV_TRACKS; i++)
             if (i != (t & 7) && rv.tp[i][TP_KIND] == KIND_LOOP)
                 return;
-    if (kind == KIND_PERC || kind == KIND_LOOP || rv.tp[t & 7][TP_KIND] == KIND_LOOP)
-        rv_track_set_kind(t & 7, kind);               /* (a kit's lanes, a looper's trigs: the steps start clean) */
+    if (kind == KIND_PERC || kind == KIND_LOOP || kind == KIND_WEFT || rv.tp[t & 7][TP_KIND] == KIND_LOOP)
+        rv_track_set_kind(t & 7, kind);               /* (a kit's lanes, a looper's trigs: the steps start clean; WEFT: its first patch) */
     else
         rv_track_defaults(t & 7, kind, engine);
+    if (kind == KIND_WEFT)
+        ui_weft_touch(t, 0);
 }
 EXPORT(web_comp_gr) float web_comp_gr(void) { return rv_live.comp_gr; }
 void host_midi_push(int a, int b, int c);
@@ -202,10 +205,13 @@ EXPORT(web_mute) int web_mute(void) { return rv.mute; }
 EXPORT(web_set_mute) void web_set_mute(int m) { rv.mute = (uint8_t)m; }
 EXPORT(web_kind_name) const char *web_kind_name(int k) { return rv_kind_names[k % KIND_N]; }
 EXPORT(web_engine_name) const char *web_engine_name(int e) { return rv_engine_names[e % ENG_N]; }
+const char *ui_sound_name(int t);
 EXPORT(web_sound_name) const char *web_sound_name(int t)
 {
     const rv_pinfo *pi = rv_pinfo_track(t & 7, TP_S0);
     int k = rv.tp[t & 7][TP_KIND];
+    if (k == KIND_WEFT)
+        return ui_sound_name(t);
     if (k == KIND_SYNTH)
         return rv_engine_names[rv.tp[t & 7][TP_ENGINE] % ENG_N];
     return pi->names ? pi->names[rv.tp[t & 7][TP_S0] - pi->min] : "";
@@ -293,3 +299,78 @@ EXPORT(web_step_info) int web_step_info(int t, int st, int what)   /* (tests) 0:
     const rv_step *p = &rv.pat[t & 7][rv.pat_cur[t & 7] % RV_PATTERNS].s[st & 63];
     return what == 0 ? (p->flags & ST_ON) != 0 : what == 1 ? p->note : 1 + (p->chord[0] != 0) + (p->chord[1] != 0) + (p->chord[2] != 0);
 }
+
+/* ------------------------------------------------------------- WEFT: the patcher on the page --- */
+#include "../../firmware/app/rv_weftdef.h"
+void ui_weft_select(int b);
+int ui_weft_selected(void);
+void ui_weft_touch(int t, int pre);
+void rv_weft_preset(int t, int k);
+void rv_weft_block_defaults(int t, int i);
+int rv_weft_presets(void);
+const char *rv_weft_preset_name(int k);
+/* a field of track t's patch: 0 type, 1 input A, 2 input B, 3 amount A, 4 amount B (block i); 5 the output;
+ * 6 KNOB i's setting (1 + 0-15, 0 none); 7 setting i (0-15, the track's S0-S15); 8 voices (0: one, 1: two) */
+EXPORT(web_wf_get) int web_wf_get(int t, int f, int i)
+{
+    const rv_weft *w = &rv.weft[t & 7];
+    i &= 15;
+    switch (f) {
+    case 0: return w->type[i & 7];
+    case 1: return w->a[i & 7];
+    case 2: return w->b[i & 7];
+    case 3: return w->amta[i & 7];
+    case 4: return w->amtb[i & 7];
+    case 5: return w->out;
+    case 6: return w->map[i & 3];
+    case 7: return rv.tp[t & 7][TP_S0 + i];
+    case 8: return rv.tp[t & 7][TP_POLY] > 0;
+    default: return 0;
+    }
+}
+EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
+{
+    rv_weft *w = &rv.weft[t & 7];
+    i &= 15;
+    switch (f) {
+    case 0:
+        v = v < 0 || v >= WO_N ? 0 : v;
+        if (w->type[i & 7] != v) {
+            w->type[i & 7] = (uint8_t)v;
+            rv_weft_block_defaults(t, i);
+            if (v && !w->out)
+                w->out = (uint8_t)((i & 7) + 1);
+        }
+        break;
+    case 1: w->a[i & 7] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
+    case 2: w->b[i & 7] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
+    case 3: w->amta[i & 7] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
+    case 4: w->amtb[i & 7] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
+    case 5: w->out = (uint8_t)(v < 0 || v > 8 ? 0 : v); break;
+    case 6: w->map[i & 3] = (uint8_t)(v < 0 || v > 16 ? 0 : v); break;
+    case 7: rv.tp[t & 7][TP_S0 + i] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
+    case 8: rv.tp[t & 7][TP_POLY] = (int16_t)(v ? 1 : 0); break;
+    default: return;
+    }
+    ui_weft_touch(t, -1);
+}
+EXPORT(web_wf_scope) int web_wf_scope(int b, int k) { return rv_live.wscope[b & 7][k & 31]; }
+EXPORT(web_wf_voices) int web_wf_voices(void) { return rv_live.wvoices; }
+EXPORT(web_wf_ntypes) int web_wf_ntypes(void) { return WO_N; }
+EXPORT(web_wf_nsrc) int web_wf_nsrc(void) { return WS_N; }
+EXPORT(web_wf_type_name) const char *web_wf_type_name(int k) { return wf_types[(unsigned)k % WO_N].name; }
+EXPORT(web_wf_desc) const char *web_wf_desc(int k) { return wf_desc[(unsigned)k % WO_N]; }
+/* what a type calls its settings (s 0, 1) and inputs (s 2: A, 3: B) */
+EXPORT(web_wf_label) const char *web_wf_label(int k, int s)
+{
+    const wf_type_t *ty = &wf_types[(unsigned)k % WO_N];
+    return s == 0 ? ty->p1 : s == 1 ? ty->p2 : s == 2 ? ty->a : ty->b;
+}
+EXPORT(web_wf_ratio_n) int web_wf_ratio_n(int k) { return wf_types[(unsigned)k % WO_N].m1; }
+EXPORT(web_wf_ratio_name) const char *web_wf_ratio_name(int v) { return wf_ratio[(unsigned)v & 15]; }
+EXPORT(web_wf_src_name) const char *web_wf_src_name(int s) { return wf_src_names[(unsigned)s % WS_N]; }
+EXPORT(web_wf_npresets) int web_wf_npresets(void) { return rv_weft_presets(); }
+EXPORT(web_wf_preset_name) const char *web_wf_preset_name(int k) { return rv_weft_preset_name(k); }
+EXPORT(web_wf_preset) void web_wf_preset(int t, int k) { rv_weft_preset(t, k); ui_weft_touch(t, k); }
+EXPORT(web_wf_select) void web_wf_select(int b) { ui_weft_select(b); }
+EXPORT(web_wf_selected) int web_wf_selected(void) { return ui_weft_selected(); }
