@@ -165,6 +165,52 @@ expect meter_min 1 0.005
 key 12 up
 wait 900
 expect wtype 1 1 40
+# BENJOLIN, VOWELS, ROBOT VOX, RUNGLE PINGS, LISSA DRONE, WIND
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+expect wtype 1 3 50
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+expect wtype 1 6 47
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+expect wtype 1 1 49
 turn PRESET 1
 wait 100
 expect wtype 1 1 2

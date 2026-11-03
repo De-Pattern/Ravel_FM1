@@ -20,13 +20,16 @@ enum {
     WO_OCLK, WO_OMOD,                                   /* outputs: a clock for the sequencers, a source for the matrix */
     WO_SW14, WO_SW41,                                   /* sequential switches: one in to four outs (SW 1-4), four in to one out */
     WO_STRING, WO_CHAOS, WO_CRUSH, WO_EDGE,             /* a plucked string; a logistic map; fewer bits; a click at each rise */
+    WO_FOLLOW, WO_SHAPE, WO_CHEBY, WO_FORMANT,          /* an envelope follower; waveshapers; a steep low pass; vowels */
+    WO_VOCODER, WO_RMOD, WO_NOISE, WO_RUNGLER, WO_LISSA,   /* a vocoder; a ring modulator; coloured noise; a shift register; a 2-D LFO */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
+#define WO_SLOT(t) (WO_MODES(t) || (t) == WO_CHEBY || (t) == WO_FORMANT || (t) == WO_VOCODER)   /* (blocks with a bank of filters: three to a patch) */
 
 /* the sources an input can take besides a block (1-12) */
 enum { WS_NONE = 0, WS_PITCH = WF_BLOCKS + 1, WS_GATE, WS_TRIG, WS_VEL, WS_NOISE, WS_LFO1, WS_LFO2, WS_WHEEL, WS_ONE,
-       WS_SW1, WS_SW2, WS_SW3, WS_SW4, WS_N };
+       WS_SW1, WS_SW2, WS_SW3, WS_SW4, WS_LISY, WS_N };   /* LISY: a LISSA's second output */
 #define WS_MENU WS_N                                    /* the sources offered */
 /* (format 24's numbering: blocks 1-8, then PITCH at 9) */
 #define WS_OLD_PITCH 9
@@ -46,6 +49,10 @@ static const float wf_div_v[12] = {64.0f, 32.0f, 16.0f, 8.0f, 4.0f, 8.0f / 3.0f,
 static const char *const wf_cdiv[16] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const char *const wf_range[2] = {"-1..1", "0..1"};
 static const char *const wf_order[5] = {"UP", "DOWN", "PING", "RANDOM", "SELECT"};
+static const char *const wf_curve[7] = {"TANH", "CLIP", "SINE", "CUBE", "CHEB3", "STEPS", "ASYM"};
+static const char *const wf_rlen[6] = {"3", "4", "5", "6", "7", "8"};
+static const char *const wf_lratio[9] = {"1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "3:5", "5:4"};
+static const uint8_t wf_lratio_v[9][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, {3, 4}, {4, 3}, {3, 5}, {5, 4}};   /* X turns, Y turns */
 enum { WSW_UP, WSW_DOWN, WSW_PING, WSW_RANDOM, WSW_SELECT };
 
 static const wf_type_t wf_types[WO_N] = {
@@ -92,6 +99,15 @@ static const wf_type_t wf_types[WO_N] = {
     {"CHAOS", "CHAOS", "RATE", "CLOCK", "CHAOS", 110, 60, 0, 0, 0, 0},
     {"CRUSH", "BITS", "RATE", "IN", "RATE", 80, 30, 0, 0, 0, 0},
     {"EDGE", "THRESH", "LEVEL", "IN", "THRESH", 64, 127, 0, 0, 0, 0},
+    {"FOLLOW", "ATTACK", "RELEASE", "IN", "TIME", 10, 50, 0, 0, 0, 0},
+    {"SHAPE", "CURVE", "DRIVE", "IN", "DRIVE", 0, 30, 7, 0, wf_curve, 0},
+    {"CHEBY", "CUTOFF", "RIPPLE", "IN", "CUTOFF", 80, 40, 0, 0, 0, 0},
+    {"FORMANT", "VOWEL", "SHIFT", "IN", "VOWEL", 0, 64, 0, 0, 0, 0},
+    {"VOCODER", "SHARP", "SHIFT", "MOD", "CARRIER", 64, 64, 0, 0, 0, 0},
+    {"RINGMOD", "FREQ", "MIX", "IN", "CARRIER", 64, 127, 0, 0, 0, 0},
+    {"NOISE", "COLOR", "RATE", "RATE", "COLOR", 64, 127, 0, 0, 0, 0},
+    {"RUNGLER", "LOOP", "LENGTH", "CLOCK", "DATA", 64, 5, 0, 6, 0, wf_rlen},
+    {"LISSA", "RATE", "RATIO", "RATE", "PHASE", 30, 3, 0, 9, 0, wf_lratio},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -139,11 +155,20 @@ static const char *const wf_desc[WO_N] = {
     "A LOGISTIC MAP: ORDER TO NOISE",
     "A IN FEWER BITS, HELD LONGER",
     "A CLICK AT EACH RISE OF A",
+    "HOW LOUD A IS: 0 .. 1",
+    "A THROUGH A TRANSFER CURVE",
+    "A STEEP LOW PASS WITH RIPPLES",
+    "A THROUGH A VOWEL'S FORMANTS",
+    "B SPEAKS WITH A'S SPECTRUM",
+    "A x B (NONE: A SINE x FREQ)",
+    "NOISE, DARK TO BRIGHT, HELD",
+    "A SHIFT REGISTER'S 3 BITS",
+    "X; ITS Y IS THE SOURCE LIS Y",
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
                                                "PITCH", "GATE", "TRIG", "VEL", "NOISE", "LFO 1", "LFO 2", "WHEEL", "ONE",
-                                               "SW 1", "SW 2", "SW 3", "SW 4"};
+                                               "SW 1", "SW 2", "SW 3", "SW 4", "LIS Y"};
 
 /* the factory patches (PRESETS on the WEFT pages): blocks as {type, a, amt a, b, amt b, p1, p2} */
 typedef struct { uint8_t t, a; int8_t aa; uint8_t b; int8_t ab; uint8_t p1, p2; } wf_blk_t;
@@ -247,6 +272,35 @@ static const wf_preset_t wf_presets[] = {
      {{WO_CHAOS, 0, 0, 0, 0, 118, 62}, {WO_EDGE, 1, 100, 0, 0, 64, 110}, {WO_STRING, 2, 100, 4, 12, 15, 100},
       {WO_HOLD, 1, 100, 2, 100, 20, 0}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 60}, {WO_MULT, 3, 100, 5, 100, 64, 127}},
      6, 1, {WM(1, 0), WM(1, 1), WM(3, 0), WM(3, 1)}, 0},
+    {"BENJOLIN",      /* after Rob Hordijk's: two free oscillators, a rungler clocked by one and fed by the other, bending both;
+                       * their comparison through a resonant filter the rungler moves */
+     {{WO_CYCLE, 3, 35, 0, 0, 96, 64}, {WO_CYCLE, 3, 25, 0, 0, 88, 64}, {WO_RUNGLER, 2, 100, 1, 100, 64, 5},
+      {WO_COMP, 1, 100, 2, 100, 100, 64}, {WO_LP, 4, 100, 3, 40, 70, 100}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 40},
+      {WO_MULT, 5, 100, 6, 100, 64, 64}},
+     7, 1, {WM(1, 0), WM(2, 0), WM(3, 0), WM(5, 0)}, 0},
+    {"VOWELS",        /* a saw through a vowel's formants, the vowel wandering with a slow LISSA */
+     {{WO_WAVE, 0, 0, 0, 0, 85, 64}, {WO_FORMANT, 1, 100, 3, 70, 0, 64}, {WO_LISSA, 0, 0, 0, 0, 25, 3},
+      {WO_SLOPE, 0, 0, 0, 0, 10, 70}, {WO_MULT, 2, 100, 4, 100, 64, 90}},
+     5, 2, {WM(2, 0), WM(2, 1), WM(3, 0), WM(4, 1)}, 0},
+    {"ROBOT VOX",     /* a vowel-shaped saw speaks through a square an octave down (VOCODER) */
+     {{WO_WAVE, 0, 0, 0, 0, 85, 64}, {WO_LISSA, 0, 0, 0, 0, 20, 1}, {WO_FORMANT, 1, 100, 2, 90, 0, 64},
+      {WO_PHASE, 0, 0, 0, 0, 1, 64}, {WO_WAVE, 4, 100, 0, 0, 127, 64}, {WO_VOCODER, 3, 100, 5, 100, 80, 64},
+      {WO_SLEW, WS_GATE, 100, 0, 0, 0, 40}, {WO_MULT, 6, 100, 7, 100, 64, 100}},
+     8, 1, {WM(6, 0), WM(6, 1), WM(2, 0), WM(3, 1)}, 0},
+    {"RUNGLE PINGS",  /* sixteenths strike a ring whose pitch a rungler steps; a Chebyshev low pass after */
+     {{WO_TICK, 0, 0, 0, 0, 8, 127}, {WO_RUNGLER, 1, 100, 0, 0, 100, 5}, {WO_RING, 1, 100, 2, 50, 4, 55},
+      {WO_CHEBY, 3, 100, 2, 30, 95, 60}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 40}, {WO_MULT, 4, 100, 5, 100, 64, 100}},
+     6, 1, {WM(2, 0), WM(3, 1), WM(4, 0), WM(4, 1)}, 0},
+    {"LISSA DRONE",   /* two saws a fifth apart, a Chebyshev low pass and a ring modulator moved by a LISSA's X and Y */
+     {{WO_WAVE, 0, 0, 0, 0, 85, 64}, {WO_PHASE, 0, 0, 0, 0, 3, 64}, {WO_WAVE, 2, 100, 0, 0, 85, 64},
+      {WO_LISSA, 0, 0, 0, 0, 18, 3}, {WO_MIX, 1, 100, 3, 100, 64, 64}, {WO_CHEBY, 5, 100, 4, 50, 70, 80},
+      {WO_RMOD, 6, 100, WS_LISY, 60, 80, 30}, {WO_SLEW, WS_GATE, 100, 0, 0, 40, 80}, {WO_MULT, 7, 100, 8, 100, 64, 64}},
+     9, 1, {WM(6, 0), WM(6, 1), WM(4, 0), WM(7, 0)}, 0x40},
+    {"WIND",          /* dark noise through two band passes, X and Y of a LISSA sweeping them */
+     {{WO_NOISE, 0, 0, 0, 0, 30, 127}, {WO_LISSA, 0, 0, 0, 0, 15, 5}, {WO_BP, 1, 100, 2, 60, 70, 110},
+      {WO_BP, 1, 100, WS_LISY, 60, 85, 115}, {WO_ADD, 3, 100, 4, 100, 64, 64}, {WO_SLEW, WS_GATE, 100, 0, 0, 60, 80},
+      {WO_MULT, 5, 100, 6, 100, 64, 127}},
+     7, 1, {WM(1, 0), WM(2, 0), WM(3, 1), WM(4, 1)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

@@ -13,7 +13,7 @@ wait 50
 tapkey 1
 wait 100
 expect wtype 1 1 1
-turn PRESET 18
+turn PRESET 24
 wait 50
 tapkey 3
 wait 200
@@ -22,12 +22,12 @@ turn K4 3
 wait 100
 tapkey 1
 wait 100
-turn PRESET -20
+turn PRESET -26
 wait 50
 tapkey 1
 wait 100
 expect wtype 1 1 2
-turn PRESET 20
+turn PRESET 26
 wait 50
 tapkey 1
 wait 100

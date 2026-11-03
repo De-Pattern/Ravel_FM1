@@ -1,0 +1,455 @@
+# every WEFT block on a saw (block 1), heard as the output; the ones that make clicks or levels (not sound) only
+# run. Catches a block that blows up or stays silent
+wait 300
+kind 1 6
+wset 1 0 1 2
+wset 1 7 1 85
+wset 1 5 0 2
+# PHASE
+wset 1 0 2 1
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# WAVE
+wset 1 0 2 2
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# SLOPE
+wset 1 0 2 3
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# CYCLE
+wset 1 0 2 4
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# SLEW
+wset 1 0 2 5
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# LP
+wset 1 0 2 6
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# BP
+wset 1 0 2 7
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# HP
+wset 1 0 2 8
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# ADD
+wset 1 0 2 9
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# MULT
+wset 1 0 2 10
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# MIX
+wset 1 0 2 11
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# MIN
+wset 1 0 2 12
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# MAX
+wset 1 0 2 13
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# FOLD
+wset 1 0 2 14
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# COMP
+wset 1 0 2 15
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# AND
+wset 1 0 2 16
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+# (silent here: AND with nothing on B is always low)
+key 12 up
+wait 150
+# OR
+wset 1 0 2 17
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# XOR
+wset 1 0 2 18
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# FLIP
+wset 1 0 2 19
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# DELAY
+wset 1 0 2 20
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# BANDS
+wset 1 0 2 21
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# HOLD
+wset 1 0 2 22
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# DUST
+wset 1 0 2 23
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# TICK
+wset 1 0 2 24
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# RING
+wset 1 0 2 25
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# SKIN
+wset 1 0 2 26
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# BAR
+wset 1 0 2 27
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# PLATE
+wset 1 0 2 28
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# BELL
+wset 1 0 2 29
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# HARMS
+wset 1 0 2 30
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# FIXED
+wset 1 0 2 31
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# SAT
+wset 1 0 2 32
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# ABS
+wset 1 0 2 33
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# DIFFUSE
+wset 1 0 2 34
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# OCLK
+wset 1 0 2 35
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# OMOD
+wset 1 0 2 36
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# SW14
+wset 1 0 2 37
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# SW41
+wset 1 0 2 38
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+# (silent here: stepped onto itself by the note)
+key 12 up
+wait 150
+# STRING
+wset 1 0 2 39
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# CHAOS
+wset 1 0 2 40
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# CRUSH
+wset 1 0 2 41
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# EDGE
+wset 1 0 2 42
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# FOLLOW
+wset 1 0 2 43
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# SHAPE
+wset 1 0 2 44
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# CHEBY
+wset 1 0 2 45
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# FORMANT
+wset 1 0 2 46
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# VOCODER
+wset 1 0 2 47
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# RMOD
+wset 1 0 2 48
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# NOISE
+wset 1 0 2 49
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# RUNGLER
+wset 1 0 2 50
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+key 12 up
+wait 150
+# LISSA
+wset 1 0 2 51
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150

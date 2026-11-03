@@ -16,8 +16,17 @@
 #include "rv_bank.c"
 #include "rv_xfer.c"
 #include "rv_stress.c"
+/* the interface and the start screen run beside the sound, not in it: on the FM-1 they are built for size (the
+ * flash is nearly full), the drawing primitives (rv_gfx.c) excepted */
+#if defined(RV_FM1) && defined(__clang__)
+#pragma clang attribute push(__attribute__((minsize)), apply_to = function)
+#define RV_UI_MINSIZE 1
+#endif
 #include "rv_ui.c"
 #include "rv_intro.c"
+#ifdef RV_UI_MINSIZE
+#pragma clang attribute pop
+#endif
 
 /* start: always a blank project */
 void ravel_start(void)

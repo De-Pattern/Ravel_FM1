@@ -9,7 +9,13 @@
  * Every page: a top strip (track, sound, page), the knob row, a live picture, a footer that
  * says what the controls do right now. */
 #include "rv.h"
+#ifdef RV_UI_MINSIZE
+#pragma clang attribute pop
+#endif
 #include "rv_gfx.c"
+#ifdef RV_UI_MINSIZE
+#pragma clang attribute push(__attribute__((minsize)), apply_to = function)
+#endif
 static int intro_frame(void);                         /* (rv_intro.c: the start screen) */
 static int intro_skip(void);
 int ui_intro_on(void);
