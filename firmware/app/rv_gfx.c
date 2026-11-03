@@ -19,6 +19,7 @@ typedef struct {
 #define GB_H 16
 static uint16_t gb[PLAT_W * GB_H];
 static int g_y0, g_y1;
+static int g_cx0 = 0, g_cx1 = PLAT_W;   /* a clip across (the start screen's melt draws in strips) */
 
 #define RGB(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
 /* a deep black ground, quiet greys, light ink; teal for live movement, amber for memory and the tape */
@@ -73,7 +74,7 @@ static void g_send(void) { plat_blit(0, g_y0, PLAT_W, GB_H, gb); }
 
 static inline void g_pset(int x, int y, uint16_t c)
 {
-    if ((unsigned)x < PLAT_W && y >= g_y0 && y < g_y1)
+    if (x >= g_cx0 && x < g_cx1 && y >= g_y0 && y < g_y1)
         gb[(y - g_y0) * PLAT_W + x] = c;
 }
 
@@ -106,10 +107,10 @@ static void g_grain(int x, int y, int w, int h, uint16_t c)
 static void g_fill(int x, int y, int w, int h, uint16_t c)
 {
     int x1 = x + w, y1 = y + h, i, j;
-    if (x < 0)
-        x = 0;
-    if (x1 > PLAT_W)
-        x1 = PLAT_W;
+    if (x < g_cx0)
+        x = g_cx0;
+    if (x1 > g_cx1)
+        x1 = g_cx1;
     if (y < g_y0)
         y = g_y0;
     if (y1 > g_y1)
@@ -188,7 +189,7 @@ static inline uint16_t g_blend(uint16_t bg, uint16_t fg, uint32_t a)   /* a 0..1
 static inline void g_cover(int x, int y, uint16_t c, float a)
 {
     uint16_t *p;
-    if ((unsigned)x >= PLAT_W || y < g_y0 || y >= g_y1 || a <= 0.03f)
+    if (x < g_cx0 || x >= g_cx1 || y < g_y0 || y >= g_y1 || a <= 0.03f)
         return;
     p = &gb[(y - g_y0) * PLAT_W + x];
     *p = a >= 0.97f ? c : g_blend(*p, c, (uint32_t)(a * 15.0f + 0.5f));

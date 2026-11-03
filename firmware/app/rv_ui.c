@@ -48,13 +48,13 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
-       PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP , PR_WEFT};   /* PR_STEP: the step pages, PRESETS steps through the steps */
+       PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP , PR_WEFT, PR_WLIB};   /* PR_STEP: the step pages, PRESETS steps through the steps */
 
 #define USND 1000                       /* ui.preset_idx at or above: your own sound USND + slot (the current bank) */
 typedef struct {
@@ -93,6 +93,8 @@ static const page_t pages[] = {
     {SEC_VOICE, V_WEFT, PIC_WEFT, PR_WEFT, "WEFT PATCH", {{K_WF, 0}, {K_WF, 1}, {K_WF, 2}, {K_WF, 3}}},
     {SEC_VOICE, V_WEFT, PIC_WEFTBLK, PR_WEFT, "WEFT BLOCK", {{K_WF, 4}, {K_WF, 5}, {K_WF, 6}, {K_WF, 7}}},
     {SEC_VOICE, V_WEFT, PIC_WEFTMAP, PR_WEFT, "WEFT MAP", {{K_WF, 8}, {K_WF, 9}, {K_WF, 14}, TP(TP_LEVEL)}},
+    /* the patches: the factory ones and your own (WEFT sounds in the sound bank), to load, save, name and delete */
+    {SEC_VOICE, V_WEFT, PIC_WEFTLIB, PR_WLIB, "WEFT LIBRARY", {{K_WF, 16}, {K_WF, 17}, {K_WF, 18}, {K_WF, 19}}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
@@ -236,6 +238,8 @@ static struct {
     uint8_t armed;
     int8_t srec_t;                  /* step recording on this track (-1: off) */
     uint8_t wf_blk, wf_map;         /* WEFT: the block on PATCH and BLOCK, the knob on MAP */
+    uint8_t wl_sel, wl_cursor;      /* WEFT LIBRARY: the entry chosen, the name's cursor */
+    char wf_name[RV_TRACKS][12];    /* WEFT: the name of the patch each track has (its own: "") */
     int8_t wf_pre[RV_TRACKS];       /* WEFT: the factory patch each track has (-1: its own) */
     uint8_t lp_lane, lp_type;       /* LOOP TRIGS: the lane the keys write, and the trig (0 PLAY, 1 REC) */
     int8_t srec_seen;               /* the cursor last shown (the keys' page follows it) */
@@ -313,7 +317,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL };   /* (CONF_SCENE + the scene) */
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -692,6 +696,26 @@ static int other_loop_track(int t)                    /* another track is LOOP a
     return 0;
 }
 
+/* WEFT LIBRARY: the factory patches, then the bank's WEFT sounds and its empty slots (other sounds left out).
+ * An entry: 0..WF_NPRESETS-1 a factory patch, 100 + i bank slot i */
+static void wl_name_set(int t, const char *n);
+static __attribute__((noinline)) int wl_list(uint8_t *out)
+{
+    int i, n = 0;
+    for (i = 0; i < rv_weft_presets(); i++)
+        out[n++] = (uint8_t)i;
+    for (i = 0; i < 32; i++)
+        if (!rv_bank_used(i) || rv_bank_kind(i) == KIND_WEFT)
+            out[n++] = (uint8_t)(100 + i);
+    return n;
+}
+static int wl_entry(void)
+{
+    uint8_t l[64];
+    int n = wl_list(l);
+    return n ? l[ui.wl_sel % n] : 0;
+}
+
 static kinfo_t kb_info(kb_t k)
 {
     kinfo_t r = {0, 0, 0, PF_NUM, 0};
@@ -911,6 +935,10 @@ static kinfo_t kb_info(kb_t k)
                 setp[i + 1] = set[i + 1];
             }
             r.max = 16; r.fmt = PF_ENUM; r.names = setp; break;
+        case 16: { uint8_t l[64]; r.name = "PATCH"; r.max = wl_list(l) - 1; break; }
+        case 17: { static const char *const bk[4] = {"A", "B", "C", "D"}; r.name = "BANK"; r.max = 3; r.fmt = PF_ENUM; r.names = bk; break; }
+        case 18: r.name = "CURSOR"; r.min = 1; r.max = 11; break;
+        case 19: r.name = "LETTER"; r.max = rv_bank_nchars() - 1; break;
         case 14:
             outp[0] = "-";
             for (i = 0; i < 8; i++) {
@@ -1162,6 +1190,13 @@ static int kb_get(kb_t k)
         case 8: return ui.wf_map & 3;
         case 9: return w->map[ui.wf_map & 3] % 17;
         case 14: return w->out % 9;
+        case 16: { uint8_t l[64]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
+        case 17: return rv_bank_current();
+        case 18: return ui.wl_cursor + 1;
+        case 19: {
+            int e = wl_entry();
+            return e >= 100 && rv_bank_used(e - 100) ? rv_bank_char_index(rv_bank_name(e - 100)[ui.wl_cursor % 11]) : 0;
+        }
         default: return 0;
         }
     }
@@ -1193,8 +1228,10 @@ static void kb_set(kb_t k, int v)
                 !confirmed(CONF_KIND, "TURN AGAIN: CLEARS STEPS"))
                 return;
             rv_track_set_kind(ui.track, v);
-            if (v == KIND_WEFT)
+            if (v == KIND_WEFT) {
                 ui.wf_pre[ui.track] = 0;             /* (it starts from the first patch) */
+                wl_name_set(ui.track, rv_weft_preset_name(0));
+            }
             ui.preset_idx[ui.track] = -1;
             return;
         }
@@ -1543,8 +1580,23 @@ static void kb_set(kb_t k, int v)
         case 8: ui.wf_map = (uint8_t)(v & 3); break;
         case 9: w->map[ui.wf_map & 3] = (uint8_t)v; break;
         case 14: w->out = (uint8_t)v; break;
+        case 16: ui.wl_sel = (uint8_t)v; ui.wl_cursor = 0; break;
+        case 17: bank_keep(); rv_bank_select(v); ui.wl_sel = 0; break;
+        case 18: ui.wl_cursor = (uint8_t)clampi(v - 1, 0, 10); break;
+        case 19: {                                    /* a letter of the chosen patch's name (your own ones) */
+            int e = wl_entry();
+            if (e >= 100 && rv_bank_used(e - 100)) {
+                rv_bank_set_char(e - 100, ui.wl_cursor % 11, v);
+                ui.bank_dirty = 1;
+                ui.bank_edit_ms = plat_ms();
+            } else
+                msg("NAME YOUR OWN PATCHES (SAVE FIRST)");
+            break;
+        }
         default: break;
         }
+        if (k.id >= 16)
+            break;
         if (k.id != 0 && k.id != 8)
             ui.wf_pre[ui.track] = -1;                /* (its own patch now) */
         break;
@@ -1914,6 +1966,71 @@ static void bank_keep(void)
     }
 }
 
+/* WEFT LIBRARY: black key 1 LOADs the chosen patch, 2 SAVEs this track's patch there (your own slots;
+ * over a patch, a second press), 3 DELETEs one of your own (a second press) */
+static void wl_name_set(int t, const char *n)
+{
+    int i;
+    for (i = 0; i < 11 && n[i]; i++)
+        ui.wf_name[t & 7][i] = n[i];
+    ui.wf_name[t & 7][i] = 0;
+}
+static __attribute__((noinline)) void wl_do(int act)
+{
+    int t = ui.track, e = wl_entry(), slot = e - 100;
+    char b[32];
+    bank_keep();
+    if (act == 0) {                                   /* LOAD */
+        if (e < 100) {
+            weft_preset_apply(t, e);
+            ui.wf_pre[t] = (int8_t)e;
+            wl_name_set(t, rv_weft_preset_name(e));
+        } else if (rv_bank_used(slot)) {
+            if (rv_bank_apply(t, slot))
+                return;
+            ui.wf_pre[t] = -1;
+            wl_name_set(t, rv_bank_name(slot));
+        } else {
+            msg("AN EMPTY SLOT: NOTHING TO LOAD");
+            return;
+        }
+        b[0] = 0;
+        sx_cat(b, "LOADED ");
+        sx_cat(b, ui.wf_name[t]);
+        msg(b);
+    } else if (act == 1) {                            /* SAVE */
+        if (e < 100) {
+            msg("SAVE INTO ONE OF YOUR SLOTS (BELOW)");
+            return;
+        }
+        if (rv_bank_used(slot) && !confirmed(CONF_WSAVE, "AGAIN: OVERWRITE IT"))
+            return;
+        if (!ui.wf_name[t][0] || (ui.wf_pre[t] >= 0 && !rv_bank_used(slot))) {   /* (a new name, from the slot) */
+            b[0] = 0;
+            sx_int(b + sx_cat(b, "PATCH "), slot + 1);
+            if (!ui.wf_name[t][0])
+                wl_name_set(t, b);
+        }
+        if (rv_bank_store(t, slot, ui.wf_name[t]) == 0) {
+            b[0] = 0;
+            sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), slot + 1);
+            sx_cat(b, " SAVED: NAME IT 3-4");
+            msg(b);
+            ui.wf_pre[t] = -1;
+        } else
+            msg("SAVE FAILED");
+    } else {                                          /* DELETE */
+        if (e < 100 || !rv_bank_used(slot)) {
+            msg("ONLY YOUR OWN PATCHES DELETE");
+            return;
+        }
+        if (!confirmed(CONF_WDEL, "AGAIN: DELETE IT"))
+            return;
+        rv_bank_clear(slot);
+        msg("DELETED");
+    }
+}
+
 /* SOUNDS: SAVE does the action. LOAD and SAVE into an empty slot at once; overwriting, clearing, or
  * a load that would clear the track's steps (between a kit and notes) want a second press */
 static void bank_do(void)
@@ -2054,11 +2171,19 @@ static void preset_turn(int d)
         ui.preset_idx[t] = (int16_t)cur;
         break;
     }
+    case PR_WLIB: {                                   /* WEFT LIBRARY: PRESETS walks the list */
+        uint8_t l[64];
+        int n = wl_list(l);
+        ui.wl_sel = (uint8_t)clampi((int)(ui.wl_sel % (n ? n : 1)) + d, 0, n - 1);
+        ui.wl_cursor = 0;
+        break;
+    }
     case PR_WEFT: {                                   /* WEFT: PRESETS walks the factory patches */
         int n = rv_weft_presets(), c = ui.wf_pre[t] < 0 ? (d > 0 ? -1 : 0) : ui.wf_pre[t];
         c = ((c + d) % n + n) % n;
         weft_preset_apply(t, c);
         ui.wf_pre[t] = (int8_t)c;
+        wl_name_set(t, rv_weft_preset_name(c));
         msg(rv_weft_preset_name(c));
         break;
     }
@@ -2525,6 +2650,12 @@ static void key_event(int k, int on)
         }
         return;
     }
+    /* --- WEFT LIBRARY: black keys 1-3 load, save, delete; the rest play --- */
+    if (cur_page()->pic == PIC_WEFTLIB && bi >= 0 && bi < 3) {
+        if (on)
+            wl_do(bi);
+        return;
+    }
     /* --- otherwise the keys play the track --- */
     if (on) {
         if (is_kit_ui(t)) {                           /* a kit: the white keys play the lanes, 1-6 and again */
@@ -2987,7 +3118,7 @@ static const char *sound_name(int t)
     {
         const rv_pinfo *m = rv_pinfo_track(t, TP_S0);
         if (k == KIND_WEFT)
-            return ui.wf_pre[t] >= 0 ? rv_weft_preset_name(ui.wf_pre[t]) : "PATCH";
+            return ui.wf_name[t][0] ? ui.wf_name[t] : ui.wf_pre[t] >= 0 ? rv_weft_preset_name(ui.wf_pre[t]) : "PATCH";
         return k == KIND_COMP ? "GLUE" : m->names ? m->names[clampi(rv.tp[t][TP_S0], 0, m->max)] : "";
     }
 }
@@ -3171,6 +3302,7 @@ static void draw_footer(void)
     case PR_SLOT: hint = ui.save_confirm ? (ui.save_action == 6 ? "PRESS SAVE AGAIN TO CLEAR IT" : "PRESS SAVE AGAIN TO CONFIRM")
                        : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
+    case PR_WLIB: hint = "BLK1 LOAD BLK2 SAVE BLK3 DEL"; break;
     case PR_WEFT:
         hint = pg->pic == PIC_WEFTBLK ? "BLOCK: PICK IT ON WEFT PATCH" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
         break;
@@ -4861,6 +4993,48 @@ static void pic_weftmap(void)
     }
 }
 
+/* WEFT LIBRARY: the list (factory patches, then your own and the empty slots of the bank), the chosen one lit */
+static __attribute__((noinline)) void pic_weftlib(void)
+{
+    uint8_t l[64];
+    int n = wl_list(l), sel = n ? ui.wl_sel % n : 0, top = sel - 4, i;
+    char b[32];
+    if (top > n - 9)
+        top = n - 9;
+    if (top < 0)
+        top = 0;
+    for (i = 0; i < 9 && top + i < n; i++) {
+        int e = l[top + i], y = 78 + i * 14, on = top + i == sel, mine = e >= 100;
+        uint16_t c = on ? C_WHITE : mine && !rv_bank_used(e - 100) ? C_DIM : C_INK;
+        if (on)
+            g_rbox(4, y - 1, 232, 14, 3, g_mix(C_PANEL, C_INK, 0.12f), 1);
+        b[0] = 0;
+        if (mine)
+            sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), e - 99);
+        else
+            sx_int(b + sx_cat(b, "F"), e + 1);
+        g_text(10, y + 1, &FONT_T, b, on ? C_WHITE : C_DIM);
+        if (mine && rv_bank_used(e - 100)) {
+            g_text(40, y + 1, &FONT_T, rv_bank_name(e - 100), c);
+            if (on && ui.wl_cursor < 11) {            /* the name's cursor */
+                int cx = 40, k;
+                char one[2] = {0, 0};
+                for (k = 0; k < ui.wl_cursor; k++) {
+                    one[0] = rv_bank_name(e - 100)[k] ? rv_bank_name(e - 100)[k] : ' ';
+                    cx += g_text_w(&FONT_T, one);
+                }
+                g_hline(cx, y + 11, 5, C_TEAL);
+            }
+        } else
+            g_text(40, y + 1, &FONT_T, mine ? "- EMPTY -" : rv_weft_preset_name(e), c);
+        g_text_r(232, y + 1, &FONT_T, mine ? (rv_bank_used(e - 100) ? "YOURS" : "") : "FACTORY", C_DIM);
+    }
+    b[0] = 0;
+    sx_cat(b, "ON THIS TRACK: ");
+    sx_cat(b, sound_name(ui.track));
+    g_text(6, 206, &FONT_T, b, C_MID);
+}
+
 /* WEFT PLAY: the voice's output, the patch in small (the blocks the knobs reach lit) */
 static void pic_weftplay(void)
 {
@@ -5649,6 +5823,7 @@ static void draw_picture(void)
     case PIC_WEFTBLK: pic_weftblk(); break;
     case PIC_WEFTMAP: pic_weftmap(); break;
     case PIC_WEFTPLAY: pic_weftplay(); break;
+    case PIC_WEFTLIB: pic_weftlib(); break;
     case PIC_LOOPSEQ: pic_loopseq(); break;
     default: break;
     }
@@ -5742,6 +5917,7 @@ static void draw_help(void)
     case PR_LANE: pr = "THE LANE'S MACHINE"; break;
     case PR_LEARN: pr = "A LEARNED CONTROL"; break;
     case PR_WEFT: pr = "THE WEFT PATCHES"; break;
+    case PR_WLIB: pr = "THE LIST OF PATCHES"; break;
     default: pr = "THE TRACK'S SOUNDS"; break;
     }
     y += 4;
@@ -5794,7 +5970,7 @@ void ui_frame(void)
             rv_live.cores2 = 1;
     }
     stress_tick();
-    if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || ui.sec != SEC_SAVE))
+    if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || (ui.sec != SEC_SAVE && cur_page()->pic != PIC_WEFTLIB)))
         bank_keep();                                  /* a renamed sound, kept once the naming pauses */
     ui.frame++;
     for (i = 0; i < RV_TRACKS; i++)
@@ -5882,7 +6058,12 @@ const char *ui_sound_name(int t) { return sound_name(t & 7); }
 /* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */
 void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b & 7); }
 int ui_weft_selected(void) { return ui.wf_blk & 7; }
-void ui_weft_touch(int t, int pre) { ui.wf_pre[t & 7] = (int8_t)pre; }
+void ui_weft_touch(int t, int pre)
+{
+    ui.wf_pre[t & 7] = (int8_t)pre;
+    if (pre >= 0)
+        wl_name_set(t, rv_weft_preset_name(pre));
+}
 void ui_goto(int sec, int page)
 {
     if (sec >= 0 && sec < NSEC) {

@@ -25,6 +25,7 @@
  *   expect held T N               track T's synth voices held now
  *   expect wtype T B N | wsrc T B S   WEFT: track T's block B's type / input A's source
  *   expect wvoices N              WEFT voices sounding
+ *   expect soundused N K          the bank's slot N holds a sound of kind K (-1: empty)
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
@@ -52,6 +53,8 @@ void moom_pose(float x, float y, float dir);
 void moom_clear(void);
 int ui_step_cur(void);
 void ui_intro(void);
+int rv_bank_used(int i);
+int rv_bank_kind(int i);
 
 /* ----------------------------------------------------------- input --- */
 static int16_t *in_pcm;
@@ -510,6 +513,10 @@ int main(int argc, char **argv)
             } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
                 got = rv_live.srec_step + 1;
                 want = atoi(w1);
+            } else if (!strcmp(b, "soundused")) {            /* slot N (1..32) of the bank in memory holds a sound of kind K (-1: empty) */
+                int sl = atoi(w1) - 1;
+                got = rv_bank_used(sl) ? rv_bank_kind(sl) : -1;
+                want = atoi(w2);
             } else if (!strcmp(b, "wtype")) {                /* WEFT: track T's block B (1..8) is of type N */
                 got = rv.weft[(atoi(w1) - 1) & 7].type[(atoi(w2) - 1) & 7];
                 want = atoi(w3);

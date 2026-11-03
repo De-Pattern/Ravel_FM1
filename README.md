@@ -110,7 +110,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 
 **On the FM-1.** Install it with the web installer (see [Installing on the FM-1](#installing-on-the-fm-1)). Everything works the same as in the emulator, with these differences:
 
-- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of storm: a cloud of dust turning in the wind and rain, lightning, the dust gathering into RAVEL (signed de-pattern underneath, flickering), which then melts and drips down the screen. Press any key, button or knob to skip it; that press does nothing else.
+- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of storm: a loose cloud of dust drifting in the wind and rain, the sky flickering white, the dust gathering into RAVEL (signed de-pattern underneath, flickering), which drips; then the whole screen tears, glitches and melts away as if the system were corrupted. Press any key, button or knob to skip it; that press does nothing else.
 - **MASTER** is the output volume (the emulator's Volume slider).
 - **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. The EXT exciter takes its sound from other tracks.
 - **Saving pauses the sound for a moment**, because the code runs from the same flash the project is written to.
@@ -349,7 +349,7 @@ The recordings are not saved: a project keeps the GLITCH LOOPER's settings and t
 
 ### WEFT: a voice you patch
 
-<p align="center"><img src="docs/manual/weft-play.png" alt="WEFT PLAY" width="240"> <img src="docs/manual/weft-patch.png" alt="WEFT PATCH" width="240"> <img src="docs/manual/weft-block.png" alt="WEFT BLOCK" width="240"> <img src="docs/manual/weft-map.png" alt="WEFT MAP" width="240"></p>
+<p align="center"><img src="docs/manual/weft-play.png" alt="WEFT PLAY" width="240"> <img src="docs/manual/weft-patch.png" alt="WEFT PATCH" width="240"> <img src="docs/manual/weft-block.png" alt="WEFT BLOCK" width="240"> <img src="docs/manual/weft-map.png" alt="WEFT MAP" width="240"> <img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
 
 A **WEFT** track has no engine of its own: you build its voice from eight **blocks**, the way a Max or Pure Data patch is built from objects, or a modular from modules. Each block does one thing (makes a ramp, reads it as a wave, rises and falls, filters, multiplies, compares, delays) to its two inputs, **A** and **B**. An input takes the output of any block, the block itself included, or one of the **built-in sources**, with an amount (−100 to +100). Any track can be WEFT, as many as you like; they share four voices.
 
@@ -361,7 +361,7 @@ Patch it on the FM-1's pages, or with the mouse or a finger in the emulator's **
 
 1. Turn **ALGORITHM** to a track (T1, say) and press **EDIT**. On **SOUND**, turn **KNOB 1 (KIND)** to **WEFT**. The track starts from the **INIT** patch: a saw (WAVE) through a low pass (LP), an envelope (SLOPE) opening both, into a VCA (MULT).
 2. Play the keys. **SELECT** one page on is **WEFT PLAY**: the voice's output as a scope, and four of the patch's settings on the knobs (here CUTOFF, RES, FALL and SHAPE).
-3. Turn **PRESETS** on any WEFT page to hear the ten factory patches (below).
+3. Turn **PRESETS** on any WEFT page to hear the ten factory patches (below). Keep your own on **WEFT LIBRARY**, the last WEFT page (below).
 
 **Patch a block by hand**
 
@@ -410,6 +410,19 @@ All signals run about −1 to +1; SLOPE and SLEW run 0 to 1 (envelopes). An inpu
 **Voices and cost.** WEFT tracks share **four voices**; a track takes one or two (VOICES on SOUND; with one, the voice carries on from note to note, its oscillators and delays unbroken). Each voice runs every block it has at the full sample rate, so a big patch costs about as much as three or four voices of a synth engine: watch GLO › CPU. A released voice ends once it has been quiet a moment (a patch with no envelope after its last block rings on until 12 s after release). When the overload guard is holding voices back, WEFT keeps to two.
 
 **Factory patches** (PRESETS on the WEFT pages): **INIT** (saw, low pass, one envelope), **SYNC LEAD** (hard sync, a slow LFO on the synced ramp), **DX BELL** (two-operator FM at 7:1, its index falling), **PLUCK** (Karplus-Strong), **CMOS XOR** (two ramps XORed, a FLIP sub-octave, scanned BANDS), **PHASE DIST** (an envelope bending a sine, CZ-style), **DRONE** (two saws a fifth apart, a slowly swept band pass), **TANGLE** (a triangle phase-modulated by its own folded, filtered self), **SPECTRA** (noise through four harmonic bands, scanned) and **S&H BLIPS** (a clock sampling noise into the pitch, each tick an envelope).
+
+#### WEFT LIBRARY: load, save and delete patches on the FM-1
+
+<p align="center"><img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
+
+The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds the ten factory patches (**F1–F10**) and then the slots of the current sound bank (**A1…**): the empty ones and those holding WEFT patches (slots holding other sounds are left out). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
+
+- **KNOB 1 (PATCH)** (or PRESETS) moves through the list; **KNOB 2 (BANK)** picks bank A–D.
+- **Black key 1: LOAD** the highlighted patch onto the track.
+- **Black key 2: SAVE** the track's patch into the highlighted bank slot (it is named *PATCH n* at first). Saving over one of yours asks you to press it again.
+- **Black key 3: DELETE** the highlighted patch of yours; press it again to confirm. Factory patches can't be deleted.
+- **KNOB 3 (CURSOR)** and **KNOB 4 (LETTER)** rename the highlighted patch of yours, a letter at a time (the cursor is underlined); the name is kept a moment after you stop turning.
+- The white keys still play the track. **ON THIS TRACK** at the bottom names the patch the track is playing.
 
 #### The WEFT patcher (in the emulator)
 
@@ -1492,6 +1505,7 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 | Loop: sequence it | SEQ › GLITCH TRIGS: KNOB 2 = REC or PLAY, tap a step; hold a step + tap another for a section |
 | Effects back from the looper | GLITCH INPUT, KNOB 4 (LOOPER) = OFF, or KIND back |
 | Patch a voice from blocks | EDIT › SOUND, KIND = WEFT; WEFT PATCH: KNOB 1 block, 2 type, 3–4 input A; WEFT BLOCK: input B, settings |
+| Load, save, delete WEFT patches | WEFT LIBRARY: KNOB 1 picks, black key 1 load, 2 save, 3 delete (twice); KNOB 3–4 rename |
 | Patch with the mouse | Emulator: WEFT patcher, drag an output to an input |
 | Store a scene | Hold SAVE + white key (twice over a stored one) |
 | Launch a scene | GLO › SCENES, white key |

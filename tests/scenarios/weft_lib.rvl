@@ -1,0 +1,39 @@
+# WEFT LIBRARY: the factory patches and your own, in the sound bank: save into an empty slot, name it,
+# load another, load yours back, delete it (twice)
+wait 300
+kind 1 6
+tap EDIT
+turn SELECT -20
+wait 50
+turn SELECT 5
+wait 100
+expect page WEFT LIBRARY
+turn PRESET 2
+wait 50
+tapkey 1
+wait 100
+expect wtype 1 1 1
+turn PRESET 8
+wait 50
+tapkey 3
+wait 200
+expect soundused 1 6
+turn K4 3
+wait 100
+tapkey 1
+wait 100
+turn PRESET -10
+wait 50
+tapkey 1
+wait 100
+expect wtype 1 1 2
+turn PRESET 10
+wait 50
+tapkey 1
+wait 100
+expect wtype 1 1 1
+tapkey 5
+wait 400
+tapkey 5
+wait 200
+expect soundused 1 -1
