@@ -15,7 +15,7 @@ typedef struct {
     char name[RV_BANK_NAME];
     uint8_t used, kind, engine, rsv;
     int16_t tp[RV_TP];
-    union { rv_cz cz; rv_kit kit; struct { rv_kit kit; uint8_t rate[RV_LANES]; } kr; } x;   /* kr: a kit with its lanes' rates (version 7) */
+    union { rv_cz cz; rv_kit kit; struct { rv_kit kit; uint8_t rate[RV_LANES]; } kr; rv_weft weft; } x;   /* kr: a kit with its lanes' rates (version 7); weft: a WEFT patch (its settings in tp) */
 } rv_sound;
 typedef struct {
     uint32_t magic, version;                       /* 8: the SQ engine and SQ-80 filter gone; 7: kit lanes' rates; 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
@@ -44,6 +44,7 @@ static union { rv_bank_t b; rv_bank_v1 old; rv_bank_96 b96; } bankmem RV_RAMBSS;
 #define bank bankmem.b
 static uint8_t bank_cur, bank_dirty;               /* the bank in RAM; a name edited and not yet kept */
 
+typedef char rv_weft_fits[sizeof(rv_weft) <= sizeof(rv_cz) ? 1 : -1];   /* (a WEFT patch shares the CZ's room in a sound) */
 static int bank_is_kit(int kind, int engine) { return kind == KIND_PERC && engine == 1; }
 static int bank_is_cz(int kind, int engine) { return kind == KIND_SYNTH && engine == ENG_CZ; }
 
@@ -215,7 +216,7 @@ int rv_bank_is_kit(int i) { return rv_bank_used(i) && bank_is_kit(bank.s[i].kind
 /* a sound's kind, for lists: SYNTH, STRIKE, TAPE, PERC or KIT */
 const char *rv_bank_kind_label(int i)
 {
-    static const char *const k[KIND_N] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH"};
+    static const char *const k[KIND_N] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"};
     if (!rv_bank_used(i))
         return "";
     if (rv_bank_is_kit(i))
@@ -235,7 +236,9 @@ int rv_bank_store(int t, int i, const char *name)
     if (bank_is_kit(rv.tp[t & 7][TP_KIND], rv.tp[t & 7][TP_ENGINE])) {
         s->x.kr.kit = rv.kit[t & 7];
         __builtin_memcpy(s->x.kr.rate, rv.kit_rate[t & 7], RV_LANES);
-    } else
+    } else if (rv.tp[t & 7][TP_KIND] == KIND_WEFT)
+        s->x.weft = rv.weft[t & 7];
+    else
         s->x.cz = rv.cz[t & 7];
     s->kind = (uint8_t)rv.tp[t & 7][TP_KIND];
     s->engine = (uint8_t)rv.tp[t & 7][TP_ENGINE];
@@ -272,6 +275,8 @@ int rv_bank_apply(int t, int i)
         __builtin_memcpy(rv.kit_rate[t & 7], s->x.kr.rate, RV_LANES);
     } else if (bank_is_cz(s->kind, s->engine))
         rv.cz[t & 7] = s->x.cz;
+    else if (s->kind == KIND_WEFT)
+        rv.weft[t & 7] = s->x.weft;
     if (was_kit != bank_is_kit(s->kind, s->engine)) {  /* lanes and notes don't read each other's steps */
         int pt = rv.pat_cur[t & 7];
         for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)

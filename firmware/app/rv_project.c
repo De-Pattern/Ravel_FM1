@@ -20,6 +20,8 @@ static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
     int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
+    if (f < 24)
+        n -= (int)sizeof(rv.weft);                    /* no WEFT patches before format 24 */
     if (f < 16)
         n -= (int)sizeof(rv.kit_rate);                /* no lane rates before format 16 */
     if (f < 17)
@@ -281,6 +283,8 @@ int rv_load(int slot)
                     rv.scene[t].infl[a / RV_TRACKS][a % RV_TRACKS].type = RT_OFF;
         }
     }
+    if (f <= 23)                                     /* (24) WEFT: no patches yet */
+        __builtin_memset(rv.weft, 0, sizeof rv.weft);
     if (f <= 22) {                                   /* (23) the arpeggiator: off, its settings at their defaults */
         int t, p;
         for (t = 0; t < RV_TRACKS; t++)

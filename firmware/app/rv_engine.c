@@ -596,6 +596,9 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
         ps[pick].age = ++age_ctr;
         perc_note_on(&ps[pick], note, v, tr->eff, xs32(&eng_rng) | 1u, kit ? rv.kit[t].mach[lane] : -1, lane);
         hs_take(&ps[pick].hs, grain, &eng_rng);
+    } else if (kind == KIND_WEFT) {
+        if (!spark)
+            weft_note_on(t, note, vel);
     }
     hs_clear(&hs_pend);
     if (spark)                                       /* a tap on the body: not a note the track played */
@@ -633,6 +636,8 @@ static void note_off_internal(int t, int note)
                 ss[i].gate = 0;
                 artic_release(&ss[i].a, &ss[i].cfg);
             }
+    } else if (kind == KIND_WEFT) {
+        weft_note_off(t, note);
     } else if (kind == KIND_PERC) {
         for (i = 0; i < RV_PERC_VOICES; i++)          /* drums play out; the gate only matters to HOLD */
             if (ps[i].on && ps[i].track == t && ps[i].note == note)
@@ -655,6 +660,7 @@ static void all_off_now(void)
         }
     for (i = 0; i < RV_PERC_VOICES; i++)
         ps[i].gate = 0;
+    weft_all_off();
 }
 
 static void cmd_drain(void)
@@ -1627,6 +1633,7 @@ static void render_sub(float *outl, float *outr, int n)
     uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
     prof_t = cyc0 = plat_cycles();
     loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
+    weft_tidy();                                    /* (WEFT voices of tracks that changed kind go) */
     movement_tick(n);
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
@@ -1842,6 +1849,8 @@ static void render_sub(float *outl, float *outr, int n)
         }
         if (kind == KIND_LOOP)
             loop_render(t, tr->buf, n);
+        else if (kind == KIND_WEFT)
+            weft_render(t, tr->buf, n);
         if (ring <= 0.001f && peak_of(tr->buf, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
             if (tr->quiet >= BUS_HOLD)
                 n_chain = 0;

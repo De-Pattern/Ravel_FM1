@@ -23,6 +23,8 @@
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect mutes M | solos S       the muted / soloed tracks as a bitmask (T1 = 1)
  *   expect held T N               track T's synth voices held now
+ *   expect wtype T B N | wsrc T B S   WEFT: track T's block B's type / input A's source
+ *   expect wvoices N              WEFT voices sounding
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
@@ -507,6 +509,15 @@ int main(int argc, char **argv)
                 want = atoi(w1);
             } else if (!strcmp(b, "sreccur")) {              /* step recording's cursor (1..64, 0: off) */
                 got = rv_live.srec_step + 1;
+                want = atoi(w1);
+            } else if (!strcmp(b, "wtype")) {                /* WEFT: track T's block B (1..8) is of type N */
+                got = rv.weft[(atoi(w1) - 1) & 7].type[(atoi(w2) - 1) & 7];
+                want = atoi(w3);
+            } else if (!strcmp(b, "wsrc")) {                 /* WEFT: track T's block B's input A comes from S */
+                got = rv.weft[(atoi(w1) - 1) & 7].a[(atoi(w2) - 1) & 7];
+                want = atoi(w3);
+            } else if (!strcmp(b, "wvoices")) {              /* WEFT: voices sounding */
+                got = rv_live.wvoices;
                 want = atoi(w1);
             } else if (!strcmp(b, "held")) {                 /* track T's synth voices held now */
                 got = rv_track_held(atoi(w1) - 1);

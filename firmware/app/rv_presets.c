@@ -324,6 +324,8 @@ void rv_track_set_kind(int t, int kind)
     int was_loop = rv.tp[t & 7][TP_KIND] == KIND_LOOP;
     int eng = kind == KIND_PERC ? 1 : kind == KIND_SYNTH && rv.tp[t & 7][TP_KIND] == KIND_SYNTH ? rv.tp[t & 7][TP_ENGINE] : 0;
     rv_track_defaults(t, kind, eng);
+    if (kind == KIND_WEFT)                            /* WEFT: starts from its first patch */
+        weft_preset_apply(t, 0);
     if (was_kit != (kind == KIND_PERC) || was_loop != (kind == KIND_LOOP)) {   /* (a LOOP track's steps are trigs: start clean) */
         int pt = rv.pat_cur[t & 7];
         for (rv.pat_cur[t & 7] = 0; rv.pat_cur[t & 7] < RV_PATTERNS; rv.pat_cur[t & 7]++)

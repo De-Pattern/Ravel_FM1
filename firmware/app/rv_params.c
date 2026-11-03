@@ -4,9 +4,10 @@
 #include "rv_shapes.h"
 #include "rv_wavetables.h"
 #include "rv_organ.h"
+#include "rv_weftdef.h"
 
 /* ------------------------------------------------------------------ names --- */
-const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH"};
+const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"};
 const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND"};
@@ -492,6 +493,20 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
     if (p >= TP_S0 && p <= TP_S15) {
         int kind = rv.tp[t & 7][TP_KIND], s = p - TP_S0;
         const rv_pinfo *tab;
+        if (kind == KIND_WEFT) {                     /* WEFT: block s/2's setting, named for its type */
+            static rv_pinfo wp[16];
+            const wf_type_t *ty = &wf_types[rv.weft[t & 7].type[s >> 1] % WO_N];
+            rv_pinfo *q = &wp[s];
+            if (!rv.weft[t & 7].type[s >> 1])
+                return &NONE;
+            q->name = s & 1 ? ty->p2 : ty->p1;
+            q->min = 0;
+            q->max = !(s & 1) && ty->m1 ? ty->m1 - 1 : 127;
+            q->def = s & 1 ? ty->d2 : ty->d1;
+            q->fmt = !(s & 1) && ty->m1 ? PF_ENUM : PF_NUM;
+            q->names = !(s & 1) && ty->m1 ? wf_ratio : 0;
+            return q;
+        }
         if (kind == KIND_PERC) {
             const rv_pinfo *q = perc_pinfo(rv.tp[t & 7][TP_S0], s);
             if (rv.tp[t & 7][TP_ENGINE] == 1 && s <= 8)   /* a KIT: the lanes hold the machines (LANE pages) */
@@ -521,7 +536,7 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
         static const rv_pinfo mode = {"MODE", 0, 1, 0, PF_ENUM, pm};
         return &mode;
     }
-    if (p == TP_POLY && (rv.tp[t & 7][TP_KIND] == KIND_STRIKE || rv.tp[t & 7][TP_KIND] == KIND_PERC)) {
+    if (p == TP_POLY && (rv.tp[t & 7][TP_KIND] == KIND_STRIKE || rv.tp[t & 7][TP_KIND] == KIND_PERC || rv.tp[t & 7][TP_KIND] == KIND_WEFT)) {
         static const rv_pinfo strike_poly = {"VOICES", 0, 1, 1, PF_ENUM, polys};
         return &strike_poly;
     }
@@ -693,6 +708,8 @@ int rv_tp_applies(int t, int p)
         return 0;
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
         return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
+    if (tp[TP_KIND] == KIND_WEFT && p >= TP_S0 && p <= TP_S15)       /* WEFT: the settings of the blocks there are */
+        return rv.weft[t & 7].type[(p - TP_S0) >> 1] != 0;
     if (tp[TP_KIND] == KIND_LOOP && (p == TP_POLY || p == TP_VELO))  /* LOOP: no voices of its own (SOUND greys them) */
         return 0;
     if (p >= TP_ARPMODE && p <= TP_ARPCHNC)                            /* ARP: note tracks (a kit's lanes are not notes) */
