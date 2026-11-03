@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ravel Emulator</title>
 <link rel="icon" type="image/png" href="__RAVEL_ICON__">
 <link rel="apple-touch-icon" href="__RAVEL_TOUCH__">
@@ -74,8 +75,8 @@ select, .side input[type=file] { width: 100%; font: 500 13px var(--display); bac
 .dhead b { color: var(--ink); font-weight: 500; letter-spacing: 0.3em; }
 .upper { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 22px; align-items: start; }
 .lefthand { display: grid; grid-template-columns: repeat(2, 78px); gap: 14px 12px; justify-items: center; }
-.screenwrap { background: #090909; padding: 9px; border-radius: 8px; border: 1px solid #000; box-shadow: inset 0 0 0 1px #1f1f1f; }
-canvas#screen { width: 300px; height: 300px; image-rendering: pixelated; display: block; background: #000; max-width: 100%; }
+.screenwrap { width: fit-content; justify-self: center; background: #090909; padding: 9px; border-radius: 8px; border: 1px solid #000; box-shadow: inset 0 0 0 1px #1f1f1f; }
+canvas#screen { width: 300px; height: auto; aspect-ratio: 1; image-rendering: pixelated; display: block; background: #000; max-width: 100%; }   /* (always square: never squeezed) */
 .righthand { display: grid; gap: 16px; min-width: 0; }
 .knobs4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; justify-items: center; }
 .btns { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
@@ -133,9 +134,14 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
 .howto td:first-child { white-space: nowrap; }
 @media (max-width: 1100px) { .howto { grid-template-columns: 1fr; } .howto td:first-child { white-space: normal; } }
 
+.mnote { display: flex; gap: 10px; align-items: flex-start; font: 400 12px/1.45 var(--mono); color: #e8e8e8; background: #2a0d0e; border: 1px solid var(--red-hi); border-radius: 8px; padding: 8px 10px; }
+.mnote[hidden] { display: none; }
+.mnote span { flex: 1; }
+.mnote button { background: none; border: 0; color: #e8e8e8; font: 500 18px/1 var(--mono); cursor: pointer; padding: 0 2px; }
 @media (max-width: 1100px) {
-  .upper { grid-template-columns: auto minmax(0, 1fr); }
+  .upper { grid-template-columns: auto auto; justify-content: center; gap: 22px 28px; }
   .righthand { grid-column: 1 / -1; }
+  canvas#screen { width: 340px; }
 }
 @media (max-width: 860px) {
   .main { grid-template-columns: 1fr; }
@@ -146,20 +152,37 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
   .lower { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
-  .device { padding: 12px; border-radius: 12px; }
-  .upper { grid-template-columns: 1fr; justify-items: center; }
-  .lefthand { grid-template-columns: repeat(4, 64px); }
-  .lefthand .oct { width: 64px; }
-  .cap { width: 42px; height: 42px; }
-  canvas#screen { width: min(300px, calc(100vw - 80px)); height: auto; aspect-ratio: 1; }
+  /* a phone: one column, in the order the hands meet it: MASTER, SELECT, PRESETS and ALGORITHM in a row
+     with OCT- and OCT+ under them, the screen as wide as the device, KNOB 1-4, the buttons, the keys */
+  body { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); padding-top: 12px; }
+  header { gap: 8px 10px; }
+  .logo { font-size: 22px; }
+  .status { flex-basis: 100%; order: 3; font-size: 11px; }
+  .hbtn { padding: 7px 9px; font-size: 12px; }
+  .device { padding: 12px 10px 14px; border-radius: 12px; gap: 12px; }
+  .dhead { font-size: 9px; letter-spacing: 0.14em; }
+  .dhead span:last-child { display: none; }
+  .upper { grid-template-columns: minmax(0, 1fr); gap: 12px; justify-items: stretch; }
+  .lefthand { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 6px; }
+  .lefthand .oct { width: auto; grid-column: span 2; justify-self: stretch; height: 34px; }
+  .cap { width: 44px; height: 44px; }
+  .enc { gap: 4px; }
+  .screenwrap { width: auto; padding: 6px; justify-self: stretch; }
+  canvas#screen { width: 100%; max-width: none; }
+  .righthand { grid-column: auto; gap: 12px; }
+  .knobs4 { gap: 4px; }
   .btns { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
-  .btn { height: 42px; }
+  .btn { height: 44px; }
   .btn .fn { display: none; }
+  .keybed { padding: 10px 8px 12px; gap: 6px; border-radius: 10px; }
   .krow { gap: 3px; }
-  .key { height: 64px; border-radius: 9px; }
-  .key.b { height: 54px; }
+  .key { height: 70px; border-radius: 8px; padding-bottom: 4px; }
+  .key.b { height: 58px; }
+  .key::before { top: 8px; bottom: 18px; }
   .key span { font-size: 7px; }
+  .hint { font-size: 11px; }
   .tlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .howto td:first-child { white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) { .btn.down { transform: none; } }
 </style>
@@ -262,6 +285,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
 
     <section class="device" aria-label="M-VAVE FM-1 running Ravel">
       <div class="dhead"><span><b>FM-1</b> · RAVEL</span><span>SYNTHESIZE · CATCH · REBUILD</span></div>
+      <div class="mnote" id="mnote" hidden role="note"><span><b>No sound?</b> Turn off your phone's silent mode (on an iPhone, the switch on its side), turn the volume up, then tap a key.</span><button id="mnotex" aria-label="Dismiss">×</button></div>
       <div class="upper">
         <div class="lefthand" id="lefthand"></div>
         <div class="screenwrap"><canvas id="screen" width="240" height="240" aria-label="The FM-1's screen"></canvas></div>
@@ -645,6 +669,17 @@ function openManual(hash) {
   window.open(manualUrl + (hash || ""), "_blank", "noopener");
 }
 $("manualbtn").addEventListener("click", () => openManual());
+/* phones and tablets: a silent switch mutes web audio, so say so (until dismissed) */
+(() => {
+  let seen = false;
+  try { seen = localStorage.getItem("ravel.mnote") === "1"; } catch (e) { /* (no storage: show it) */ }
+  const touch = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (touch && !seen) $("mnote").hidden = false;
+  $("mnotex").addEventListener("click", () => {
+    $("mnote").hidden = true;
+    try { localStorage.setItem("ravel.mnote", "1"); } catch (e) { /* (fine) */ }
+  });
+})();
 if (/^https?:$/.test(location.protocol)) {            /* on the site: the PDF, the installer and the repository beside it */
   $("pdflink").hidden = false;
   $("installlink").hidden = false;
