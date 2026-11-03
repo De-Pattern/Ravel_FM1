@@ -1,0 +1,56 @@
+# WEFT's switches, string, chaos: SW 1>4 in SELECT sends A to SW 4 or SW 2 by B's level (read through MOD OUT);
+# SW 4>1 picks one of four blocks in a row; KS STRING and CHAOS STRING sound
+wait 300
+kind 1 6
+wset 1 0 1 37
+wset 1 7 1 4
+wset 1 1 1 21
+wset 1 3 1 100
+wset 1 2 1 21
+wset 1 4 1 50
+wset 1 0 2 36
+wset 1 1 2 25
+wset 1 3 2 100
+wset 1 7 4 0
+wait 200
+expect msrc WEFT 0.95 1.0
+wset 1 4 1 -50
+wait 200
+expect msrc WEFT -0.02 0.02
+wset 1 1 2 23
+wait 200
+expect msrc WEFT 0.95 1.0
+# blocks 5-8: steady levels (ADD's OFFSET); SW 4>1 at 9 reads 5..8, B (ONE x 0) in SELECT: the third, block 7
+wset 1 0 5 9
+wset 1 7 9 70
+wset 1 0 6 9
+wset 1 7 11 80
+wset 1 0 7 9
+wset 1 7 13 90
+wset 1 0 8 9
+wset 1 7 15 100
+wset 1 0 9 38
+wset 1 7 17 4
+wset 1 1 9 5
+wset 1 3 9 100
+wset 1 2 9 21
+wset 1 4 9 0
+wset 1 1 2 9
+wait 200
+expect msrc WEFT 0.78 0.85
+wset 1 4 9 -100
+wait 200
+expect msrc WEFT 0.17 0.21
+# KS STRING, struck; CHAOS STRING, held
+wpreset 1 18
+wait 50
+key 12 down
+wait 60
+expect meter_min 1 0.005
+key 12 up
+wait 500
+wpreset 1 19
+key 12 down
+wait 800
+expect meter_min 1 0.005
+key 12 up

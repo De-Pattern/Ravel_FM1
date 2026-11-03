@@ -18,6 +18,8 @@ enum {
     WO_RING, WO_SKIN, WO_BAR, WO_PLATE, WO_BELL, WO_HARMS, WO_FIXED,   /* struck resonators: one, and six modes of a body */
     WO_SAT, WO_ABS, WO_DIFFUSE,                         /* for loops: a soft clip, a rectifier, a smear */
     WO_OCLK, WO_OMOD,                                   /* outputs: a clock for the sequencers, a source for the matrix */
+    WO_SW14, WO_SW41,                                   /* sequential switches: one in to four outs (SW 1-4), four in to one out */
+    WO_STRING, WO_CHAOS, WO_CRUSH, WO_EDGE,             /* a plucked string; a logistic map; fewer bits; a click at each rise */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -25,7 +27,7 @@ enum {
 /* the sources an input can take besides a block (1-12) */
 enum { WS_NONE = 0, WS_PITCH = WF_BLOCKS + 1, WS_GATE, WS_TRIG, WS_VEL, WS_NOISE, WS_LFO1, WS_LFO2, WS_WHEEL, WS_ONE,
        WS_SW1, WS_SW2, WS_SW3, WS_SW4, WS_N };
-#define WS_MENU (WS_ONE + 1)                            /* the sources offered (the switch's outputs not yet) */
+#define WS_MENU WS_N                                    /* the sources offered */
 /* (format 24's numbering: blocks 1-8, then PITCH at 9) */
 #define WS_OLD_PITCH 9
 
@@ -43,6 +45,8 @@ static const char *const wf_div[12] = {"4 BAR", "2 BAR", "1 BAR", "1/2", "1/4", 
 static const float wf_div_v[12] = {64.0f, 32.0f, 16.0f, 8.0f, 4.0f, 8.0f / 3.0f, 2.0f, 4.0f / 3.0f, 1.0f, 2.0f / 3.0f, 0.5f, 0.25f};
 static const char *const wf_cdiv[16] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const char *const wf_range[2] = {"-1..1", "0..1"};
+static const char *const wf_order[5] = {"UP", "DOWN", "PING", "RANDOM", "SELECT"};
+enum { WSW_UP, WSW_DOWN, WSW_PING, WSW_RANDOM, WSW_SELECT };
 
 static const wf_type_t wf_types[WO_N] = {
     {"-", "-", "-", "-", "-", 0, 0, 0, 0, 0, 0},
@@ -82,6 +86,12 @@ static const wf_type_t wf_types[WO_N] = {
     {"DIFFUSE", "SIZE", "AMOUNT", "IN", "SIZE", 64, 80, 0, 0, 0, 0},
     {"CLK OUT", "DIV", "THRESH", "CLOCK", "RESET", 0, 64, 16, 0, wf_cdiv, 0},
     {"MOD OUT", "SMOOTH", "RANGE", "IN", "LEVEL", 10, 0, 0, 2, 0, wf_range},
+    {"SW 1>4", "ORDER", "SMOOTH", "IN", "STEP", 0, 0, 5, 0, wf_order, 0},
+    {"SW 4>1", "ORDER", "SMOOTH", "FROM", "STEP", 0, 0, 5, 0, wf_order, 0},
+    {"STRING", "DAMP", "DECAY", "EXCITE", "PITCH", 40, 90, 0, 0, 0, 0},
+    {"CHAOS", "CHAOS", "RATE", "CLOCK", "CHAOS", 110, 60, 0, 0, 0, 0},
+    {"CRUSH", "BITS", "RATE", "IN", "RATE", 80, 30, 0, 0, 0, 0},
+    {"EDGE", "THRESH", "LEVEL", "IN", "THRESH", 64, 127, 0, 0, 0, 0},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -123,6 +133,12 @@ static const char *const wf_desc[WO_N] = {
     "A SMEARED BY FOUR ALLPASSES",
     "A'S RISES: THE WEFT CLOCK",
     "A: THE MATRIX'S WEFT SOURCE",
+    "A TO ONE OF SW 1-4 IN TURN",
+    "ONE OF 4 BLOCKS IN A ROW",
+    "A PLUCKED STRING AT THE NOTE",
+    "A LOGISTIC MAP: ORDER TO NOISE",
+    "A IN FEWER BITS, HELD LONGER",
+    "A CLICK AT EACH RISE OF A",
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -212,6 +228,25 @@ static const wf_preset_t wf_presets[] = {
     {"DUST MOD",      /* clumps of dust, smoothed: a wandering source for the matrix (WEFT) */
      {{WO_DUST, 0, 0, 0, 0, 40, 90}, {WO_HOLD, WS_NOISE, 100, 1, 100, 0, 50}, {WO_OMOD, 2, 100, 0, 0, 40, 0}},
      0, 1, {WM(1, 0), WM(1, 1), WM(2, 1), WM(3, 0)}, 0},
+    {"SCATTER",       /* clumps of dust, each particle sent to one of four rings at random by a switch; crushed */
+     {{WO_DUST, 0, 0, WS_TRIG, 100, 64, 60}, {WO_SW14, 1, 100, 1, 100, WSW_RANDOM, 0}, {WO_TICK, 0, 0, 0, 0, 8, 127},
+      {WO_CHAOS, 3, 100, 0, 0, 115, 60}, {WO_RING, WS_SW1, 100, 4, 30, 4, 70}, {WO_RING, WS_SW2, 100, 0, 0, 6, 60},
+      {WO_RING, WS_SW3, 100, 0, 0, 8, 50}, {WO_RING, WS_SW4, 100, 4, 30, 11, 40}, {WO_ADD, 5, 100, 6, 100, 64, 64},
+      {WO_ADD, 7, 100, 8, 100, 64, 64}, {WO_MIX, 9, 100, 10, 100, 64, 64}, {WO_CRUSH, 11, 100, 0, 0, 40, 10}},
+     12, 1, {WM(1, 0), WM(1, 1), WM(4, 0), WM(12, 0)}, 0},
+    {"PING SWITCH",   /* a clock picks, tick by tick, between two rings, a string and its clipped self (SW 4>1 reads 2-5) */
+     {{WO_TICK, 0, 0, 0, 0, 8, 127}, {WO_RING, 1, 100, 0, 0, 11, 25}, {WO_RING, 1, 100, 9, 20, 13, 35},
+      {WO_STRING, 10, 100, 0, 0, 30, 80}, {WO_SAT, 4, 100, 0, 0, 50, 64}, {WO_SW41, 2, 100, 1, 100, WSW_RANDOM, 0},
+      {WO_CRUSH, 6, 100, 0, 0, 60, 20}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 40}, {WO_CYCLE, 0, 0, 0, 0, 20, 64},
+      {WO_TICK, 0, 0, 0, 0, 7, 110}, {WO_MULT, 7, 100, 8, 100, 64, 64}},
+     11, 1, {WM(1, 0), WM(6, 0), WM(4, 1), WM(7, 0)}, 0},
+    {"KS STRING",     /* Karplus-Strong in one block: a click of noise into STRING */
+     {{WO_SLOPE, WS_TRIG, 100, 0, 0, 0, 20}, {WO_MULT, WS_NOISE, 100, 1, 100, 64, 127}, {WO_STRING, 2, 100, 0, 0, 30, 110}},
+     3, 2, {WM(3, 0), WM(3, 1), WM(1, 1), WM(2, 1)}, 0},
+    {"CHAOS STRING",  /* a logistic map plucks a string each time it crosses zero, and sets its pitch */
+     {{WO_CHAOS, 0, 0, 0, 0, 118, 62}, {WO_EDGE, 1, 100, 0, 0, 64, 110}, {WO_STRING, 2, 100, 4, 12, 15, 100},
+      {WO_HOLD, 1, 100, 2, 100, 20, 0}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 60}, {WO_MULT, 3, 100, 5, 100, 64, 127}},
+     6, 1, {WM(1, 0), WM(1, 1), WM(3, 0), WM(3, 1)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

@@ -292,9 +292,126 @@ static void wf_setup(int i, int ty, float x1, float x2, float pm)
         }
         break;
     case WO_DIFFUSE: wcx.c1[i] = 0.08f + 0.92f * x1; wcx.c2[i] = x2 * 0.75f; break;
+    case WO_SW14: case WO_SW41: wcx.c2[i] = x2 > 0.0f ? wk(0.0005f + x2 * 0.02f) : 1.0f; break;   /* SMOOTH: 0 .. 20 ms */
+    case WO_STRING: {                           /* the loop's length (less what the damping adds), its gain a pass, the damping */
+        float k = 1.0f - 0.9f * x1, P = (float)RV_FS / clampf(hz * fm_exp2f(pm), 20.0f, 12000.0f) - (1.0f - k) / k - 1.0f;
+        while (P > (float)(WD_LEN - 2))
+            P *= 0.5f;                          /* (a period too long for the memory: an octave up) */
+        wcx.c1[i] = P < 2.0f ? 2.0f : P;
+        wcx.c2[i] = fm_expf(-6.9078f * wcx.c1[i] / (0.05f * fm_exp2f(x2 * 7.5f) * (float)RV_FS));   /* DECAY: 50 ms .. 9 s */
+        wcx.kr[i] = k;
+        break;
+    }
+    case WO_CHAOS: wcx.c1[i] = 0.1f * fm_exp2f(x2 * 14.6f) * RV_DT; wcx.c2[i] = 3.4f + 0.6f * x1; break;   /* steps a sample; r */
+    case WO_CRUSH: wcx.c1[i] = 0.5f * fm_exp2f(16.0f - x1 * 15.0f); wcx.c2[i] = fm_exp2f(x2 * 6.0f); break;   /* half the levels; samples held */
     case WO_OMOD: wcx.c1[i] = x1 > 0.0f ? wk(0.0005f + x1 * x1 * 0.5f) : 1.0f; break;
     default: break;
     }
+}
+
+/* the bigger blocks, each in a function of its own (the sample loop stays small enough for the FM-1's branches) */
+/* a sequential switch: B's rises (else each note) step it in ORDER, or in SELECT B's level picks; SMOOTH fades
+ * from one to the next */
+static __attribute__((noinline)) float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b, int bc, float trig, float x1, int sai, float kai, int sw14)
+{
+    float *sv = v->sv, y = 0.0f;
+    int pos = s->st & 3, ord = WN(x1, 5), k;
+    if (ord == WSW_SELECT) {
+        if (bc)
+            pos = clampi((int)((b * 0.5f + 0.5f) * 4.0f), 0, 3);
+    } else if (bc ? wrise(b, &s->prevb, 0.0f) : trig > 0.0f) {
+        if (ord == WSW_UP)
+            pos = (pos + 1) & 3;
+        else if (ord == WSW_DOWN)
+            pos = (pos + 3) & 3;
+        else if (ord == WSW_PING) {
+            if (s->ph == 0.0f)
+                s->ph = 1.0f;
+            pos += s->ph > 0.0f ? 1 : -1;
+            if (pos > 3)
+                pos = 2, s->ph = -1.0f;
+            else if (pos < 0)
+                pos = 1, s->ph = 1.0f;
+        } else
+            pos = (int)(xs_uni(&v->rng) * 4.0f) & 3;
+    }
+    s->st = (uint8_t)pos;
+    for (k = 0; k < 4; k++)
+        s->z[k] += ((k == pos ? 1.0f : 0.0f) - s->z[k]) * wcx.c2[i];
+    if (ty == WO_SW14) {            /* one in, four outs: SW 1-4; its own output, where it is (-1 .. +1) */
+        if (i == sw14)
+            for (k = 0; k < 4; k++)
+                sv[WS_SW1 + k] = a * s->z[k];
+        y = (float)pos * (2.0f / 3.0f) - 1.0f;
+    } else if (sai)               /* four in (A's source and the three after it), one out */
+        for (k = 0; k < 4; k++)
+            y += (sai + k < WS_N ? sv[sai + k] : 0.0f) * kai * s->z[k];
+    return y;
+}
+/* Karplus-Strong: A excites a loop the note's period long, damped as it goes round */
+static __attribute__((noinline)) float wf_string(wv_t *v, wb_t *s, int i, float a)
+{
+    int16_t *m;
+    float y, fr, r0, r1;
+    int k, i0;
+    if (wcx.dn[i] < 0)
+        return 0.0f;
+    m = wdly[v - wv][wcx.dn[i]];
+    k = v->dw[wcx.dn[i]];
+    fr = (float)k - wcx.c1[i];
+    if (fr < 0.0f)
+        fr += (float)WD_LEN;
+    i0 = (int)fr;
+    fr -= (float)i0;
+    r0 = (float)m[i0];
+    r1 = (float)m[(i0 + 1) % WD_LEN];
+    s->y += ((r0 + (r1 - r0) * fr) * (1.0f / 16384.0f) - s->y) * wcx.kr[i];
+    y = s->y;
+    m[k] = (int16_t)(sat(a + y * wcx.c2[i]) * 16384.0f);
+    v->dw[wcx.dn[i]] = (uint16_t)((k + 1) % WD_LEN);
+    return y;
+}
+static __attribute__((noinline)) float wf_modes_run(wv_t *v, int i, float a)
+{
+    int k, m = wcx.mn[i];           /* six resonators tuned to a body, struck by A */
+    float *z, y = 0.0f;
+    if (m < 0)
+        return 0.0f;
+    z = v->mz[m];
+    for (k = 0; k < WM_K; k++) {
+        const float *c = wcx.md[m][k];
+        float yk = c[0] * z[2 * k] + c[1] * z[2 * k + 1] + c[2] * a;
+        z[2 * k + 1] = z[2 * k];
+        z[2 * k] = yk;
+        y += yk;
+    }
+    if (!(y > -16.0f && y < 16.0f)) {
+        __builtin_memset(z, 0, sizeof v->mz[0]);
+        y = 0.0f;
+    }
+    return y;
+}
+/* four allpasses in a row, each in a quarter of the memory; B: their size */
+static __attribute__((noinline)) float wf_diffuse(wv_t *v, int i, float a, float b, int bc)
+{
+    static const float base[4] = {0.43f, 0.61f, 0.79f, 1.0f};
+    int16_t *m;
+    float y;
+    int k, wpos;
+    float g = wcx.c2[i], sz = wcx.c1[i] * (bc ? fm_exp2f(b) : 1.0f), x = a;
+    if (wcx.dn[i] < 0)
+        return 0.0f;
+    m = wdly[v - wv][wcx.dn[i]];
+    wpos = v->dw[wcx.dn[i]] & 127;
+    for (k = 0; k < 4; k++) {
+        int L = clampi((int)(base[k] * 125.0f * sz), 1, 127);
+        float d = (float)m[k * 128 + ((wpos - L) & 127)] * (1.0f / 8192.0f), o = d - g * x;
+        m[k * 128 + wpos] = (int16_t)(clampf(x + g * o, -3.9f, 3.9f) * 8192.0f);
+        x = o;
+    }
+    v->dw[wcx.dn[i]] = (uint16_t)((wpos + 1) & 127);
+    y = x;
+    return y;
 }
 
 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)
@@ -304,7 +421,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
     float ka[WF_BLOCKS], kb[WF_BLOCKS];
     float *sv = v->sv;
     uint8_t sa[WF_BLOCKS], sb[WF_BLOCKS];
-    int i, j, outb = w->out ? (w->out - 1) % WF_BLOCKS : -1, nd = 0, nm = 0;
+    int i, j, outb = w->out ? (w->out - 1) % WF_BLOCKS : -1, nd = 0, nm = 0, sw14 = -1;
     float peak = 0.0f, pos = weft_pos16, pinc = RV_DT / (clk_period > 0.001f ? clk_period : 0.001f);
     unsigned bm = w->bmove;
     /* what each block needs per sample, worked out once per step */
@@ -323,13 +440,17 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
         sb[i] = (uint8_t)(w->b[i] < WS_N ? w->b[i] : 0);
         ka[i] = (float)w->amta[i] * 0.01f;
         kb[i] = (float)w->amtb[i] * 0.01f;
-        if ((ty == WO_DELAY || ty == WO_DIFFUSE) && nd < WD_N)
+        if (ty == WO_SW14 && sw14 < 0)
+            sw14 = i;                           /* (the first one feeds SW 1-4) */
+        if ((ty == WO_DELAY || ty == WO_DIFFUSE || ty == WO_STRING) && nd < WD_N)
             wcx.dn[i] = (int8_t)nd++;
         if (WO_MODES(ty) && nm < WM_N)
             wcx.mn[i] = (int8_t)nm++;
         if (ty)
             wf_setup(i, ty, clampf(eff[wf_sp(2 * i)], 0.0f, 127.0f) * (1.0f / 127.0f), clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f), 0.0f);
     }
+    if (sw14 < 0)
+        sv[WS_SW1] = sv[WS_SW2] = sv[WS_SW3] = sv[WS_SW4] = 0.0f;
     for (j = 0; j < n; j++) {
         float noise = xs_uni(&v->rng) * 2.0f - 1.0f, trig = v->trig ? 1.0f : 0.0f, gate = v->gate ? 1.0f : 0.0f;
         v->trig = 0;
@@ -349,7 +470,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     wf_setup(i, ty, wcx.p1[i], clampf(clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f) + b * 0.5f, 0.0f, 1.0f), 0.0f);
                 b = 0.0f;
                 bc = 0;
-            } else if (bc && !(j & 7) && (ty == WO_RING || WO_MODES(ty)))   /* the resonators' PITCH, two octaves each way */
+            } else if (bc && !(j & 7) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING))   /* the resonators' PITCH, two octaves each way */
                 wf_setup(i, ty, wcx.p1[i], wcx.p2[i], b * 2.0f);
             x1 = wcx.p1[i];
             x2 = wcx.p2[i];
@@ -540,48 +661,12 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     s->s1 = s->s2 = y = 0.0f;
                 break;
             }
-            case WO_SKIN: case WO_BAR: case WO_PLATE: case WO_BELL: case WO_HARMS: case WO_FIXED: {
-                int k, m = wcx.mn[i];           /* six resonators tuned to a body, struck by A */
-                float *z;
-                if (m < 0)
-                    break;
-                z = v->mz[m];
-                for (k = 0; k < WM_K; k++) {
-                    const float *c = wcx.md[m][k];
-                    float yk = c[0] * z[2 * k] + c[1] * z[2 * k + 1] + c[2] * a;
-                    z[2 * k + 1] = z[2 * k];
-                    z[2 * k] = yk;
-                    y += yk;
-                }
-                if (!(y > -16.0f && y < 16.0f)) {
-                    __builtin_memset(z, 0, sizeof v->mz[0]);
-                    y = 0.0f;
-                }
-                break;
-            }
+            case WO_SKIN: case WO_BAR: case WO_PLATE: case WO_BELL: case WO_HARMS: case WO_FIXED: y = wf_modes_run(v, i, a); break;
             case WO_SAT:                        /* A driven into a soft clip; B: more drive */
                 y = sat((a * (1.0f + x1 * 15.0f) * (bc ? fm_exp2f(b * 2.0f) : 1.0f) + WC(x2)) * 0.8f);
                 break;
             case WO_ABS: y = fm_fabsf(a + b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_DIFFUSE: {                  /* four allpasses in a row, each in a quarter of the memory; B: their size */
-                static const float base[4] = {0.43f, 0.61f, 0.79f, 1.0f};
-                int16_t *m;
-                int k, wpos;
-                float g = wcx.c2[i], sz = wcx.c1[i] * (bc ? fm_exp2f(b) : 1.0f), x = a;
-                if (wcx.dn[i] < 0)
-                    break;
-                m = wdly[v - wv][wcx.dn[i]];
-                wpos = v->dw[wcx.dn[i]] & 127;
-                for (k = 0; k < 4; k++) {
-                    int L = clampi((int)(base[k] * 125.0f * sz), 1, 127);
-                    float d = (float)m[k * 128 + ((wpos - L) & 127)] * (1.0f / 8192.0f), o = d - g * x;
-                    m[k * 128 + wpos] = (int16_t)(clampf(x + g * o, -3.9f, 3.9f) * 8192.0f);
-                    x = o;
-                }
-                v->dw[wcx.dn[i]] = (uint16_t)((wpos + 1) & 127);
-                y = x;
-                break;
-            }
+            case WO_DIFFUSE: y = wf_diffuse(v, i, a, b, bc); break;
             case WO_OCLK:                       /* A's rises (through THRESH), every DIV-th: the WEFT clock; B: back to step 1 */
                 y = a;
                 if (wrise(a, &s->prev, WC(x2)) && ++s->st > WN(x1, 16)) {
@@ -600,6 +685,38 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     weft_mod_v = WN(x2, 2) ? clampf(y * 0.5f + 0.5f, 0.0f, 1.0f) : clampf(y, -1.0f, 1.0f);
                 break;
             }
+            case WO_SW14: case WO_SW41: y = wf_switch(v, s, i, ty, a, b, bc, trig, x1, sa[i], ka[i], sw14); break;
+            case WO_STRING: y = wf_string(v, s, i, a); break;
+            case WO_CHAOS: {                    /* the logistic map x = r x (1 - x), stepped by A's rises (else at RATE): CHAOS
+                                                 * from settling (r 3.4: two values in turn) to noise (4); B: more or less */
+                int step;
+                if (ac)
+                    step = wrise(a, &s->prev, 0.0f);
+                else {
+                    s->ph += wcx.c1[i];
+                    step = s->ph >= 1.0f;
+                    if (step)
+                        s->ph -= fm_floorf(s->ph);
+                }
+                if (!(s->y > 0.0001f && s->y < 0.9999f))
+                    s->y = 0.1f + 0.8f * xs_uni(&v->rng);
+                if (step) {
+                    float r = clampf(wcx.c2[i] + (bc ? b * 0.3f : 0.0f), 2.8f, 4.0f);
+                    s->y = r * s->y * (1.0f - s->y);
+                }
+                y = s->y * 2.0f - 1.0f;
+                break;
+            }
+            case WO_CRUSH: {                    /* A held for RATE samples at a time, in BITS' levels; B: the rate */
+                float hl = wcx.c2[i] * (bc ? fm_exp2f(b * 3.0f) : 1.0f);
+                if ((s->ph += 1.0f) >= hl) {
+                    s->ph = 0.0f;
+                    s->hold = fm_floorf(a * wcx.c1[i] + 0.5f) / wcx.c1[i];
+                }
+                y = s->hold;
+                break;
+            }
+            case WO_EDGE: y = wrise(a, &s->prev, WC(x1) + (bc ? b : 0.0f)) ? x2 : 0.0f; break;   /* a click at each rise of A */
             default: break;
             }
             sv[i + 1] = y;
@@ -618,7 +735,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     if (fm_fabsf(y) >= fm_fabsf(wsc[i].pk))
                         wsc[i].pk = y;
                     if (++wsc[i].dec >= (ty == WO_SLOPE || ty == WO_SLEW || ty == WO_HOLD || ty == WO_DUST || ty == WO_TICK || ty == WO_OMOD ||
-                                         ty == WO_OCLK || (ty == WO_CYCLE && wcx.c1[i] < 0.0005f) ? 96 : 3)) {
+                                         ty == WO_OCLK || ty == WO_EDGE || ty == WO_CHAOS || (ty == WO_CYCLE && wcx.c1[i] < 0.0005f) ? 96 : 3)) {
                         wsc[i].dec = 0;
                         wsc[i].buf[wsc[i].idx++] = (int8_t)clampf(wsc[i].pk * 100.0f, -127.0f, 127.0f);
                         wsc[i].pk = 0.0f;

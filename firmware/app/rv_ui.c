@@ -4876,7 +4876,7 @@ static void wf_cord(int s, int d, int port, int lit)
 }
 
 /* WEFT PATCH: the twelve blocks as tiles (a scope of each), their cords, the chosen one lit */
-static void pic_weft(void)
+static __attribute__((noinline)) void pic_weft(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int i, pass, sel = ui.wf_blk % WF_BLOCKS, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
@@ -4887,6 +4887,12 @@ static void pic_weft(void)
                 continue;
             if (wf_isblk(w, w->a[i]) && ((w->a[i] - 1 >= i) == pass))
                 wf_cord(w->a[i] - 1, i, 0, i == sel || w->a[i] - 1 == sel);
+            if (w->type[i] == WO_SW41 && w->a[i] >= 1) {   /* SW 4>1: the three blocks after A's too */
+                int k;
+                for (k = 1; k < 4; k++)
+                    if (wf_isblk(w, w->a[i] + k) && ((w->a[i] + k - 1 >= i) == pass))
+                        wf_cord(w->a[i] + k - 1, i, 0, i == sel || w->a[i] + k - 1 == sel);
+            }
             if (wf_isblk(w, w->b[i]) && ((w->b[i] - 1 >= i) == pass))
                 wf_cord(w->b[i] - 1, i, 1, i == sel || w->b[i] - 1 == sel);
         }
@@ -4909,6 +4915,11 @@ static void pic_weft(void)
         g_disc(x, y + 9, 2, w->a[i] > WF_BLOCKS ? wf_src_col(w->a[i]) : w->a[i] ? C_INK : C_KDIV);
         g_disc(x, y + 24, 2, w->b[i] > WF_BLOCKS ? wf_src_col(w->b[i]) : w->b[i] ? ((w->bmove >> i) & 1u ? C_TEAL : C_INK) : C_KDIV);
         g_disc(x + WF_BW, y + WF_BH / 2, 2, i == out ? C_RED : C_INK);
+        if (ty == WO_SW14) {                          /* a 1>4 switch: its four outs (SW 1-4), the one on lit */
+            int k;
+            for (k = 0; k < 4; k++)
+                g_fill(x + WF_BW - 4, y + 4 + k * 7, 3, 3, k == (rv_live.wscope[i][31] + 100) * 3 / 200 ? C_WHITE : C_DIM);
+        }
         if (i == out)
             g_fill(x + WF_BW + 3, y + WF_BH / 2 - 1, 4, 3, C_RED);
     }
@@ -4928,7 +4939,7 @@ static void pic_weft(void)
 }
 
 /* WEFT BLOCK: the chosen block close up: what comes in, what it does, what goes out and where */
-static void pic_weftblk(void)
+static __attribute__((noinline)) void pic_weftblk(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int sel = ui.wf_blk % WF_BLOCKS, ty = w->type[sel] % WO_N, i, k, x, bm = (w->bmove >> sel) & 1u;
@@ -4988,13 +4999,23 @@ static void pic_weftblk(void)
             sx_cat(b, e);
             k++;
         }
+    if (ty == WO_SW14)                                /* (a 1>4 switch: who reads its outs, SW 1-4) */
+        for (i = 0; i < WF_BLOCKS; i++)
+            if (w->type[i] && ((w->a[i] >= WS_SW1 && w->a[i] <= WS_SW4) || (w->b[i] >= WS_SW1 && w->b[i] <= WS_SW4)) && k < 4) {
+                char e[8];
+                e[0] = 0;
+                sx_int(e, i + 1);
+                sx_cat(e, " ");
+                sx_cat(b, e);
+                k++;
+            }
     if (!k)
         sx_cat(b, w->out == sel + 1 ? "THE OUTPUT" : "NOWHERE YET");
     g_text(8, 198, &FONT_T, b, C_DIM);
 }
 
 /* WEFT MAP: what WEFT PLAY's knobs turn; the output */
-static void pic_weftmap(void)
+static __attribute__((noinline)) void pic_weftmap(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int i;
@@ -5074,7 +5095,7 @@ static __attribute__((noinline)) void pic_weftlib(void)
 }
 
 /* WEFT PLAY: the voice's output, the patch in small (the blocks the knobs reach lit) */
-static void pic_weftplay(void)
+static __attribute__((noinline)) void pic_weftplay(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int i, k, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
