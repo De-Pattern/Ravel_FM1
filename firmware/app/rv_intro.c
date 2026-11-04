@@ -418,16 +418,33 @@ static int intro_frame(void)
         }
         g_send();
     }
-    /* the keys' lights: all at a flash, the snow's sparkle at first, along the logo as it forms, failing at the end */
-    if (fl > 0.45f)
+    /* the keys' lights follow the picture: all at a flash; the snow's sparkle, thinning as the specks come loose;
+     * a sweep as they gather into the logo; the tracking band rolling past while it holds; flicker as the tape
+     * fails; blocks of three in the crash; then in from both ends as the tube collapses, to the middle key, out */
+    if (fl > 0.45f && t < IN_FAIL)
         lk = 0x07FFFFFFu;
-    else if (t < 2300)
-        lk = (in_hash(t / 70u) & in_hash(t / 70u + 99u) & in_hash(t / 70u + 7u)) & 0x07FFFFFFu;
-    else if (t < 3400)
-        lk = (1u << (((t - 2300u) / 40u) % 27u));
-    else if (t >= IN_FAIL)
-        lk = in_hash(t / 60u) & in_hash(t / 60u + 5u) & 0x07FFFFFFu;
-    plat_leds(0, fade > 0.1f && t < IN_OFF ? lk : 0);
+    else if (t < 900)
+        lk = in_hash(t / 50u) & in_hash(t / 50u + 99u);
+    else if (t < 2150)
+        lk = in_hash(t / 90u) & in_hash(t / 90u + 99u) & in_hash(t / 90u + 7u);
+    else if (t < 3200)
+        lk = 7u << (((t - 2150u) / 40u) % 25u);
+    else if (t < IN_FAIL)
+        lk = 1u << ((t / 150u) % 27u);
+    else if (t < IN_CRASH)
+        lk = in_hash(t / 60u) & in_hash(t / 60u + 5u);
+    else if (t < IN_OFF) {
+        uint32_t h = in_hash(ts / 90u * 7919u), g;
+        for (g = 0; g < 9; g++)
+            if ((h >> (g * 3)) & 1u)
+                lk |= 7u << (g * 3);
+    } else {
+        int w = (int)(13.0f * (1.0f - ((float)t - (float)IN_OFF) / (float)(IN_END - IN_OFF - 100))), k2;
+        for (k2 = 13 - w; k2 <= 13 + w; k2++)
+            if (k2 >= 0 && k2 < 27)
+                lk |= 1u << k2;
+    }
+    plat_leds(0, fade > 0.05f ? lk & 0x07FFFFFFu : 0);
     return 1;
 }
 
