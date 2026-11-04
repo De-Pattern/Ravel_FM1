@@ -58,6 +58,28 @@ static const int8_t p_fmbell[] = {TP_S0, 0, TP_S3, 27, TP_S4, 28, TP_S5, 19, TP_
                                    TP_CUT, 124, TP_ATK, 0, TP_DEC, 100, TP_SUS, 10, TP_REL, 96, TP_REVS, 64, TP_DLYS, 40, TP_LEVEL, 90, END};
 static const int8_t p_fmgrowl[] = {TP_S0, 1, TP_S1, 96, TP_S3, 1, TP_S4, 5, TP_S6, 80, TP_S7, 50, TP_S8, 60, TP_S13, 50, TP_S14, 40,
                                     TP_CUT, 70, TP_RES, 40, TP_EFILT, 30, TP_POLY, 0, TP_PITCH, -12, TP_DRIVE, 40, TP_LEVEL, 108, END};
+/* HYBRID FM: the operators through formants (FORM, MORPH), breath (AIR) and a formant sequence (FSEQ: F RATE,
+ * F DEPTH); the modulators' envelope (MOD ATK, MOD DEC, MOD SUS) */
+#define HFM(form, morph, air, body, fseq, frate, fdepth, matk, msus) \
+    TP_WX2, form, TP_WX3, morph, TP_WX4, air, TP_WX5, body, TP_VOC, fseq, TP_PAIRS, frate, TP_BANDS, fdepth, TP_WX0, matk, TP_WX1, msus
+static const int8_t p_hvox[] = {TP_S0, 0, TP_S2, 3, TP_S3, 3, TP_S4, 5, TP_S5, 3, TP_S6, 72, TP_S7, 40, TP_S8, 20, TP_S13, 70,
+                                HFM(2, 0, 20, 120, 2, 5, 100, 10, 40), TP_FTYPE, FT_LP, TP_CUT, 124, TP_EFILT, 0,
+                                TP_ATK, 10, TP_SUS, 110, TP_REL, 70, TP_REVS, 40, TP_LEVEL, 104, END};
+static const int8_t p_hbow[] = {TP_S0, 0, TP_S2, 3, TP_S3, 3, TP_S4, 3, TP_S5, 5, TP_S6, 64, TP_S7, 30, TP_S8, 18, TP_S9, 2, TP_S13, 90,
+                                HFM(4, 30, 34, 120, 7, 6, 80, 60, 90), TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
+                                TP_ATK, 52, TP_SUS, 120, TP_REL, 80, TP_REVS, 50, TP_LEVEL, 104, END};
+static const int8_t p_hreed[] = {TP_S0, 0, TP_S2, 3, TP_S3, 5, TP_S4, 3, TP_S5, 7, TP_S6, 80, TP_S7, 36, TP_S8, 24, TP_S13, 80,
+                                 HFM(5, 20, 46, 115, 3, 5, 110, 40, 70), TP_FTYPE, FT_LP, TP_CUT, 118, TP_EFILT, 0,
+                                 TP_ATK, 30, TP_SUS, 115, TP_REL, 60, TP_REVS, 36, TP_LEVEL, 104, END};
+static const int8_t p_htube[] = {TP_S0, 0, TP_S2, 3, TP_S3, 24, TP_S4, 27, TP_S5, 3, TP_S6, 80, TP_S7, 30, TP_S8, 0, TP_S13, 92,
+                                 HFM(6, 0, 10, 115, 6, 2, 40, 0, 32), TP_FTYPE, FT_LP, TP_CUT, 127, TP_EFILT, 0,
+                                 TP_ATK, 0, TP_DEC, 110, TP_SUS, 40, TP_REL, 100, TP_REVS, 60, TP_LEVEL, 100, END};
+static const int8_t p_horganism[] = {TP_S0, 3, TP_S1, 40, TP_S2, 3, TP_S3, 4, TP_S4, 5, TP_S5, 30, TP_S6, 70, TP_S7, 60, TP_S8, 50, TP_S13, 100,
+                                     HFM(7, 40, 26, 110, 6, 2, 127, 90, 70), TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
+                                     TP_ATK, 70, TP_SUS, 120, TP_REL, 100, TP_REVS, 70, TP_DLYS, 30, TP_LEVEL, 104, END};
+static const int8_t p_hstutter[] = {TP_S0, 1, TP_S2, 3, TP_S3, 5, TP_S4, 3, TP_S5, 9, TP_S6, 76, TP_S7, 50, TP_S8, 30, TP_S13, 60,
+                                    HFM(2, 64, 12, 120, 5, 6, 127, 0, 50), TP_FTYPE, FT_LP, TP_CUT, 122, TP_EFILT, 0,
+                                    TP_ATK, 0, TP_SUS, 110, TP_REL, 50, TP_DLYS, 36, TP_LEVEL, 104, END};
 static const int8_t p_string[] = {TP_S0, 0, TP_S1, 92, TP_S2, 20, TP_S3, 22, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
                                    TP_ATK, 0, TP_DEC, 110, TP_SUS, 127, TP_REL, 96, TP_REVS, 40, TP_LEVEL, 83, END};
 /* RESIN: the bowed string and the reed, pushed toward breaking down */
@@ -263,7 +285,10 @@ static const rv_preset presets[] = {
     {"FOAM", KIND_SYNTH, ENG_CZ, p_foam, &cz_foam}, {"CZ STRINGS", KIND_SYNTH, ENG_CZ, p_czstrings, &cz_strings},
     {"RESO SWEEP", KIND_SYNTH, ENG_CZ, p_czreso, &cz_reso}, {"CZ BASS", KIND_SYNTH, ENG_CZ, p_czbass, &cz_bass},
     {"NOISE HIT", KIND_SYNTH, ENG_CZ, p_cznoise, &cz_noise}, {"FM PIANO", KIND_SYNTH, ENG_FM, p_fmep, 0}, {"FM BELLS", KIND_SYNTH, ENG_FM, p_fmbell, 0},
-    {"FM GROWL", KIND_SYNTH, ENG_FM, p_fmgrowl, 0}, {"STRING", KIND_SYNTH, ENG_PHYS, p_string, 0}, {"BOWED", KIND_SYNTH, ENG_PHYS, p_bowed, 0},
+    {"FM GROWL", KIND_SYNTH, ENG_FM, p_fmgrowl, 0},
+    {"FM VOX", KIND_SYNTH, ENG_FM, p_hvox, 0}, {"FM BOW", KIND_SYNTH, ENG_FM, p_hbow, 0}, {"BREATH REED", KIND_SYNTH, ENG_FM, p_hreed, 0},
+    {"STEEL TUBE", KIND_SYNTH, ENG_FM, p_htube, 0}, {"ORGANISM", KIND_SYNTH, ENG_FM, p_horganism, 0},
+    {"FM STUTTER", KIND_SYNTH, ENG_FM, p_hstutter, 0}, {"STRING", KIND_SYNTH, ENG_PHYS, p_string, 0}, {"BOWED", KIND_SYNTH, ENG_PHYS, p_bowed, 0},
     {"WRAITH", KIND_SYNTH, ENG_RESIN, p_wraith, 0}, {"UPSTAIRS", KIND_SYNTH, ENG_RESIN, p_upstairs, 0},
     {"RESIN VIOLIN", KIND_SYNTH, ENG_RESIN, p_violin, 0}, {"FOGHORN", KIND_SYNTH, ENG_RESIN, p_foghorn, 0},
     {"THROAT SAX", KIND_SYNTH, ENG_RESIN, p_throatsax, 0},

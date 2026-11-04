@@ -633,6 +633,161 @@ static inline float fm_wave(int w, float ph)
     }
 }
 
+/* HYBRID FM's formants, after the FS1R's: eight spectral states, each three formants (log2 Hz, log2 level, log2
+ * width in Hz) and two noise bands (log2 Hz). SHAPE picks one, MORPH moves toward the next (the last to the
+ * first): frequencies and widths through log space, levels through dB, so each formant glides to its partner */
+static const float hfm_st[8][11] = {
+    {8.2288f, 9.7649f, 11.1293f, 0.0000f, -1.9932f, -4.9829f, 5.9069f, 6.4919f, 6.9069f, 8.9658f, 9.9658f},   /* OO: 300/870/2240 Hz, 0/-12/-30 dB, 60/90/120 Hz wide; noise at 500/1000 Hz */
+    {9.5118f, 10.0901f, 11.2527f, 0.0000f, -0.8305f, -2.8236f, 6.4919f, 6.7814f, 7.2288f, 10.1033f, 11.2877f},   /* AH: 730/1090/2440 Hz, 0/-5/-17 dB, 90/110/150 Hz wide; noise at 1100/2500 Hz */
+    {8.0768f, 11.1611f, 11.5555f, 0.0000f, -2.4914f, -1.6610f, 5.9069f, 6.7814f, 7.3219f, 11.4512f, 12.1357f},   /* EE: 270/2290/3010 Hz, 0/-15/-10 dB, 60/110/160 Hz wide; noise at 2800/4500 Hz */
+    {8.1293f, 9.8138f, 11.2288f, 0.0000f, -0.4983f, -0.8305f, 6.3219f, 7.7814f, 9.2288f, 11.2288f, 12.5507f},   /* BOW: 280/900/2400 Hz, 0/-3/-5 dB, 80/220/600 Hz wide; noise at 2400/6000 Hz */
+    {9.0224f, 10.5507f, 11.6439f, 0.0000f, -0.4983f, -1.3288f, 6.9069f, 7.6439f, 8.3219f, 10.6439f, 11.8918f},   /* REED: 520/1500/3200 Hz, 0/-3/-8 dB, 120/200/320 Hz wide; noise at 1600/3800 Hz */
+    {10.3554f, 11.6303f, 12.4067f, -0.4983f, 0.0000f, -0.3322f, 4.3219f, 4.9069f, 5.6439f, 12.0362f, 12.9658f},   /* METAL: 1310/3170/5430 Hz, -3/0/-2 dB, 20/30/50 Hz wide; noise at 4200/8000 Hz */
+    {8.8455f, 10.4305f, 11.1674f, 0.0000f, -0.6644f, -1.3288f, 5.4919f, 5.7814f, 6.1293f, 9.8138f, 11.0362f},   /* HOLLOW: 460/1380/2300 Hz, 0/-4/-8 dB, 45/55/70 Hz wide; noise at 900/2100 Hz */
+    {7.9658f, 10.8918f, 11.3718f, 0.0000f, -1.4949f, -0.9966f, 5.6439f, 8.1293f, 7.1293f, 11.3443f, 12.0362f},   /* NASAL: 250/1900/2650 Hz, 0/-9/-6 dB, 50/280/140 Hz wide; noise at 2600/4200 Hz */
+};
+/* the formant sequences (FSEQ): eight frames each, played at F RATE (a frame each division of the tempo) or
+ * scrubbed by MORPH. A frame: where it moves the formants from SHAPE (32 = one state on), its level (high
+ * nibble, 15 = full) and its breath (low nibble). F DEPTH scales all three. mode: 0 loops, 1 once a note,
+ * 2 back and forth; step: 1 jumps from frame to frame, 0 glides */
+typedef struct { uint8_t mode, step; int16_t off[8]; uint8_t la[8]; } hfm_seq_t;
+static const hfm_seq_t hfm_seq[8] = {
+    {0, 0, {0, 8, 16, 24, 32, 24, 16, 8}, {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0}},             /* WAH */
+    {0, 0, {0, 32, 64, 32, 0, 96, 64, 32}, {0xF0, 0xF0, 0xF0, 0xC0, 0xF0, 0xF0, 0xE0, 0xD0}},           /* TALK */
+    {1, 0, {0, 0, 4, 8, 8, 8, 8, 8}, {0x6F, 0x9C, 0xB9, 0xD6, 0xE4, 0xF2, 0xF1, 0xF0}},                 /* BREATH */
+    {1, 0, {0, 12, 24, 40, 56, 72, 88, 96}, {0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0}},          /* BLOOM */
+    {0, 1, {0, 0, 32, 0, 0, 64, 0, 32}, {0xF0, 0x00, 0xF0, 0xF0, 0x00, 0xF0, 0xF2, 0x00}},              /* STUTTER */
+    {2, 0, {0, 32, 64, 96, 128, 160, 192, 224}, {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0}},      /* ORBIT */
+    {0, 0, {0, 4, -4, 6, 0, -6, 3, -2}, {0xF8, 0xEC, 0xF6, 0xDF, 0xF9, 0xEB, 0xF5, 0xDD}},              /* SCRAPE */
+    {1, 0, {128, 96, 64, 40, 24, 12, 4, 0}, {0xF4, 0xF3, 0xF2, 0xF1, 0xF0, 0xF0, 0xF0, 0xF0}},          /* DROP */
+};
+static const float hfm_len16[8] = {0.0f, 32.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f, 0.5f};   /* F RATE: SCRUB, 2 BAR ... 1/32 */
+static float clk_period;                              /* (rv_mod.c: seconds a step) */
+
+static __attribute__((noinline)) float hfm_exp2(float x) { return fm_exp2f(x); }   /* (out of line: the flash is short) */
+static __attribute__((noinline)) void hfm_svf(svf_t *f, float lhz, float q, float lk)   /* at 2^lhz Hz, k x 2^lk */
+{
+    svf_set(f, hfm_exp2(lhz), q);
+    f->k *= hfm_exp2(lk);
+}
+
+/* the formants for this block: where the state is (SHAPE, MORPH, the sequence), the filters set to it.
+ * Returns the sequence frame's level; *air its breath */
+static __attribute__((noinline)) float hfm_block(fm_t *s, const float *eff, int n, float *air)
+{
+    int shape = clampi((int)(eff[TP_WX2] + 0.5f), 1, 8), sq = clampi((int)(eff[TP_VOC] + 0.5f), 0, 8);
+    int rate = clampi((int)(eff[TP_PAIRS] + 0.5f), 0, 7), k, a, b;
+    float morph = clampf(eff[TP_WX3] * (1.0f / 128.0f), 0.0f, 1.0f), pos = (float)(shape - 1), lvl = 1.0f, br = 0.0f;
+    float g[11], u;
+    if (sq) {                                         /* where the sequence is, and its frame */
+        const hfm_seq_t *q = &hfm_seq[sq - 1];
+        float depth = clampf(eff[TP_BANDS] * (1.0f / 127.0f), 0.0f, 1.0f), fp, fr, off, la, lb;
+        int fa, fb;
+        if (!rate)
+            fp = morph * 7.0f;                        /* SCRUB: MORPH is where in it */
+        else {
+            s->fpos += (float)n * RV_DT / (fm_maxf(clk_period, 0.01f) * hfm_len16[rate]) * (s->fdir ? -1.0f : 1.0f);
+            if (s->fpos >= (q->mode ? 7.0f : 8.0f)) {   /* (a loop: frame 8 glides back into frame 1) */
+                if (q->mode == 0)
+                    s->fpos -= 8.0f;
+                else if (q->mode == 1)
+                    s->fpos = 7.0f;
+                else {
+                    s->fpos = 14.0f - s->fpos;
+                    s->fdir = 1;
+                }
+            } else if (s->fpos < 0.0f) {
+                s->fpos = -s->fpos;
+                s->fdir = 0;
+            }
+            fp = clampf(s->fpos, 0.0f, 7.999f);
+            pos += morph;
+        }
+        fa = clampi((int)fp, 0, 7);
+        fb = fa < 7 ? fa + 1 : (q->mode == 0 ? 0 : 7);
+        fr = q->step ? 0.0f : fp - (float)fa;
+        fr = fr * fr * (3.0f - 2.0f * fr);
+        off = ((float)q->off[fa] + ((float)q->off[fb] - (float)q->off[fa]) * fr) * (1.0f / 32.0f);
+        la = (float)(q->la[fa] >> 4) + (float)((q->la[fb] >> 4) - (q->la[fa] >> 4)) * fr;
+        lb = (float)(q->la[fa] & 15) + (float)((q->la[fb] & 15) - (q->la[fa] & 15)) * fr;
+        pos += off * depth;
+        lvl = 1.0f + depth * (la * (1.0f / 15.0f) - 1.0f);
+        br = depth * lb * (1.0f / 15.0f);
+    } else
+        pos += morph;
+    pos -= 8.0f * fm_floorf(pos * 0.125f);            /* (around the ring of states) */
+    a = clampi((int)pos, 0, 7);
+    b = (a + 1) & 7;
+    u = pos - (float)a;
+    for (k = 0; k < 11; k++)
+        g[k] = hfm_st[a][k] + (hfm_st[b][k] - hfm_st[a][k]) * u;
+    for (k = 0; k < 3; k++)                           /* (k x band: the band's peak at its level) */
+        hfm_svf(&s->fv[k], g[k], hfm_exp2(g[k] - g[6 + k]), g[3 + k]);
+    for (k = 0; k < 2; k++)
+        hfm_svf(&s->fn[k], g[9 + k], 1.2f, 0.0f);
+    *air = br;
+    return lvl;
+}
+
+/* the operators (out, at 0.45) through the formants, breath through its bands, the level matched, softly limited */
+static __attribute__((noinline)) void hfm_run(fm_t *s, float *out, int n, float air, float body, float flvl, float agc_t)
+{
+    int i, k;
+    for (i = 0; i < n; i++) {
+        float y = out[i] * (1.0f / 0.45f), bp, vs = 0.0f, ns = 0.0f, nz = xs_bi(&s->ns);
+        for (k = 0; k < 3; k++) {
+            svf_tick(&s->fv[k], y, &bp, 0);
+            vs += bp * s->fv[k].k;
+        }
+        for (k = 0; k < 2; k++) {
+            svf_tick(&s->fn[k], nz, &bp, 0);
+            ns += bp * s->fn[k].k;
+        }
+        s->rin += (y * y - s->rin) * 0.0008f;
+        s->rout += (vs * vs - s->rout) * 0.0008f;
+        s->agc += (agc_t - s->agc) * 0.002f;
+        y += ((vs * s->agc) - y) * body;
+        y = (y + air * ns) * flvl;
+        y = clampf(y, -3.0f, 3.0f);
+        out[i] = y * (27.0f + y * y) / (27.0f + 9.0f * y * y) * 0.45f;   /* (a soft limit) */
+    }
+}
+
+/* a block's start: a new note's modulator envelope and sequence; the formants' settings (hp: AIR, BODY, the
+ * sequence's level, the level match, MOD ATK's rise a sample). Returns whether the formants are on (FORM) */
+static __attribute__((noinline)) int hfm_begin(voice_t *v, const float *eff, int n, float *hp)
+{
+    fm_t *s = &v->e.fm;
+    int hy = eff[TP_WX2] > 0.5f;
+    float fair = 0.0f;
+    hp[0] = hp[1] = hp[4] = 0.0f;
+    hp[2] = hp[3] = 1.0f;
+    if (s->mnew) {                                    /* a new note: MOD ATK up, the modulators rise first */
+        s->mnew = 0;
+        s->fpos = 0.0f;
+        s->fdir = 0;
+        if (eff[TP_WX0] > 0.5f) {
+            s->menv = 0.0f;
+            s->mup = 1;
+        } else
+            s->mup = 0;
+    }
+    if (s->mup)
+        hp[4] = RV_DT / rv_time_f(eff[TP_WX0]);
+    if (hy) {
+        float air = clampf(eff[TP_WX4], 0.0f, 127.0f) * (1.0f / 127.0f);
+        hp[2] = hfm_block(s, eff, n, &fair);
+        hp[0] = air * air * 0.45f + fair * 0.3f;
+        hp[1] = clampf(eff[TP_WX5], 0.0f, 127.0f) * (1.0f / 127.0f);
+        hp[3] = clampf(fm_sqrtf((s->rin + 1e-9f) / (s->rout + 1e-7f)), 0.25f, 12.0f);   /* the formants as loud as what goes in */
+        if (s->agc <= 0.0f)
+            s->agc = hp[3];
+        if (!s->ns)
+            s->ns = v->rng | 1u;
+    }
+    return hy;
+}
+
 RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
     fm_t *s = &v->e.fm;
@@ -641,7 +796,9 @@ RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
     float dt[4], lvl[4], wv[4];
     float vmod = 1.0f - eff[TP_S15] * (1.0f / 127.0f) * (1.0f - v->vel);
     float mdec = rv_time_f(eff[TP_S13] * 0.8f + 10.0f), tz = eff[TP_S14] * (1.0f / 127.0f);
-    float mcoef = RV_DT / mdec;
+    float mcoef = RV_DT / mdec, msus = clampf(eff[TP_WX1], 0.0f, 128.0f) * (1.0f / 128.0f), hp[5];
+    int hy = RV_FAR(hfm_begin)(v, eff, n, hp);
+    float mrise = hp[4];
     for (k = 0; k < 4; k++) {
         dt[k] = f * fm_ratio_tab[clampi((int)(eff[TP_S2 + k] + 0.5f), 0, 31)] * RV_DT;
         wv[k] = (float)clampi((int)(eff[TP_S9 + k] + 0.5f), 0, 7);
@@ -654,7 +811,14 @@ RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
     }
     for (i = 0; i < n; i++) {
         float o[4], ph, y = 0.0f, menv;
-        s->menv += (0.25f - s->menv) * mcoef;
+        if (s->mup) {                                 /* MOD ATK: up to full, then MOD DEC toward MOD SUS */
+            s->menv += mrise;
+            if (s->menv >= 1.0f) {
+                s->menv = 1.0f;
+                s->mup = 0;
+            }
+        } else
+            s->menv += (msus - s->menv) * mcoef;
         menv = s->menv * vmod;
         /* compute ops 4..1: modulators feed earlier ops */
         for (k = 3; k >= 0; k--) {
@@ -699,6 +863,8 @@ RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
         }
         out[i] = y * 0.45f;
     }
+    if (hy)
+        RV_FAR(hfm_run)(s, out, n, hp[0], hp[1], hp[2], hp[3]);
     (void)mcoef;
 }
 
@@ -1674,7 +1840,7 @@ RV_INL void voice_engine_reset(voice_t *v, int eng)
     __builtin_memset(&v->e, 0, sizeof(v->e));
     switch (eng) {
     case ENG_VA: v->e.va.ns = v->rng | 1u; break;
-    case ENG_FM: v->e.fm.menv = 1.0f; break;
+    case ENG_FM: v->e.fm.menv = 1.0f; v->e.fm.mnew = 1; break;
     case ENG_PHYS: v->e.ph.ns = v->rng | 1u; break;
     case ENG_FORMANT: v->e.fo.ns = v->rng | 1u; break;
     case ENG_PARTICLE: v->e.pa.ns = v->rng | 1u; break;
@@ -1704,6 +1870,7 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
         v->lpg = 0.0f;
     } else if (eng == ENG_FM) {
         v->e.fm.menv = 1.0f;
+        v->e.fm.mnew = 1;
     }
     v->on = 1;
 }

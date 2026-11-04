@@ -17,6 +17,17 @@
  * leaves. The emulator: W A S D move and strafe, arrows move and turn, Space fires, Enter is PLAY, Esc
  * leaves. */
 
+/* the game's maths out of line: the inline ones, copied into every caller, cost the flash more than the game needs speed */
+static __attribute__((noinline)) float mm_sinf(float x) { return fm_sinf(x); }
+static __attribute__((noinline)) float mm_cosf(float x) { return fm_cosf(x); }
+static __attribute__((noinline)) float mm_sqrtf(float x) { return fm_sqrtf(x); }
+static __attribute__((noinline)) float mm_floorf(float x) { return fm_floorf(x); }
+static __attribute__((noinline)) float mm_expf(float x) { return fm_expf(x); }
+#define fm_sinf mm_sinf
+#define fm_cosf mm_cosf
+#define fm_sqrtf mm_sqrtf
+#define fm_floorf mm_floorf
+#define fm_expf mm_expf
 #define MM_W 16
 #define MM_VY0 16                      /* the view: rows 16..199 */
 #define MM_VY1 200
@@ -1385,3 +1396,8 @@ void moom_frame(void)
     }
     plat_leds(1u << B_HOME, 0);
 }
+#undef fm_sinf
+#undef fm_cosf
+#undef fm_sqrtf
+#undef fm_floorf
+#undef fm_expf

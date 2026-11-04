@@ -53,7 +53,16 @@ typedef struct {
     uint32_t ns;
     uint8_t gate, done, pm_n;
 } cz_t;
-typedef struct { float ph[4], fb1, fb2, menv; } fm_t;
+/* FM (HYBRID FM): four operators; the modulators' envelope (rising first when MOD ATK is up); the formants: three
+ * band passes on the operators (fv), two on noise (fn), their level matched to the operators' (rin, rout, agc);
+ * where the formant sequence is (fpos, fdir: forward or back) */
+typedef struct {
+    float ph[4], fb1, fb2, menv;
+    uint8_t mnew, mup, fdir;
+    svf_t fv[3], fn[2];
+    float rin, rout, agc, fpos;
+    uint32_t ns;
+} fm_t;
 typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
 typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3]; uint32_t ns; } form_t;
 typedef struct { float th[3], since[3], rd[3]; uint8_t on[3]; uint32_t ns; uint32_t count; } part_t;

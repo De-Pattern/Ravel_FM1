@@ -19,6 +19,7 @@
  *   intro                         the start screen (the FM-1 plays it at power-on)
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
  *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
+ *   preset T I                    sound preset I (0: the first) onto track T
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect mutes M | solos S       the muted / soloed tracks as a bitmask (T1 = 1)
@@ -372,6 +373,9 @@ int main(int argc, char **argv)
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);
             rv_track_set_kind((tt - 1) & 7, kk);
+        } else if (!strcmp(a, "preset")) {    /* preset T I: sound preset I (0..) onto track T */
+            void rv_preset_apply(int t, int i);
+            rv_preset_apply(atoi(b) - 1, atoi(c));
         } else if (!strcmp(a, "wpreset")) {   /* wpreset T K: WEFT factory patch K onto track T */
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);

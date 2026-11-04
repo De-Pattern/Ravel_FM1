@@ -18,7 +18,7 @@ typedef struct {
     union { rv_cz cz; rv_kit kit; struct { rv_kit kit; uint8_t rate[RV_LANES]; } kr; rv_weft weft; } x;   /* kr: a kit with its lanes' rates (version 7); weft: a WEFT patch (its settings in tp) */
 } rv_sound;
 typedef struct {
-    uint32_t magic, version;                       /* 9: WEFT's twelve blocks; 8: the SQ engine and SQ-80 filter gone; 7: kit lanes' rates; 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
+    uint32_t magic, version;                       /* 10: HYBRID FM's pages; 9: WEFT's twelve blocks; 8: the SQ engine and SQ-80 filter gone; 7: kit lanes' rates; 6: 112 track parameters; 5: DRIVE's old default gone; 4: with STEP ENV; 3: with the FILTER ENV; 2: a bank of four; 1: the single first bank */
     rv_sound s[RV_BANK_N];
 } rv_bank_t;
 /* the first bank's old shape (version 1), read once to move it to bank A; and versions 2-5, with 96
@@ -65,7 +65,7 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 9;
+    bank.version = 10;
 }
 
 /* a sound's track parameters past the 96 it was kept with: their defaults */
@@ -123,8 +123,10 @@ static void bank_upgrade(void)
                 for (p = TP_WX0; p <= TP_WX5; p++)
                     bank.s[i].tp[p] = 0;
             }
+            if (bank.version < 10 && bank.s[i].kind == KIND_SYNTH && bank.s[i].tp[TP_ENGINE] == ENG_FM)
+                rv_hfm_defaults(bank.s[i].tp);   /* (HYBRID FM, format 26) */
         }
-    bank.version = 9;
+    bank.version = 10;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -154,7 +156,7 @@ static void bank_from_v1(void)
 static int bank_read(int b)
 {
     int n = plat_load(PLAT_BANK0 + b, &bankmem, sizeof bankmem);
-    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 9)
+    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 10)
         return 0;
     if (bank.version < 6) {                            /* 96 track parameters a sound: spread out */
         if (n != (int)sizeof(rv_bank_96))
@@ -163,7 +165,7 @@ static int bank_read(int b)
     } else if (n != (int)sizeof bank)
         return 0;
     __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
-    if (bank.version < 9)                              /* (kept as version 9 the next time it is written) */
+    if (bank.version < 10)                             /* (kept as version 10 the next time it is written) */
         bank_upgrade();
     return 1;
 }

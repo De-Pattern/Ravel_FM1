@@ -8,7 +8,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"};
-const char *const rv_engine_names[] = {"VA", "CZ", "FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
+const char *const rv_engine_names[] = {"VA", "CZ", "HYBRID FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND", "WEFT"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -108,6 +108,32 @@ static const rv_pinfo SRC_FM[16] = {
     {"WAVE1", 0, N(fm_waves), 0, E(fm_waves)}, {"WAVE2", 0, N(fm_waves), 0, E(fm_waves)}, {"WAVE3", 0, N(fm_waves), 0, E(fm_waves)},
     {"WAVE4", 0, N(fm_waves), 0, E(fm_waves)}, {"MOD DEC", 0, 127, 70, PF_NUM, 0}, {"TZFM", 0, 127, 0, PF_NUM, 0},
     {"VEL MOD", 0, 127, 40, PF_NUM, 0}};
+/* HYBRID FM's further pages (MOD ENV, FORMANTS, FSEQ), in slots the synth engines leave free; each at
+ * its default is the FM engine as it was (MOD SUS 32: the modulators settle at a quarter) */
+static const char *const hfm_shapes[] = {"OFF", "OO", "AH", "EE", "BOW", "REED", "METAL", "HOLLOW", "NASAL"};
+static const char *const hfm_seqs[] = {"OFF", "WAH", "TALK", "BREATH", "BLOOM", "STUTTER", "ORBIT", "SCRAPE", "DROP"};
+static const char *const hfm_rates[] = {"SCRUB", "2 BAR", "1 BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};
+static const uint8_t hfm_pid[9] = {TP_WX0, TP_WX1, TP_WX2, TP_WX3, TP_WX4, TP_WX5, TP_VOC, TP_PAIRS, TP_BANDS};
+static const rv_pinfo SRC_HFM[9] = {
+    {"MOD ATK", 0, 127, 0, PF_NUM, 0}, {"MOD SUS", 0, 127, 32, PF_NUM, 0},
+    {"FORM", 0, N(hfm_shapes), 0, E(hfm_shapes)}, {"MORPH", 0, 127, 0, PF_NUM, 0}, {"AIR", 0, 127, 0, PF_NUM, 0},
+    {"BODY", 0, 127, 110, PF_NUM, 0}, {"FSEQ", 0, N(hfm_seqs), 0, E(hfm_seqs)}, {"F RATE", 0, N(hfm_rates), 4, E(hfm_rates)},
+    {"F DEPTH", 0, 127, 127, PF_NUM, 0}};
+static int hfm_slot(int p)
+{
+    int i;
+    for (i = 0; i < 9; i++)
+        if (hfm_pid[i] == p)
+            return i;
+    return -1;
+}
+/* a FM sound's further settings at their defaults (and every other engine's at 0) */
+void rv_hfm_defaults(int16_t *tp)
+{
+    int i, fm = tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_FM;
+    for (i = 0; i < 9; i++)
+        tp[hfm_pid[i]] = (int16_t)(fm ? SRC_HFM[i].def : 0);
+}
 static const rv_pinfo SRC_PHYS[16] = {
     {"MODEL", 0, N(phys_models), 0, E(phys_models)}, {"BRIGHT", 0, 127, 80, PF_NUM, 0}, {"DAMP", 0, 127, 40, PF_NUM, 0},
     {"POSITN", 0, 127, 30, PF_NUM, 0}, {"EXCITE", 0, 127, 90, PF_NUM, 0}, {"INHARM", 0, 127, 0, PF_NUM, 0},
@@ -522,6 +548,8 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
             tab = rv.tp[t & 7][TP_S0] == 1 ? SRC_TINE_MAR : SRC_TINE_EP;
         return tab[s].name ? &tab[s] : &NONE;
     }
+    if (rv.tp[t & 7][TP_KIND] == KIND_SYNTH && rv.tp[t & 7][TP_ENGINE] == ENG_FM && hfm_slot(p) >= 0)
+        return &SRC_HFM[hfm_slot(p)];
     if (p < 0 || p >= TP_N || !TRACK[p].name)
         return &NONE;
     if (p == TP_OSC1) {                               /* named as the engine names its first oscillator */
@@ -710,6 +738,8 @@ int rv_tp_applies(int t, int p)
         return 0;
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
         return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
+    if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_FM && hfm_slot(p) >= 2)   /* HYBRID FM: the formants with a SHAPE */
+        return tp[TP_WX2] > 0 && (hfm_slot(p) < 7 || tp[TP_VOC] > 0);
     if (tp[TP_KIND] == KIND_WEFT && wf_spi(p) >= 0)                  /* WEFT: the settings of the blocks there are */
         return rv.weft[t & 7].type[wf_spi(p) >> 1] != 0;
     if (tp[TP_KIND] == KIND_LOOP && (p == TP_POLY || p == TP_VELO))  /* LOOP: no voices of its own (SOUND greys them) */
@@ -841,7 +871,7 @@ int rv_is_moddest(int p)
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
-        return (p >= TP_S0 && p <= TP_S15) || (p >= TP_WX0 && p <= TP_WX5) || p == TP_VOC || p == TP_PAIRS;   /* (the last: WEFT's blocks 9-12) */
+        return (p >= TP_S0 && p <= TP_S15) || (p >= TP_WX0 && p <= TP_WX5) || p == TP_VOC || p == TP_PAIRS || p == TP_BANDS;   /* (the last: WEFT's blocks 9-12, HYBRID FM's pages) */
     }
 }
 
@@ -904,6 +934,8 @@ static void track_src_defaults(int t)
         const rv_pinfo *pi = rv_pinfo_track(t, TP_S0 + s);
         rv.tp[t][TP_S0 + s] = pi->name ? pi->def : 0;
     }
+    if (rv.tp[t][TP_KIND] == KIND_SYNTH)
+        rv_hfm_defaults(rv.tp[t]);
 }
 void rv_track_src_defaults(int t) { track_src_defaults(t); }
 

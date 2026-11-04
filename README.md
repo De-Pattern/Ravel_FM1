@@ -26,7 +26,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **FM** (4 operators, 12 algorithms, a wave per operator), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
+- **Synth tracks** (T1 to T4), thirteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **HYBRID FM** (4 operators, 12 algorithms, a wave per operator and an envelope on the modulators, run through moving formants after the Yamaha FS1R: eight spectral states to morph between, breath through noise bands, and formant sequences that move the timbre on their own clock), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Arpeggiator** on any note track (ARP): up, down, up-down, down-up, as played or random, 1/4 to 1/32 of the clock, over up to four octaves, with gate, hold, repeats and chance; it plays held keys, the track's own steps and influence triggers alike.
@@ -199,7 +199,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with thirteen engines: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
@@ -234,7 +234,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP), GLITCH (the GLITCH LOOPER) or WEFT (a voice you patch). **Changing it resets the track to that kind's defaults.** |
-| 4 **ENGINE** | For synth tracks: VA, CZ, FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
+| 4 **ENGINE** | For synth tracks: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -609,7 +609,7 @@ Stages after END are drawn dim: they keep their settings but don't play until EN
 - **Projects from before the CZ** load with each CZ track set to a plain CZ tone.
 
 
-**FM:** 4 operators.
+**HYBRID FM:** 4 operators, and after them a body of formants (after the Yamaha FS1R's formant synthesis). With FORM at OFF it is a plain four-operator FM synth.
 
 | SOURCE 1 | SOURCE 2 | SOURCE 3 | SOURCE 4 |
 | --- | --- | --- | --- |
@@ -619,6 +619,17 @@ Stages after END are drawn dim: they keep their settings but don't play until EN
 | RATIO2 | LEVEL3 | WAVE3 | VEL MOD: velocity brightens the sound |
 
 Each operator can be SINE, TRI, SAW, SQUARE, HALF, ABS, QUART or BITS.
+
+| MOD ENV | FORMANTS | FSEQ |
+| --- | --- | --- |
+| MOD ATK: how long the modulators take to rise at each note (0: at once) | FORM: OFF, or the spectral state the formants start from: OO, AH, EE (vowels), BOW (a cello-like wooden body), REED (a sax-like throat), METAL (narrow, ringing, inharmonic), HOLLOW (a tube), NASAL | FSEQ: OFF, or a formant sequence: WAH, TALK, BREATH, BLOOM, STUTTER, ORBIT, SCRAPE, DROP |
+| MOD DEC (the same as on SOURCE 4): how fast they fall | MORPH: from FORM toward the next state (NASAL's next is OO) | F RATE: how long each of its eight frames lasts, on the tempo (2 BAR … 1/32), or **SCRUB**: MORPH moves through the sequence instead |
+| MOD SUS: where they settle (32, a quarter, is the classic FM pluck; 127 holds them) | AIR: breath, scrape and hiss: noise through two bands that move with the formants | F DEPTH: how far the sequence moves the formants, and how much of its level and breath it adds |
+| VEL MOD (the same as on SOURCE 4) | BODY: how much of the operators goes through the formants (0: none, only the breath) | – |
+
+**How it works.** The operators make the tone; three formants (resonant band passes at each state's frequencies, widths and levels) shape it, the way a mouth, a cello's body or a metal tube does; AIR adds noise through two more bands. Each state is a whole spectral identity, and moving between them (MORPH, the sequence) glides each formant to its partner in the next state, frequencies through octaves and levels through decibels, so the sound changes shape without jumping. The formants' level follows the operators', so turning FORM or MORPH doesn't make it jump in level, and a soft limit keeps narrow METAL resonances in hand. A formant sequence starts again at each note: its eight frames each move the formants (from FORM, as far as F DEPTH says), set a level and add breath; WAH, TALK, STUTTER and SCRAPE loop, BREATH, BLOOM and DROP play once a note, ORBIT goes back and forth through all eight states. The note, the amplitude envelope and the sequence each keep their own time, so a held note can travel from a bowed string to a throat to metal. FORM, MORPH, AIR and the rest are ordinary parameters: the matrix, the LFOs, the macros and step locks move them too (an LFO on MORPH is a slow vowel). Unlike some FM synths, Ravel never thins the modulation on high notes for you (neither the FS1R nor the DX7 does it on its own); turn the levels down as you play higher if it gets harsh.
+
+**Factory sounds** (PRESETS): FM PIANO, FM BELLS and FM GROWL are plain FM; **FM VOX** (vowels that TALK in eighths), **FM BOW** (a bowed wooden body with SCRAPE), **BREATH REED** (a reed that starts as breath), **STEEL TUBE** (inharmonic ratios in a METAL body, slowly orbiting), **ORGANISM** (a hollow, slowly turning spectral creature) and **FM STUTTER** (a sequence that gates the voice in sixteenths) use the formants.
 
 **PHYS (physical modelling):** a virtual instrument that you strike, bow or blow.
 

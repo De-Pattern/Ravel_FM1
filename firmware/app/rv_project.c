@@ -300,6 +300,12 @@ int rv_load(int slot)
             for (p = TP_WX0; p <= TP_WX5; p++)
                 rv.tp[t][p] = 0;
     }
+    if (f <= 25) {                                   /* (26) HYBRID FM: FM tracks' further settings at their defaults */
+        int t;
+        for (t = 0; t < RV_TRACKS; t++)
+            if (rv.tp[t][TP_KIND] == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_FM)
+                rv_hfm_defaults(rv.tp[t]);
+    }
     if (f <= 22) {                                   /* (23) the arpeggiator: off, its settings at their defaults */
         int t, p;
         for (t = 0; t < RV_TRACKS; t++)
