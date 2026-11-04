@@ -6,7 +6,12 @@
 <h3 align="center">📖&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/manual.html">Read the manual</a> &nbsp;·&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/manual.pdf">PDF</a></h3>
 <h3 align="center">⬇&nbsp; <a href="https://de-pattern.github.io/Ravel_FM1/install/">Install the firmware on an FM-1</a> &nbsp;·&nbsp; <a href="https://github.com/De-Pattern/Ravel_FM1/releases/latest">download the .fwsc</a></h3>
 
-# Ravel
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo/ravel-logo-light.png">
+    <img src="docs/logo/ravel-logo-dark.png" alt="Ravel" width="520">
+  </picture>
+</h1>
 
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, strike and drum, and that play, excite, and reshape one another
 
@@ -110,7 +115,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 
 **On the FM-1.** Install it with the web installer (see [Installing on the FM-1](#installing-on-the-fm-1)). Everything works the same as in the emulator, with these differences:
 
-- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of storm: a loose cloud of dust drifting in the wind and rain, the sky flickering white, the dust gathering into RAVEL (signed de-pattern underneath, flickering), which drips; then the whole screen tears, glitches and melts away as if the system were corrupted. Press any key, button or knob to skip it; that press does nothing else.
+- **The start screen.** At power-on (and as the emulator opens) Ravel plays a few seconds of worn VHS tape: snow fills the dark, then its brightest specks come loose from it, drift apart in the rain under a flickering white sky, and gather into the Ravel logo (signed de-pattern underneath, flickering). The picture trembles as a tape does and the logo runs in drips; then the tape fails, wobbling, bleeding and smearing down, the player crashes into blocks, and the tube collapses to a line. Press any key, button or knob to skip it; that press does nothing else.
 - **MASTER** is the output volume (the emulator's Volume slider).
 - **No audio input.** The FM-1's USB carries Ravel's sound *to* a computer (it shows up as an audio input named "Ravel FM-1" you can record), but nothing comes in. The EXT exciter takes its sound from other tracks.
 - **Saving pauses the sound for a moment**, because the code runs from the same flash the project is written to.

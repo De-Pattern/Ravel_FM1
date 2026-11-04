@@ -108,6 +108,9 @@ nav {{ position: sticky; top: 0; align-self: start; height: 100vh; overflow: aut
        border-right: 1px solid var(--line); }}
 nav .brand {{ font-weight: 700; letter-spacing: .14em; font-size: 22px; margin-bottom: 4px; }}
 nav .brand span {{ color: var(--red-hi); }}
+nav .brand img.logo {{ display: block; height: 30px; width: auto; margin: 2px 0 6px -4px; }}
+:root[data-theme="light"] nav .brand img.logo {{ filter: invert(1); }}
+@media (prefers-color-scheme: light) {{ :root:not([data-theme="dark"]) nav .brand img.logo {{ filter: invert(1); }} }}
 nav .sub {{ color: var(--muted); font-size: 13px; margin-bottom: 18px; }}
 nav a {{ display: block; color: var(--ink); text-decoration: none; padding: 4px 8px; border-radius: 5px; font-size: 15px;
          border-left: 2px solid transparent; }}
@@ -168,7 +171,7 @@ blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--re
 <body>
 <div class="layout">
 <nav id="nav">
-  <div class="brand">RAVEL<span>.</span></div>
+  <div class="brand"><img class="logo" src="docs/logo/ravel-logo-small.png" alt="Ravel"></div>
   <div class="sub">Manual · M-VAVE FM-1 firmware<span id="pdf" hidden> · <a href="manual.pdf">PDF</a> · <a href="./">Emulator</a></span></div>
   <button class="menu" id="menu" aria-expanded="false" aria-controls="links">Contents</button>
   <div class="links" id="links">
