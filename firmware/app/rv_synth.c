@@ -667,7 +667,7 @@ static float clk_period;                              /* (rv_mod.c: seconds a st
 static __attribute__((noinline)) float hfm_exp2(float x) { return fm_exp2f(x); }   /* (out of line: the flash is short) */
 static __attribute__((noinline)) void hfm_svf(svf_t *f, float lhz, float q, float lk)   /* at 2^lhz Hz, k x 2^lk */
 {
-    svf_set(f, hfm_exp2(lhz), q);
+    svf_set(f, hfm_exp2(lhz + 1.0f), q);              /* (+1: the formants run at half the sample rate) */
     f->k *= hfm_exp2(lk);
 }
 
@@ -738,26 +738,36 @@ RV_INL float hfm_bp(svf_t *f, float x)
     return v1;
 }
 /* the operators (out, at 0.45) through the formants, breath through its bands (only with some AIR), the level
- * matched, softly limited. In RAM on the FM-1: it runs every sample of every voice */
+ * matched, softly limited. In RAM on the FM-1. The formants and the breath run at half the sample rate (each pair
+ * of samples averaged in, the result eased between), the operators' own part (1 - BODY) at the full rate */
 RV_HOT2 static void hfm_run(fm_t *s, float *out, int n, float air, float body, float flvl, float agc_t)
 {
     int i;
-    float ga = s->agc, gk = 1.0f - body;
+    float ga = s->agc, gk = 1.0f - body, vl = s->vlast, nl = s->nlast;
     float k0 = s->fv[0].k, k1 = s->fv[1].k, k2 = s->fv[2].k, rin = s->rin, rout = s->rout;
-    for (i = 0; i < n; i++) {
-        float y = out[i] * (1.0f / 0.45f);
-        float vs = hfm_bp(&s->fv[0], y) * k0 + hfm_bp(&s->fv[1], y) * k1 + hfm_bp(&s->fv[2], y) * k2;
-        rin += (y * y - rin) * 0.0008f;
-        rout += (vs * vs - rout) * 0.0008f;
-        ga += (agc_t - ga) * 0.002f;
-        y = (y * gk + vs * ga * body) * flvl;
-        out[i] = y;
+    for (i = 0; i + 1 < n; i += 2) {
+        float y0 = out[i] * (1.0f / 0.45f), y1 = out[i + 1] * (1.0f / 0.45f), x = 0.5f * (y0 + y1);
+        float vs = hfm_bp(&s->fv[0], x) * k0 + hfm_bp(&s->fv[1], x) * k1 + hfm_bp(&s->fv[2], x) * k2;
+        rin += (x * x - rin) * 0.0016f;
+        rout += (vs * vs - rout) * 0.0016f;
+        ga += (agc_t - ga) * 0.004f;
+        out[i] = (y0 * gk + 0.5f * (vl + vs) * ga * body) * flvl;
+        out[i + 1] = (y1 * gk + vs * ga * body) * flvl;
+        vl = vs;
     }
-    if (air > 0.0f)                                   /* the breath */
-        for (i = 0; i < n; i++) {
-            float nz = xs_bi(&s->ns);
-            out[i] += (hfm_bp(&s->fn[0], nz) * s->fn[0].k + hfm_bp(&s->fn[1], nz) * s->fn[1].k) * air * flvl;
+    if (i < n)                                        /* (an odd sample left: the formants held) */
+        out[i] = (out[i] * (1.0f / 0.45f) * gk + vl * ga * body) * flvl;
+    if (air > 0.0f) {                                 /* the breath */
+        float g = air * flvl;
+        for (i = 0; i + 1 < n; i += 2) {
+            float nz = xs_bi(&s->ns), ns = hfm_bp(&s->fn[0], nz) * s->fn[0].k + hfm_bp(&s->fn[1], nz) * s->fn[1].k;
+            out[i] += 0.5f * (nl + ns) * g;
+            out[i + 1] += ns * g;
+            nl = ns;
         }
+    }
+    s->vlast = vl;
+    s->nlast = nl;
     for (i = 0; i < n; i++) {                         /* (a soft limit: a cubic, flat at 1.5) */
         float y = clampf(out[i], -1.5f, 1.5f);
         out[i] = (y - y * y * y * (4.0f / 27.0f)) * 0.45f;

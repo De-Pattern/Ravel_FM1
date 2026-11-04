@@ -60,7 +60,7 @@ typedef struct {
     float ph[4], fb1, fb2, menv;
     uint8_t mnew, mup, fdir;
     svf_t fv[3], fn[2];
-    float rin, rout, agc, fpos;
+    float rin, rout, agc, fpos, vlast, nlast;   /* (vlast, nlast: the half-rate formants' and breath's last sample) */
     uint32_t ns;
 } fm_t;
 typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
