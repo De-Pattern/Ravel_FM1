@@ -1,0 +1,95 @@
+# WEFT's outputs: OUT AUTO hears the last block that isn't an output; AUDIO blocks are mixed in (and AUTO then hears
+# only them); SEQ OUT steps T2 on a TICK and holds T3 in place with JUMP; VIOLENCE's sources follow the panel
+wait 300
+kind 1 6
+wset 1 0 1 2
+wset 1 7 1 85
+wset 1 0 2 6
+wset 1 1 2 1
+wset 1 3 2 100
+wset 1 7 2 60
+wset 1 5 0 13
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 300
+# an AUDIO block on block 2 instead: AUTO hears it alone
+wset 1 0 2 52
+wset 1 7 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 300
+# silent OUT and no AUDIO: nothing
+wset 1 0 2 0
+wset 1 5 0 0
+key 12 down
+wait 300
+expect meter_max 1 0.0005
+key 12 up
+wait 300
+# SEQ OUT: T4 is a TICK (1/4) stepping T2, and an even 1/16 TICK jumping T3 to the middle of its steps
+kind 4 6
+wset 4 0 1 24
+wset 4 7 1 4
+wset 4 7 2 127
+wset 4 0 2 53
+wset 4 1 2 1
+wset 4 3 2 100
+wset 4 7 3 1
+wset 4 7 4 0
+wset 4 0 3 24
+wset 4 7 5 8
+wset 4 7 6 127
+wset 4 0 4 53
+wset 4 1 4 3
+wset 4 3 4 100
+wset 4 2 4 21
+wset 4 4 4 50
+wset 4 7 7 2
+wset 4 7 8 1
+wait 200
+tap PLAY
+wait 2000
+expect playstep 2 4
+expect playstep_in 3 7 12
+wait 450
+expect playstep_in 3 7 12
+wait 450
+expect playstep_in 3 7 12
+# V TAP, V HELD, V TURN through a MOD OUT: strikes, held keys, a knob turned
+tap PLAY
+kind 5 6
+wset 5 0 1 36
+wset 5 1 1 27
+wset 5 3 1 100
+wset 5 7 1 0
+wait 300
+expect msrc WEFT -0.01 0.01
+tapkey 3
+tapkey 5
+tapkey 7
+wait 30
+expect msrc WEFT 0.2 1.0
+wait 1500
+expect msrc WEFT -0.01 0.05
+wset 5 1 1 28
+key 3 down
+key 5 down
+key 7 down
+wait 400
+expect msrc WEFT 0.2 1.0
+key 3 up
+key 5 up
+key 7 up
+wait 1500
+wset 5 1 1 29
+turn K4 1
+wait 40
+turn K4 1
+wait 40
+turn K4 1
+wait 40
+expect msrc WEFT 0.05 1.0

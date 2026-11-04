@@ -1209,17 +1209,18 @@ RV_INL float wtab_read(int t, float kp, float p, float lim, int raw)
     i0 = (int)x & (WT_N - 1);
     i1 = (i0 + 1) & (WT_N - 1);
     fr = raw ? 0.0f : x - fm_floorf(x);
-    f0 = wt_tab[t][0][k0];
-    f1 = wt_tab[t][0][k1];
+    f0 = wt_tab[t][k0];
+    f1 = wt_tab[t][k1];
     a = f0[i0] + (f0[i1] - f0[i0]) * fr;
     b = f1[i0] + (f1[i1] - f1[i0]) * fr;
     a += (b - a) * kf;
-    if (lim > 0.001f) {                               /* high notes: toward the 10-harmonic copy */
-        float c, d;
-        f0 = wt_tab[t][1][k0];
-        f1 = wt_tab[t][1][k1];
-        c = f0[i0] + (f0[i1] - f0[i0]) * fr;
-        d = f1[i0] + (f1[i1] - f1[i0]) * fr;
+    if (lim > 0.001f) {                               /* high notes: toward the 10-harmonic copy (64 samples a cycle) */
+        float c, d, xl = p * (float)WT_NL, fl = raw ? 0.0f : xl - fm_floorf(xl);
+        int j0 = (int)xl & (WT_NL - 1), j1 = (j0 + 1) & (WT_NL - 1);
+        f0 = wt_lim[t][k0];
+        f1 = wt_lim[t][k1];
+        c = f0[j0] + (f0[j1] - f0[j0]) * fl;
+        d = f1[j0] + (f1[j1] - f1[j0]) * fl;
         c += (d - c) * kf;
         a += (c - a) * lim;
     }

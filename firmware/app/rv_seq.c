@@ -540,7 +540,7 @@ static void head_advance(int t, int h, uint32_t when)
     step_fire(t, h, s->step[h], when);
 }
 
-static int master_clocked(int t) { return rv.tp[t][TP_CLKSRC] == 0 && !track_clocked_by_route(t); }
+static int master_clocked(int t) { return rv.tp[t][TP_CLKSRC] == 0 && !track_clocked_by_route(t) && !((weft_own >> t) & 1u); }   /* (a SEQ OUT stepping it: not) */
 
 /* a track's step from another clock (an LFO, dust, a route): head 1 moves, and head 2 follows at
  * its rate relative to head 1. On the master clock each head is scheduled on its own. */
@@ -1046,10 +1046,40 @@ static void seq_other_clocks(void)
 {
     int t, wf = weft_clk_fired, wr = weft_clk_reset;
     weft_clk_fired = weft_clk_reset = 0;              /* (WEFT's clock: from the last step's sound) */
-    if (!playing)
+    if (!playing) {                                   /* (stopped: a pattern still changes; the rest is let go) */
+        for (t = 0; t < RV_TRACKS; t++) {
+            if (wsq_pat[t] >= 0)
+                rv.pat_cur[t] = (uint8_t)(wsq_pat[t] == 2 ? !rv.pat_cur[t] : wsq_pat[t]);
+            wsq_pat[t] = -1;
+            wsq_steps[t] = wsq_jump[t] = 0;
+        }
+        wsq_restart = 0;
         return;
+    }
+    for (t = 0; t < RV_TRACKS; t++) {               /* WEFT's SEQ OUTs: a pattern, back to step 1, a jump, steps */
+        int len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), k;
+        if (wsq_pat[t] >= 0) {
+            rv.pat_cur[t] = (uint8_t)(wsq_pat[t] == 2 ? !rv.pat_cur[t] : wsq_pat[t]);
+            wsq_pat[t] = -1;
+        }
+        if ((wsq_restart >> t) & 1u) {
+            sq[t].step[0] = sq[t].step[1] = -1;
+            sq[t].dir[0] = sq[t].dir[1] = 1;
+        }
+        if (wsq_jump[t]) {                            /* (the next step it plays is that one) */
+            sq[t].step[0] = (int16_t)((wsq_jump[t] - 1) * len / 255 - 1);
+            sq[t].dir[0] = 1;
+        }
+        wsq_jump[t] = 0;
+        for (k = 0; k < wsq_steps[t] && k < 4; k++)
+            track_advance(t, now_s);
+        wsq_steps[t] = 0;
+    }
+    wsq_restart = 0;
     for (t = 0; t < RV_TRACKS; t++) {
         int src = rv.tp[t][TP_CLKSRC];
+        if ((weft_own >> t) & 1u)
+            continue;                                 /* (a SEQ OUT steps it, not its CLOCK) */
         if (src == 4 && wr) {                         /* WEFT asks for step 1 */
             sq[t].step[0] = sq[t].step[1] = -1;
             sq[t].dir[0] = sq[t].dir[1] = 1;

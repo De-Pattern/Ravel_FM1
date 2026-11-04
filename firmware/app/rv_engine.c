@@ -1050,7 +1050,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
 /* ------------------------------------------------------------ profile --- */
 /* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
-enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_N };   /* (GLO > CPU names them in this order) */
+enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_WEFT, PF_N };   /* (GLO > CPU names them in this order) */
 static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
 static uint32_t c2_acc, c2_wacc;                          /* the second core's work, and this one's waiting for it (cycles) */
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
@@ -1084,21 +1084,22 @@ static void prof_end(int n)
  * buses (below). It plays its voices into buffers of its own, added to the tracks after; the faults,
  * the counts and the screen's envelopes are all done here, after both, in the voices' order. Off,
  * or failed: all here, as before. */
-enum { VK_SYNTH, VK_STRIKE, VK_PERC };
-#define VL_MAX (RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES)
+enum { VK_SYNTH, VK_STRIKE, VK_PERC, VK_WEFT };
+#define VL_MAX (RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES + WV_N)
+static const uint8_t vk_pf[4] = {PF_SYNTH, PF_STRIKE, PF_PERC, PF_WEFT};   /* (each kind's bar on GLO > CPU) */
 static uint8_t vl_kind[VL_MAX], vl_idx[VL_MAX], vl_c2[VL_MAX], vl_bad[VL_MAX];
 static float vl_lv[VL_MAX];
 static int vl_n, par_n;
 static float c2_buf[RV_TRACKS][RV_SUB] RV_RAMBSS;    /* the second core's voices, by track (plain RAM: the pool keeps its room) */
 static uint8_t c2_trk;                                /* the tracks it plays into this step */
 static uint8_t c2_vcap = VL_MAX;                      /* at most this many voices to it (it adapts) */
-static uint32_t c2_vcyc[3];                           /* its voices' cycles, by kind */
+static uint32_t c2_vcyc[4];                           /* its voices' cycles, by kind */
 static uint8_t c2_voices_given;                       /* how many it had this step */
 
 static int vl_track(int e)
 {
     int k = vl_idx[e];
-    return (vl_kind[e] == VK_SYNTH ? vs[k].track : vl_kind[e] == VK_STRIKE ? ss[k].track : ps[k].track) & 7;
+    return (vl_kind[e] == VK_SYNTH ? vs[k].track : vl_kind[e] == VK_STRIKE ? ss[k].track : vl_kind[e] == VK_WEFT ? wv[k].track : ps[k].track) & 7;
 }
 
 static int vl_sortkey(int e)
@@ -1108,7 +1109,7 @@ static int vl_sortkey(int e)
 }
 
 /* one voice of the list, added into out; its level and whether it went bad are kept for the count */
-RV_HOT static void voice_one(int e, float *out, int n)
+RV_HOT static void voice_one(int e, float *out, int n, int core)
 {
     int k = vl_idx[e];
     float lv, tmp[RV_SUB];
@@ -1141,6 +1142,10 @@ RV_HOT static void voice_one(int e, float *out, int n)
             strike_flush(v);
         break;
     }
+    case VK_WEFT:                                    /* (a WEFT voice: its patch's own limiter, no fault to count) */
+        lv = RV_FAR(weft_voice_one)(k, out, n, core);
+        vl_bad[e] = (uint8_t)buf_bad(out, n);
+        break;
     default: {
         perc_t *v = &ps[k];
         track_t *tr = &trk[v->track];
@@ -1168,7 +1173,7 @@ static void c2_voices(void)
     uint32_t c = plat_par_cycles(), c1;
     for (e = 0; e < vl_n; e++)
         if (vl_c2[e]) {
-            RV_FAR(voice_one)(e, c2_buf[vl_track(e)], par_n);
+            RV_FAR(voice_one)(e, c2_buf[vl_track(e)], par_n, 1);
             c1 = plat_par_cycles();
             c2_vcyc[vl_kind[e]] += c1 - c;
             c = c1;
@@ -1183,6 +1188,8 @@ static void voices_count(uint32_t *lead_age)
         int k = vl_idx[e];
         float lv = vl_lv[e];
         switch (vl_kind[e]) {
+        case VK_WEFT:                                /* (WEFT counts its own, weft_tidy) */
+            break;
         case VK_SYNTH: {
             voice_t *v = &vs[k];
             if (vl_bad[e]) {
@@ -1702,7 +1709,7 @@ static void render_sub(float *outl, float *outr, int n)
     rv_live.voices_synth = rv_live.voices_strike = 0;
     {
         int e, nc2 = 0;
-        uint32_t c, c1, wv = 0;
+        uint32_t c, c1, wwait = 0;
         vl_n = 0;
         for (k = 0; k < RV_SYNTH_VOICES; k++) {
             voice_t *v = &vs[k];
@@ -1739,6 +1746,11 @@ static void render_sub(float *outl, float *outr, int n)
             vl_kind[vl_n] = VK_PERC;
             vl_idx[vl_n++] = (uint8_t)k;
         }
+        for (k = 0; k < WV_N; k++)                   /* WEFT's (weft_tidy has let go of those of tracks no longer WEFT) */
+            if (wv[k].on) {
+                vl_kind[vl_n] = VK_WEFT;
+                vl_idx[vl_n++] = (uint8_t)k;
+            }
         {   /* the same code back to back: the synth voices by engine, the drums by machine (the cache holds
              * one engine's code while its voices play, as Mutable's and the Deluge's renders do) */
             int a, b;
@@ -1779,36 +1791,36 @@ static void render_sub(float *outl, float *outr, int n)
         c = plat_cycles();
         for (e = 0; e < vl_n; e++)                   /* this core's */
             if (!vl_c2[e]) {
-                RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n);
+                RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n, 0);
                 c1 = plat_cycles();
-                prof_acc[PF_SYNTH + vl_kind[e]] += c1 - c;
+                prof_acc[vk_pf[vl_kind[e]]] += c1 - c;
                 c = c1;
             }
         if (par_job && nc2) {                        /* the second core's */
             uint32_t w0 = plat_par_cycles();
             int r = par_voices_wait();
-            wv = plat_par_cycles() - w0;
-            c2_wacc += wv;
+            wwait = plat_par_cycles() - w0;
+            c2_wacc += wwait;
             if (r < 0) {                             /* it failed (and is off now): its voices here, again */
                 rv_live.c2_fail = 1;
                 par_job = 0;                         /* (and the buses) */
                 for (e = 0; e < vl_n; e++)
                     if (vl_c2[e]) {
                         vl_c2[e] = 0;
-                        RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n);
+                        RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n, 0);
                     }
             } else {
                 for (t = 0; t < RV_TRACKS; t++)
                     if ((c2_trk >> t) & 1u)
                         for (i = 0; i < n; i++)
                             trk[t].buf[i] += c2_buf[t][i];
-                for (k = 0; k < 3; k++) {            /* (its voices' time, in their bars and in its load) */
-                    prof_acc[PF_SYNTH + k] += c2_vcyc[k];
+                for (k = 0; k < 4; k++) {            /* (its voices' time, in their bars and in its load) */
+                    prof_acc[vk_pf[k]] += c2_vcyc[k];
                     c2_acc += c2_vcyc[k];
                 }
             }
         }
-        c2_vcyc[0] = c2_vcyc[1] = c2_vcyc[2] = 0;
+        c2_vcyc[0] = c2_vcyc[1] = c2_vcyc[2] = c2_vcyc[3] = 0;
         voices_count(lead_age);
         prof_t = plat_cycles();                      /* (the waiting: in no part's bar, in the total) */
         c2_voices_given = (uint8_t)nc2;
@@ -1826,7 +1838,7 @@ static void render_sub(float *outl, float *outr, int n)
         float drive, fld, derez, ia, ib, imix, lvl, pan, gl, gr, peak = 0.0f, ring = tr->ring_amt;
         int bits, mask, ins, chain_bad = 0, n_chain = n;
         int chorus = kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ ? clampi(rv.tp[t][TP_S3], 0, 3) : 0;
-        uint8_t muted = (rv.mute >> t) & 1u;
+        uint8_t muted = ((rv.mute | weft_gate_mute) >> t) & 1u;   /* (a SEQ OUT in GATE mode holds it quiet too) */
         if (rv.solo && !((rv.solo >> t) & 1u))
             muted = 1;
         drive = eff[TP_DRIVE] * (1.0f / 127.0f);
@@ -1849,8 +1861,7 @@ static void render_sub(float *outl, float *outr, int n)
         }
         if (kind == KIND_LOOP)
             loop_render(t, tr->buf, n);
-        else if (kind == KIND_WEFT)
-            weft_render(t, tr->buf, n);
+        /* (a WEFT track's voices are in its buffer already: they play with the others, above) */
         if (ring <= 0.001f && peak_of(tr->buf, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
             if (tr->quiet >= BUS_HOLD)
                 n_chain = 0;

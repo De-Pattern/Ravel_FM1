@@ -27,6 +27,7 @@
  *   expect wvoices N              WEFT voices sounding
  *   expect wbmove T B 0|1         WEFT: track T's block B's input B moves its second setting
  *   expect playstep T S           track T's playhead is on step S (1..64; 0: none)
+ *   expect playstep_in T LO HI    track T's playhead is on a step from LO to HI
  *   wpreset T K                   WEFT: factory patch K (0..) onto track T
  *   wset T F I V                  WEFT: a field of track T's patch, as the emulator's patcher sets it (F: 0 type,
  *                                 1 input A, 2 input B, 3 amount A, 4 amount B (block I, 1..12), 5 the output,
@@ -44,6 +45,7 @@
  *   expect steplen T S CODE       track T's step S has LENGTH CODE (8 a step)
  *   expect recording 0|1          REC armed
  *   expect sreccur S              step recording's cursor is on step S (0: off)
+ *   expect meter_max T X          track T's output level is at most X (0..1)
  *   expect peak_db_min DB         the output's peak since the last wav reached DB at least
  */
 #include <stdio.h>
@@ -263,7 +265,12 @@ static int find_tp(int t, const char *s)
     int p;
     for (p = 0; p < TP_N; p++) {
         const rv_pinfo *pi = rv_pinfo_track(t, p);
-        if (pi->name && !strcmp(pi->name, s))
+        int k;
+        if (!pi->name)
+            continue;
+        for (k = 0; pi->name[k] && (pi->name[k] == s[k] || (pi->name[k] == ' ' && s[k] == '_')); k++)
+            ;
+        if (!pi->name[k] && !s[k])                    /* (a space in a name: _ in the script) */
             return p;
     }
     return -1;
@@ -538,6 +545,13 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "meter_max")) {            /* track T's output level is at most X (0..1) */
+                float mv = rv_live.meter[(atoi(w1) - 1) & 7];
+                if (mv > atof(w2)) {
+                    printf("FAIL line %d: track %s's meter %.4f, expected at most %s\n", lineno, w1, mv, w2);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "loopfill")) {             /* LOOP lane L (1..4): how many of its samples are not silent, at least N */
                 uint32_t q, nn = rv_loop_lane_len(), cnt = 0;
                 for (q = 0; q < nn; q++)
@@ -593,6 +607,13 @@ int main(int argc, char **argv)
             } else if (!strcmp(b, "wbmove")) {               /* WEFT: track T's block B's input B moves its second setting */
                 got = (rv.weft[(atoi(w1) - 1) & 7].bmove >> ((unsigned)(atoi(w2) - 1) % WF_BLOCKS)) & 1;
                 want = atoi(w3);
+            } else if (!strcmp(b, "playstep_in")) {          /* track T's playhead is between LO and HI (1..64) */
+                int ps = rv_live.step[(atoi(w1) - 1) & 7][0] + 1;
+                if (ps < atoi(w2) || ps > atoi(w3)) {
+                    printf("FAIL line %d: track %s's playhead on %d, expected %s to %s\n", lineno, w1, ps, w2, w3);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "playstep")) {             /* track T's playhead (1..64; 0 none) */
                 got = rv_live.step[(atoi(w1) - 1) & 7][0] + 1;
                 want = atoi(w2);

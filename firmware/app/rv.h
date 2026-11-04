@@ -422,6 +422,8 @@ typedef struct {
     float loop_pos, loop_in;               /* the loop's clock (0..1), the level coming in */
     int8_t wscope[WF_BLOCKS][32];                  /* WEFT: each block's output, a moment of it (the newest voice of the track on screen) */
     uint8_t wvoices;                       /* WEFT: voices sounding (all tracks) */
+    uint8_t wf_view;                       /* WEFT: its scopes are on screen (set by the screen, counting down each step) */
+    float vtap, vheld, vturn;              /* VIOLENCE: how fast the keys are hit, how many held, how fast the knobs turn (0..1) */
     uint8_t take_res;                      /* TAKE done: the steps it kept + 1 (the interface clears it) */
     int8_t srec_step;                      /* step recording: the step the next note or chord goes on (-1: off) */
     uint32_t tick;

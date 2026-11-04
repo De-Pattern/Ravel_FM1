@@ -116,6 +116,12 @@ static uint8_t lfo_wrapped[2], dust_fired;
  * (MOD OUT), and where it is on the tempo's grid (sixteenths since the transport started; TICK) */
 static uint8_t weft_clk_fired, weft_clk_reset;
 static float weft_mod_v, weft_pos16;
+/* WEFT's SEQ OUT blocks (rv_weft.c) asking the sequencers (rv_seq.c) for something, each step: steps to take, a
+ * place to jump to (1 + 0..254 along the pattern, 0 none), back to step 1, a pattern (0 A, 1 B, 2 the other, -1
+ * none); the tracks a SEQ OUT steps (their own clocks wait), those it gates, and those open this step */
+static uint8_t wsq_steps[RV_TRACKS], wsq_jump[RV_TRACKS], wsq_restart;
+static int8_t wsq_pat[RV_TRACKS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static uint8_t weft_own, weft_gatet, weft_gate_open, weft_gate_mute;
 static float dust_acc, dust_due = 1.0f;               /* the mean intervals gone since the last grain, and the next one's */
 
 static uint8_t lfo_note_trig;                          /* a note started: RETRIG and 1 SHOT LFOs start over */

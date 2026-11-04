@@ -821,7 +821,7 @@ const GUIDE = {
 <tr><td>WEFT BLOCK</td><td>input B and its amount, then the block's two settings</td></tr>
 <tr><td>WEFT MAP</td><td>which setting each of PLAY's knobs turns; the output block; LEVEL</td></tr>
 <tr><td>WEFT LIBRARY</td><td>your patches, + NEW, then the factory ones: KNOB 1 picks, black key 1 loads, 2 saves (into a new slot, unless on one of yours: then it overwrites, press twice), 3 deletes, 4 INIT, 5 CLEAR (press twice); KNOB 3–4 rename</td></tr></table>
-<p>Twelve blocks a patch: PHASE, WAVE (oscillators) · SLOPE, CYCLE, SLEW (rise and fall) · LP, BP, HP · ADD, MULT, MIX, MIN, MAX, FOLD · COMP, AND, OR, XOR, FLIP · DELAY, BANDS, HOLD · DUST, TICK (particles, clocks) · RING and the six-mode bodies SKIN, BAR, PLATE, BELL, HARMS, FIXED (struck resonators) · SAT, ABS, DIFFUSE, CHAOS (for loops) · STRING, CRUSH, EDGE · SW 1&gt;4, SW 4&gt;1 (sequential switches; SW 1-4 in the input menus) · FOLLOW, SHAPE, CHEBY, FORMANT, VOCODER, RINGMOD, NOISE, RUNGLER, LISSA (its Y: LIS Y in the menus) · CLK OUT, MOD OUT (a clock for the sequencers, a source for the matrix). Inputs also take PITCH, GATE, TRIG, VEL, NOISE, the LFOs, the wheel or a constant. On WEFT BLOCK, black key 1 sets what input B does: its own job, or moving the block's second setting (B MOVES). PRESETS on the WEFT pages walks the factory patches. The manual has <a href="#" onclick="openManual('#weft-a-voice-you-patch'); return false">every block, step by step</a>.</p>`,
+<p>Twelve blocks a patch: PHASE, WAVE (oscillators) · SLOPE, CYCLE, SLEW (rise and fall) · LP, BP, HP · ADD, MULT, MIX, MIN, MAX, FOLD · COMP, AND, OR, XOR, FLIP · DELAY, BANDS, HOLD · DUST, TICK (particles, clocks) · RING and the six-mode bodies SKIN, BAR, PLATE, BELL, HARMS, FIXED (struck resonators) · SAT, ABS, DIFFUSE, CHAOS (for loops) · STRING, CRUSH, EDGE · SW 1&gt;4, SW 4&gt;1 (sequential switches; SW 1-4 in the input menus) · FOLLOW, SHAPE, CHEBY, FORMANT, VOCODER, RINGMOD, NOISE, RUNGLER, LISSA (its Y: LIS Y in the menus) · AUDIO, CLK OUT, MOD OUT, SEQ OUT (mixed into the voice, a clock for the sequencers, a source for the matrix, moves for another track's steps). Inputs also take PITCH, GATE, TRIG, VEL, NOISE, the LFOs, the wheel, a constant, or V TAP, V HELD, V TURN (VIOLENCE: how hard you're playing the panel). OUT on AUTO hears the last block. On WEFT BLOCK, black key 1 sets what input B does: its own job, or moving the block's second setting (B MOVES). PRESETS on the WEFT pages walks the factory patches. The manual has <a href="#" onclick="openManual('#weft-a-voice-you-patch'); return false">every block, step by step</a>.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
 <p>The page after STEPS is <b>TEMPO</b>: the master tempo and swing (the same values as GLO › CLOCK, so turning either moves both), with the track's LENGTH and RATE.</p>
 <p>TRACK sets the MODE (steps or graph), length, rate and the clock (master, LFOs, dust); DIRECTION plays forward, reverse, ping-pong or snake. PRESETS or the first two black keys switch patterns A and B.</p>`,
@@ -1163,8 +1163,9 @@ function wfRender() {
         h += `<path class="wfcord" d="${d}" stroke="${back ? "#68927f" : lit ? "#e8e8e8" : "#7a7a7a"}" ${back ? 'stroke-dasharray="6 4"' : ""} pointer-events="none"/>`;
       });
     });
+  const heard = rv.web_wf_outb ? rv.web_wf_outb(t) : p.out - 1;
   p.blocks.forEach((bk, i) => {
-    const q = WF.pos[i], cls = "wfnode" + (i === sel ? " sel" : "") + (p.out === i + 1 ? " out" : "");
+    const q = WF.pos[i], cls = "wfnode" + (i === sel ? " sel" : "") + (heard === i || N.types[bk.type] === "AUDIO" ? " out" : "");
     h += `<g class="${cls}" data-node="${i}" transform="translate(${q.x},${q.y})">`;
     if (!bk.type) {
       h += `<rect class="body" width="${WF.nodeW}" height="${WF.nodeH}" rx="10" stroke-dasharray="5 5" fill="#0f0f0f"/>`;
@@ -1182,7 +1183,7 @@ function wfRender() {
       h += `<circle class="wfport" data-in="${i},${port === "b" ? 1 : 0}" cx="0" cy="${y}" r="${WF.pr}" fill="${col}" stroke="#0c0c0c" stroke-width="2"><title>Input ${port.toUpperCase()}: ${wfEsc(lab)}</title></circle>`;
       if (s > WF.nb) h += `<text x="-11" y="${y + 4}" font-size="10" fill="${col}" text-anchor="end" pointer-events="none">${wfEsc(N.src[s])}</text>`;
     });
-    h += `<circle class="wfport" data-out="${i}" cx="${WF.nodeW}" cy="58" r="${WF.pr}" fill="${p.out === i + 1 ? "#c8242b" : "#e8e8e8"}" stroke="#0c0c0c" stroke-width="2"><title>Output: drag to an input</title></circle>`;
+    h += `<circle class="wfport" data-out="${i}" cx="${WF.nodeW}" cy="58" r="${WF.pr}" fill="${heard === i || N.types[bk.type] === "AUDIO" ? "#c8242b" : "#e8e8e8"}" stroke="#0c0c0c" stroke-width="2"><title>Output: drag to an input</title></circle>`;
     h += `</g>`;
   });
   h += `<path id="wfwire" class="wfcord" d="" stroke="#c8242b" pointer-events="none"/>`;
@@ -1193,7 +1194,7 @@ function wfRender() {
   if (pre.options.length !== N.presets.length + 1) pre.innerHTML = `<option value="-1">(your own)</option>` + N.presets.map((n, k) => `<option value="${k}">${wfEsc(n)}</option>`).join("");
   const nm = cstr(rv.web_sound_name(t)), ix = N.presets.indexOf(nm);
   pre.value = String(ix);
-  $("wfout").innerHTML = `<option value="0">- (silent)</option>` + p.blocks.map((bk, i) => bk.type ? `<option value="${i + 1}">${i + 1} ${wfEsc(N.types[bk.type])}</option>` : "").join("");
+  $("wfout").innerHTML = `<option value="0">- (silent)</option><option value="${WF.nb + 1}">AUTO (${heard >= 0 ? "now " + (heard + 1) : "the AUDIO blocks"})</option>` + p.blocks.map((bk, i) => bk.type ? `<option value="${i + 1}">${i + 1} ${wfEsc(N.types[bk.type])}</option>` : "").join("");
   $("wfout").value = String(p.out);
   $("wfpoly").value = String(p.voices);
   const sets = [`<option value="0">-</option>`];
@@ -1219,7 +1220,7 @@ function wfInspector(t, p, sel) {
               : `<div class="wfrow"><input type="range" min="0" max="127" value="${v}" data-set="${k}" aria-label="${wfEsc(N.label[bk.type][k])}"><output>${v}</output></div>`;
     });
     h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfbmove"${bk.bMoves ? " checked" : ""}> Input B moves ${wfEsc(N.label[bk.type][1])} (B MOVES)</label>`;
-    h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfisout"${p.out === sel + 1 ? " checked" : ""}> This block is the voice's output</label>`;
+    h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfisout"${p.out === sel + 1 ? " checked" : ""}> This block is the voice's output (off = AUTO)</label>`;
   }
   ins.innerHTML = h;
   const set = (f, i, v) => { rv.web_wf_set(t, f, i, v); WF.sig = ""; };
@@ -1233,7 +1234,7 @@ function wfInspector(t, p, sel) {
   const bmv = $("wfbmove");
   if (bmv) bmv.addEventListener("change", e => set(9, sel, e.target.checked ? 1 : 0));
   const ob = $("wfisout");
-  if (ob) ob.addEventListener("change", e => set(5, 0, e.target.checked ? sel + 1 : 0));
+  if (ob) ob.addEventListener("change", e => set(5, 0, e.target.checked ? sel + 1 : WF.nb + 1));
 }
 function wfSig(t) {
   const p = wfRead(t);
@@ -1252,6 +1253,7 @@ function wfSync() {
 }
 function wfScopes() {
   if ($("wfon").hidden) return;
+  if (rv.web_wf_watch) rv.web_wf_watch();
   for (let b = 0; b < WF.nb; b++) {
     const el = document.getElementById("wfsc" + b);
     if (!el) continue;

@@ -926,8 +926,8 @@ static kinfo_t kb_info(kb_t k)
     }
     case K_WF: {                                      /* WEFT: the patch's routing (the settings are TP, page_knob) */
         static const char *const nm[16] = {"BLOCK", "TYPE", "IN A", "AMT A", "IN B", "AMT B", "", "", "KNOB", "SETTING", "", "", "", "", "OUT", ""};
-        static char src[WS_N][10], set[WF_SETS + 1][14], outn[WF_BLOCKS + 1][10];
-        static const char *srcp[WS_N], *setp[WF_SETS + 1], *outp[WF_BLOCKS + 1];
+        static char src[WS_N][10], set[WF_SETS + 1][14], outn[WF_BLOCKS + 2][10];
+        static const char *srcp[WS_N], *setp[WF_SETS + 1], *outp[WF_BLOCKS + 2];
         static const char *const blk[WF_BLOCKS] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}, *const kn[4] = {"1", "2", "3", "4"};
         static const char *typ[WO_N];
         const rv_weft *w = &rv.weft[ui.track];
@@ -976,7 +976,8 @@ static kinfo_t kb_info(kb_t k)
                 sx_cat(outn[i + 1], w->type[i] ? wf_types[w->type[i] % WO_N].name : "-");
                 outp[i + 1] = outn[i + 1];
             }
-            r.max = WF_BLOCKS; r.fmt = PF_ENUM; r.names = outp; break;
+            outp[WF_OUT_AUTO] = "AUTO";              /* (the last block, or the AUDIO blocks) */
+            r.max = WF_OUT_AUTO; r.fmt = PF_ENUM; r.names = outp; break;
         default: r.name = 0; break;
         }
         break;
@@ -1219,7 +1220,7 @@ static int kb_get(kb_t k)
         case 5: return w->amtb[b];
         case 8: return ui.wf_map & 3;
         case 9: return w->map[ui.wf_map & 3] % (WF_SETS + 1);
-        case 14: return w->out % (WF_BLOCKS + 1);
+        case 14: return w->out % (WF_OUT_AUTO + 1);
         case 16: { uint8_t l[64]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
         case 17: return rv_bank_current();
         case 18: return ui.wl_cursor + 1;
@@ -1601,7 +1602,7 @@ static void kb_set(kb_t k, int v)
                 w->bmove &= (uint16_t)~(1u << b);      /* (B back to its own job) */
                 weft_block_defaults(ui.track, b);
                 if (v && !w->out)
-                    w->out = (uint8_t)(b + 1);       /* (the first block made is heard) */
+                    w->out = WF_OUT_AUTO;           /* (a new patch: the last block is heard) */
             }
             break;
         case 2: w->a[b] = (uint8_t)v; if (v && !w->amta[b]) w->amta[b] = 100; break;
@@ -3087,6 +3088,32 @@ static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEA
 }
 
 static int moom_on(void);
+/* VIOLENCE, WEFT's sources V TAP, V HELD and V TURN: how hard the panel is being played. Each key struck adds to
+ * TAP, which falls away over about half a second; HELD is how many keys are down; each knob detent adds to
+ * TURN, which falls away faster. 0..1 each */
+static void vio_turn(int d) { rv_live.vturn = fm_minf(1.0f, rv_live.vturn + (float)(d < 0 ? -d : d) * 0.05f); }
+static void vio_keys(uint32_t struck, uint32_t held)
+{
+    static uint32_t last;
+    uint32_t now = plat_ms(), k;
+    float dt = (float)(now - last) * 0.001f;
+    int n = 0;
+    if (struck) {
+        for (k = struck; k; k &= k - 1)
+            n++;
+        rv_live.vtap = fm_minf(1.0f, rv_live.vtap + (float)n * 0.22f);
+        return;
+    }
+    last = now;
+    if (dt > 0.2f)
+        dt = 0.2f;
+    rv_live.vtap *= 1.0f - dt / 0.55f;
+    rv_live.vturn *= 1.0f - dt / 0.35f;
+    for (k = held, n = 0; k; k &= k - 1)
+        n++;
+    rv_live.vheld += (fm_minf(1.0f, (float)n * (1.0f / 6.0f)) - rv_live.vheld) * fm_minf(1.0f, dt * 25.0f);
+}
+
 void ui_input_only(void)
 {
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
@@ -3125,6 +3152,7 @@ void ui_input_only(void)
     }
     buttons(btn);
     ch = keys ^ ui.prev_keys;
+    vio_keys(keys & ch, keys);
     for (i = 0; i < NKEYS; i++)
         if (ch & (1u << i))
             key_event(i, (keys >> i) & 1);
@@ -3153,9 +3181,11 @@ void ui_input_only(void)
     }
     for (i = 0; i < 4; i++) {
         d = plat_enc(EN_K1 + i);
+        vio_turn(d);
         if (d)
             knob_turn(i, accel(d, EN_K1 + i));
     }
+    vio_keys(0, keys);
 }
 
 /* ------------------------------------------------------------ drawing --- */
@@ -4547,19 +4577,19 @@ static void pic_stress(void)
  * platform's own reading and the blocks that came too late */
 static void pic_cpu(void)
 {
-    static const char *const nm[10] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TRACK FX", "BED", "FEEDBACK",
-                                       "DELAY", "SPACE", "MASTER"};
+    static const char *const nm[11] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TRACK FX", "BED", "FEEDBACK",
+                                       "DELAY", "SPACE", "MASTER", "WEFT"};
     int k;
     float tot = 0.0f;
     char b[40];
-    for (k = 0; k < 10; k++)
+    for (k = 0; k < 11; k++)
         tot += rv_live.prof[k];
     if (tot <= 0.0f) {
         g_text_c(120, PIC_Y + 40, &FONT_B, "NO CLOCK HERE", C_DIM);
         g_text_c(120, PIC_Y + 64, &FONT_T, "THE FM-1 AND THE SIMULATOR MEASURE IT", C_DIM);
         return;
     }
-    for (k = 0; k < 10; k++) {
+    for (k = 0; k < 11; k++) {
         int x = k < 6 ? 6 : 122, y = PIC_Y + 2 + (k % 6) * 15, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
         g_text(x, y, &FONT_T, nm[k], rv_live.prof[k] > 5.0f ? C_INK : C_DIM);
         g_fill(x + 60, y + 3, 50, 3, C_LINE);
@@ -4927,7 +4957,8 @@ static void wf_cord(int s, int d, int port, int lit)
 static __attribute__((noinline)) void pic_weft(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
-    int i, pass, sel = ui.wf_blk % WF_BLOCKS, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
+    rv_live.wf_view = 60;                            /* (the engine catches the scopes while they show) */
+    int i, pass, sel = ui.wf_blk % WF_BLOCKS, out = rv_weft_outb(ui.track);
     char b[48];
     for (pass = 0; pass < 2; pass++)                  /* cords under the tiles, those going back on top */
         for (i = 0; i < WF_BLOCKS; i++) {
@@ -4956,7 +4987,7 @@ static __attribute__((noinline)) void pic_weft(void)
             continue;
         }
         g_rbox(x, y, WF_BW, WF_BH, 4, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);
-        g_rbox(x, y, WF_BW, WF_BH, 4, i == out ? C_RED : on ? C_WHITE : C_KDIV, 0);
+        g_rbox(x, y, WF_BW, WF_BH, 4, i == out || ty == WO_AOUT ? C_RED : on ? C_WHITE : C_KDIV, 0);
         g_text(x + 3, y + 2, &FONT_T, n, on ? C_WHITE : C_DIM);
         g_text(x + (i < 9 ? 12 : 17), y + 2, &FONT_T, wf_types[ty].name, on ? C_WHITE : C_INK);
         wf_scope(i, x + 4, y + 14, WF_BW - 8, 14, on ? C_TEAL : C_MID);
@@ -4990,6 +5021,7 @@ static __attribute__((noinline)) void pic_weft(void)
 static __attribute__((noinline)) void pic_weftblk(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
+    rv_live.wf_view = 60;                            /* (the engine catches the scopes while they show) */
     int sel = ui.wf_blk % WF_BLOCKS, ty = w->type[sel] % WO_N, i, k, x, bm = (w->bmove >> sel) & 1u;
     char b[48], s1[16];
     for (k = 0; k < 2; k++) {                         /* A and B */
@@ -5031,7 +5063,10 @@ static __attribute__((noinline)) void pic_weftblk(void)
     wf_setting_str(ui.track, sel, 1, s1);
     g_text_c(120, 127, &FONT_T, ty ? s1 : "", C_TEAL);
     g_line(148, 119, 158, 119, C_INK);
-    g_text(160, 80, &FONT_T, w->out == sel + 1 ? "OUT: THE VOICE" : "OUT", w->out == sel + 1 ? C_RED : C_MID);
+    {
+        int heard = rv_weft_outb(ui.track) == sel || ty == WO_AOUT;
+        g_text(160, 80, &FONT_T, heard ? "OUT: HEARD" : "OUT", heard ? C_RED : C_MID);
+    }
     g_rbox(158, 91, 76, 72, 4, C_PANEL, 1);
     if (ty)
         wf_scope(sel, 162, 95, 68, 64, C_TEAL);
@@ -5058,7 +5093,7 @@ static __attribute__((noinline)) void pic_weftblk(void)
                 k++;
             }
     if (!k)
-        sx_cat(b, w->out == sel + 1 ? "THE OUTPUT" : "NOWHERE YET");
+        sx_cat(b, rv_weft_outb(ui.track) == sel || ty == WO_AOUT ? "THE OUTPUT" : "NOWHERE YET");
     g_text(8, 198, &FONT_T, b, C_DIM);
 }
 
@@ -5092,7 +5127,16 @@ static __attribute__((noinline)) void pic_weftmap(void)
     g_hline(6, 170, 228, C_LINE);
     {
         kb_t ko = {K_WF, 14};
-        kb_format(ko, w->out % (WF_BLOCKS + 1), s1);
+        kb_format(ko, w->out % (WF_OUT_AUTO + 1), s1);
+        if (w->out == WF_OUT_AUTO) {                  /* (AUTO: which one that is now) */
+            int ob = rv_weft_outb(ui.track);
+            s1[0] = 0;
+            sx_cat(s1, "AUTO: ");
+            if (ob >= 0)
+                sx_int(s1 + 6, ob + 1);
+            else
+                sx_cat(s1, "AUDIO");
+        }
         g_text(12, 176, &FONT_T, "OUT", C_MID);
         g_text(64, 176, &FONT_T, w->out ? s1 : "- (SILENT)", w->out ? C_RED : C_DIM);
         g_text(150, 176, &FONT_T, rv_weft_poly(ui.track) > 1 ? "VOICES 2" : "VOICES 1", C_INK);
@@ -5153,7 +5197,8 @@ static __attribute__((noinline)) void pic_weftlib(void)
 static __attribute__((noinline)) void pic_weftplay(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
-    int i, k, out = w->out ? (w->out - 1) % WF_BLOCKS : -1;
+    rv_live.wf_view = 60;                            /* (the engine catches the scopes while they show) */
+    int i, k, out = rv_weft_outb(ui.track);
     g_rbox(6, 78, 228, 76, 5, C_PANEL, 1);
     if (out >= 0 && w->type[out])
         wf_scope(out, 12, 82, 216, 68, C_TEAL);

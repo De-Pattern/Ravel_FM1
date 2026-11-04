@@ -22,14 +22,18 @@ enum {
     WO_STRING, WO_CHAOS, WO_CRUSH, WO_EDGE,             /* a plucked string; a logistic map; fewer bits; a click at each rise */
     WO_FOLLOW, WO_SHAPE, WO_CHEBY, WO_FORMANT,          /* an envelope follower; waveshapers; a steep low pass; vowels */
     WO_VOCODER, WO_RMOD, WO_NOISE, WO_RUNGLER, WO_LISSA,   /* a vocoder; a ring modulator; coloured noise; a shift register; a 2-D LFO */
+    WO_AOUT, WO_SEQ,                                    /* outputs: into the track's sound (mixed); a track's sequencer */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
+#define WO_ISOUT(t) ((t) == WO_OCLK || (t) == WO_OMOD || (t) == WO_AOUT || (t) == WO_SEQ)   /* (not heard as OUT AUTO's last block) */
+#define WF_OUT_AUTO (WF_BLOCKS + 1)                     /* OUT: the last block that isn't an output (or the AUDIO OUTs alone) */
 #define WO_SLOT(t) (WO_MODES(t) || (t) == WO_CHEBY || (t) == WO_FORMANT || (t) == WO_VOCODER)   /* (blocks with a bank of filters: three to a patch) */
 
 /* the sources an input can take besides a block (1-12) */
 enum { WS_NONE = 0, WS_PITCH = WF_BLOCKS + 1, WS_GATE, WS_TRIG, WS_VEL, WS_NOISE, WS_LFO1, WS_LFO2, WS_WHEEL, WS_ONE,
-       WS_SW1, WS_SW2, WS_SW3, WS_SW4, WS_LISY, WS_N };   /* LISY: a LISSA's second output */
+       WS_SW1, WS_SW2, WS_SW3, WS_SW4, WS_LISY, WS_TAP, WS_HELD, WS_TURN, WS_N };   /* LISY: a LISSA's second output; TAP HELD TURN:
+                                                                                    * VIOLENCE, how hard the panel is being played */
 #define WS_MENU WS_N                                    /* the sources offered */
 /* (format 24's numbering: blocks 1-8, then PITCH at 9) */
 #define WS_OLD_PITCH 9
@@ -51,6 +55,9 @@ static const char *const wf_range[2] = {"-1..1", "0..1"};
 static const char *const wf_order[5] = {"UP", "DOWN", "PING", "RANDOM", "SELECT"};
 static const char *const wf_curve[7] = {"TANH", "CLIP", "SINE", "CUBE", "CHEB3", "STEPS", "ASYM"};
 static const char *const wf_rlen[6] = {"3", "4", "5", "6", "7", "8"};
+static const char *const wf_trk[8] = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
+static const char *const wf_smode[5] = {"STEP", "JUMP", "RESTART", "GATE", "PATTERN"};
+enum { WSQ_STEP, WSQ_JUMP, WSQ_RESTART, WSQ_GATE, WSQ_PATTERN };
 static const char *const wf_lratio[9] = {"1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "3:5", "5:4"};
 static const uint8_t wf_lratio_v[9][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, {3, 4}, {4, 3}, {3, 5}, {5, 4}};   /* X turns, Y turns */
 enum { WSW_UP, WSW_DOWN, WSW_PING, WSW_RANDOM, WSW_SELECT };
@@ -108,6 +115,8 @@ static const wf_type_t wf_types[WO_N] = {
     {"NOISE", "COLOR", "RATE", "RATE", "COLOR", 64, 127, 0, 0, 0, 0},
     {"RUNGLER", "LOOP", "LENGTH", "CLOCK", "DATA", 64, 5, 0, 6, 0, wf_rlen},
     {"LISSA", "RATE", "RATIO", "RATE", "PHASE", 30, 3, 0, 9, 0, wf_lratio},
+    {"AUDIO", "LEVEL", "TONE", "IN", "LEVEL", 100, 64, 0, 0, 0, 0},
+    {"SEQ OUT", "TRACK", "MODE", "TRIG", "WHERE", 1, 0, 8, 5, wf_trk, wf_smode},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -164,11 +173,13 @@ static const char *const wf_desc[WO_N] = {
     "NOISE, DARK TO BRIGHT, HELD",
     "A SHIFT REGISTER'S 3 BITS",
     "X; ITS Y IS THE SOURCE LIS Y",
+    "A INTO THE TRACK, MIXED",
+    "A'S RISES MOVE A TRACK'S STEPS",
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
                                                "PITCH", "GATE", "TRIG", "VEL", "NOISE", "LFO 1", "LFO 2", "WHEEL", "ONE",
-                                               "SW 1", "SW 2", "SW 3", "SW 4", "LIS Y"};
+                                               "SW 1", "SW 2", "SW 3", "SW 4", "LIS Y", "V TAP", "V HELD", "V TURN"};
 
 /* the factory patches (PRESETS on the WEFT pages): blocks as {type, a, amt a, b, amt b, p1, p2} */
 typedef struct { uint8_t t, a; int8_t aa; uint8_t b; int8_t ab; uint8_t p1, p2; } wf_blk_t;
@@ -301,6 +312,13 @@ static const wf_preset_t wf_presets[] = {
       {WO_BP, 1, 100, WS_LISY, 60, 85, 115}, {WO_ADD, 3, 100, 4, 100, 64, 64}, {WO_SLEW, WS_GATE, 100, 0, 0, 60, 80},
       {WO_MULT, 5, 100, 6, 100, 64, 127}},
      7, 1, {WM(1, 0), WM(2, 0), WM(3, 1), WM(4, 1)}, 0},
+    {"VIOLENCE",      /* play the panel hard: strikes thicken the dust that steps T3, turning a knob unsettles the chaos that
+                       * jumps T4 about, a hard strike restarts T2; held keys bend a ring; all of it struck and clipped */
+     {{WO_DUST, WS_TAP, 100, 0, 0, 30, 60}, {WO_SEQ, 1, 100, 0, 0, 2, WSQ_STEP}, {WO_TICK, 0, 0, 0, 0, 6, 127},
+      {WO_CHAOS, 3, 100, WS_TURN, 100, 100, 60}, {WO_SEQ, 3, 100, 4, 100, 3, WSQ_JUMP}, {WO_SEQ, WS_TAP, 100, 0, 0, 1, WSQ_RESTART},
+      {WO_RING, 1, 100, WS_HELD, 40, 9, 45}, {WO_RING, 3, 100, 4, 25, 4, 60}, {WO_ADD, 7, 100, 8, 100, 64, 64},
+      {WO_SAT, 9, 100, WS_TAP, 100, 50, 64}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 50}, {WO_MULT, 10, 100, 11, 100, 64, 64}},
+     12, 1, {WM(1, 0), WM(4, 0), WM(10, 0), WM(7, 1)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

@@ -342,14 +342,14 @@ EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
             w->bmove &= (uint16_t)~(1u << b);
             rv_weft_block_defaults(t, b);
             if (v && !w->out)
-                w->out = (uint8_t)(b + 1);
+                w->out = WF_OUT_AUTO;
         }
         break;
     case 1: w->a[b] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
     case 2: w->b[b] = (uint8_t)(v < 0 || v >= WS_N ? 0 : v); break;
     case 3: w->amta[b] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
     case 4: w->amtb[b] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v); break;
-    case 5: w->out = (uint8_t)(v < 0 || v > WF_BLOCKS ? 0 : v); break;
+    case 5: w->out = (uint8_t)(v < 0 || v > WF_OUT_AUTO ? 0 : v); break;
     case 6: w->map[i & 3] = (uint8_t)(v < 0 || v > WF_SETS ? 0 : v); break;
     case 7: rv.tp[t & 7][wf_sp(i)] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
     case 8: rv.tp[t & 7][TP_POLY] = (int16_t)(v ? 1 : 0); break;
@@ -359,10 +359,13 @@ EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
     ui_weft_touch(t, -1);
 }
 EXPORT(web_wf_scope) int web_wf_scope(int b, int k) { return rv_live.wscope[(unsigned)b % WF_BLOCKS][k & 31]; }
+EXPORT(web_wf_watch) void web_wf_watch(void) { rv_live.wf_view = 60; }   /* (the patcher shows the scopes) */
 EXPORT(web_wf_voices) int web_wf_voices(void) { return rv_live.wvoices; }
 EXPORT(web_wf_ntypes) int web_wf_ntypes(void) { return WO_N; }
 EXPORT(web_wf_nsrc) int web_wf_nsrc(void) { return WS_MENU; }
 EXPORT(web_wf_nblocks) int web_wf_nblocks(void) { return WF_BLOCKS; }
+int rv_weft_outb(int t);
+EXPORT(web_wf_outb) int web_wf_outb(int t) { return rv_weft_outb(t); }   /* the block heard (OUT, or AUTO's), -1 none */
 EXPORT(web_wf_type_name) const char *web_wf_type_name(int k) { return wf_types[(unsigned)k % WO_N].name; }
 EXPORT(web_wf_desc) const char *web_wf_desc(int k) { return wf_desc[(unsigned)k % WO_N]; }
 /* what a type calls its settings (s 0, 1) and inputs (s 2: A, 3: B) */
