@@ -3188,8 +3188,12 @@ void ui_input_only(void)
     for (i = 0; i < 4; i++) {
         d = plat_enc(EN_K1 + i);
         vio_turn(d);
-        if (d)
-            knob_turn(i, accel(d, EN_K1 + i));
+        if (d) {                                      /* (a short list, a few choices: one a detent, never sped up) */
+            kb_t k = page_knob(cur_page(), i);
+            int small = k.kind == K_LRN || (k.kind != K_NONE && kb_info(k).max - kb_info(k).min <= 15);
+            int a = accel(d, EN_K1 + i);
+            knob_turn(i, small ? (d > 0 ? 1 : -1) : a);
+        }
     }
     vio_keys(0, keys);
 }

@@ -718,7 +718,7 @@ static hold_t hold[RV_TRACKS];
 /* the keys (and MIDI notes) down on each track now, whatever its mode: HOLD switched on takes these, so
  * a chord you're already holding stays when you let go */
 static hold_t keys_down[RV_TRACKS];
-static uint8_t hold_was[RV_TRACKS];
+static uint8_t hold_was[RV_TRACKS], latch_was[RV_TRACKS];
 static void keys_down_on(int t, int note)
 {
     hold_t *k = &keys_down[t];
@@ -944,6 +944,20 @@ static void arp_control(void)
             a->n = 0;
             a->down = 0;
         }
+        if (latch_was[t] && !rv.tp[t][TP_ARPLATCH] && a->n) {   /* the arp's HOLD switched off: the notes no key holds go */
+            for (i = a->n - 1; i >= 0; i--) {
+                int k, held = 0;
+                for (k = 0; k < keys_down[t].n; k++)
+                    held |= keys_down[t].note[k] == a->note[i];
+                if (!held && (!a->down || a->live[i]))
+                    arp_drop(a, i);
+            }
+            if (!a->n) {
+                arp_silence(t);
+                a->down = 0;
+            }
+        }
+        latch_was[t] = (uint8_t)(rv.tp[t][TP_ARPLATCH] != 0);
         if (hold[t].n && !hold_on(t))              /* HOLD off (or the arp on): what it held goes */
             hold_release(t);
         if (!hold_on(t))

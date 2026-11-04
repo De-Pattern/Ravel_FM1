@@ -1700,7 +1700,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **Flash:** the app is about 200 KB of the 568 KB app slot.
 - **RAM:** the platform uses about 45 KB of the 96 KB main RAM; the instrument's state (voices, buses; the 120 KB the tape used is free) about 280 KB of the 336 KB pool.
 - **Storage:** eight project slots of 32 KB in the flash's data area; the panel calibration beside them.
-- **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable). MIDI in on the TRS jack too: notes, CC 1, clock, start and stop (GLO › MIDI IN).
+- **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable): a class-compliant stereo input, 16-bit at 44.1 kHz, that needs no setting on the FM-1 or driver on the computer. On a Mac it is **Ravel FM-1** in Audio MIDI Setup and in any recording app's input list (set the app to 44.1 kHz); on Windows a recording device of that name. One stereo pair, the main mix: no separate tracks over USB. MIDI in on the TRS jack too: notes, CC 1, clock, start and stop (GLO › MIDI IN).
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
 - **Not in this version:** Bluetooth, audio input.
 

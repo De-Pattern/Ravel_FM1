@@ -36,6 +36,25 @@ wait 60
 key 14 up
 wait 300
 expect arpn 1 1
+# HOLD off with no key down: the arp stops (issue 3); on again, a chord held through it stays
+turn K4 -1
+wait 100
+expect tp 1 HOLD 0
+expect arpn 1 0
+turn K4 1
+wait 100
+key 12 down
+key 16 down
+wait 100
+turn K4 -1
+wait 100
+expect arpn 1 2
+key 12 up
+key 16 up
+wait 100
+expect arpn 1 0
+turn K4 1
+wait 100
 turn K1 -8
 wait 120
 expect tp 1 ARP 0
