@@ -444,12 +444,13 @@ All signals run about −1 to +1; SLOPE and SLEW run 0 to 1 (envelopes). An inpu
 
 <p align="center"><img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
 
-The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds the factory patches (**F1–F26**) and then the slots of the current sound bank (**A1…**): the empty ones and those holding WEFT patches (slots holding other sounds are left out). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
+The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds **your patches** first (the WEFT sounds in the current sound bank, **A1…**), then **+ NEW** (the bank's first empty slot), then the factory patches (**F1–F26**). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
 
 - **KNOB 1 (PATCH)** (or PRESETS) moves through the list; **KNOB 2 (BANK)** picks bank A–D.
 - **Black key 1: LOAD** the highlighted patch onto the track.
-- **Black key 2: SAVE** the track's patch into the highlighted bank slot (it is named *PATCH n* at first). Saving over one of yours asks you to press it again.
+- **Black key 2: SAVE** the track's patch. On one of yours it overwrites it (press twice); anywhere else (**+ NEW**, or a factory patch, as when you have just made something from the default patch) it goes into the first empty slot at once, named *PATCH n*, and the cursor moves onto it so KNOB 3–4 can name it.
 - **Black key 3: DELETE** the highlighted patch of yours; press it again to confirm. Factory patches can't be deleted.
+- **Black key 4: INIT** starts the track again from the INIT patch (a saw, a low pass, an envelope); **black key 5: CLEAR** empties every block, to build from nothing. Each asks for a second press.
 - **KNOB 3 (CURSOR)** and **KNOB 4 (LETTER)** rename the highlighted patch of yours, a letter at a time (the cursor is underlined); the name is kept a moment after you stop turning.
 - The white keys still play the track. **ON THIS TRACK** at the bottom names the patch the track is playing.
 
@@ -1536,7 +1537,7 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 | Loop: sequence it | SEQ › GLITCH TRIGS: KNOB 2 = REC or PLAY, tap a step; hold a step + tap another for a section |
 | Effects back from the looper | GLITCH INPUT, KNOB 4 (LOOPER) = OFF, or KIND back |
 | Patch a voice from blocks | EDIT › SOUND, KIND = WEFT; WEFT PATCH: KNOB 1 block, 2 type, 3–4 input A; WEFT BLOCK: input B, settings |
-| Load, save, delete WEFT patches | WEFT LIBRARY: KNOB 1 picks, black key 1 load, 2 save, 3 delete (twice); KNOB 3–4 rename |
+| Load, save, delete WEFT patches | WEFT LIBRARY: KNOB 1 picks, black key 1 load, 2 save (into a new slot unless on one of yours), 3 delete, 4 INIT, 5 CLEAR (twice each); KNOB 3–4 rename |
 | WEFT: input B moves a setting | WEFT BLOCK: black key 1 |
 | WEFT: a sequential switch | SW 1>4 (outs SW 1–4 in the input menus) or SW 4>1 (A: the first of four in a row) |
 | A WEFT patch clocks a sequencer | CLK OUT in the patch; that track's TRACK › CLOCK = WEFT |

@@ -1,5 +1,6 @@
-# WEFT LIBRARY: the factory patches and your own, in the sound bank: save into an empty slot, name it,
-# load another, load yours back, delete it (twice)
+# WEFT LIBRARY: your patches first, then NEW, then the factory ones. A patch made from the default (INIT) saves
+# at once (onto NEW: the first empty slot), and so does one loaded from a factory patch, wherever the cursor is;
+# name it, load, INIT and CLEAR (twice each), delete (twice), overwrite (twice)
 wait 300
 kind 1 6
 tap EDIT
@@ -8,32 +9,61 @@ wait 50
 turn SELECT 5
 wait 100
 expect page WEFT LIBRARY
-turn PRESET 2
-wait 50
-tapkey 1
-wait 100
-expect wtype 1 1 1
-turn PRESET 24
-wait 50
+# the default patch, a setting changed, saved: A1
+wset 1 7 1 100
 tapkey 3
 wait 200
 expect soundused 1 6
 turn K4 3
 wait 100
-tapkey 1
-wait 100
-turn PRESET -26
-wait 50
-tapkey 1
-wait 100
-expect wtype 1 1 2
-turn PRESET 26
+# F2 (SYNC LEAD) loaded and saved as it is, the cursor still on it: A2
+turn PRESET 3
 wait 50
 tapkey 1
 wait 100
 expect wtype 1 1 1
-tapkey 5
+tapkey 3
+wait 200
+expect soundused 2 6
+# back to A1 (above A2), loaded
+turn PRESET -1
+wait 50
+tapkey 1
+wait 100
+expect wtype 1 1 2
+# A2 loaded (SYNC LEAD); INIT, then CLEAR: each asks twice
+turn PRESET 1
+wait 50
+tapkey 1
+wait 100
+expect wtype 1 1 1
+tapkey 8
 wait 400
+expect wtype 1 1 1
+tapkey 8
+wait 100
+expect wtype 1 1 2
+expect wtype 1 4 10
+tapkey 10
+wait 400
+tapkey 10
+wait 100
+expect wtype 1 1 0
+expect wtype 1 4 0
+# delete A1 (twice); A2 is first now: saving onto it asks twice
+turn PRESET -1
+wait 50
+tapkey 5
+wait 300
 tapkey 5
 wait 200
 expect soundused 1 -1
+expect soundused 2 6
+tapkey 3
+wait 400
+tapkey 3
+wait 200
+expect soundused 2 6
+tapkey 1
+wait 100
+expect wtype 1 1 0

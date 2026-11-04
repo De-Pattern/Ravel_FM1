@@ -323,7 +323,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR };   /* (CONF_SCENE + the scene) */
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -702,18 +702,37 @@ static int other_loop_track(int t)                    /* another track is LOOP a
     return 0;
 }
 
-/* WEFT LIBRARY: the factory patches, then the bank's WEFT sounds and its empty slots (other sounds left out).
- * An entry: 0..WF_NPRESETS-1 a factory patch, 100 + i bank slot i */
+/* WEFT LIBRARY: your patches (the bank's WEFT sounds), then NEW (the first empty slot, to save into), then the
+ * factory patches. An entry: 0..WF_NPRESETS-1 a factory patch, 100 + i bank slot i, WL_NEW */
+#define WL_NEW 250
 static void wl_name_set(int t, const char *n);
+static int wl_free(void)
+{
+    int i;
+    for (i = 0; i < 32; i++)
+        if (!rv_bank_used(i))
+            return i;
+    return -1;
+}
 static __attribute__((noinline)) int wl_list(uint8_t *out)
 {
     int i, n = 0;
+    for (i = 0; i < 32; i++)
+        if (rv_bank_used(i) && rv_bank_kind(i) == KIND_WEFT)
+            out[n++] = (uint8_t)(100 + i);
+    if (wl_free() >= 0)
+        out[n++] = WL_NEW;
     for (i = 0; i < rv_weft_presets(); i++)
         out[n++] = (uint8_t)i;
-    for (i = 0; i < 32; i++)
-        if (!rv_bank_used(i) || rv_bank_kind(i) == KIND_WEFT)
-            out[n++] = (uint8_t)(100 + i);
     return n;
+}
+static void wl_point(int e)                          /* the cursor onto entry e */
+{
+    uint8_t l[64];
+    int n = wl_list(l), i;
+    for (i = 0; i < n; i++)
+        if (l[i] == e)
+            ui.wl_sel = (uint8_t)i;
 }
 static int wl_entry(void)
 {
@@ -1989,41 +2008,49 @@ static void wl_name_set(int t, const char *n)
 }
 static __attribute__((noinline)) void wl_do(int act)
 {
-    int t = ui.track, e = wl_entry(), slot = e - 100;
+    int t = ui.track, e = wl_entry(), slot = e >= 100 && e < WL_NEW ? e - 100 : -1, k;
     char b[32];
     bank_keep();
     if (act == 0) {                                   /* LOAD */
-        if (e < 100) {
+        if (e == WL_NEW) {
+            msg("NEW: SAVE THIS TRACK'S PATCH HERE");
+            return;
+        }
+        if (slot < 0) {
             weft_preset_apply(t, e);
             ui.wf_pre[t] = (int8_t)e;
             wl_name_set(t, rv_weft_preset_name(e));
-        } else if (rv_bank_used(slot)) {
+        } else {
             if (rv_bank_apply(t, slot))
                 return;
             ui.wf_pre[t] = -1;
             wl_name_set(t, rv_bank_name(slot));
-        } else {
-            msg("AN EMPTY SLOT: NOTHING TO LOAD");
-            return;
         }
         b[0] = 0;
         sx_cat(b, "LOADED ");
         sx_cat(b, ui.wf_name[t]);
         msg(b);
-    } else if (act == 1) {                            /* SAVE */
-        if (e < 100) {
-            msg("SAVE INTO ONE OF YOUR SLOTS (BELOW)");
+    } else if (act == 1) {                            /* SAVE: onto one of yours (twice), else into the first empty slot */
+        int fresh = slot < 0;
+        if (fresh)
+            slot = wl_free();
+        if (slot < 0) {
+            msg("BANK FULL: DELETE ONE, OR KNOB 2: BANK");
             return;
         }
-        if (rv_bank_used(slot) && !confirmed(CONF_WSAVE, "AGAIN: OVERWRITE IT"))
+        if (!fresh && !confirmed(CONF_WSAVE, "AGAIN: OVERWRITE IT"))
             return;
-        if (!ui.wf_name[t][0] || (ui.wf_pre[t] >= 0 && !rv_bank_used(slot))) {   /* (a new name, from the slot) */
+        for (k = 0; k < rv_weft_presets(); k++)       /* (still a factory patch's name: a name of its own) */
+            if (!sx_cmp(ui.wf_name[t], rv_weft_preset_name(k)))
+                ui.wf_name[t][0] = 0;
+        if (!ui.wf_name[t][0]) {
             b[0] = 0;
             sx_int(b + sx_cat(b, "PATCH "), slot + 1);
-            if (!ui.wf_name[t][0])
-                wl_name_set(t, b);
+            wl_name_set(t, b);
         }
         if (rv_bank_store(t, slot, ui.wf_name[t]) == 0) {
+            wl_point(100 + slot);                     /* (on it: KNOB 3-4 name it) */
+            ui.wl_cursor = 0;
             b[0] = 0;
             sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), slot + 1);
             sx_cat(b, " SAVED: NAME IT 3-4");
@@ -2031,8 +2058,8 @@ static __attribute__((noinline)) void wl_do(int act)
             ui.wf_pre[t] = -1;
         } else
             msg("SAVE FAILED");
-    } else {                                          /* DELETE */
-        if (e < 100 || !rv_bank_used(slot)) {
+    } else if (act == 2) {                            /* DELETE */
+        if (slot < 0) {
             msg("ONLY YOUR OWN PATCHES DELETE");
             return;
         }
@@ -2040,6 +2067,21 @@ static __attribute__((noinline)) void wl_do(int act)
             return;
         rv_bank_clear(slot);
         msg("DELETED");
+    } else if (act == 3) {                            /* INIT: the INIT patch (a saw, a low pass, an envelope) */
+        if (!confirmed(CONF_WINIT, "AGAIN: START FROM INIT"))
+            return;
+        weft_preset_apply(t, 0);
+        ui.wf_pre[t] = 0;
+        wl_name_set(t, rv_weft_preset_name(0));
+        msg("INIT: A SAW, A LOW PASS, AN ENVELOPE");
+    } else {                                          /* CLEAR: no blocks at all */
+        if (!confirmed(CONF_WCLR, "AGAIN: CLEAR EVERY BLOCK"))
+            return;
+        __builtin_memset(&rv.weft[t], 0, sizeof rv.weft[t]);
+        ui.wf_pre[t] = -1;
+        ui.wf_blk = 0;
+        wl_name_set(t, "");
+        msg("EMPTY: MAKE BLOCKS ON WEFT PATCH");
     }
 }
 
@@ -2663,7 +2705,7 @@ static void key_event(int k, int on)
         return;
     }
     /* --- WEFT LIBRARY: black keys 1-3 load, save, delete; the rest play --- */
-    if (cur_page()->pic == PIC_WEFTLIB && bi >= 0 && bi < 3) {
+    if (cur_page()->pic == PIC_WEFTLIB && bi >= 0 && bi < 5) {
         if (on)
             wl_do(bi);
         return;
@@ -3333,7 +3375,7 @@ static void draw_footer(void)
     case PR_SLOT: hint = ui.save_confirm ? (ui.save_action == 6 ? "PRESS SAVE AGAIN TO CLEAR IT" : "PRESS SAVE AGAIN TO CONFIRM")
                        : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
-    case PR_WLIB: hint = "BLK1 LOAD BLK2 SAVE BLK3 DEL"; break;
+    case PR_WLIB: hint = "BLK: LD SV DEL INIT CLR"; break;
     case PR_WEFT:
         hint = pg->pic == PIC_WEFTBLK ? "BLK1: WHAT B MOVES" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
         break;
@@ -5069,10 +5111,17 @@ static __attribute__((noinline)) void pic_weftlib(void)
     if (top < 0)
         top = 0;
     for (i = 0; i < 9 && top + i < n; i++) {
-        int e = l[top + i], y = 78 + i * 14, on = top + i == sel, mine = e >= 100;
-        uint16_t c = on ? C_WHITE : mine && !rv_bank_used(e - 100) ? C_DIM : C_INK;
+        int e = l[top + i], y = 78 + i * 14, on = top + i == sel, mine = e >= 100 && e < WL_NEW;
+        uint16_t c = on ? C_WHITE : C_INK;
         if (on)
             g_rbox(4, y - 1, 232, 14, 3, g_mix(C_PANEL, C_INK, 0.12f), 1);
+        if (e == WL_NEW) {                            /* NEW: where SAVE puts a patch of your own */
+            b[0] = 0;
+            sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), wl_free() + 1);
+            g_text(10, y + 1, &FONT_T, b, on ? C_WHITE : C_DIM);
+            g_text(40, y + 1, &FONT_T, "+ NEW: SAVE HERE (BLK 2)", on ? C_WHITE : C_TEAL);
+            continue;
+        }
         b[0] = 0;
         if (mine)
             sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), e - 99);
@@ -5091,8 +5140,8 @@ static __attribute__((noinline)) void pic_weftlib(void)
                 g_hline(cx, y + 11, 5, C_TEAL);
             }
         } else
-            g_text(40, y + 1, &FONT_T, mine ? "- EMPTY -" : rv_weft_preset_name(e), c);
-        g_text_r(232, y + 1, &FONT_T, mine ? (rv_bank_used(e - 100) ? "YOURS" : "") : "FACTORY", C_DIM);
+            g_text(40, y + 1, &FONT_T, rv_weft_preset_name(e), c);
+        g_text_r(232, y + 1, &FONT_T, mine ? "YOURS" : "FACTORY", C_DIM);
     }
     b[0] = 0;
     sx_cat(b, "ON THIS TRACK: ");
