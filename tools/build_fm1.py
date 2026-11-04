@@ -214,6 +214,7 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/fm1/hal", "-Ifirmware/fm1/src", "-Ifirmware/app", "-Ibuild/gen"]
+    subprocess.run([sys.executable, "tools/gen_words.py", "firmware/words.tsv", "web/words", "build/gen/ann_words.h"], check=True)   # the screen reader's link
     for flag in ("RAVEL_CDC", "RAVEL_UAC", "RAVEL_TRS", "RAVEL_FAST"):
         v = os.environ.get(flag)    # unset: the default in firmware/fm1/src/ravel_fm1.c
         if v in ("0", "1"):

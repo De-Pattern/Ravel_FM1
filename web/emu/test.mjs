@@ -68,14 +68,6 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   check(cstr(rv.web_bank_name(0)) === 'OLD KIT' && cstr(rv.web_bank_kind_label(0)) === 'KIT' && rv.rv_store_len(9) > 10000,
         'an old bank moves to bank A');
 }
-{                                                           // the hidden game's level 2: inside the call, a portal lets a ghoul out
-  rv.web_moom_level(1); for (let k = 0; k < 16; k++) rv.rv_run(250);
-  rv.web_moom_pose(9.5, 6.2, -Math.PI / 2); for (let k = 0; k < 12; k++) rv.rv_run(250);
-  const px = new Uint16Array(rv.memory.buffer, rv.rv_fb(), 240 * 240);
-  check(rv.web_moom_on() === 1 && new Set(px).size > 40, 'MOOM level 2 runs');
-  rv.web_moom(); rv.rv_run(50);
-  check(rv.web_moom_on() === 0, 'MOOM leaves');
-}
 {                                                           // the FILTER ENV: a project from before it (format 11) gets one copied from the volume envelope
   const ATK = 23, DEC = 26, SUS = 27, REL = 29, FATK = 81, FDEC = 83, FSUS = 84, FREL = 88, FLOOP = 91;
   const pj = FIX.find(e => e.slot === 3).data;                 // a 96-parameter project, marked as from before format 12

@@ -16,9 +16,11 @@
  *   wav FILE | wavstop            record the output
  *   shot FILE.png                 save the screen
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
+ *   listen | where                a screen reader listens (HELLO every 2 s) | asks for the whole screen
+ *   said TEXT                     the screen reader heard TEXT since the last said
+ *   speakdump                     every page and list value as the screen reader gets it (KIND<tab>text), to stdout
  *   intro                         the start screen (the FM-1 plays it at power-on)
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
- *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
  *   preset T I                    sound preset I (0: the first) onto track T
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
@@ -57,9 +59,6 @@
 #include "host_core.c"
 #include "../firmware/app/rv.h"
 const char *ui_page_title(void);
-void moom_warp(int lv);
-void moom_pose(float x, float y, float dir);
-void moom_clear(void);
 int ui_step_cur(void);
 void ui_intro(void);
 int rv_bank_used(int i);
@@ -288,6 +287,29 @@ static int find_gp(const char *s)
     return -1;
 }
 
+/* the screen reader's messages: kept for "said", and with RAVEL_SAID_LOG=FILE appended there (MSG or WARN <tab> text) */
+static char said_buf[8192];
+static FILE *said_log;
+static void said_hook(const uint8_t *p, uint32_t n)
+{
+    char t[256];
+    uint32_t i, k = 0;
+    size_t L = strlen(said_buf);
+    if (n < 8 || p[1] != 0x7D || p[2] != 0x53 || p[3] != 0x52 || p[4] != 16)
+        return;
+    for (i = 6; i + 1 < n && k < 255; i++)
+        t[k++] = (char)p[i];
+    t[k] = 0;
+    if (L + k + 3 < sizeof said_buf) {
+        strcat(said_buf, t);
+        strcat(said_buf, " | ");
+    }
+    if (said_log)
+        fprintf(said_log, "%s\t%s\n", p[5] & 2 ? "WARN" : "MSG", t);
+}
+void rv_speak_dump(void (*out)(const char *kind, const char *text));
+static void dump_out(const char *kind, const char *text) { printf("%s\t%s\n", kind, text); }
+
 int main(int argc, char **argv)
 {
     FILE *f;
@@ -303,7 +325,15 @@ int main(int argc, char **argv)
         perror(argv[1]);
         return 2;
     }
+    if (getenv("RAVEL_SAID_LOG"))
+        said_log = fopen(getenv("RAVEL_SAID_LOG"), "a");
+    host_sysex_hook = said_hook;
     boot();
+    if (said_log) {                                   /* (logging: a reader listens from the start) */
+        host_listen = 1;
+        host_hello_ms = now_ms;
+        host_ann(1);
+    }
     while (fgets(line, sizeof line, f)) {
         char a[64] = "", b[128] = "", c[64] = "";
         int n;
@@ -312,6 +342,26 @@ int main(int argc, char **argv)
             continue;
         if (!strcmp(a, "wait")) {
             run_ms((uint32_t)atoi(b));
+        } else if (!strcmp(a, "listen")) {    /* listen: a screen reader comes (HELLO, and again every 2 s) */
+            host_listen = 1;
+            host_hello_ms = now_ms;
+            host_ann(1);
+        } else if (!strcmp(a, "where")) {     /* where: the reader asks for the whole screen */
+            host_ann(3);
+        } else if (!strcmp(a, "said")) {      /* said TEXT: the reader has heard TEXT (any part of a message) since the last said */
+            const char *want = line + 5;
+            char w[200];
+            int k = 0;
+            while (*want && *want != '\n' && k < 199)
+                w[k++] = *want++;
+            w[k] = 0;
+            if (!strstr(said_buf, w)) {
+                printf("FAIL line %d: not said: \"%s\" (heard: %s)\n", lineno, w, said_buf);
+                fails++;
+            }
+            said_buf[0] = 0;
+        } else if (!strcmp(a, "speakdump")) { /* speakdump: every page and list value, KIND<tab>text, to stdout */
+            rv_speak_dump(dump_out);
         } else if (!strcmp(a, "press") || !strcmp(a, "release") || !strcmp(a, "tap")) {
             int i = find_name(BTN_NAMES, NB, b);
             if (i < 0) {
@@ -361,14 +411,6 @@ int main(int argc, char **argv)
             png_write(path);
         } else if (!strcmp(a, "peakreset")) {
             peak_out = 0;
-        } else if (!strcmp(a, "moom")) {      /* moom LV: the game, straight into level LV (1 or 2) */
-            moom_warp(atoi(b) - 1);
-        } else if (!strcmp(a, "moomclear")) { /* moomclear: everything resolved, standing in the exit (the score) */
-            moom_clear();
-        } else if (!strcmp(a, "moompose")) {  /* moompose X Y DIR: where the player stands and looks (radians) */
-            float mx = 0, my = 0, md = 0;
-            sscanf(line, "%*s %f %f %f", &mx, &my, &md);
-            moom_pose(mx, my, md);
         } else if (!strcmp(a, "kind")) {      /* kind T K: track T (1..8) becomes kind K (as the KIND knob does) */
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);

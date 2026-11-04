@@ -298,13 +298,35 @@ static int black_index(int k)
     return -1;
 }
 
+/* the screen reader's side of the platform (announce.c: the protocol; rv_speak.c: what to say) */
+#define ANN_NAME "RAVEL " RAVEL_BUILD
+#define ANN_DATA RV_RAMBSS
+#include "ann_words.h"
+#include "announce.c"
+static int ann_wire_send(const uint8_t *p, uint32_t n) { return plat_sysex_try(p, n); }
+int rv_ann_frame(const uint8_t *p, uint32_t n) { return ann_frame(p, n, plat_ms()); }
+
 static void msg(const char *s)
 {
-    int i;
-    for (i = 0; i < 23 && s[i]; i++)
+    int i, same = ui.msg_until && (int32_t)(ui.msg_until - plat_ms()) > 0;
+    for (i = 0; i < 23 && s[i]; i++) {
+        same &= ui.msg[i] == s[i];
         ui.msg[i] = s[i];
+    }
+    same &= !ui.msg[i];
     ui.msg[i] = 0;
     ui.msg_until = plat_ms() + 1400;
+    if (!same && ann_on()) {                          /* (said once, however often it is shown again; " > " as "TO") */
+        char w[48];
+        int k = 0;
+        for (i = 0; s[i] && k < 44; i++)
+            if (s[i] == '>' && i && s[i - 1] == ' ')
+                w[k++] = 'T', w[k++] = 'O';
+            else
+                w[k++] = s[i];
+        w[k] = 0;
+        ann_say(w, 0, ANN_NOW);
+    }
 }
 
 int rv_preset_is_kit(int i);
@@ -3093,7 +3115,6 @@ static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEA
     prefs_touch();
 }
 
-static int moom_on(void);
 /* VIOLENCE, WEFT's sources V TAP, V HELD and V TURN: how hard the panel is being played. Each key struck adds to
  * TAP, which falls away over about half a second; HELD is how many keys are down; each knob detent adds to
  * TURN, which falls away faster. 0..1 each */
@@ -3128,12 +3149,6 @@ void ui_input_only(void)
     prefs_tick();
     if (ui_intro_on()) {                              /* (the start screen: input only ends it) */
         intro_skip();
-        return;
-    }
-    if (moom_on()) {                                  /* (the game reads its own input, once a frame; controllers wait) */
-        uint8_t m[3];
-        while (rv_midi_cc(m))
-            ;
         return;
     }
     midi_cc_ui();
@@ -3372,15 +3387,12 @@ static void draw_knobs(void)
     }
 }
 
-static void draw_footer(void)
+/* the footer's hint: what PRESETS, the keys and the layers held do here */
+static const char *foot_hint(void)
 {
-    uint8_t list[SEC_PAGES_MAX];
-    int n = sec_page_list(ui.sec, list), i, x;
     uint32_t btn = plat_buttons();
     const char *hint = "PRESETS: SOUNDS";
     const page_t *pg = cur_page();
-    g_fill(0, FOOT_Y - 2, 240, 26, C_BG);
-    g_hline(6, FOOT_Y - 2, 228, C_LINE);
     switch (pg->pr) {
     case PR_ROUTE: hint = "PRESETS: TARGET  ALGO: SOURCE"; break;
     case PR_MAT: hint = "PRESETS: SLOT"; break;
@@ -3481,6 +3493,18 @@ static void draw_footer(void)
         hint = "WHITE KEY: STORE THE SCENE";
     else if (btn & (1u << B_SCL))
         hint = "KEY: ROOT";
+    if (learn)                                        /* MIDI learn armed: say what's next, on any page */
+        hint = learn == 1 ? "LEARN: TURN A KNOB" : "LEARN: MOVE A CONTROL";
+    return hint;
+}
+
+static void draw_footer(void)
+{
+    uint8_t list[SEC_PAGES_MAX];
+    int n = sec_page_list(ui.sec, list), i, x;
+    const char *hint = foot_hint();
+    g_fill(0, FOOT_Y - 2, 240, 26, C_BG);
+    g_hline(6, FOOT_Y - 2, 228, C_LINE);
     {   /* the battery, at the very right (on the FM-1): bars, or a bolt on USB power */
         int bt = plat_battery();
         x = 237 - n * 5;
@@ -3501,8 +3525,6 @@ static void draw_footer(void)
                     g_fill(226 + k * 3, FOOT_Y + 9, 2, 3, c);
         }
     }
-    if (learn)                                        /* MIDI learn armed: say what's next, on any page */
-        hint = learn == 1 ? "LEARN: TURN A KNOB" : "LEARN: MOVE A CONTROL";
     {   /* the hint, cut short if it would run into the dots and the transport */
         char hb[48];
         int k = 0, room = x - (rv_live.playing ? 16 : 0) - (ui.armed ? 10 : 0) - 10;
@@ -6050,7 +6072,6 @@ static void leds(void)
     plat_leds(lb, lk);
 }
 
-#include "rv_moom.c"
 
 /* hold HOME: this page's controls in words: the four knobs, PRESETS, the keys and OCT, then the layers
  * that work everywhere */
@@ -6122,6 +6143,7 @@ static void draw_help(void)
     }
 }
 
+static void speak(void);
 void ui_frame(void)
 {
     int b, i, j;
@@ -6129,10 +6151,6 @@ void ui_frame(void)
         if (intro_skip() && intro_frame())
             return;
         leds();
-    }
-    if (mm.on) {                                      /* the hidden game has the screen and the panel */
-        moom_frame();
-        return;
     }
     ui_input_only();
     if (!ui.c2_tried) {                               /* the second core, on from the start (GLO > CPU, CORES) */
@@ -6179,7 +6197,10 @@ void ui_frame(void)
         }
     }
     leds();
+    speak();
 }
+
+#include "rv_speak.c"
 
 void ui_init(void)
 {

@@ -255,9 +255,6 @@ static void fm1_main(void)
     if ((fm1_in.buttons & ((1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]))) ==
         ((1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP])))
         panel_setup();                              /* OCT- + OCT+ held at power-on: calibration */
-    else if ((fm1_in.buttons & ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE]))) ==
-             ((1u << panel.btn[B_HOME]) | (1u << panel.btn[B_SAVE])))
-        moom_start();                               /* HOME + SAVE held at power-on: the hidden game */
     else
         ui_intro();                                 /* the start screen: the storm, the word, the drips */
 
@@ -290,8 +287,13 @@ static void fm1_main(void)
             else if (fm1_ms - t0 > 5000u)
                 enter_uboot("UBOOT");
         }
-        {   /* M-UPGRADE handshake; Ravel's own messages: projects and sounds to and from a computer */
-            uint32_t d = ota_service();
+        {   /* a screen reader's SysEx first (the app's announce.c); then the M-UPGRADE handshake and Ravel's own
+             * messages: projects and sounds to and from a computer */
+            const uint8_t *sp;
+            uint32_t sn, d;
+            if (ota_frame_get(&sp, &sn) && rv_ann_frame(sp, sn))
+                ota_frame_done();
+            d = ota_service();
             if (d >= 7u && ota_dec[2] >= 0x60u && ota_dec[2] <= 0x64u)
                 rv_xfer_msg(ota_dec, d);
         }

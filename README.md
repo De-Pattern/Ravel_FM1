@@ -1693,6 +1693,10 @@ The site (what the Pages workflow publishes): `python3 tools/make_site.py _site 
 
 Publishing: every push to `main` rebuilds the site (enable it once under Settings → Pages → Source: GitHub Actions); pushing a tag such as `v0.3` also makes a release with the firmware and the emulator.
 
+## Screen reader (test build)
+
+This test build speaks its screen through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/) by Charles Vestal: connect the FM-1 over USB, open that page in Chrome or Edge, and it says the page you are on, the track and its sound, the knobs, each knob's value as you turn it, messages, play and stop, record, and steps switched on or off; ask it to repeat the whole screen at any time. It can speak with its own voice or hand the text to your computer's screen reader. Nothing is sent until the page asks, so a DAW on the same USB port never sees it. Pictures (scopes, the WEFT patch drawing) are not described, only their labels. To make room, this build leaves out the hidden game.
+
 ## The FM-1 build
 
 Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer that Felucca wrote and X0X carried on: no vendor SDK, no RTOS. A 10 kHz timer scans the keys, encoders and LEDs and runs USB; the codec's DMA interrupt asks Ravel for 512 frames at a time (two calls of 256), and the main loop draws the interface about 30 times a second.

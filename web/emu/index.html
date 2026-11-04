@@ -274,7 +274,6 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="row2">
           <button class="hbtn" id="pageback" title="Turn SELECT left (← key)">← Back</button>
           <button class="hbtn" id="pagefwd" title="Turn SELECT right (→ key)">Forward →</button>
-          <button class="hbtn" id="moom" title="" aria-label="MOOM" style="opacity:.06;font-size:9px;padding:2px 5px;border-color:transparent" onmouseenter="this.style.opacity=.8" onmouseleave="this.style.opacity=.06">MOOM</button>
         </div>
       </div>
       <div>
@@ -535,20 +534,6 @@ function keyLabels() {
 
 /* computer keyboard */
 const KB = { z:0, x:1, c:2, v:3, b:4, n:5, m:6, a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
-/* MOOM has the keyboard while it runs: arrows, Space and Esc never reach the page (no scrolling, and a
- * focused button can't be clicked by Space), whatever has the focus */
-addEventListener("keydown", e => {
-  if (!(rv && rv.web_moom_on && rv.web_moom_on()) || e.metaKey || e.ctrlKey || e.altKey) return;
-  const k = e.key.toLowerCase();
-  if (k === "escape") { rv.web_moom_exit(); kb_keys = 0; }
-  else if (k in MOOM_ARROWS) kb_keys |= 1 << MOOM_ARROWS[k];   /* arrows are G4 G#4 A4 B4; W A S D move (forward, strafe, back) */
-  else if (k === " ") kb_keys |= 1 << 19;                       /* Space fires (C5) */
-  else if (k === "enter") { if (!e.repeat) tapBtn("PLAY"); }    /* Enter is PLAY: start, pause, resume */
-  else if (k in KB) kb_keys |= 1 << KB[k];
-  else return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-}, { capture: true });
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
@@ -561,8 +546,7 @@ addEventListener("keydown", e => {
   else if (k === "arrowright" && rv) { rv.rv_enc(0, 1); e.preventDefault(); }
   else if (k === "escape") { latched = 0; Object.values(btnEls).forEach(b => b.classList.remove("latched")); }
 });
-addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); if (k in MOOM_ARROWS) kb_keys &= ~(1 << MOOM_ARROWS[k]); if (k === " ") kb_keys &= ~(1 << 19); });
-const MOOM_ARROWS = { arrowleft: 14, arrowup: 15, arrowdown: 16, arrowright: 18, w: 15, s: 16, a: 0, d: 4 };   /* (a, d: F3, A3, the strafe keys) */
+addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); });
 addEventListener("blur", () => { kb_keys = 0; held_keys = 0; held_btn = 0; Object.values(btnEls).forEach(b => b.classList.remove("down")); });
 
 /* ------------------------------------------------------------- the side */
@@ -689,12 +673,6 @@ function presetStep(d) {
 $("pprev").addEventListener("click", () => presetStep(-1));
 $("pageback").addEventListener("click", () => rv && rv.rv_enc(0, -1));   /* SELECT, as on the panel */
 $("pagefwd").addEventListener("click", () => rv && rv.rv_enc(0, 1));
-$("moom").addEventListener("click", e => {   /* the hidden game: HOME, Esc or this again leaves it */
-  if (!rv) return;
-  rv.web_moom();
-  e.currentTarget.blur();
-  if (rv.web_moom_on()) $("screen").scrollIntoView({ block: "center", behavior: "smooth" });   /* the screen in view */
-});
 $("pnext").addEventListener("click", () => presetStep(1));
 $("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
 $("rec").addEventListener("click", () => tapBtn("REC"));

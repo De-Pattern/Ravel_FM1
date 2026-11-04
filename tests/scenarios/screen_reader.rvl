@@ -1,0 +1,32 @@
+# The FM-1 Screen Reader: nothing is said until a reader listens; then the page, a knob as it settles, play and
+# stop, record, a step switched on, a message, and the whole screen when asked
+wait 300
+tap EDIT
+wait 300
+listen
+wait 100
+said SOUND. T1 SYNTH VA
+turn K4 1
+wait 300
+said VELO 65
+tap PLAY
+wait 100
+said PLAYING
+tap PLAY
+wait 100
+said STOPPED
+tap SEQ
+wait 400
+said STEPS
+tapkey 2
+wait 100
+said STEP 2 ON
+tap REC
+wait 100
+said RECORD ARMED
+tap REC
+wait 100
+said RECORD OFF
+where
+wait 100
+said KEYS

@@ -288,6 +288,18 @@ void plat_sysex_out(const uint8_t *p, uint32_t n)
     (void)p, (void)n;
 #endif
 }
+/* never waits: no computer listening, or no room in the queue, and it is not sent (the screen reader) */
+int plat_sysex_try(const uint8_t *p, uint32_t n)
+{
+#if FELUCCA_OTA
+    if (!usb.config || usb.suspended || SXQ - (so_w - so_r) < (n + 2u) / 3u + 1u)
+        return -1;
+    return ota_wire_send(p, n);
+#else
+    (void)p, (void)n;
+    return -1;
+#endif
+}
 
 /* no audio input on the bare-metal FM-1 (USB carries Ravel's output to the computer) */
 int plat_audio_in(float *lr, int frames)

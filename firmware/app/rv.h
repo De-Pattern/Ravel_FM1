@@ -355,12 +355,7 @@ static inline int rv_len_code(float steps)
 }
 void rv_fenv_from_env(int16_t *tp);
 void rv_senv_factory(void);                 /* the LIBRARY's twelve shapes, the rest empty */         /* the FILTER ENV from the volume envelope (older work) */
-void moom_start(void);                     /* the hidden game (rv_moom.c) */
-int moom_active(void);
 int rv_track_held(int t);                  /* the synth voices track t holds (the tests) */
-void moom_exit(void);
-void moom_warp(int lv);                     /* straight to a level (tests) */
-void moom_pose(float x, float y, float dir);
 
 /* ------------------------------------------------------------- live state --- */
 /* what the screen reads (written by the audio side, read by the control side: stale is fine) */

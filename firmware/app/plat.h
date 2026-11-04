@@ -58,6 +58,8 @@ int plat_slot_end(int slot, uint32_t len, uint32_t crc);
 int plat_slot_info(int slot, uint32_t *len, uint32_t *crc);   /* 0 = used */
 int plat_slot_read(int slot, uint32_t off, void *p, uint32_t n);
 void plat_sysex_out(const uint8_t *p, uint32_t n);         /* one whole F0 .. F7 message to the computer */
+int plat_sysex_try(const uint8_t *p, uint32_t n);         /* the same, never waiting: -1 (not sent) when there is no room */
+int rv_ann_frame(const uint8_t *p, uint32_t n);            /* (the app) a SysEx in (between F0 and F7): 1 if the screen reader's */
 
 /* audio coming in (a file in the emulator; none on the FM-1, whose USB sends Ravel's output): fills up to
  * frames stereo frames, interleaved, -1..1; returns how many (0 = nothing playing in) */

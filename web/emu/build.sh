@@ -7,6 +7,7 @@ cd "$(dirname "$0")/../.."
 CC="${CC:-clang}"
 mkdir -p build/gen
 [ build/gen/rv_font.h -nt tools/gen_rv_font.py ] && [ build/gen/rv_font.h -nt tools/runic_glyphs.py ] || python3 tools/gen_rv_font.py build/gen/rv_font.h >/dev/null   # (again when the generator changes)
+python3 tools/gen_words.py firmware/words.tsv web/words build/gen/ann_words.h >/dev/null   # (the screen reader's words file and its link)
 $CC --target=wasm32 -nostdlib -ffreestanding -O2 -ffp-contract=off -std=gnu99 \
     -Wall -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-unused-but-set-variable \
     -Ifirmware/app -Ibuild/gen \

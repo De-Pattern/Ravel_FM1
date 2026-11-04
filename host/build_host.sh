@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 CC="${CC:-cc}"
 mkdir -p build/gen build/host
 [ build/gen/rv_font.h -nt tools/gen_rv_font.py ] && [ build/gen/rv_font.h -nt tools/runic_glyphs.py ] || python3 tools/gen_rv_font.py build/gen/rv_font.h >/dev/null   # (again when the generator changes)
-$CC -O2 -ffp-contract=off -std=gnu99 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter \
+python3 tools/gen_words.py firmware/words.tsv web/words build/gen/ann_words.h >/dev/null   # (the screen reader's words file and its link)
+$CC -O2 -DRV_SPEAKDUMP -ffp-contract=off -std=gnu99 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter \
     -Ifirmware/app -Ibuild/gen \
     -o build/host/ravel_host host/ravel_host.c firmware/app/ravel_app.c -lm
 echo "host: build/host/ravel_host"

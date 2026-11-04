@@ -6,7 +6,7 @@ name: autotag
 # a tag pushed with the workflow's own token would not start another workflow.
 on:
   push:
-    branches: [main]
+    branches: [main, screen-reader]   # (screen-reader: a test build, a 0.x version)
     paths: [RELEASE]
   workflow_dispatch:
 

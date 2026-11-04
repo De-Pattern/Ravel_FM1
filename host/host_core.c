@@ -166,6 +166,16 @@ void plat_sysex_out(const uint8_t *p, uint32_t n)
     for (i = 0; i < n && sx_out_n < sizeof sx_out; i++)
         sx_out[sx_out_n++] = p[i];
 }
+void (*host_sysex_hook)(const uint8_t *p, uint32_t n);   /* (the simulator's screen reader log) */
+int plat_sysex_try(const uint8_t *p, uint32_t n)
+{
+    if (host_sysex_hook)
+        host_sysex_hook(p, n);
+    if (sx_out_n + n > sizeof sx_out)
+        return -1;
+    plat_sysex_out(p, n);
+    return 0;
+}
 
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
@@ -282,10 +292,21 @@ static void master_gain(int32_t *b, uint32_t n)
 }
 
 /* the device for ms milliseconds: audio as it falls due, the interface every 16 ms */
+static int host_listen;                          /* (the simulator's screen reader: a HELLO every 2 s, as a reader sends) */
+static uint32_t host_hello_ms;
+static void host_ann(int cmd)
+{
+    const uint8_t f[5] = {0x7D, 0x53, 0x52, (uint8_t)cmd, 1};
+    rv_ann_frame(f, cmd == 1 ? 5u : 4u);
+}
 static void run_ms(uint32_t ms)
 {
     while (ms--) {
         now_ms++;
+        if (host_listen && now_ms - host_hello_ms >= 2000u) {
+            host_hello_ms = now_ms;
+            host_ann(1);
+        }
         frames_due_x1000 += 44100u;
         while (frames_due_x1000 >= BLOCK * 1000u) {
             frames_due_x1000 -= BLOCK * 1000u;

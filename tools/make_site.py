@@ -46,6 +46,8 @@ def main(argv):
     if manual.with_suffix(".pdf").exists():                 # tools/make_manual_pdf.mjs
         shutil.copy(manual.with_suffix(".pdf"), out / "manual.pdf")
     (out / ".nojekyll").write_text("")
+    if (SRC / "web" / "words").is_dir():                  # the screen reader's words files (tools/gen_words.py): every
+        shutil.copytree(SRC / "web" / "words", out / "words")   # one, kept, as devices in the wild point at their own
     if len(argv) >= 5:
         pkg_path, version = Path(argv[3]), argv[4]
         pkg = pkg_path.read_bytes()
