@@ -729,28 +729,42 @@ static __attribute__((noinline)) float hfm_block(fm_t *s, const float *eff, int 
     return lvl;
 }
 
-/* the operators (out, at 0.45) through the formants, breath through its bands, the level matched, softly limited */
-static __attribute__((noinline)) void hfm_run(fm_t *s, float *out, int n, float air, float body, float flvl, float agc_t)
+/* a formant band's band pass (svf_tick's, the low and high passes left out) */
+RV_INL float hfm_bp(svf_t *f, float x)
 {
-    int i, k;
+    float v3 = x - f->ic2, v1 = f->a1 * f->ic1 + f->a2 * v3, v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
+    f->ic1 = 2.0f * v1 - f->ic1;
+    f->ic2 = 2.0f * v2 - f->ic2;
+    return v1;
+}
+/* the operators (out, at 0.45) through the formants, breath through its bands (only with some AIR), the level
+ * matched, softly limited. In RAM on the FM-1: it runs every sample of every voice */
+RV_HOT2 static void hfm_run(fm_t *s, float *out, int n, float air, float body, float flvl, float agc_t)
+{
+    int i;
+    float ga = s->agc, gk = 1.0f - body;
+    float k0 = s->fv[0].k, k1 = s->fv[1].k, k2 = s->fv[2].k, rin = s->rin, rout = s->rout;
     for (i = 0; i < n; i++) {
-        float y = out[i] * (1.0f / 0.45f), bp, vs = 0.0f, ns = 0.0f, nz = xs_bi(&s->ns);
-        for (k = 0; k < 3; k++) {
-            svf_tick(&s->fv[k], y, &bp, 0);
-            vs += bp * s->fv[k].k;
-        }
-        for (k = 0; k < 2; k++) {
-            svf_tick(&s->fn[k], nz, &bp, 0);
-            ns += bp * s->fn[k].k;
-        }
-        s->rin += (y * y - s->rin) * 0.0008f;
-        s->rout += (vs * vs - s->rout) * 0.0008f;
-        s->agc += (agc_t - s->agc) * 0.002f;
-        y += ((vs * s->agc) - y) * body;
-        y = (y + air * ns) * flvl;
-        y = clampf(y, -3.0f, 3.0f);
-        out[i] = y * (27.0f + y * y) / (27.0f + 9.0f * y * y) * 0.45f;   /* (a soft limit) */
+        float y = out[i] * (1.0f / 0.45f);
+        float vs = hfm_bp(&s->fv[0], y) * k0 + hfm_bp(&s->fv[1], y) * k1 + hfm_bp(&s->fv[2], y) * k2;
+        rin += (y * y - rin) * 0.0008f;
+        rout += (vs * vs - rout) * 0.0008f;
+        ga += (agc_t - ga) * 0.002f;
+        y = (y * gk + vs * ga * body) * flvl;
+        out[i] = y;
     }
+    if (air > 0.0f)                                   /* the breath */
+        for (i = 0; i < n; i++) {
+            float nz = xs_bi(&s->ns);
+            out[i] += (hfm_bp(&s->fn[0], nz) * s->fn[0].k + hfm_bp(&s->fn[1], nz) * s->fn[1].k) * air * flvl;
+        }
+    for (i = 0; i < n; i++) {                         /* (a soft limit: a cubic, flat at 1.5) */
+        float y = clampf(out[i], -1.5f, 1.5f);
+        out[i] = (y - y * y * y * (4.0f / 27.0f)) * 0.45f;
+    }
+    s->agc = ga;
+    s->rin = rin;
+    s->rout = rout;
 }
 
 /* a block's start: a new note's modulator envelope and sequence; the formants' settings (hp: AIR, BODY, the

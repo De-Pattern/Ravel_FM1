@@ -274,7 +274,7 @@ static struct {
     float st_acc, st_acc2;
     uint16_t st_nacc;
     uint32_t conf_at;
-} ui;
+} ui RV_RAMBSS;                                       /* (in plain RAM: the pool keeps its room for the render's code) */
 
 static void bank_keep(void);
 
