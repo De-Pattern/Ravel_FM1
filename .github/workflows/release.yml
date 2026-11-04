@@ -94,10 +94,14 @@ jobs:
           Live emulator: ${pages} · Installer: ${pages}install/ · Manual: ${pages}manual.html
           NOTES
       - id: ver
-        run: echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          case "$GITHUB_REF_NAME" in v0.*) echo "test=true" ;; *) echo "test=false" ;; esac >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
-          name: Ravel ${{ steps.ver.outputs.v }}
+          name: Ravel ${{ steps.ver.outputs.v }}${{ steps.ver.outputs.test == 'true' && ' (test build)' || '' }}
+          prerelease: ${{ steps.ver.outputs.test }}       # a 0.x is a branch's test build: never the latest
+          make_latest: ${{ steps.ver.outputs.test == 'true' && 'false' || 'true' }}
           body_path: notes.md
           files: |
             dist/Ravel-FM1.fwsc
