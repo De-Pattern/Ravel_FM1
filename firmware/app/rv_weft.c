@@ -50,6 +50,32 @@ typedef struct wcx_s {
 } wcx_t;
 static wcx_t wcxs[2];
 
+/* SHIFT: A split into two copies 90 degrees apart (two chains of four allpasses, within 1.5 degrees from 40 Hz to
+ * 15 kHz), turned by a sine and cosine at the shift: every partial moves by the same Hz. SIDE: 0 down, 127 up, 64
+ * both (a ring modulator) */
+static const float wf_hil[8] = {-0.51977f, 0.562206f, -0.915577f, -0.988316f, -0.78934f, -0.997096f, -0.96769f, -0.06218f};
+static __attribute__((noinline)) float wf_shift(wb_t *s, float inc, float side, float a)
+{
+    float p = a, q = a, c, sn;
+    int k;
+    for (k = 0; k < 4; k++) {                   /* (transposed: y = c x + z, z = x - c y) */
+        float y1 = wf_hil[k] * p + s->z[k], y2 = wf_hil[4 + k] * q + s->z[4 + k];
+        s->z[k] = p - wf_hil[k] * y1;
+        s->z[4 + k] = q - wf_hil[4 + k] * y2;
+        p = y1;
+        q = y2;
+    }
+    if (!(p > -64.0f && p < 64.0f && q > -64.0f && q < 64.0f)) {
+        __builtin_memset(s->z, 0, sizeof s->z);
+        return 0.0f;
+    }
+    s->ph += inc;
+    s->ph -= fm_floorf(s->ph);
+    c = fm_sin_turns(s->ph + 0.25f);
+    sn = fm_sin_turns(s->ph);
+    return side * (p * c - q * sn) + (1.0f - side) * (p * c + q * sn);
+}
+
 /* the bodies' modes: frequency ratios (FIXED: Hz) */
 static const float wf_modes[6][WM_K] = {
     {1.0f, 1.594f, 2.136f, 2.296f, 2.653f, 2.918f},       /* SKIN: a circular membrane */
@@ -344,6 +370,12 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
     case WO_FOLLOW: W->kr[i] = wk(wtime(x1)); W->kf[i] = wk(wtime(x2)); break;
     case WO_SHAPE: W->c1[i] = 1.0f + x2 * 15.0f; break;
     case WO_RMOD: W->c1[i] = hz * wx_exp2(x1 * 7.0f - 3.0f) * RV_DT; break;   /* the inner carrier: the note x 1/8 .. 16 */
+    case WO_SHIFT: {                            /* Hz a sample, either way of 64: 0 .. 2 kHz, finest near the middle */
+        float d = (x1 - 0.5f) * 2.0f, m = 0.1f * (wx_exp2((d < 0.0f ? -d : d) * 14.3f) - 1.0f);
+        W->c1[i] = (d < 0.0f ? -m : m) * RV_DT;
+        break;
+    }
+    case WO_DIODE: W->c1[i] = 1.0f + x1 * x1 * 30.0f; break;
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f); break;           /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * RV_DT; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
@@ -1032,6 +1064,16 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     car = fm_sin_turns(s->ph);
                 }
                 y = a + (a * car - a) * x2;
+                break;
+            }
+            case WO_SHIFT: y = wf_shift(s, W->c1[i] + (bc ? b * 1000.0f * RV_DT : 0.0f), x2, a); break;
+            case WO_DIODE: {                    /* a diode (PAIR 0: half-wave), or a pair (127: even), soft at the knee; B: drive */
+                float u = a * W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f), hp;
+                y = 0.5f * (u + fm_sqrtf(u * u + 0.04f)) - x2 * 0.5f * (fm_sqrtf(u * u + 0.04f) - u) - 0.1f * (1.0f - x2);
+                y = sat(y * 0.7f);
+                hp = y - s->s1;                 /* (the half-wave's offset taken out: ~10 Hz) */
+                s->s1 += hp * 0.0015f;
+                y = hp * 1.3f;
                 break;
             }
             case WO_NOISE: {                    /* white noise held RATE samples at a time, coloured: COLOR down dark (low passed,

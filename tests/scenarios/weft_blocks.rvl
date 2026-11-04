@@ -470,3 +470,21 @@ key 12 down
 wait 300
 key 12 up
 wait 150
+# SHIFT
+wset 1 0 2 54
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+# DIODE
+wset 1 0 2 55
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150

@@ -23,6 +23,7 @@ enum {
     WO_FOLLOW, WO_SHAPE, WO_CHEBY, WO_FORMANT,          /* an envelope follower; waveshapers; a steep low pass; vowels */
     WO_VOCODER, WO_RMOD, WO_NOISE, WO_RUNGLER, WO_LISSA,   /* a vocoder; a ring modulator; coloured noise; a shift register; a 2-D LFO */
     WO_AOUT, WO_SEQ,                                    /* outputs: into the track's sound (mixed); a track's sequencer */
+    WO_SHIFT, WO_DIODE,                                 /* a frequency shifter; a diode clipper */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -117,6 +118,8 @@ static const wf_type_t wf_types[WO_N] = {
     {"LISSA", "RATE", "RATIO", "RATE", "PHASE", 30, 3, 0, 9, 0, wf_lratio},
     {"AUDIO", "LEVEL", "TONE", "IN", "LEVEL", 100, 64, 0, 0, 0, 0},
     {"SEQ OUT", "TRACK", "MODE", "TRIG", "WHERE", 1, 0, 8, 5, wf_trk, wf_smode},
+    {"SHIFT", "SHIFT", "SIDE", "IN", "SHIFT", 70, 127, 0, 0, 0, 0},
+    {"DIODE", "DRIVE", "PAIR", "IN", "DRIVE", 40, 0, 0, 0, 0, 0},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -175,6 +178,8 @@ static const char *const wf_desc[WO_N] = {
     "X; ITS Y IS THE SOURCE LIS Y",
     "A INTO THE TRACK, MIXED",
     "A'S RISES MOVE A TRACK'S STEPS",
+    "EVERY PARTIAL MOVED BY SHIFT HZ",
+    "A THROUGH A DIODE, OR A PAIR",
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -319,6 +324,15 @@ static const wf_preset_t wf_presets[] = {
       {WO_RING, 1, 100, WS_HELD, 40, 9, 45}, {WO_RING, 3, 100, 4, 25, 4, 60}, {WO_ADD, 7, 100, 8, 100, 64, 64},
       {WO_SAT, 9, 100, WS_TAP, 100, 50, 64}, {WO_SLEW, WS_GATE, 100, 0, 0, 0, 50}, {WO_MULT, 10, 100, 11, 100, 64, 64}},
      12, 1, {WM(1, 0), WM(4, 0), WM(10, 0), WM(7, 1)}, 0},
+    {"THREE LOOPS",   /* no oscillators: after Jaap Vink's feedback patches at the Institute of Sonology. Loop 1: a low pass, a
+                       * folder and a short delay (a breath of noise starts it); loop 2: a frequency shifter, a diode and a smear,
+                       * fed a little of loop 1; loop 3 ring-modulates them, crushed. Loop 2's level darkens loop 1 and moves
+                       * the shift, so each one reins in the other */
+     {{WO_ADD, 4, 100, WS_NOISE, 3, 64, 64}, {WO_LP, 1, 100, 11, -60, 80, 70}, {WO_FOLD, 2, 100, 0, 0, 55, 70},
+      {WO_DELAY, 3, 100, 0, 0, 40, 64}, {WO_ADD, 8, 100, 4, 40, 64, 64}, {WO_SHIFT, 5, 100, 11, 30, 80, 127},
+      {WO_DIODE, 6, 100, 0, 0, 20, 30}, {WO_DIFFUSE, 7, 100, 0, 0, 70, 90}, {WO_RMOD, 4, 100, 8, 100, 64, 127},
+      {WO_CRUSH, 9, 100, 0, 0, 45, 15}, {WO_FOLLOW, 7, 100, 0, 0, 20, 80}, {WO_MIX, 10, 100, 4, 100, 70, 64}},
+     12, 1, {WM(6, 0), WM(2, 0), WM(7, 0), WM(12, 0)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

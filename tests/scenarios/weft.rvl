@@ -220,6 +220,14 @@ key 12 up
 wait 900
 expect wtype 1 1 23
 turn PRESET 1
+wait 50
+key 12 down
+wait 500
+expect meter_min 1 0.005
+key 12 up
+wait 900
+expect wtype 1 6 54
+turn PRESET 1
 wait 100
 expect wtype 1 1 2
 expect wtype 1 5 0
