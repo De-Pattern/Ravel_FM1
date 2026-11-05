@@ -27,6 +27,7 @@ did not change (checked sample for sample, or within the variation of a random p
 | GLO › CPU: the overload guard fades voices near the limit | voices dropped instead of crackles | `rv_engine.c` |
 | The guard's relief (EASED 1–3, v1.17): past fewer voices, the delay's new grains halved, then quartered (six, four, two at most) and WEFT kept to one voice; back step by step once calm | thinner grains and fewer WEFT voices, only while overloaded | `guard_tick` in `rv_engine.c`, `gmax`/`grate` in `delay_run` (`rv_bus.c`) |
 | WEFT RATE HALF (v1.18, off by default) | the patch at 22 kHz: the top octave gone, a little grit; about half the time | the RATE knob (WEFT RATE); `weft_voice_one` in `rv_weft.c` |
+| The BED rests when nothing plays (v1.19): sequencer stopped and every track silent for 4 s | it fades out, and back in with the next sound or PLAY (no drone left running on its own) | `BED_REST`/`bo_bed` in `rv_engine.c` |
 | SKIP SILENT (v1.17): a track muted or at LEVEL 0 for half a second, nothing else using it, stops its voices | a note held across an unmute doesn't come back (the next one plays) | `skip_mask` in `rv_engine.c`; GLO › CPU, SILENT PLAY |
 
 ## Scheduling (no change to the sound)
@@ -34,6 +35,8 @@ did not change (checked sample for sample, or within the variation of a random p
 | What | Effect |
 | --- | --- |
 | WEFT's blocks run 16 samples at a time where the cords allow; loops sample by sample (v1.18) | sample for sample the same; a patch without loops about half the work. `weft_plan` (the order, in the flash), `weft_voice` and the `wk_*` kernels (in the pool); some little-used kernels (`WK_FLASH`) run from the flash |
+| The buses as three jobs (BED with SPACE, FEEDBACK, DELAY), each on whichever core has room; outputs summed on the first core in the old order (v1.19) | bit for bit the same, one core or two (`bus_jobs`, `c2_share` in `rv_engine.c`; `RV_BU_FORCE` builds a test that shares them every way in turn) |
+| SPACE's tank keeps its lines' positions in registers and reads whole-sample delays without interpolating; DELAY skips WOW and FLUTTER at 0 (v1.19) | sample for sample the same; SPACE about 18 % less work (43 % with MOTION 0), DELAY about 25 % less |
 | Tracks shared whole between the cores, their effects (chain_a) with their voices (v1.18) | one core: bit for bit the same; two: the mix adds up in the same order |
 | The two cores share the voices by their measured cost, not every other voice (v1.16.2) | the cores finish together; a heavy patch no longer piles onto the first core |
 

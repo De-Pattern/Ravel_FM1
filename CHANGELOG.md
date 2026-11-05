@@ -3,6 +3,15 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.19.0
+
+Faster
+- **The buses are shared between both cores.** The BED with the SPACE, FEEDBACK and DELAY are three jobs, each going to whichever core has room (they play the last step's sends, so the first core can run one while the second plays its voices). Before, the second core ran all of them and took few voices. The sound is the same, bit for bit.
+- SPACE does about 18 % less work (about 43 % with MOTION at 0), and DELAY about 25 % less with WOW and FLUTTER at 0; the sound is the same, sample for sample.
+
+Changed
+- **The BED rests when nothing plays.** With the sequencer stopped and every track silent for four seconds, it fades out and stops computing, and the SPACE it sends into can rest too; it fades back in with the next sound or PLAY.
+
 ## 1.18.0
 
 Faster
