@@ -1,0 +1,13 @@
+# WEFT LIBRARY: SAVE (the button) saves the patch into the first free slot
+wait 300
+kind 1 6
+tap EDIT
+turn SELECT -20
+wait 50
+turn SELECT 5
+wait 100
+expect page WEFT LIBRARY
+tap SAVE
+wait 200
+expect soundused 1 6
+expect page WEFT LIBRARY

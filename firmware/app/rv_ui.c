@@ -2824,7 +2824,9 @@ static void buttons(uint32_t now_btn)
     for (s = 0; s < NSEC; s++) {
         b = sec_button[s];
         if ((up & (1u << b)) && !ui.layer_used[b] && ms - ui.btn_down_ms[b] < 600) {
-            if (s == SEC_SAVE && ui.sec == SEC_SAVE && cur_page()->pr == PR_BANK) {
+            if (s == SEC_SAVE && cur_page()->pr == PR_WLIB) {
+                wl_do(1);                             /* WEFT LIBRARY: SAVE saves the track's patch */
+            } else if (s == SEC_SAVE && ui.sec == SEC_SAVE && cur_page()->pr == PR_BANK) {
                 bank_do();
             } else if (s == SEC_SAVE && ui.sec == SEC_SAVE) {
                 if (ui.save_confirm)
@@ -3415,7 +3417,7 @@ static void draw_footer(void)
     case PR_SLOT: hint = ui.save_confirm ? (ui.save_action == 6 ? "PRESS SAVE AGAIN TO CLEAR IT" : "PRESS SAVE AGAIN TO CONFIRM")
                        : "PRESETS: SLOT  SAVE: DO IT"; break;
     case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
-    case PR_WLIB: hint = "BLK: LD SV DEL INIT CLR"; break;
+    case PR_WLIB: hint = "SAVE: SAVE  BLK: LD SV DEL INIT CLR"; break;
     case PR_WEFT:
         hint = pg->pic == PIC_WEFTBLK ? "BLK1: WHAT B MOVES" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
         break;
@@ -5158,14 +5160,29 @@ static __attribute__((noinline)) void pic_weftmap(void)
 static __attribute__((noinline)) void pic_weftlib(void)
 {
     uint8_t l[64];
-    int n = wl_list(l), sel = n ? ui.wl_sel % n : 0, top = sel - 4, i;
-    char b[32];
-    if (top > n - 9)
-        top = n - 9;
+    int n = wl_list(l), sel = n ? ui.wl_sel % n : 0, top = sel - 3, i, own = 0, used = 0;
+    char b[40];
+    for (i = 0; i < 32; i++) {                        /* the bank: your WEFT patches, and the room left (any sound takes a slot) */
+        used += rv_bank_used(i) != 0;
+        own += rv_bank_used(i) && rv_bank_kind(i) == KIND_WEFT;
+    }
+    b[0] = 0;
+    sx_cat(b, "BANK ");
+    sx_cat(b, bank_letters[rv_bank_current()]);
+    sx_cat(b, ": ");
+    sx_int(b + sx_cat(b, ""), own);
+    sx_cat(b, own == 1 ? " PATCH OF YOURS, " : " PATCHES OF YOURS, ");
+    sx_int(b + sx_cat(b, ""), 32 - used);
+    sx_cat(b, " FREE");
+    g_text(6, 78, &FONT_T, b, used >= 32 ? C_AMBER : C_MID);
+    if (top > n - 8)
+        top = n - 8;
     if (top < 0)
         top = 0;
-    for (i = 0; i < 9 && top + i < n; i++) {
-        int e = l[top + i], y = 78 + i * 14, on = top + i == sel, mine = e >= 100 && e < WL_NEW;
+    for (i = 0; i < 8 && top + i < n; i++) {
+        int e = l[top + i], y = 92 + i * 14, on = top + i == sel, mine = e >= 100 && e < WL_NEW;
+        if (e < 100 && (top + i == 0 || l[top + i - 1] >= 100))   /* (where the factory patches start: a line) */
+            g_hline(6, y - 2, 228, C_LINE);
         uint16_t c = on ? C_WHITE : C_INK;
         if (on)
             g_rbox(4, y - 1, 232, 14, 3, g_mix(C_PANEL, C_INK, 0.12f), 1);
@@ -5173,7 +5190,7 @@ static __attribute__((noinline)) void pic_weftlib(void)
             b[0] = 0;
             sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), wl_free() + 1);
             g_text(10, y + 1, &FONT_T, b, on ? C_WHITE : C_DIM);
-            g_text(40, y + 1, &FONT_T, "+ NEW: SAVE HERE (BLK 2)", on ? C_WHITE : C_TEAL);
+            g_text(40, y + 1, &FONT_T, "+ EMPTY: SAVE PUTS IT HERE", on ? C_WHITE : C_TEAL);
             continue;
         }
         b[0] = 0;
@@ -5195,7 +5212,7 @@ static __attribute__((noinline)) void pic_weftlib(void)
             }
         } else
             g_text(40, y + 1, &FONT_T, rv_weft_preset_name(e), c);
-        g_text_r(232, y + 1, &FONT_T, mine ? "YOURS" : "FACTORY", C_DIM);
+        g_text_r(232, y + 1, &FONT_T, mine ? "YOURS" : "FACTORY", mine ? C_TEAL : C_DIM);
     }
     b[0] = 0;
     sx_cat(b, "ON THIS TRACK: ");

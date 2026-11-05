@@ -452,11 +452,11 @@ All signals run about −1 to +1; SLOPE and SLEW run 0 to 1 (envelopes). An inpu
 
 <p align="center"><img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
 
-The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The list holds **your patches** first (the WEFT sounds in the current sound bank, **A1…**), then **+ NEW** (the bank's first empty slot), then the factory patches (**F1–F28**). Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
+The last WEFT page (**SELECT** on from WEFT MAP) is the track's patch library. The top line says how many of your patches the current bank holds and how many of its 32 slots are free (any sound takes a slot). The list holds **your patches** first (the WEFT sounds in that bank, **A1…**, marked YOURS), then **+ EMPTY** (the bank's first free slot: where a new save goes), then, below a line, the factory patches (**F1–F28**, marked FACTORY). The factory patches are the same in every bank: they are built in, can be loaded anywhere and take no room. Your patches are kept as WEFT sounds in the sound banks, so they travel with **Send to FM-1** and the emulator's sound files, and are kept when you load another project.
 
 - **KNOB 1 (PATCH)** (or PRESETS) moves through the list; **KNOB 2 (BANK)** picks bank A–D.
 - **Black key 1: LOAD** the highlighted patch onto the track.
-- **Black key 2: SAVE** the track's patch. On one of yours it overwrites it (press twice); anywhere else (**+ NEW**, or a factory patch, as when you have just made something from the default patch) it goes into the first empty slot at once, named *PATCH n*, and the cursor moves onto it so KNOB 3–4 can name it.
+- **SAVE** (the button) or **black key 2: SAVE** the track's patch. On one of yours it overwrites it (press twice); anywhere else (**+ NEW**, or a factory patch, as when you have just made something from the default patch) it goes into the first empty slot at once, named *PATCH n*, and the cursor moves onto it so KNOB 3–4 can name it.
 - **Black key 3: DELETE** the highlighted patch of yours; press it again to confirm. Factory patches can't be deleted.
 - **Black key 4: INIT** starts the track again from the INIT patch (a saw, a low pass, an envelope); **black key 5: CLEAR** empties every block, to build from nothing. Each asks for a second press.
 - **KNOB 3 (CURSOR)** and **KNOB 4 (LETTER)** rename the highlighted patch of yours, a letter at a time (the cursor is underlined); the name is kept a moment after you stop turning.
