@@ -265,7 +265,12 @@ RV_HOT static void delay_run(const float *in, int n, float *l, float *r)
     float dbl = gv(GP_DLYDBL) * (1.0f / 127.0f), gmix = gv(GP_DLYMODE) * (1.0f / 127.0f);
     float spread = 1.0f + rv.gp[GP_DLYSPREAD] * (0.5f / 127.0f), stereo = rv.gp[GP_DLYSPREAD] * (1.0f / 127.0f);
     float rate = 0.7f * fm_exp2f(gv(GP_GRDENS) * (6.5f / 127.0f));             /* 0.7 to 64 grains a second */
+    /* the overload guard's relief: fewer new grains, and fewer at once (the ones playing finish as they were) */
+    static const uint8_t gmax[4] = {GR_N, 6, 4, 2};
+    static const float grate[4] = {1.0f, 0.5f, 0.25f, 0.25f};
+    int gr_max = gmax[rv_live.relief & 3];
     float size = 0.02f * fm_exp2f(gv(GP_GRSIZE) * (4.3f / 127.0f));            /* 20 ms to 0.4 s */
+    rate *= grate[rv_live.relief & 3];
     float agec = 1.0f - age * 0.75f, span = (float)RV_DELAY_SAMPLES - 64.0f;
     int frz = dly_freeze || rv.gp[GP_DLYFREEZE];
     /* TIME: free below the middle (10 ms to 0.5 s), then divisions of the beat */
@@ -318,10 +323,10 @@ RV_HOT static void delay_run(const float *in, int n, float *l, float *r)
             gr_acc += rate * RV_DT;
             if (gr_acc >= 1.0f) {
                 gr_acc -= 1.0f;
-                for (k = 0; k < GR_N; k++)
+                for (k = 0; k < gr_max; k++)
                     if (!grains[k].on)
                         break;
-                if (k < GR_N) {
+                if (k < gr_max) {
                     grain_t *g = &grains[k];
                     float semi = gv(GP_GRPITCH) + wow * 5.0f * xs_bi(&gr_rng);
                     float len = size * (1.0f + wow * 0.5f * xs_bi(&gr_rng)), pan = 0.5f + stereo * 0.5f * xs_bi(&gr_rng);

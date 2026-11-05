@@ -575,6 +575,9 @@ int main(int argc, char **argv)
                 int tt = atoi(w1) - 1;
                 got = rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)].len;
                 want = atoi(w3);
+            } else if (!strcmp(b, "skipped")) {              /* SKIP SILENT: the tracks whose voices are skipped, a bit a track */
+                got = rv_live.skipped;
+                want = atoi(w1);
             } else if (!strcmp(b, "mutes")) {                /* the muted tracks, a bit a track (T1: 1) */
                 got = rv.mute;
                 want = atoi(w1);

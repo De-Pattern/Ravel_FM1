@@ -487,6 +487,7 @@ static const rv_pinfo GLOBAL[GP_N] = {
 static const rv_pinfo NONE = {0, 0, 0, 0, PF_NUM, 0};
 
 /* COMP (T8): a glue compressor on the main mix, after the SSL G-series bus compressor */
+static const char *const csc_names[] = {"MIX", "T1", "T2", "T3", "T4", "T5", "T6", "T7"};
 static const rv_pinfo SRC_COMP[16] = {
     {"THRESH", -30, 0, -10, PF_BI, 0},               /* dB */
     {"RATIO", 0, 2, 0, E(cratio_names)},
@@ -494,6 +495,7 @@ static const rv_pinfo SRC_COMP[16] = {
     {"RELEASE", 0, 4, 4, E(crel_names)},
     {"MAKEUP", 0, 15, 0, PF_NUM, 0},                 /* dB */
     {"MIX", 0, 100, 100, PF_NUM, 0},                 /* %: below 100, the dry mix under it (parallel) */
+    {"S.CHAIN", 0, 7, 0, E(csc_names)},            /* what it listens to: the mix, or one track (its sound, muted or not) */
 };
 
 /* LOOP: each lane's LEVEL, PITCH (semitones, apart from its speed) and SPEED; what it records, from what
@@ -737,7 +739,7 @@ int rv_tp_applies(int t, int p)
     if (p == TP_ENGINE && tp[TP_KIND] != KIND_SYNTH && tp[TP_KIND] != KIND_PERC)
         return 0;
     if (tp[TP_KIND] == KIND_COMP)                                      /* COMP: its own knobs (and KIND, to change it back) */
-        return (p >= TP_S0 && p <= TP_S5) || p == TP_KIND;
+        return (p >= TP_S0 && p <= TP_S6) || p == TP_KIND;
     if (tp[TP_KIND] == KIND_SYNTH && tp[TP_ENGINE] == ENG_FM && hfm_slot(p) >= 2)   /* HYBRID FM: the formants with a SHAPE */
         return tp[TP_WX2] > 0 && (hfm_slot(p) < 7 || tp[TP_VOC] > 0);
     if (tp[TP_KIND] == KIND_WEFT && wf_spi(p) >= 0)                  /* WEFT: the settings of the blocks there are */

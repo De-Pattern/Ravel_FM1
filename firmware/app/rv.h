@@ -289,7 +289,7 @@ typedef struct {
     uint16_t bmove;
 } rv_weft;
 /* WEFT setting k (block k/2, its first or second) as a track parameter, and back (-1: not one) */
-static inline int wf_sp(int k)
+static inline __attribute__((always_inline)) int wf_sp(int k)
 {
     static const uint8_t x[8] = {TP_WX0, TP_WX1, TP_WX2, TP_WX3, TP_WX4, TP_WX5, TP_VOC, TP_PAIRS};
     k = k < 0 ? 0 : k % WF_SETS;
@@ -395,6 +395,10 @@ typedef struct {
     uint16_t shed;                         /* voices the guard has faded out to keep up (counts up) */
     uint8_t cap;                           /* the guard's voice limit now (255: none) */
     uint8_t guard_off;                     /* the stress test turns the guard off, to find the real edge */
+    uint8_t skip_off;                      /* GLO > CPU, SKIP SILENT off: unheard tracks' voices play on (not saved) */
+    uint8_t skipped;                       /* the tracks whose voices are skipped now, a bit each */
+    float tprof[8];                        /* GLO > CPU, VIEW TRACKS: each track's voices and effects, % of the time (smoothed) */
+    uint8_t relief;                        /* past what fewer voices can do, the guard eases the rest: 0 none, 1-3 (see rv_engine.c) */
     uint8_t cores2;                        /* GLO > CPU, CORES: the second core takes half the synth voices */
     uint8_t c2_fail;                       /* it failed (or would not take work): one core since */
     uint8_t c2_used;                       /* it took part in the last render */

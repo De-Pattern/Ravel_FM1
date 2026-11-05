@@ -1,0 +1,28 @@
+# SKIP SILENT: a held note on T1 plays on while its LEVEL is up; at no level for half a second (and
+# nothing else using T1) its voice stops; heard again, new notes play as ever. An influence route
+# from T1 keeps it playing, unheard or not.
+wait 300
+key 0 down
+wait 200
+expect voices 1
+expect skipped 0
+settp 1 LEVEL 0
+wait 300
+expect voices 1
+wait 400
+expect skipped 1
+expect voices 0
+key 0 up
+key 0 down
+wait 100
+expect voices 0
+settp 1 LEVEL 100
+wait 50
+expect skipped 0
+key 0 up
+wait 20
+key 0 down
+wait 100
+expect voices 1
+key 0 up
+wait 2000

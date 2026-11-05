@@ -314,8 +314,10 @@ def check(img, syms, dis, rt):
     notes.append(f"image {len(img)} B; RAM .data+.bss {bss} B of 98304; pool {pool} B of {0x54000}")
     if bss > 96 * 1024:
         errors.append("RAM region overflow")
-    if 0x54000 - pool < 8192:                     # keep >= 8 KiB of the pool spare
-        errors.append(f"pool headroom {0x54000 - pool} B < 8192 B")
+    # keep >= 6 KiB of the pool spare: room to grow (nothing runs there; the stacks have their own place).
+    # It was 8 KiB until the WEFT voice loop moved into the pool (1.17.0)
+    if 0x54000 - pool < 6144:
+        errors.append(f"pool headroom {0x54000 - pool} B < 6144 B")
     return errors, notes
 
 

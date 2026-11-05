@@ -1,0 +1,14 @@
+# COMP SIDECHAIN: T8 as COMP listening to T2 (silent here) does not squeeze the loud mix of T1; back
+# on the MIX it does
+wait 300
+kind 8 4
+settp 8 THRESH -30
+settp 8 S.CHAIN 2
+key 12 down
+key 16 down
+key 19 down
+wait 1500
+expect comp_gr_max 0
+settp 8 S.CHAIN 0
+wait 1500
+expect comp_gr_min 3

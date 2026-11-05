@@ -194,11 +194,11 @@ typedef struct {
     uint8_t lockon[TP_N], lockany;   /* lockany: any lock on this step (else the knobs, as they are) */
     float buf[RV_SUB];              /* this control step's output (mono, post insert) */
     uint16_t quiet;                 /* control steps its chain has had nothing in and nothing out */
+    uint16_t unheard;               /* frames it has been muted or at no level, with nothing else using it (to 65535) */
     float prev[RV_SUB];             /* the last one: influence audio reads it */
     float exc[RV_SUB];              /* excitation coming in (influence, feedback return) */
     uint8_t exc_on;                 /* any this step */
-    float ring[RV_SUB];
-    float ring_amt;
+    float ring_amt;                 /* the RING routes into it, all told (their carrier: summed in the chain) */
     float lead_env, lead_vel;       /* newest voice's articulation level, velocity */
     float lead_key;                 /* newest note, semitones from C4 (the KEY source) */
     float meter;

@@ -32,7 +32,7 @@ typedef struct {
 } wv_t;
 
 static wv_t wv[WV_N] RV_RAMBSS;            /* (in plain RAM: the pool is full) */
-static int16_t wdly[WV_N][WD_N][WD_LEN] RV_BIG;
+static int16_t wdly[WV_N][WD_N][WD_LEN] RV_RAMBSS;   /* (plain RAM too: the pool holds the voice loop) */
 static uint32_t wv_age;
 static uint8_t wf_has_out[RV_TRACKS], wf_last_note[RV_TRACKS] = {60, 60, 60, 60, 60, 60, 60, 60};
 static int8_t wf_clk_owner = -1, wf_mod_owner = -1, wf_lead[RV_TRACKS];
@@ -184,7 +184,7 @@ static int weft_voice_start(int t, int note, int vel, int keep)
             }
         }
     if (n < poly) {
-        int lim = rv_live.cap != 255 && !rv_live.guard_off ? 2 : WV_N;   /* (the overload guard holding voices back: two at most) */
+        int lim = rv_live.cap != 255 && !rv_live.guard_off ? (rv_live.relief >= 2 ? 1 : 2) : WV_N;   /* (the overload guard holding voices back: two at most, one when it eases the rest too) */
         pick = -1;
         for (i = 0; i < lim && pick < 0; i++)
             if (!wv[i].on)
@@ -246,11 +246,11 @@ static void weft_all_off(void)
 #define WG(x) ((x) * (127.0f / 64.0f))
 #define WN(x, n) clampi((int)((x) * 127.0f + 0.5f), 0, (n) - 1)
 /* a time: 0.5 ms .. about 8 s */
-RV_INL float wtime(float x) { return 0.0005f * wx_exp2(x * 14.0f); }
+RV_INL float wtime(float x) { return 0.0005f * RV_FAR(wx_exp2)(x * 14.0f); }
 /* a one-pole step toward a target over time T (s) */
-RV_INL float wk(float T) { return 1.0f - wx_exp(-RV_DT / (T > 1e-5f ? T : 1e-5f)); }
+RV_INL float wk(float T) { return 1.0f - RV_FAR(wx_exp)(-RV_DT / (T > 1e-5f ? T : 1e-5f)); }
 /* a ring's decay (T60): 2 ms .. 8 s, as its pole's radius */
-RV_INL float wdecay(float x) { return wx_exp(-6.9078f * RV_DT / (0.002f * wx_exp2(x * 12.0f))); }
+RV_INL float wdecay(float x) { return RV_FAR(wx_exp)(-6.9078f * RV_DT / (0.002f * RV_FAR(wx_exp2)(x * 12.0f))); }
 
 /* SIN, TRI, SAW and SQUARE in turn, SHAPE blending each into the next */
 RV_INL float wf_shape(int k, float p)
@@ -671,7 +671,7 @@ RV_HOT2 static float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int b
     return y;
 }
 
-static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)
+RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)   /* (in the pool: it runs every sample) */
 {
     wcx_t *W = v->W;
     const rv_weft *w = &rv.weft[t];
@@ -712,7 +712,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
         if (ty == WO_LISSA && lis < 0)
             lis = i;                            /* (the first one feeds LIS Y) */
         if (ty)
-            wf_setup(W, i, ty, clampf(eff[wf_sp(2 * i)], 0.0f, 127.0f) * (1.0f / 127.0f), clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f), 0.0f, 1);
+            RV_FAR(wf_setup)(W, i, ty, clampf(eff[wf_sp(2 * i)], 0.0f, 127.0f) * (1.0f / 127.0f), clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f), 0.0f, 1);
     }
     if (sw14 < 0)
         sv[WS_SW1] = sv[WS_SW2] = sv[WS_SW3] = sv[WS_SW4] = 0.0f;
@@ -799,11 +799,11 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
             b = sv[sb[i]] * kb[i];
             if ((bm >> i) & 1u) {               /* B MOVES: B turns the second setting (worked out every 8th sample) */
                 if (bc && !(j & 7))
-                    wf_setup(W, i, ty, W->p1[i], clampf(clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f) + b * 0.5f, 0.0f, 1.0f), 0.0f, 1);
+                    RV_FAR(wf_setup)(W, i, ty, W->p1[i], clampf(clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f) + b * 0.5f, 0.0f, 1.0f), 0.0f, 1);
                 b = 0.0f;
                 bc = 0;
             } else if (bc && !(j & 7) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING || ty == WO_CHEBY || ty == WO_FORMANT))   /* the resonators' PITCH, two octaves each way */
-                wf_setup(W, i, ty, W->p1[i], W->p2[i], b * 2.0f, 0);   /* (the pitch alone: what doesn't follow it kept) */
+                RV_FAR(wf_setup)(W, i, ty, W->p1[i], W->p2[i], b * 2.0f, 0);   /* (the pitch alone: what doesn't follow it kept) */
             x1 = W->p1[i];
             x2 = W->p2[i];
             switch (ty) {
@@ -865,7 +865,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                 float g, R = W->c2[i] * 0.5f, hp, bp, lp;
                 float d = W->fd[i];
                 if (bc && !(j & 3)) {           /* (cutoff moved by B: worked out every fourth sample) */
-                    s->hold = wx_tan(3.14159265f * clampf(W->c1[i] * fm_exp2f(b * 5.0f), 20.0f, 18000.0f) * RV_DT);
+                    s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(W->c1[i] * fm_exp2f(b * 5.0f), 20.0f, 18000.0f) * RV_DT);
                     s->z[0] = wsvd(s->hold, R);
                 }
                 g = W->fg[i];
@@ -1220,7 +1220,7 @@ static float weft_voice_one(int k, float *out, int n, int c)
     float hz = note_hz((float)v->note + eff[TP_PITCH] + eff[TP_FINE] * 0.01f), pk = 0.0f;
     int i;
     v->W = &wcxs[c & 1];
-    weft_voice(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
+    RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
     for (i = 0; i < n; i++)
         pk = fm_maxf(pk, fm_fabsf(out[i]));
     return pk;

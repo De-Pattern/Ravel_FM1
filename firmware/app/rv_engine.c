@@ -861,6 +861,7 @@ static void bus_stereo(int k, void (*run)(const float *, int, float *, float *),
 enum { PF_CTRL, PF_SYNTH, PF_STRIKE, PF_PERC, PF_CHAIN, PF_BED, PF_FB, PF_DLY, PF_SPACE, PF_MASTER, PF_WEFT, PF_N };   /* (GLO > CPU names them in this order) */
 static uint32_t prof_acc[PF_N], prof_t, prof_n, prof_fetch, prof_rcyc;
 static uint32_t c2_acc, c2_wacc;                          /* the second core's work, and this one's waiting for it (cycles) */
+static uint32_t trk_cyc[8];                               /* each track's voices and effects (cycles; VIEW TRACKS) */
 #define PROF(k) do { uint32_t c_ = plat_cycles(); prof_acc[k] += c_ - prof_t; prof_t = c_; } while (0)
 static void prof_end(int n)
 {
@@ -874,6 +875,11 @@ static void prof_end(int n)
             float pct = budget > 0.0f ? (float)prof_acc[k] * 100.0f / budget : 0.0f;
             rv_live.prof[k] += (pct - rv_live.prof[k]) * 0.5f;
             prof_acc[k] = 0;
+        }
+        for (k = 0; k < 8; k++) {
+            float pct = budget > 0.0f ? (float)trk_cyc[k] * 100.0f / budget : 0.0f;
+            rv_live.tprof[k] += (pct - rv_live.tprof[k]) * 0.5f;
+            trk_cyc[k] = 0;
         }
         rv_live.c2_load += ((budget > 0.0f ? (float)c2_acc * 100.0f / budget : 0.0f) - rv_live.c2_load) * 0.5f;
         rv_live.c2_wait += ((budget > 0.0f ? (float)c2_wacc * 100.0f / budget : 0.0f) - rv_live.c2_wait) * 0.5f;
@@ -1203,7 +1209,7 @@ static int par_voices_wait(void)
 #define GUARD_WIN 512u                  /* frames read at a time */
 static float guard_load, guard_vc = 0.05f, guard_x, guard_last;   /* guard_x, guard_last: this window's reading, the one before */
 static uint32_t guard_acc, guard_vacc, guard_n;
-static uint16_t guard_cool, guard_calm;
+static uint16_t guard_cool, guard_calm, guard_relief_calm;
 static uint8_t guard_cap = 255;
 
 static int shedding(const hitshade_t *h) { return h->on && h->dk >= SHED_DK; }
@@ -1340,24 +1346,42 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
         if ((!guard_cool || x > guard_last) && vx > 0.08f) {   /* (when the voices are what costs: fewer of them
                                                                * helps; again at once while it still rises) */
             int s = voices_sounding(), m = 1 + (int)((x - GUARD_HI) * 12.5f), shed = 0;   /* one more for each 8 % over */
+            int fl = rv_live.relief >= 3 ? 1 : 2;
             if (s > guard_cap)
                 s = guard_cap;
-            while (m-- > 0 && shed_one())
+            while (m-- > 0 && s - shed > fl && shed_one())
                 shed++;
             if (shed) {
-                guard_cap = (uint8_t)(s - shed > 2 ? s - shed : 2);
+                guard_cap = (uint8_t)(s - shed > fl ? s - shed : fl);
                 guard_cool = 4;                     /* (let the fade show in the reading first: 46 ms) */
             }
         }
+        /* still over with the voices already few (or not what costs): ease the rest a step, rather
+         * than fall behind into noise. 1: half the delay's new grains, six at most; 2: a quarter, four
+         * at most, and WEFT one voice; 3: two grains, and one voice */
+        if (!guard_cool && guard_load > GUARD_HI + 0.04f && rv_live.relief < 3
+            && (vx <= 0.08f || voices_sounding() <= 2)) {
+            rv_live.relief++;
+            guard_relief_calm = 0;
+            if (guard_cap == 255)
+                guard_cap = (uint8_t)(voices_sounding() > 2 ? voices_sounding() : 2);   /* (so WEFT holds back too) */
+            guard_cool = 8;                         /* (93 ms to show) */
+        }
     } else if (guard_load < GUARD_LO) {             /* clear of the edge: the limit comes back up */
-        if (guard_cap != 255 && ++guard_calm >= 8) {          /* (93 ms of it) */
+        if (rv_live.relief && ++guard_relief_calm >= 24) {   /* (the eased parts back first, a step at a time: 0.28 s of calm) */
+            guard_relief_calm = 0;
+            rv_live.relief--;
+        } else if (!rv_live.relief && guard_cap != 255 && ++guard_calm >= 8) {   /* (93 ms of it) */
             guard_calm = 0;
             if (++guard_cap >= RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES)
                 guard_cap = 255;
         }
     } else {
         guard_calm = 0;
+        guard_relief_calm = 0;
     }
+    if (rv_live.guard_off)
+        rv_live.relief = 0;
     rv_live.cap = guard_cap;
 }
 
@@ -1413,14 +1437,14 @@ RV_HOT static void master_tail(float *outl, float *outr, int n)
 typedef struct { float thr, slope, aa, ar, aas, ars, mk, mix; int autor; } comp_cfg_t;
 static float comp_gr, comp_grs, comp_g = 1.0f, comp_db = -120.0f;   /* reduction (dB: fast, AUTO's slow), the gain now */
 
-RV_HOT static void comp_run(float *l, float *r, int n, const comp_cfg_t *c)
+RV_HOT static void comp_run(float *l, float *r, int n, const comp_cfg_t *c, const float *dl, const float *dr)   /* dl, dr: what it listens to */
 {
     int i, j;
     for (i = 0; i < n; i += COMP_SUB) {
         float pk = 0.0f, db, tgt, gr, g1, dg;
         int m = n - i < COMP_SUB ? n - i : COMP_SUB;
         for (j = 0; j < m; j++)
-            pk = fm_maxf(pk, fm_maxf(fm_fabsf(l[i + j]), fm_fabsf(r[i + j])));
+            pk = fm_maxf(pk, fm_maxf(fm_fabsf(dl[i + j]), fm_fabsf(dr[i + j])));
         db = 6.0206f * fm_log2f(pk + 1e-6f);
         tgt = db > c->thr ? (db - c->thr) * c->slope : 0.0f;
         comp_gr += (tgt - comp_gr) * (tgt > comp_gr ? c->aa : c->ar);
@@ -1439,6 +1463,13 @@ RV_HOT static void comp_run(float *l, float *r, int n, const comp_cfg_t *c)
         }
         comp_db = db;
     }
+}
+
+/* the track the COMP's SIDECHAIN listens to (-1: the mix) */
+static int comp_sc_track(void)
+{
+    int sc = rv.tp[7][TP_KIND] == KIND_COMP ? rv.tp[7][TP_S6] : 0;
+    return sc >= 1 && sc <= 7 ? sc - 1 : -1;
 }
 
 static void comp_tick(float *l, float *r, int n)
@@ -1467,9 +1498,60 @@ static void comp_tick(float *l, float *r, int n)
         comp_grs = 0.0f;
     c.mk = clampf(ef[TP_S4], 0.0f, 15.0f);
     c.mix = clampf(ef[TP_S5], 0.0f, 100.0f) * 0.01f;
-    RV_FAR(comp_run)(l, r, n, &c);
+    {   /* SIDECHAIN: the mix itself, or one track's sound (after its effects, before its level and
+         * mute: a muted track can still push the mix down) */
+        int sc = comp_sc_track();
+        if (sc >= 0)
+            RV_FAR(comp_run)(l, r, n, &c, trk[sc].buf, trk[sc].buf);
+        else
+            RV_FAR(comp_run)(l, r, n, &c, l, r);
+    }
     rv_live.comp_gr = fm_maxf(comp_gr, comp_grs);
     rv_live.comp_in = comp_db;
+}
+
+/* ------------------------------------------------------- SKIP SILENT --- */
+/* A track no one can hear (muted, or its LEVEL at nothing) still costs its voices. Once it has been so
+ * for half a second, with nothing else using its sound (an influence route from it, the LOOP track
+ * recording it, the COMP listening to it, a WEFT output of its own, its envelope moving a global
+ * knob), its voices stop and new notes on it play nothing until it is heard again; then they play as
+ * ever. GLO > CPU, SKIP SILENT OFF: as before (all play) */
+#define SKIP_HOLD 22050u                            /* frames: half a second */
+static int track_used(int t)
+{
+    int b;
+    if (rv.tp[t][TP_KIND] == KIND_LOOP || rv.tp[t][TP_KIND] == KIND_COMP || comp_sc_track() == t)
+        return 1;
+    if (loop_t >= 0 && clampi(rv.tp[loop_t][TP_S12], 0, 8) == t + 1)
+        return 1;
+    if (wf_has_out[t])
+        return 1;
+    for (b = 0; b < RV_TRACKS; b++)
+        if (rv.infl[t][b].type != RT_OFF)
+            return 1;
+    if (t == 0)                                     /* (a global knob moved by "ENV" reads the first track's) */
+        for (b = 0; b < RV_MATRIX; b++)
+            if ((rv.mat[b].src == MS_ENV || rv.mat[b].src == MS_KEY || rv.mat[b].src == MS_VEL) && rv.mat[b].dst >= RV_GPID)
+                return 1;
+    return 0;
+}
+static uint8_t skip_mask(int n)
+{
+    uint8_t m = 0;
+    int t;
+    for (t = 0; t < RV_TRACKS; t++) {
+        track_t *tr = &trk[t];
+        int unheard = ((rv.mute >> t) & 1u) || (rv.solo && !((rv.solo >> t) & 1u)) || tr->eff[TP_LEVEL] < 0.01f;
+        if (rv_live.skip_off || !unheard || track_used(t)) {
+            tr->unheard = 0;
+            continue;
+        }
+        if (tr->unheard < SKIP_HOLD)
+            tr->unheard = (uint16_t)(tr->unheard + n > 65535 ? 65535 : tr->unheard + n);
+        if (tr->unheard >= SKIP_HOLD)
+            m |= (uint8_t)(1u << t);
+    }
+    return m;
 }
 
 /* ----------------------------------------------------------- render --- */
@@ -1517,10 +1599,8 @@ static void render_sub(float *outl, float *outr, int n)
         track_t *tr = &trk[t];
         int a, ret = clampi(rv.gp[GP_FBRET], 0, 8);
         tr->ring_amt = 0.0f;
-        for (i = 0; i < n; i++) {
+        for (i = 0; i < n; i++)
             tr->exc[i] = 0.0f;
-            tr->ring[i] = 0.0f;
-        }
         for (a = 0; a < RV_TRACKS; a++) {
             const rv_route *r = &rv.infl[a][t];
             if (r->type == RT_EXCITE && r->amt) {
@@ -1529,9 +1609,7 @@ static void render_sub(float *outl, float *outr, int n)
                     tr->exc[i] += trk[a].prev[i] * g;
             } else if (r->type == RT_RING && r->amt) {
                 float g = r->amt * (1.0f / 64.0f);
-                tr->ring_amt += fm_fabsf(g);
-                for (i = 0; i < n; i++)
-                    tr->ring[i] += trk[a].prev[i] * g * 4.0f;
+                tr->ring_amt += fm_fabsf(g);             /* (the carrier itself is summed in the chain, below) */
             }
         }
         if (ret == t + 1)
@@ -1554,6 +1632,7 @@ static void render_sub(float *outl, float *outr, int n)
     /* the voices: synth, strike, drum, in that order; every other one to the second core when it is
      * on (the buses go there too); then what they did is counted, here */
     rv_live.voices_synth = rv_live.voices_strike = 0;
+    rv_live.skipped = skip_mask(n);
     {
         int e, nc2 = 0;
         uint32_t c, c1, wwait = 0;
@@ -1562,7 +1641,7 @@ static void render_sub(float *outl, float *outr, int n)
             voice_t *v = &vs[k];
             if (!v->on)
                 continue;
-            if (rv.tp[v->track][TP_KIND] != KIND_SYNTH) {
+            if (rv.tp[v->track][TP_KIND] != KIND_SYNTH || ((rv_live.skipped >> (v->track & 7)) & 1u)) {   /* (or unheard: SKIP SILENT) */
                 v->on = 0;
                 continue;
             }
@@ -1574,7 +1653,7 @@ static void render_sub(float *outl, float *outr, int n)
             strike_t *v = &ss[k];
             if (!v->on)
                 continue;
-            if (rv.tp[v->track][TP_KIND] != KIND_STRIKE) {
+            if (rv.tp[v->track][TP_KIND] != KIND_STRIKE || ((rv_live.skipped >> (v->track & 7)) & 1u)) {   /* (or unheard: SKIP SILENT) */
                 v->on = 0;
                 continue;
             }
@@ -1586,7 +1665,7 @@ static void render_sub(float *outl, float *outr, int n)
             perc_t *v = &ps[k];
             if (!v->on)
                 continue;
-            if (rv.tp[v->track][TP_KIND] != KIND_PERC) {
+            if (rv.tp[v->track][TP_KIND] != KIND_PERC || ((rv_live.skipped >> (v->track & 7)) & 1u)) {   /* (or unheard: SKIP SILENT) */
                 v->on = 0;
                 continue;
             }
@@ -1594,7 +1673,9 @@ static void render_sub(float *outl, float *outr, int n)
             vl_idx[vl_n++] = (uint8_t)k;
         }
         for (k = 0; k < WV_N; k++)                   /* WEFT's (weft_tidy has let go of those of tracks no longer WEFT) */
-            if (wv[k].on) {
+            if (wv[k].on && ((rv_live.skipped >> (wv[k].track & 7)) & 1u))
+                wv[k].on = 0;                        /* (unheard, and no output of its patch needs it: SKIP SILENT) */
+            else if (wv[k].on) {
                 vl_kind[vl_n] = VK_WEFT;
                 vl_idx[vl_n++] = (uint8_t)k;
             }
@@ -1643,6 +1724,7 @@ static void render_sub(float *outl, float *outr, int n)
                 c1 = plat_cycles();
                 prof_acc[vk_pf[vl_kind[e]]] += c1 - c;
                 vc_note(e, c1 - c);
+                trk_cyc[vl_track(e)] += c1 - c;
                 c = c1;
             }
         if (par_job && nc2) {                        /* the second core's */
@@ -1667,6 +1749,9 @@ static void render_sub(float *outl, float *outr, int n)
                     prof_acc[vk_pf[k]] += c2_vcyc[k];
                     c2_acc += c2_vcyc[k];
                 }
+                for (e = 0; e < vl_n; e++)          /* (and in their tracks', as each last cost) */
+                    if (vl_c2[e])
+                        trk_cyc[vl_track(e)] += VC(e);
             }
         }
         c2_vcyc[0] = c2_vcyc[1] = c2_vcyc[2] = c2_vcyc[3] = 0;
@@ -1677,7 +1762,7 @@ static void render_sub(float *outl, float *outr, int n)
     }
     vcyc = prof_t - vcyc0;
     /* the tracks' chains (a LOOP track's lanes first, into its buffer); what the LOOP track hears */
-    static float lp_cap[RV_SUB];
+    static float lp_cap[RV_SUB], ring_buf[RV_SUB];
     int lp_src = loop_t >= 0 ? clampi(rv.tp[loop_t][TP_S12], 0, 8) : 0;
     for (i = 0; i < n; i++)
         lp_cap[i] = 0.0f;
@@ -1685,6 +1770,7 @@ static void render_sub(float *outl, float *outr, int n)
         track_t *tr = &trk[t];
         const float *eff = tr->eff;
         int kind = rv.tp[t][TP_KIND];
+        uint32_t tc0 = plat_cycles();                /* (this track's effects: VIEW TRACKS) */
         float drive, fld, derez, ia, ib, imix, lvl, pan, gl, gr, peak = 0.0f, ring = tr->ring_amt;
         int bits, mask, ins, chain_bad = 0, n_chain = n;
         int chorus = kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ ? clampi(rv.tp[t][TP_S3], 0, 3) : 0;
@@ -1718,13 +1804,26 @@ static void render_sub(float *outl, float *outr, int n)
         } else {
             tr->quiet = 0;
         }
+        if (ring > 0.001f && n_chain) {             /* RING: the carriers, the other tracks' last step (as summed before) */
+            int a;
+            for (i = 0; i < n; i++)
+                ring_buf[i] = 0.0f;
+            for (a = 0; a < RV_TRACKS; a++) {
+                const rv_route *r = &rv.infl[a][t];
+                if (r->type == RT_RING && r->amt) {
+                    float g = r->amt * (1.0f / 64.0f);
+                    for (i = 0; i < n; i++)
+                        ring_buf[i] += trk[a].prev[i] * g * 4.0f;
+                }
+            }
+        }
         for (i = 0; i < n_chain; i++) {
             float x = tr->buf[i];
             x = skin(tr, x, drive, fld, bits, derez, mask);
             if (ins)
                 x = lerpf(x, insert_tick(tr, ins, x, ia, ib), imix);
             if (ring > 0.001f)
-                x = lerpf(x, x * sat(tr->ring[i] / ring), clampf(ring, 0.0f, 1.0f));   /* a bounded carrier: rings that feed each other cannot grow */
+                x = lerpf(x, x * sat(ring_buf[i] / ring), clampf(ring, 0.0f, 1.0f));   /* a bounded carrier: rings that feed each other cannot grow */
             x = dcb_tick(&tr->dc, x);
             if (!(x > -RV_GUARD && x < RV_GUARD)) {
                 x = 0.0f;
@@ -1766,7 +1865,6 @@ static void render_sub(float *outl, float *outr, int n)
             tr->comb_lp = tr->sh_z = tr->crush_hold = tr->derez_hold = 0.0f;
             tr->ring_amt = 0.0f;
             zero_buf(tr->exc, n);
-            zero_buf(tr->ring, n);
         }
         if (muted)
             peak *= 0.0f;
@@ -1777,14 +1875,16 @@ static void render_sub(float *outl, float *outr, int n)
         for (i = 0; i < n; i += 16) {
             rv_live.scope[t][(rv_live.scope_w + i / 16) & 63] = (int16_t)clampf(tr->buf[i] * 8192.0f, -32767.0f, 32767.0f);
         }
-        for (i = 0; i < n; i++)
-            tr->prev[i] = tr->buf[i];
         if (lp_src == t + 1 && t != loop_t)          /* the LOOP track records this one */
             for (i = 0; i < n; i++)
                 lp_cap[i] = tr->buf[i];
         /* a voice-less track decays its lead envelope */
         tr->lead_env *= fm_expf(-0.005013f * (float)n * (1.0f / 32.0f));   /* (0.995 a 32-frame step) */
+        trk_cyc[t] += plat_cycles() - tc0;
     }
+    for (t = 0; t < RV_TRACKS; t++)                  /* (after all the chains: a RING carrier reads the last step's) */
+        for (i = 0; i < n; i++)
+            trk[t].prev[i] = trk[t].buf[i];
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
     {   /* the chains: all the tracks' loop */
         uint32_t c = plat_cycles();

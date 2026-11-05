@@ -87,7 +87,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_ALL, PIC_SOURCE, PR_SOUND, "SOUND", {TP(TP_KIND), TP(TP_ENGINE), TP(TP_POLY), TP(TP_VELO)}},
     /* COMP (T8): the bus compressor on the main mix; a COMP track shows these and nothing else of a voice */
     {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
-    {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP 2", {TP(TP_S4), TP(TP_S5), TP(TP_KIND), NO}},
+    {SEC_VOICE, V_COMP, PIC_COMP, PR_NONE, "COMP 2", {TP(TP_S4), TP(TP_S5), TP(TP_KIND), TP(TP_S6)}},
     /* LOOP (a TEST build): four lanes; the keys record, play and slice them (rv_loop.c) */
     {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH LEVEL", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
     {SEC_VOICE, V_LOOP, PIC_LOOP, PR_NONE, "GLITCH PITCH", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
@@ -212,7 +212,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_SCENES, PR_SCENE, "SCENES", {GP(GP_SONGMODE), {K_ARR, AF_STEMPO}, GP(GP_TEMPO), GP(GP_SCNGLIDE)}},
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
-    {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, NO, NO}},   /* where the audio's time goes; CORES */
+    {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, {K_STRESS, 5}, {K_STRESS, 6}}},   /* where the audio's time goes; CORES */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
     {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
     {SEC_SONG, V_ALL, PIC_PANEL, PR_NONE, "PANEL", {{K_LRN, 3}, NO, NO, NO}},   /* the FM-1's own: kept through power-off */
@@ -267,6 +267,7 @@ static struct {
     /* the stress test: the step asked for and the one built, its engine, AUTO, whether its project is
      * the one in memory; what each step measured (% of the time, 255: not yet) and where XRUNS came */
     uint8_t st_step, st_built, st_eng, st_auto, st_on;
+    uint8_t cpu_view;                           /* GLO > CPU, VIEW: 0 the render's parts, 1 the tracks */
     uint8_t c2_tried;                         /* the second core was asked for at start */
     uint16_t st_res[RV_STRESS_N];               /* (0xFFFF: not measured yet) */
     uint8_t st_res2[RV_STRESS_N];               /* the second core's, % (0: not working) */
@@ -890,11 +891,12 @@ static kinfo_t kb_info(kb_t k)
     case K_STRESS: {
         static const char *const autos[2] = {"OFF", "RUN"};
         static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
-        static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"};
-        r.name = k.id == 0 ? "STEP" : k.id == 1 ? "ENGINE" : k.id == 2 ? "AUTO" : k.id == 3 ? "CORES" : "FLASH WT";
+        static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"}, *const views[2] = {"PARTS", "TRACKS"}, *const skipn[2] = {"PLAY", "SKIP"};
+        static const char *const sn[7] = {"STEP", "ENGINE", "AUTO", "CORES", "FLASH WT", "VIEW", "SILENT"};
+        r.name = sn[k.id % 7];
         r.max = k.id == 0 ? RV_STRESS_N - 1 : k.id == 1 ? ENG_N - 1 : 1;
         r.fmt = PF_ENUM;
-        r.names = k.id == 0 ? nums : k.id == 1 ? rv_engine_names : k.id == 2 ? autos : k.id == 3 ? cores : onoff;
+        r.names = k.id == 0 ? nums : k.id == 1 ? rv_engine_names : k.id == 2 ? autos : k.id == 3 ? cores : k.id == 5 ? views : k.id == 6 ? skipn : onoff;
         break;
     }
     case K_EUC:
@@ -1170,7 +1172,8 @@ static int kb_get(kb_t k)
             return rv.arr_len ? rv.arr_len : 1;
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
-    case K_STRESS: return k.id == 0 ? ui.st_step : k.id == 1 ? ui.st_eng : k.id == 2 ? ui.st_auto : k.id == 3 ? rv_live.cores2 : rv_live.fetch_on;
+    case K_STRESS: return k.id == 0 ? ui.st_step : k.id == 1 ? ui.st_eng : k.id == 2 ? ui.st_auto : k.id == 3 ? rv_live.cores2
+                        : k.id == 5 ? ui.cpu_view : k.id == 6 ? !rv_live.skip_off : rv_live.fetch_on;
     case K_EUC: return k.id ? clampi(ui.euc_rot[ui.track][euc_lane(ui.track)], 0, euc_len(ui.track) - 1) : euc_hits(ui.track);
     case K_LIB: {
         const rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
@@ -1479,6 +1482,14 @@ static void kb_set(kb_t k, int v)
         rv.arcs[ui.track][ui.cur_arc & 15] = (uint8_t)v;
         break;
     case K_STRESS:
+        if (k.id == 5) {                               /* VIEW: the parts of the render, or the tracks */
+            ui.cpu_view = (uint8_t)v;
+            break;
+        }
+        if (k.id == 6) {                               /* SILENT: SKIP (their voices stop) or PLAY */
+            rv_live.skip_off = (uint8_t)!v;
+            break;
+        }
         if (k.id == 4) {                               /* FLASH WAIT: count the code fetch's waits */
             if (plat_fetch_on(v) < 0) {
                 msg("NOT MEASURED HERE: THE FM-1 COUNTS IT");
@@ -4597,6 +4608,36 @@ static void pic_cpu(void)
         g_text_c(120, PIC_Y + 64, &FONT_T, "THE FM-1 AND THE SIMULATOR MEASURE IT", C_DIM);
         return;
     }
+    if (ui.cpu_view) {                              /* VIEW TRACKS: each track's voices and effects (its share of the
+                                                     * buses and the master is in neither) */
+        for (k = 0; k < 8; k++) {
+            int x = k < 4 ? 6 : 122, y = PIC_Y + 2 + (k % 4) * 15, w = (int)clampf(rv_live.tprof[k], 0.0f, 50.0f);
+            float p = rv_live.tprof[k];
+            b[0] = 'T';
+            b[1] = (char)('1' + k);
+            b[2] = ' ';
+            b[3] = 0;
+            if ((rv_live.skipped >> k) & 1u)
+                sx_cat(b, "SKIP");
+            else
+                sx_int(b + 3, (int)(p + 0.5f));
+            g_text(x, y, &FONT_T, b, (rv_live.skipped >> k) & 1u ? C_DIM : p > 5.0f ? C_INK : C_DIM);
+            g_fill(x + 60, y + 3, 50, 3, C_LINE);
+            g_fill(x + 60, y + 3, w > 0 ? w : (p > 0.05f ? 1 : 0), 3, p > 20.0f ? C_RED : C_TEAL);
+        }
+        b[0] = 0;
+        sx_cat(b, "BUSES ");
+        sx_int(b + 6, (int)(rv_live.prof[5] + rv_live.prof[6] + rv_live.prof[7] + rv_live.prof[8] + 0.5f));
+        sx_cat(b, "%  MASTER ");
+        {
+            int l = 0;
+            while (b[l])
+                l++;
+            sx_int(b + l, (int)(rv_live.prof[9] + 0.5f));
+        }
+        sx_cat(b, "%");
+        g_text(6, PIC_Y + 64, &FONT_T, b, C_DIM);
+    } else
     for (k = 0; k < 11; k++) {
         int x = k < 6 ? 6 : 122, y = PIC_Y + 2 + (k % 6) * 15, w = (int)(clampf(rv_live.prof[k], 0.0f, 50.0f) * 1.0f);
         g_text(x, y, &FONT_T, nm[k], rv_live.prof[k] > 5.0f ? C_INK : C_DIM);
@@ -4663,6 +4704,13 @@ static void pic_cpu(void)
             l++;
         sx_int(b + l, rv_live.shed);
         sx_cat(b, " FADED");
+    }
+    if (rv_live.relief) {                           /* and past that, the rest eased (grains, WEFT) */
+        int l = 0;
+        sx_cat(b, ", EASED ");
+        while (b[l])
+            l++;
+        sx_int(b + l, rv_live.relief);
     }
     g_text(6, PIC_Y + 125, &FONT_T, b, rv_live.cap == 255 && !rv_live.guard_off ? C_DIM : C_RED);
 }
@@ -4781,7 +4829,16 @@ static void pic_comp(void)
         }
     }
     g_text(x0, y0 + sz + 4, &FONT_T, "IN", C_DIM);
-    g_text_r(x0 + sz, y0 + sz + 4, &FONT_T, "THE MAIN MIX", C_DIM);
+    {   /* what it listens to: the mix, or a track (SIDECHAIN) */
+        int sc = clampi(rv.tp[7][TP_S6], 0, 7);
+        if (sc) {
+            b[0] = 0;
+            sx_cat(b, "KEYED BY T");
+            sx_int(b + 10, sc);
+            g_text_r(x0 + sz, y0 + sz + 4, &FONT_T, b, C_AMBER);
+        } else
+            g_text_r(x0 + sz, y0 + sz + 4, &FONT_T, "THE MAIN MIX", C_DIM);
+    }
     g_text(216, y0 + 2, &FONT_T, "OUT", C_DIM);
 }
 
