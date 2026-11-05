@@ -20,7 +20,7 @@ static int8_t loop_t = -1;                            /* which track it is (-1: 
 /* the lanes' memory: the four buffers as one, byte by byte */
 static struct { int8_t *p; uint32_t n; } lm_seg[4];
 static uint32_t lm_total, lm_lane;                    /* all of it, and a lane's (samples) */
-static float lm_dec[256];                             /* the companding, decoded */
+static float lm_dec[256] RV_RAMBSS;                             /* the companding, decoded */
 static void lm_init(int mask)                         /* the buffers borrowed (LM_*), laid end to end */
 {
     int8_t *const p[4] = {(int8_t *)dly_buf, (int8_t *)cut_buf, (int8_t *)fb_buf, (int8_t *)space_mem};

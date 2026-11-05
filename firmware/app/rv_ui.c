@@ -98,7 +98,7 @@ static const page_t pages[] = {
     {SEC_VOICE, V_WEFT, PIC_WEFTPLAY, PR_WEFT, "WEFT PLAY", {{K_WF, 10}, {K_WF, 11}, {K_WF, 12}, {K_WF, 13}}},
     {SEC_VOICE, V_WEFT, PIC_WEFT, PR_WEFT, "WEFT PATCH", {{K_WF, 0}, {K_WF, 1}, {K_WF, 2}, {K_WF, 3}}},
     {SEC_VOICE, V_WEFT, PIC_WEFTBLK, PR_WEFT, "WEFT BLOCK", {{K_WF, 4}, {K_WF, 5}, {K_WF, 6}, {K_WF, 7}}},
-    {SEC_VOICE, V_WEFT, PIC_WEFTMAP, PR_WEFT, "WEFT MAP", {{K_WF, 8}, {K_WF, 9}, {K_WF, 14}, TP(TP_LEVEL)}},
+    {SEC_VOICE, V_WEFT, PIC_WEFTMAP, PR_WEFT, "WEFT MAP", {{K_WF, 8}, {K_WF, 9}, {K_WF, 14}, {K_WF, 20}}},   /* (LEVEL: on MIX) */
     /* the patches: the factory ones and your own (WEFT sounds in the sound bank), to load, save, name and delete */
     {SEC_VOICE, V_WEFT, PIC_WEFTLIB, PR_WLIB, "WEFT LIBRARY", {{K_WF, 16}, {K_WF, 17}, {K_WF, 18}, {K_WF, 19}}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
@@ -971,6 +971,7 @@ static kinfo_t kb_info(kb_t k)
         case 16: { uint8_t l[64]; r.name = "PATCH"; r.max = wl_list(l) - 1; break; }
         case 17: { static const char *const bk[4] = {"A", "B", "C", "D"}; r.name = "BANK"; r.max = 3; r.fmt = PF_ENUM; r.names = bk; break; }
         case 18: r.name = "CURSOR"; r.min = 1; r.max = 11; break;
+        case 20: { static const char *const rn[2] = {"KEYS", "ALWAYS"}; r.name = "RUN"; r.max = 1; r.fmt = PF_ENUM; r.names = rn; break; }
         case 19: r.name = "LETTER"; r.max = rv_bank_nchars() - 1; break;
         case 14:
             outp[0] = "-";
@@ -1229,6 +1230,7 @@ static int kb_get(kb_t k)
         case 16: { uint8_t l[64]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
         case 17: return rv_bank_current();
         case 18: return ui.wl_cursor + 1;
+        case 20: return w->run & 1;
         case 19: {
             int e = wl_entry();
             return e >= 100 && rv_bank_used(e - 100) ? rv_bank_char_index(rv_bank_name(e - 100)[ui.wl_cursor % 11]) : 0;
@@ -1618,6 +1620,7 @@ static void kb_set(kb_t k, int v)
         case 8: ui.wf_map = (uint8_t)(v & 3); break;
         case 9: w->map[ui.wf_map & 3] = (uint8_t)v; break;
         case 14: w->out = (uint8_t)v; break;
+        case 20: w->run = (uint8_t)((w->run & ~1u) | (v & 1)); break;
         case 16: ui.wl_sel = (uint8_t)v; ui.wl_cursor = 0; break;
         case 17: bank_keep(); rv_bank_select(v); ui.wl_sel = 0; break;
         case 18: ui.wl_cursor = (uint8_t)clampi(v - 1, 0, 10); break;
@@ -3095,7 +3098,6 @@ static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEA
     prefs_touch();
 }
 
-static int moom_on(void);
 /* VIOLENCE, WEFT's sources V TAP, V HELD and V TURN: how hard the panel is being played. Each key struck adds to
  * TAP, which falls away over about half a second; HELD is how many keys are down; each knob detent adds to
  * TURN, which falls away faster. 0..1 each */
@@ -3130,12 +3132,6 @@ void ui_input_only(void)
     prefs_tick();
     if (ui_intro_on()) {                              /* (the start screen: input only ends it) */
         intro_skip();
-        return;
-    }
-    if (moom_on()) {                                  /* (the game reads its own input, once a frame; controllers wait) */
-        uint8_t m[3];
-        while (rv_midi_cc(m))
-            ;
         return;
     }
     midi_cc_ui();
@@ -6067,7 +6063,6 @@ static void leds(void)
     plat_leds(lb, lk);
 }
 
-#include "rv_moom.c"
 
 /* hold HOME: this page's controls in words: the four knobs, PRESETS, the keys and OCT, then the layers
  * that work everywhere */
@@ -6146,10 +6141,6 @@ void ui_frame(void)
         if (intro_skip() && intro_frame())
             return;
         leds();
-    }
-    if (mm.on) {                                      /* the hidden game has the screen and the panel */
-        moom_frame();
-        return;
     }
     ui_input_only();
     if (!ui.c2_tried) {                               /* the second core, on from the start (GLO > CPU, CORES) */

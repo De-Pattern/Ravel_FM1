@@ -1,0 +1,21 @@
+# WEFT RUN: KEYS (the default) plays only while a key is held; ALWAYS runs a voice with no key: a slow CYCLE
+# clocking a TICK into a ring, heard with no key down; KEYS again and it stops
+wait 300
+kind 1 6
+wset 1 0 1 4
+wset 1 7 1 70
+wset 1 0 2 25
+wset 1 1 2 1
+wset 1 3 2 100
+wset 1 7 3 8
+wset 1 7 4 50
+wset 1 5 0 2
+wait 500
+expect wvoices 0
+wset 1 10 0 1
+wait 600
+expect wvoices 1
+expect meter_min 1 0.002
+wset 1 10 0 0
+wait 13000
+expect wvoices 0

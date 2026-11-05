@@ -8,7 +8,7 @@
  * Part of the engine unit (ravel_app.c). */
 #include "rv_int.h"
 
-static event_t evq[RV_EVQ];
+static event_t evq[RV_EVQ] RV_RAMBSS;            /* (in plain RAM: the pool keeps room for the render's code) */
 static int evn;
 static uint32_t now_s;                              /* the sample clock: samples since boot */
 static void loop_fire(int t, int si);               /* (rv_loop.c: a LOOP track's step) */
@@ -1558,7 +1558,7 @@ static int live_step_pos(int t, int *micro)
  * recording would write it, into a pattern of its own, each step stamped with when; TAKE (REC + SAVE)
  * copies the steps played in the last loop into the track's pattern (rv_take). A new track in view
  * starts it afresh */
-static rv_pattern take_pat;
+static rv_pattern take_pat RV_RAMBSS;
 static uint32_t take_when[RV_STEPS];                  /* the step's playhead count when written + 1 (0: nothing) */
 static int8_t take_owner = -1;
 static void take_now(void)

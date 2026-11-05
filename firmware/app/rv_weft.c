@@ -50,11 +50,24 @@ typedef struct wcx_s {
 } wcx_t;
 static wcx_t wcxs[2];
 
+/* (the bigger blocks' work, RV_HOT2: run from RAM on the FM-1, in the pool's code; the rest of WEFT runs from the
+ * flash) */
+/* SHIFT's carrier: a cosine and sine turned by inc each sample (a rotation, its length kept at 1), not two sines
+ * worked out each sample */
+RV_INL void wf_rot(wb_t *s, float inc)
+{
+    float th = inc * 6.2831853f, t2 = th * th, cd = 1.0f - t2 * 0.5f, sd = th - th * t2 * (1.0f / 6.0f);
+    float c = s->s1 * cd - s->s2 * sd, sn = s->s1 * sd + s->s2 * cd, g = 1.5f - 0.5f * (c * c + sn * sn);
+    if (!(g > 0.5f && g < 1.5f))
+        c = 1.0f, sn = 0.0f, g = 1.0f;
+    s->s1 = c * g;
+    s->s2 = sn * g;
+}
 /* SHIFT: A split into two copies 90 degrees apart (two chains of four allpasses, within 1.5 degrees from 40 Hz to
  * 15 kHz), turned by a sine and cosine at the shift: every partial moves by the same Hz. SIDE: 0 down, 127 up, 64
  * both (a ring modulator) */
 static const float wf_hil[8] = {-0.51977f, 0.562206f, -0.915577f, -0.988316f, -0.78934f, -0.997096f, -0.96769f, -0.06218f};
-static __attribute__((noinline)) float wf_shift(wb_t *s, float inc, float side, float a)
+RV_HOT2 static float wf_shift(wb_t *s, float inc, float side, float a)
 {
     float p = a, q = a, c, sn;
     int k;
@@ -69,10 +82,9 @@ static __attribute__((noinline)) float wf_shift(wb_t *s, float inc, float side, 
         __builtin_memset(s->z, 0, sizeof s->z);
         return 0.0f;
     }
-    s->ph += inc;
-    s->ph -= fm_floorf(s->ph);
-    c = fm_sin_turns(s->ph + 0.25f);
-    sn = fm_sin_turns(s->ph);
+    wf_rot(s, inc);
+    c = s->s1;
+    sn = s->s2;
     return side * (p * c - q * sn) + (1.0f - side) * (p * c + q * sn);
 }
 
@@ -458,7 +470,7 @@ int rv_weft_outb(int t) { return wf_outb(&rv.weft[t & 7]); }
 /* the bigger blocks, each in a function of its own (the sample loop stays small enough for the FM-1's branches) */
 /* a sequential switch: B's rises (else each note) step it in ORDER, or in SELECT B's level picks; SMOOTH fades
  * from one to the next */
-static __attribute__((noinline)) float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b, int bc, float trig, float x1, int sai, float kai, int sw14)
+RV_HOT2 static float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b, int bc, float trig, float x1, int sai, float kai, int sw14)
 {
     wcx_t *W = v->W;
     float *sv = v->sv, y = 0.0f;
@@ -496,7 +508,7 @@ static __attribute__((noinline)) float wf_switch(wv_t *v, wb_t *s, int i, int ty
     return y;
 }
 /* Karplus-Strong: A excites a loop the note's period long, damped as it goes round */
-static __attribute__((noinline)) float wf_string(wv_t *v, wb_t *s, int i, float a)
+RV_HOT2 static float wf_string(wv_t *v, wb_t *s, int i, float a)
 {
     wcx_t *W = v->W;
     int16_t *m;
@@ -519,7 +531,7 @@ static __attribute__((noinline)) float wf_string(wv_t *v, wb_t *s, int i, float 
     v->dw[W->dn[i]] = (uint16_t)((k + 1) % WD_LEN);
     return y;
 }
-static __attribute__((noinline)) float wf_modes_run(wv_t *v, int i, float a)
+RV_HOT2 static float wf_modes_run(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     int k, m = W->mn[i];           /* six resonators tuned to a body, struck by A */
@@ -541,7 +553,7 @@ static __attribute__((noinline)) float wf_modes_run(wv_t *v, int i, float a)
     return y;
 }
 /* four allpasses in a row, each in a quarter of the memory; B: their size */
-static __attribute__((noinline)) float wf_diffuse(wv_t *v, int i, float a, float b, int bc)
+RV_HOT2 static float wf_diffuse(wv_t *v, int i, float a, float b, int bc)
 {
     wcx_t *W = v->W;
     static const float base[4] = {0.43f, 0.61f, 0.79f, 1.0f};
@@ -579,7 +591,7 @@ static float wf_shape_run(int c, float x)
     }
 }
 /* CHEBY: two biquads (transposed direct form II) */
-static __attribute__((noinline)) float wf_cheby(wv_t *v, int i, float a)
+RV_HOT2 static float wf_cheby(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     const float *c;
@@ -611,7 +623,7 @@ RV_INL float wf_bp(float x, float g, float R, float d, float *z)
     return bp * 2.0f * R;
 }
 /* FORMANT: three band passes, summed by their levels */
-static __attribute__((noinline)) float wf_formant(wv_t *v, int i, float a)
+RV_HOT2 static float wf_formant(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     float *z, y = 0.0f;
@@ -630,7 +642,7 @@ static __attribute__((noinline)) float wf_formant(wv_t *v, int i, float a)
 }
 /* VOCODER: A (the modulator) through six bands, each band's level riding the same band of B (the carrier; with
  * nothing on B, a saw at the note) */
-static __attribute__((noinline)) float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int bc, float hz)
+RV_HOT2 static float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int bc, float hz)
 {
     wcx_t *W = v->W;
     float *z, y = 0.0f, car;
@@ -988,12 +1000,12 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     s->s1 = s->s2 = y = 0.0f;
                 break;
             }
-            case WO_SKIN: case WO_BAR: case WO_PLATE: case WO_BELL: case WO_HARMS: case WO_FIXED: y = wf_modes_run(v, i, a); break;
+            case WO_SKIN: case WO_BAR: case WO_PLATE: case WO_BELL: case WO_HARMS: case WO_FIXED: y = RV_FAR(wf_modes_run)(v, i, a); break;
             case WO_SAT:                        /* A driven into a soft clip; B: more drive */
                 y = sat((a * (1.0f + x1 * 15.0f) * (bc ? fm_exp2f(b * 2.0f) : 1.0f) + WC(x2)) * 0.8f);
                 break;
             case WO_ABS: y = fm_fabsf(a + b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_DIFFUSE: y = wf_diffuse(v, i, a, b, bc); break;
+            case WO_DIFFUSE: y = RV_FAR(wf_diffuse)(v, i, a, b, bc); break;
             case WO_OCLK:                       /* A's rises (through THRESH), every DIV-th: the WEFT clock; B: back to step 1 */
                 y = a;
                 if (wrise(a, &s->prev, WC(x2)) && ++s->st > WN(x1, 16)) {
@@ -1012,8 +1024,8 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                     weft_mod_v = WN(x2, 2) ? clampf(y * 0.5f + 0.5f, 0.0f, 1.0f) : clampf(y, -1.0f, 1.0f);
                 break;
             }
-            case WO_SW14: case WO_SW41: y = wf_switch(v, s, i, ty, a, b, bc, trig, x1, sa[i], ka[i], sw14); break;
-            case WO_STRING: y = wf_string(v, s, i, a); break;
+            case WO_SW14: case WO_SW41: y = RV_FAR(wf_switch)(v, s, i, ty, a, b, bc, trig, x1, sa[i], ka[i], sw14); break;
+            case WO_STRING: y = RV_FAR(wf_string)(v, s, i, a); break;
             case WO_CHAOS: {                    /* the logistic map x = r x (1 - x), stepped by A's rises (else at RATE): CHAOS
                                                  * from settling (r 3.4: two values in turn) to noise (4); B: more or less */
                 int step;
@@ -1051,9 +1063,9 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                 break;
             }
             case WO_SHAPE: y = wf_shape_run(WN(x1, 7), a * W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f)); break;
-            case WO_CHEBY: y = wf_cheby(v, i, a); break;
-            case WO_FORMANT: y = wf_formant(v, i, a); break;
-            case WO_VOCODER: y = wf_vocoder(v, s, i, a, b, bc, hz); break;
+            case WO_CHEBY: y = RV_FAR(wf_cheby)(v, i, a); break;
+            case WO_FORMANT: y = RV_FAR(wf_formant)(v, i, a); break;
+            case WO_VOCODER: y = RV_FAR(wf_vocoder)(v, s, i, a, b, bc, hz); break;
             case WO_RMOD: {                     /* A x B (with nothing on B, a sine at the note x FREQ); MIX: A to the product */
                 float car;
                 if (bc)
@@ -1066,7 +1078,7 @@ static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, i
                 y = a + (a * car - a) * x2;
                 break;
             }
-            case WO_SHIFT: y = wf_shift(s, W->c1[i] + (bc ? b * 1000.0f * RV_DT : 0.0f), x2, a); break;
+            case WO_SHIFT: y = RV_FAR(wf_shift)(s, W->c1[i] + (bc ? b * 1000.0f * RV_DT : 0.0f), x2, a); break;
             case WO_DIODE: {                    /* a diode (PAIR 0: half-wave), or a pair (127: even), soft at the knee; B: drive */
                 float u = a * W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f), hp;
                 y = 0.5f * (u + fm_sqrtf(u * u + 0.04f)) - x2 * 0.5f * (fm_sqrtf(u * u + 0.04f) - u) - 0.1f * (1.0f - x2);
@@ -1238,7 +1250,7 @@ static void weft_tidy(int n)
                         weft_gatet |= (uint8_t)(1u << tr);
                 }
             }
-        wf_has_out[t] = (uint8_t)(oc || om || sq2);
+        wf_has_out[t] = (uint8_t)(oc || om || sq2 || (rv.tp[t][TP_KIND] == KIND_WEFT && (rv.weft[t].run & 1u)));   /* (RUN ALWAYS too) */
         wf_lead[t] = -1;
         if (oc)
             wf_clk_owner = (int8_t)t;           /* (the lowest track with one) */

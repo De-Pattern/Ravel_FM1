@@ -18,7 +18,6 @@
  *   demo N                        load demo N (1 Ravel, 2 Dust, 3 Graph), as SAVE > DEMO N does
  *   intro                         the start screen (the FM-1 plays it at power-on)
  *   reboot                        switch off and on again (a blank project; SAVE's slots are kept)
- *   moom LV | moompose X Y DIR    the hidden game: straight into level LV; stand at X Y facing DIR (radians)
  *   preset T I                    sound preset I (0: the first) onto track T
  *   settp T NAME VALUE            set track T's (1..8) parameter (its screen name, no spaces)
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
@@ -57,9 +56,6 @@
 #include "host_core.c"
 #include "../firmware/app/rv.h"
 const char *ui_page_title(void);
-void moom_warp(int lv);
-void moom_pose(float x, float y, float dir);
-void moom_clear(void);
 int ui_step_cur(void);
 void ui_intro(void);
 int rv_bank_used(int i);
@@ -361,14 +357,6 @@ int main(int argc, char **argv)
             png_write(path);
         } else if (!strcmp(a, "peakreset")) {
             peak_out = 0;
-        } else if (!strcmp(a, "moom")) {      /* moom LV: the game, straight into level LV (1 or 2) */
-            moom_warp(atoi(b) - 1);
-        } else if (!strcmp(a, "moomclear")) { /* moomclear: everything resolved, standing in the exit (the score) */
-            moom_clear();
-        } else if (!strcmp(a, "moompose")) {  /* moompose X Y DIR: where the player stands and looks (radians) */
-            float mx = 0, my = 0, md = 0;
-            sscanf(line, "%*s %f %f %f", &mx, &my, &md);
-            moom_pose(mx, my, md);
         } else if (!strcmp(a, "kind")) {      /* kind T K: track T (1..8) becomes kind K (as the KIND knob does) */
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);
@@ -395,6 +383,7 @@ int main(int argc, char **argv)
             case 5: w->out = (uint8_t)vv; break;
             case 7: rv.tp[(tt - 1) & 7][wf_sp(ii - 1)] = (int16_t)vv; break;
             case 9: w->bmove = (uint16_t)(vv ? w->bmove | (1u << bb) : w->bmove & ~(1u << bb)); break;
+            case 10: w->run = (uint8_t)(vv ? 1 : 0); break;     /* RUN: 0 KEYS, 1 ALWAYS */
             default: break;
             }
         } else if (!strcmp(a, "storedump") || !strcmp(a, "storeput")) {   /* storedump|storeput SLOT FILE: a storage slot to or from a file */

@@ -274,7 +274,6 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
         <div class="row2">
           <button class="hbtn" id="pageback" title="Turn SELECT left (← key)">← Back</button>
           <button class="hbtn" id="pagefwd" title="Turn SELECT right (→ key)">Forward →</button>
-          <button class="hbtn" id="moom" title="" aria-label="MOOM" style="opacity:.06;font-size:9px;padding:2px 5px;border-color:transparent" onmouseenter="this.style.opacity=.8" onmouseleave="this.style.opacity=.06">MOOM</button>
         </div>
       </div>
       <div>
@@ -342,6 +341,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
           <label class="note" style="margin:0">Patch <select id="wfpre" aria-label="Factory patch"></select></label>
           <label class="note" style="margin:0">Output <select id="wfout" aria-label="Output block"></select></label>
           <label class="note" style="margin:0">Voices <select id="wfpoly" aria-label="Voices"><option value="0">1</option><option value="1">2</option></select></label>
+          <label class="note" style="margin:0" title="KEYS: the patch plays while a key is held (and its tail). ALWAYS: one voice runs on its own, no key needed">Run <select id="wfrun" aria-label="Run"><option value="0">Keys</option><option value="1">Always</option></select></label>
           <span class="grow"></span>
           <button class="hbtn" id="wfexp">Export patch</button>
           <button class="hbtn" id="wfimp">Import patch</button>
@@ -535,20 +535,6 @@ function keyLabels() {
 
 /* computer keyboard */
 const KB = { z:0, x:1, c:2, v:3, b:4, n:5, m:6, a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
-/* MOOM has the keyboard while it runs: arrows, Space and Esc never reach the page (no scrolling, and a
- * focused button can't be clicked by Space), whatever has the focus */
-addEventListener("keydown", e => {
-  if (!(rv && rv.web_moom_on && rv.web_moom_on()) || e.metaKey || e.ctrlKey || e.altKey) return;
-  const k = e.key.toLowerCase();
-  if (k === "escape") { rv.web_moom_exit(); kb_keys = 0; }
-  else if (k in MOOM_ARROWS) kb_keys |= 1 << MOOM_ARROWS[k];   /* arrows are G4 G#4 A4 B4; W A S D move (forward, strafe, back) */
-  else if (k === " ") kb_keys |= 1 << 19;                       /* Space fires (C5) */
-  else if (k === "enter") { if (!e.repeat) tapBtn("PLAY"); }    /* Enter is PLAY: start, pause, resume */
-  else if (k in KB) kb_keys |= 1 << KB[k];
-  else return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-}, { capture: true });
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
@@ -561,8 +547,7 @@ addEventListener("keydown", e => {
   else if (k === "arrowright" && rv) { rv.rv_enc(0, 1); e.preventDefault(); }
   else if (k === "escape") { latched = 0; Object.values(btnEls).forEach(b => b.classList.remove("latched")); }
 });
-addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); if (k in MOOM_ARROWS) kb_keys &= ~(1 << MOOM_ARROWS[k]); if (k === " ") kb_keys &= ~(1 << 19); });
-const MOOM_ARROWS = { arrowleft: 14, arrowup: 15, arrowdown: 16, arrowright: 18, w: 15, s: 16, a: 0, d: 4 };   /* (a, d: F3, A3, the strafe keys) */
+addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k in KB) kb_keys &= ~(1 << KB[k]); });
 addEventListener("blur", () => { kb_keys = 0; held_keys = 0; held_btn = 0; Object.values(btnEls).forEach(b => b.classList.remove("down")); });
 
 /* ------------------------------------------------------------- the side */
@@ -689,12 +674,6 @@ function presetStep(d) {
 $("pprev").addEventListener("click", () => presetStep(-1));
 $("pageback").addEventListener("click", () => rv && rv.rv_enc(0, -1));   /* SELECT, as on the panel */
 $("pagefwd").addEventListener("click", () => rv && rv.rv_enc(0, 1));
-$("moom").addEventListener("click", e => {   /* the hidden game: HOME, Esc or this again leaves it */
-  if (!rv) return;
-  rv.web_moom();
-  e.currentTarget.blur();
-  if (rv.web_moom_on()) $("screen").scrollIntoView({ block: "center", behavior: "smooth" });   /* the screen in view */
-});
 $("pnext").addEventListener("click", () => presetStep(1));
 $("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
 $("rec").addEventListener("click", () => tapBtn("REC"));
@@ -1122,7 +1101,7 @@ function wfNames() {
 function wfRead(t) {
   const g = (f, i) => rv.web_wf_get(t, f, i), b = [];
   for (let i = 0; i < WF.nb; i++) b.push({ type: g(0, i), a: g(1, i), b: g(2, i), amtA: g(3, i), amtB: g(4, i), p1: g(7, 2 * i), p2: g(7, 2 * i + 1), bMoves: g(9, i) });
-  return { blocks: b, out: g(5, 0), map: [0, 1, 2, 3].map(k => g(6, k)), voices: g(8, 0) };
+  return { blocks: b, out: g(5, 0), map: [0, 1, 2, 3].map(k => g(6, k)), voices: g(8, 0), run: g(10, 0) };
 }
 const wfEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 function wfSrcName(p, s) {
@@ -1197,6 +1176,7 @@ function wfRender() {
   $("wfout").innerHTML = `<option value="0">- (silent)</option><option value="${WF.nb + 1}">AUTO (${heard >= 0 ? "now " + (heard + 1) : "the AUDIO blocks"})</option>` + p.blocks.map((bk, i) => bk.type ? `<option value="${i + 1}">${i + 1} ${wfEsc(N.types[bk.type])}</option>` : "").join("");
   $("wfout").value = String(p.out);
   $("wfpoly").value = String(p.voices);
+  $("wfrun").value = String(p.run);
   const sets = [`<option value="0">-</option>`];
   p.blocks.forEach((bk, i) => { if (bk.type) [0, 1].forEach(k => sets.push(`<option value="${1 + 2 * i + k}">${i + 1} ${wfEsc(N.types[bk.type])}: ${wfEsc(N.label[bk.type][k])}</option>`)); });
   $("wfmap").innerHTML = [0, 1, 2, 3].map(k => `<label>KNOB ${k + 1} on WEFT PLAY<select data-map="${k}">${sets.join("")}</select></label>`).join("");
@@ -1330,6 +1310,7 @@ function wfInit() {
   $("wfpre").addEventListener("change", e => { const k = +e.target.value; if (k >= 0) { rv.web_wf_preset(rv.web_track(), k); WF.sig = ""; wfSync(); } });
   $("wfout").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 5, 0, +e.target.value); WF.sig = ""; });
   $("wfpoly").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 8, 0, +e.target.value); WF.sig = ""; });
+  $("wfrun").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 10, 0, +e.target.value); WF.sig = ""; });
   $("wfmap").addEventListener("change", e => { const k = e.target.dataset.map; if (k !== undefined) { rv.web_wf_set(rv.web_track(), 6, +k, +e.target.value); WF.sig = ""; } });
   $("wfexp").addEventListener("click", wfExport);
   $("wfimp").addEventListener("click", () => $("wffile").click());
@@ -1343,7 +1324,7 @@ function wfExport() {
   const doc = {
     format: "ravel-weft", version: 2, name: cstr(rv.web_sound_name(t)),
     blocks: p.blocks.map(b => b.type ? { type: N.types[b.type], a: b.a ? src(b.a) : null, amtA: b.amtA, b: b.b ? src(b.b) : null, amtB: b.amtB, p1: b.p1, p2: b.p2, bMoves: !!b.bMoves } : null),
-    out: p.out, map: p.map, voices: p.voices + 1,
+    out: p.out, map: p.map, voices: p.voices + 1, run: p.run ? "always" : "keys",
   };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 1)], { type: "application/json" }));
@@ -1370,6 +1351,7 @@ function wfImport(text) {
   rv.web_wf_set(t, 5, 0, doc.out | 0);
   (doc.map || []).slice(0, 4).forEach((m, k) => rv.web_wf_set(t, 6, k, m | 0));
   rv.web_wf_set(t, 8, 0, (doc.voices | 0) > 1 ? 1 : 0);
+  rv.web_wf_set(t, 10, 0, doc.run === "always" ? 1 : 0);
   WF.sig = "";
   sideSync();
   wfSync();

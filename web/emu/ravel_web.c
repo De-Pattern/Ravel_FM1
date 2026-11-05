@@ -142,11 +142,6 @@ EXPORT(web_track) int web_track(void) { return ui_track(); }
 EXPORT(web_set_track) void web_set_track(int t) { ui_set_track(t); }
 EXPORT(web_section) int web_section(void) { return ui_section(); }
 EXPORT(web_goto) void web_goto(int sec, int page) { ui_goto(sec, page); }
-EXPORT(web_moom) void web_moom(void) { if (moom_active()) moom_exit(); else moom_start(); }   /* the hidden game (on the FM-1: HOME + SAVE at power-on) */
-EXPORT(web_moom_on) int web_moom_on(void) { return moom_active(); }
-EXPORT(web_moom_level) void web_moom_level(int lv) { moom_warp(lv); }   /* tests: straight to a level */
-EXPORT(web_moom_pose) void web_moom_pose(float x, float y, float dir) { moom_pose(x, y, dir); }
-EXPORT(web_moom_exit) void web_moom_exit(void) { moom_exit(); }
 EXPORT(web_page_title) const char *web_page_title(void) { return ui_page_title(); }
 EXPORT(web_kind) int web_kind(int t) { return rv.tp[t & 7][TP_KIND]; }
 EXPORT(web_engine) int web_engine(int t) { return rv.tp[t & 7][TP_ENGINE]; }
@@ -327,6 +322,7 @@ EXPORT(web_wf_get) int web_wf_get(int t, int f, int i)
     case 7: return rv.tp[t & 7][wf_sp(i)];
     case 8: return rv.tp[t & 7][TP_POLY] > 0;
     case 9: return (w->bmove >> b) & 1;
+    case 10: return w->run & 1;
     default: return 0;
     }
 }
@@ -354,6 +350,7 @@ EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
     case 7: rv.tp[t & 7][wf_sp(i)] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
     case 8: rv.tp[t & 7][TP_POLY] = (int16_t)(v ? 1 : 0); break;
     case 9: w->bmove = (uint16_t)(v ? w->bmove | (1u << b) : w->bmove & ~(1u << b)); break;
+    case 10: w->run = (uint8_t)(v ? 1 : 0); break;
     default: return;
     }
     ui_weft_touch(t, -1);
