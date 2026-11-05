@@ -912,39 +912,94 @@ static uint8_t c2_voices_given;                       /* how many it had this st
  * after its voices (the tracks' chains, the master) and the second's (the buses). The voices are shared out
  * by cost, so the two cores end together, rather than every other voice */
 static const uint8_t vc_off[4] = {0, RV_SYNTH_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES};
-static uint32_t vc_cost[VL_MAX], c1_after, c2_bus, v_end;
+static uint32_t vc_cost[VL_MAX], c1_rest, c2_bus, v_end;
+static uint8_t c2_chains;                             /* the tracks whose chains (chain_a) the second core runs this step */
+static uint32_t ca_cost[RV_TRACKS], ca_c2[RV_TRACKS]; /* each track's chain_a time (smoothed); the second core's this step */
 #define VC(e) vc_cost[vc_off[vl_kind[e]] + vl_idx[e]]
 static void vc_note(int e, uint32_t cyc) { uint32_t *p = &VC(e); *p = *p ? (*p * 3u + cyc) / 4u : cyc; }
 
-/* which voices go to the second core: the dearest first, each to the core that would finish the step sooner
- * (this one: its voices, then the chains; the second: its voices, then the buses) */
+/* which voices (and so which tracks' chains) go to the second core. The tracks first, dearest first, each whole
+ * (its voices and its chain) to the core that would finish the step sooner; then, of the tracks left here, single
+ * voices, if that helps (such a track's chain stays here, after the second core's voices). The step's time on each
+ * core, as measured a moment ago: here, the larger of (its voices and chains) and (the second's), then the chains
+ * of tracks shared between them and the rest (the mix, the master); there, its voices and chains, then the buses */
+static uint32_t share_cost(uint32_t v1, uint32_t a1, uint32_t v2, uint32_t a2, uint32_t am)
+{
+    uint32_t t1 = (v1 + a1 > v2 + a2 ? v1 + a1 : v2 + a2) + am + c1_rest, t2 = v2 + a2 + c2_bus;
+    return t1 > t2 ? t1 : t2;
+}
+static int vl_track(int e);
 static int c2_share(void)
 {
-    uint8_t done[VL_MAX];
-    uint32_t v1 = 0, v2 = 0;
-    int e, k, nc2 = 0;
-    for (e = 0; e < vl_n; e++)
-        done[e] = 0, vl_c2[e] = 0;
-    for (k = 0; k < vl_n; k++) {
-        uint32_t w = 0, t1, t2, a, b;
-        int best = -1;
-        for (e = 0; e < vl_n; e++)
-            if (!done[e] && (best < 0 || VC(e) > w))
-                best = e, w = VC(e);
-        done[best] = 1;
-        a = (v1 + w > v2 ? v1 + w : v2) + c1_after;         /* (on this core) */
-        b = v2 + c2_bus;
-        t1 = a > b ? a : b;
-        a = (v1 > v2 + w ? v1 : v2 + w) + c1_after;         /* (on the second) */
-        b = v2 + w + c2_bus;
-        t2 = a > b ? a : b;
-        if (t2 < t1 || (t2 == t1 && v2 < v1)) {
-            vl_c2[best] = 1;
-            v2 += w;
-            nc2++;
-        } else
-            v1 += w;
+    uint32_t vt[RV_TRACKS] = {0}, v1 = 0, a1 = 0, v2 = 0, a2 = 0, am = 0;
+    uint8_t nv[RV_TRACKS] = {0}, has = 0, on2 = 0, done = 0, mixed = 0;
+    int e, t, k, nc2 = 0;
+    for (e = 0; e < vl_n; e++) {
+        t = vl_track(e);
+        vl_c2[e] = 0;
+        vt[t] += VC(e);
+        nv[t]++;
+        has |= (uint8_t)(1u << t);
     }
+    if (loop_t >= 0)
+        has &= (uint8_t)~(1u << loop_t);
+    for (t = 0; t < RV_TRACKS; t++)                 /* (a track with nothing to share: its chain, here) */
+        if (!((has >> t) & 1u))
+            a1 += ca_cost[t];
+    for (k = 0; k < RV_TRACKS; k++) {               /* the tracks, dearest first */
+        uint32_t w = 0, c1c, c2c;
+        int best = -1;
+        for (t = 0; t < RV_TRACKS; t++)
+            if (((has & ~done) >> t) & 1u && (best < 0 || vt[t] + ca_cost[t] > w))
+                best = t, w = vt[t] + ca_cost[t];
+        if (best < 0)
+            break;
+        done |= (uint8_t)(1u << best);
+        c1c = share_cost(v1 + vt[best], a1 + ca_cost[best], v2, a2, am);
+        c2c = share_cost(v1, a1, v2 + vt[best], a2 + ca_cost[best], am);
+        if (c2c < c1c || (c2c == c1c && v2 + a2 < v1 + a1)) {
+            on2 |= (uint8_t)(1u << best);
+            v2 += vt[best];
+            a2 += ca_cost[best];
+        } else {
+            v1 += vt[best];
+            a1 += ca_cost[best];
+        }
+    }
+    for (e = 0; e < vl_n; e++)                      /* those tracks' voices */
+        if ((on2 >> vl_track(e)) & 1u) {
+            vl_c2[e] = 1;
+            nc2++;
+        }
+    for (;;) {                                      /* then single voices of the tracks here, dearest first, while it helps */
+        uint32_t w = 0, now = share_cost(v1, a1, v2, a2, am), c;
+        int best = -1;
+        for (e = 0; e < vl_n; e++) {
+            t = vl_track(e);
+            if (!vl_c2[e] && !((on2 >> t) & 1u) && ((has >> t) & 1u) && nv[t] > 1 && (best < 0 || VC(e) > w))
+                best = e, w = VC(e);
+        }
+        if (best < 0)
+            break;
+        t = vl_track(best);
+        if ((mixed >> t) & 1u)
+            c = share_cost(v1 - w, a1, v2 + w, a2, am);
+        else
+            c = share_cost(v1 - w, a1 - ca_cost[t], v2 + w, a2, am + ca_cost[t]);
+        if (c >= now)
+            break;
+        if (!((mixed >> t) & 1u)) {
+            mixed |= (uint8_t)(1u << t);
+            a1 -= ca_cost[t];
+            am += ca_cost[t];
+        }
+        v1 -= w;
+        v2 += w;
+        vl_c2[best] = 1;
+        nv[t]--;                                    /* (one voice of it always stays here) */
+        nc2++;
+    }
+    c2_chains = on2;
     return nc2;
 }
 
@@ -1169,11 +1224,19 @@ static __attribute__((noinline)) void bus_job(void)
     bo_all += c1 - c0;
 }
 
-/* the second core's work for a step: its voices (if any), then the buses */
+static void chain_a(int t, int n, const float *src, int core);
+/* the second core's work for a step: its voices (if any) and the chains of the tracks all its own, then the buses */
 static void c2_job(uint32_t voices)
 {
     if (voices) {
+        int t;
         c2_voices();
+        for (t = 0; t < RV_TRACKS; t++)              /* its tracks' chains (chain_a), from its own buffers */
+            if ((c2_chains >> t) & 1u) {
+                uint32_t c0 = plat_par_cycles();
+                chain_a(t, par_n, c2_buf[t], 1);
+                ca_c2[t] = plat_par_cycles() - c0;
+            }
         plat_par_sync();
         par_vdone = 1;
         plat_par_sync();
@@ -1554,6 +1617,88 @@ static uint8_t skip_mask(int n)
     return m;
 }
 
+/* ------------------------------------------------------------ chains --- */
+/* A track's chain in two parts. chain_a, on either core: what came in (src: its voices, here or in the second core's
+ * buffer) through SKIN, the INSERT, RING and the DC block, into the track's buffer. chain_b, here, every track in
+ * order: the level, the pan, the chorus, into the mix and the sends. The two halves do what the one loop did, sample
+ * for sample */
+static float ring_bufs[2][RV_SUB];                  /* (each core's RING carriers) */
+static __attribute__((noinline)) void chain_a(int t, int n, const float *src, int core)
+{
+    track_t *tr = &trk[t];
+    const float *eff = tr->eff;
+    float drive, fld, derez, ia, ib, imix, peak = 0.0f, ring = tr->ring_amt, *ring_buf = ring_bufs[core & 1];
+    int bits, mask, ins, chain_bad = 0, n_chain = n, i;
+    drive = eff[TP_DRIVE] * (1.0f / 127.0f);
+    fld = eff[TP_FOLD] * (1.0f / 127.0f);
+    bits = (int)(eff[TP_BITS] + 0.5f);
+    derez = eff[TP_DEREZ] * (1.0f / 127.0f);
+    mask = (int)(eff[TP_MASK] + 0.5f);
+    ins = clampi((int)(eff[TP_INS] + 0.5f), 0, INS_N - 1);
+    ia = eff[TP_INA] * (1.0f / 127.0f);
+    ib = eff[TP_INB] * (1.0f / 127.0f);
+    imix = eff[TP_INMIX] * (1.0f / 127.0f);
+    if (ring <= 0.001f && peak_of(src, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
+        if (tr->quiet >= BUS_HOLD)
+            n_chain = 0;
+    } else {
+        tr->quiet = 0;
+    }
+    if (ring > 0.001f && n_chain) {                 /* RING: the carriers, the other tracks' last step (as summed before) */
+        int a;
+        for (i = 0; i < n; i++)
+            ring_buf[i] = 0.0f;
+        for (a = 0; a < RV_TRACKS; a++) {
+            const rv_route *r = &rv.infl[a][t];
+            if (r->type == RT_RING && r->amt) {
+                float g = r->amt * (1.0f / 64.0f);
+                for (i = 0; i < n; i++)
+                    ring_buf[i] += trk[a].prev[i] * g * 4.0f;
+            }
+        }
+    }
+    for (i = 0; i < n_chain; i++) {
+        float x = src[i];
+        x = skin(tr, x, drive, fld, bits, derez, mask);
+        if (ins)
+            x = lerpf(x, insert_tick(tr, ins, x, ia, ib), imix);
+        if (ring > 0.001f)
+            x = lerpf(x, x * sat(ring_buf[i] / ring), clampf(ring, 0.0f, 1.0f));   /* a bounded carrier: rings that feed each other cannot grow */
+        x = dcb_tick(&tr->dc, x);
+        if (!(x > -RV_GUARD && x < RV_GUARD)) {
+            x = 0.0f;
+            chain_bad = 1;
+        }
+        tr->buf[i] = x;
+        if (fm_fabsf(x) > peak)
+            peak = fm_fabsf(x);
+    }
+    if (!n_chain && src != tr->buf)                 /* (skipped: what came in, as it was) */
+        for (i = 0; i < n; i++)
+            tr->buf[i] = src[i];
+    if (peak < 1e-6f) {                             /* silent out: counting toward skipping it */
+        if (tr->quiet < 0xFFFFu)
+            tr->quiet++;
+    } else {
+        tr->quiet = 0;
+    }
+    tr->cbad = 0;
+    if (chain_bad) {                                /* the chain blew up: clear its memory (the fault is noted in chain_b) */
+        tr->cbad = (uint8_t)(1 + ins);
+        __builtin_memset(&tr->dc, 0, sizeof(tr->dc));
+        __builtin_memset(tr->comb, 0, sizeof(tr->comb));
+        __builtin_memset(tr->smear, 0, sizeof(tr->smear));
+        __builtin_memset(tr->hilb_i, 0, sizeof(tr->hilb_i));
+        __builtin_memset(tr->hilb_q, 0, sizeof(tr->hilb_q));
+        tr->comb_lp = tr->sh_z = tr->crush_hold = tr->derez_hold = 0.0f;
+        tr->ring_amt = 0.0f;
+        zero_buf(tr->exc, n);
+    }
+    tr->cpk = peak;
+    tr->cskip = (uint8_t)!n_chain;
+}
+
+
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
@@ -1566,7 +1711,8 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
-    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0;
+    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0, a_early = 0, t_aend;
+    uint8_t a_done = 0;                             /* the tracks whose chain_a is done (here early, or by the second core) */
     prof_t = cyc0 = plat_cycles();
     loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
     weft_tidy(n);                                   /* (WEFT voices of tracks that changed kind go; outputs keep one) */
@@ -1690,11 +1836,14 @@ static void render_sub(float *outl, float *outr, int n)
                 }
         }
         c2_trk = 0;
+        c2_chains = 0;
         if (rv_live.cores2)                          /* shared out by what they cost */
             nc2 = c2_share();
         else
             for (e = 0; e < vl_n; e++)
                 vl_c2[e] = 0;
+        if (!nc2)
+            c2_chains = 0;
         for (e = 0; e < vl_n; e++)
             if (vl_c2[e])
                 c2_trk |= (uint8_t)(1u << vl_track(e));
@@ -1714,9 +1863,11 @@ static void render_sub(float *outl, float *outr, int n)
             } else
                 rv_live.c2_fail = 1;
         }
-        if (!par_job)
+        if (!par_job) {
             for (e = 0; e < vl_n; e++)
                 vl_c2[e] = 0;
+            c2_chains = 0;
+        }
         c = plat_cycles();
         for (e = 0; e < vl_n; e++)                   /* this core's */
             if (!vl_c2[e]) {
@@ -1727,6 +1878,21 @@ static void render_sub(float *outl, float *outr, int n)
                 trk_cyc[vl_track(e)] += c1 - c;
                 c = c1;
             }
+        if (par_job && nc2) {                        /* the tracks with none of their voices there: their chains now, while it works */
+            uint32_t ta = plat_cycles(), tb;
+            for (t = 0; t < RV_TRACKS; t++)
+                if (!((c2_trk >> t) & 1u)) {
+                    if (rv.tp[t][TP_KIND] == KIND_LOOP)
+                        loop_render(t, trk[t].buf, n);
+                    chain_a(t, n, trk[t].buf, 0);
+                    tb = plat_cycles();
+                    ca_cost[t] = (ca_cost[t] * 3u + (tb - ta)) / 4u;
+                    trk_cyc[t] += tb - ta;
+                    a_early += tb - ta;
+                    ta = tb;
+                    a_done |= (uint8_t)(1u << t);
+                }
+        }
         if (par_job && nc2) {                        /* the second core's */
             uint32_t w0 = plat_par_cycles();
             int r = par_voices_wait();
@@ -1735,6 +1901,10 @@ static void render_sub(float *outl, float *outr, int n)
             if (r < 0) {                             /* it failed (and is off now): its voices here, again */
                 rv_live.c2_fail = 1;
                 par_job = 0;                         /* (and the buses) */
+                for (t = 0; t < RV_TRACKS; t++)      /* (its tracks' buffers, whatever it left in them: anew) */
+                    if ((c2_chains >> t) & 1u)
+                        zero_buf(trk[t].buf, n);
+                c2_chains = 0;
                 for (e = 0; e < vl_n; e++)
                     if (vl_c2[e]) {
                         vl_c2[e] = 0;
@@ -1742,7 +1912,13 @@ static void render_sub(float *outl, float *outr, int n)
                     }
             } else {
                 for (t = 0; t < RV_TRACKS; t++)
-                    if ((c2_trk >> t) & 1u)
+                    if ((c2_chains >> t) & 1u) {     /* (its tracks: their chains done there) */
+                        a_done |= (uint8_t)(1u << t);
+                        ca_cost[t] = (ca_cost[t] * 3u + ca_c2[t]) / 4u;
+                        trk_cyc[t] += ca_c2[t];
+                        prof_acc[PF_CHAIN] += ca_c2[t];
+                        c2_acc += ca_c2[t];
+                    } else if ((c2_trk >> t) & 1u)   /* (shared ones: its voices added to this core's) */
                         for (i = 0; i < n; i++)
                             trk[t].buf[i] += c2_buf[t][i];
                 for (k = 0; k < 4; k++) {            /* (its voices' time, in their bars and in its load) */
@@ -1760,32 +1936,35 @@ static void render_sub(float *outl, float *outr, int n)
         v_end = prof_t;
         c2_voices_given = (uint8_t)nc2;
     }
-    vcyc = prof_t - vcyc0;
+    vcyc = prof_t - vcyc0 - a_early;                 /* (the chains done while the second core worked: in theirs) */
+    prof_acc[PF_CHAIN] += a_early;
     /* the tracks' chains (a LOOP track's lanes first, into its buffer); what the LOOP track hears */
-    static float lp_cap[RV_SUB], ring_buf[RV_SUB];
+    static float lp_cap[RV_SUB];
     int lp_src = loop_t >= 0 ? clampi(rv.tp[loop_t][TP_S12], 0, 8) : 0;
     for (i = 0; i < n; i++)
         lp_cap[i] = 0.0f;
-    for (t = 0; t < RV_TRACKS; t++) {
+    for (t = 0; t < RV_TRACKS; t++)                  /* chain_a: the tracks the second core didn't take (it ran its own) */
+        if (!((a_done >> t) & 1u)) {
+            uint32_t tc0 = plat_cycles(), d;
+            if (rv.tp[t][TP_KIND] == KIND_LOOP)
+                loop_render(t, trk[t].buf, n);
+            chain_a(t, n, trk[t].buf, 0);
+            d = plat_cycles() - tc0;
+            ca_cost[t] = (ca_cost[t] * 3u + d) / 4u;
+            trk_cyc[t] += d;
+        }
+    t_aend = plat_cycles();
+    for (t = 0; t < RV_TRACKS; t++) {                /* chain_b: into the mix and the sends, every track in order */
         track_t *tr = &trk[t];
         const float *eff = tr->eff;
         int kind = rv.tp[t][TP_KIND];
         uint32_t tc0 = plat_cycles();                /* (this track's effects: VIEW TRACKS) */
-        float drive, fld, derez, ia, ib, imix, lvl, pan, gl, gr, peak = 0.0f, ring = tr->ring_amt;
-        int bits, mask, ins, chain_bad = 0, n_chain = n;
+        float lvl, pan, gl, gr, peak = tr->cpk;
+        int n_chain = tr->cskip ? 0 : n;
         int chorus = kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ ? clampi(rv.tp[t][TP_S3], 0, 3) : 0;
         uint8_t muted = ((rv.mute | weft_gate_mute) >> t) & 1u;   /* (a SEQ OUT in GATE mode holds it quiet too) */
         if (rv.solo && !((rv.solo >> t) & 1u))
             muted = 1;
-        drive = eff[TP_DRIVE] * (1.0f / 127.0f);
-        fld = eff[TP_FOLD] * (1.0f / 127.0f);
-        bits = (int)(eff[TP_BITS] + 0.5f);
-        derez = eff[TP_DEREZ] * (1.0f / 127.0f);
-        mask = (int)(eff[TP_MASK] + 0.5f);
-        ins = clampi((int)(eff[TP_INS] + 0.5f), 0, INS_N - 1);
-        ia = eff[TP_INA] * (1.0f / 127.0f);
-        ib = eff[TP_INB] * (1.0f / 127.0f);
-        imix = eff[TP_INMIX] * (1.0f / 127.0f);
         lvl = eff[TP_LEVEL] * (1.0f / 127.0f);
         lvl *= lvl * 0.7f;
         pan = eff[TP_PAN] * (1.0f / 64.0f);
@@ -1795,45 +1974,9 @@ static void render_sub(float *outl, float *outr, int n)
             gl *= 0.6f;
             gr *= 0.6f;
         }
-        if (kind == KIND_LOOP)
-            loop_render(t, tr->buf, n);
-        /* (a WEFT track's voices are in its buffer already: they play with the others, above) */
-        if (ring <= 0.001f && peak_of(tr->buf, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
-            if (tr->quiet >= BUS_HOLD)
-                n_chain = 0;
-        } else {
-            tr->quiet = 0;
-        }
-        if (ring > 0.001f && n_chain) {             /* RING: the carriers, the other tracks' last step (as summed before) */
-            int a;
-            for (i = 0; i < n; i++)
-                ring_buf[i] = 0.0f;
-            for (a = 0; a < RV_TRACKS; a++) {
-                const rv_route *r = &rv.infl[a][t];
-                if (r->type == RT_RING && r->amt) {
-                    float g = r->amt * (1.0f / 64.0f);
-                    for (i = 0; i < n; i++)
-                        ring_buf[i] += trk[a].prev[i] * g * 4.0f;
-                }
-            }
-        }
-        for (i = 0; i < n_chain; i++) {
-            float x = tr->buf[i];
-            x = skin(tr, x, drive, fld, bits, derez, mask);
-            if (ins)
-                x = lerpf(x, insert_tick(tr, ins, x, ia, ib), imix);
-            if (ring > 0.001f)
-                x = lerpf(x, x * sat(ring_buf[i] / ring), clampf(ring, 0.0f, 1.0f));   /* a bounded carrier: rings that feed each other cannot grow */
-            x = dcb_tick(&tr->dc, x);
-            if (!(x > -RV_GUARD && x < RV_GUARD)) {
-                x = 0.0f;
-                chain_bad = 1;
-            }
-            tr->buf[i] = x;
-            if (fm_fabsf(x) > peak)
-                peak = fm_fabsf(x);
-            if (!muted) {
-                float sl = x * gl, sr = x * gr, m = x * lvl;
+        if (!muted)
+            for (i = 0; i < n_chain; i++) {
+                float x = tr->buf[i], sl = x * gl, sr = x * gr, m = x * lvl;
                 if (chorus) {                       /* Juno-60 style: dry + bbd left, dry - bbd right */
                     float wet = chorus_tick(tr, x, chorus);
                     sl = (x + wet) * gl * 0.75f;
@@ -1847,24 +1990,9 @@ static void render_sub(float *outl, float *outr, int n)
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
                 rev_in[i] += m * (punch[6] ? 0.8f : eff[TP_REVS] * (1.0f / 127.0f));
             }
-        }
-        if (peak < 1e-6f) {                          /* silent out: counting toward skipping it */
-            if (tr->quiet < 0xFFFFu)
-                tr->quiet++;
-        } else {
-            tr->quiet = 0;
-        }
-        if (chain_bad) {                             /* the chain blew up: clear its memory */
-            fault(400 + ins);
+        if (tr->cbad) {                              /* the chain blew up (its memory cleared in chain_a) */
+            fault(400 + tr->cbad - 1);
             rv_fault_track = t;
-            __builtin_memset(&tr->dc, 0, sizeof(tr->dc));
-            __builtin_memset(tr->comb, 0, sizeof(tr->comb));
-            __builtin_memset(tr->smear, 0, sizeof(tr->smear));
-            __builtin_memset(tr->hilb_i, 0, sizeof(tr->hilb_i));
-            __builtin_memset(tr->hilb_q, 0, sizeof(tr->hilb_q));
-            tr->comb_lp = tr->sh_z = tr->crush_hold = tr->derez_hold = 0.0f;
-            tr->ring_amt = 0.0f;
-            zero_buf(tr->exc, n);
         }
         if (muted)
             peak *= 0.0f;
@@ -1907,7 +2035,7 @@ static void render_sub(float *outl, float *outr, int n)
         if (par_job) {
             uint32_t w0 = plat_par_cycles(), we;
             int r;
-            c1_after = (c1_after * 3u + (plat_cycles() - v_end)) / 4u;   /* (this core's work after the voices) */
+            c1_rest = (c1_rest * 3u + (plat_cycles() - t_aend)) / 4u;   /* (this core's work after the chains: the mix) */
             r = plat_par_wait();
             we = plat_par_cycles() - w0;
             c2_wacc += we;

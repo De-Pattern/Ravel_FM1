@@ -656,7 +656,8 @@ typedef struct {
 } wk_t;
 typedef void (*wk_fn)(wk_t *K, int i, int j1, int j2);
 /* (the blocks that do little a sample, and are rarely many: the clocks, the logic, the sequencers' outputs, S&H, CHAOS,
- * CRUSH, EDGE, RUNGLER, TICK: from the flash, to leave the pool's room to the ones that cost) */
+ * CRUSH, EDGE, RUNGLER, TICK; and the two seldom used, BANDS and VOCODER: from the flash, to leave the pool's room to
+ * the ones most patches use) */
 #define WK_FLASH __attribute__((noinline))
 #define WK_HEAD \
     wv_t *v = K->v; \
@@ -959,7 +960,7 @@ RV_HOT2 static void wk_delay(wk_t *K, int i, int j1, int j2)
     }
 }
 
-RV_HOT2 static void wk_bands(wk_t *K, int i, int j1, int j2)
+WK_FLASH static void wk_bands(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
     {            /* four bands at the note's 1st-4th harmonics (SPREAD bends them); B: scan */
@@ -1393,7 +1394,7 @@ RV_HOT2 static void wk_formant(wk_t *K, int i, int j1, int j2)
         yo[j] = wf_formant(v, i, WA);
 }
 
-RV_HOT2 static void wk_vocoder(wk_t *K, int i, int j1, int j2)
+WK_FLASH static void wk_vocoder(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
         for (j = j1; j < j2; j++)

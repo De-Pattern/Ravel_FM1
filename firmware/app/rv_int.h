@@ -195,6 +195,8 @@ typedef struct {
     float buf[RV_SUB];              /* this control step's output (mono, post insert) */
     uint16_t quiet;                 /* control steps its chain has had nothing in and nothing out */
     uint16_t unheard;               /* frames it has been muted or at no level, with nothing else using it (to 65535) */
+    float cpk;                      /* its chain's peak this step (chain_a, on either core; for chain_b) */
+    uint8_t cskip, cbad;            /* the chain skipped (silent), blew up (1 + the insert) this step */
     float prev[RV_SUB];             /* the last one: influence audio reads it */
     float exc[RV_SUB];              /* excitation coming in (influence, feedback return) */
     uint8_t exc_on;                 /* any this step */
