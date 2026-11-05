@@ -838,23 +838,6 @@ static void bus_note(int k, float out_peak)
         bus_quiet[k] = 0;
     }
 }
-/* a stereo bus run on its own, so its output can be measured, then added */
-static void bus_stereo(int k, void (*run)(const float *, int, float *, float *), const float *in, int n, float *l, float *r)
-{
-    float bl[RV_SUB], br[RV_SUB];
-    int i;
-    if (bus_skip(k, in, n))
-        return;
-    for (i = 0; i < n; i++)
-        bl[i] = br[i] = 0.0f;
-    run(in, n, bl, br);
-    bus_note(k, fm_maxf(peak_of(bl, n), peak_of(br, n)));
-    for (i = 0; i < n; i++) {
-        l[i] += bl[i];
-        r[i] += br[i];
-    }
-}
-
 /* ------------------------------------------------------------ profile --- */
 /* GLO > CPU: where the render's time goes, part by part, as a share of the time it has (the
  * platform's cycle counter; none in the browser). Measured a quarter second at a time, smoothed */
@@ -912,27 +895,33 @@ static uint8_t c2_voices_given;                       /* how many it had this st
  * after its voices (the tracks' chains, the master) and the second's (the buses). The voices are shared out
  * by cost, so the two cores end together, rather than every other voice */
 static const uint8_t vc_off[4] = {0, RV_SYNTH_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES};
-static uint32_t vc_cost[VL_MAX], c1_rest, c2_bus, v_end;
+static uint32_t vc_cost[VL_MAX], c1_rest, v_end;
+enum { BU_SPACE, BU_FB, BU_DLY, BU_N };                   /* the bus jobs (the BED goes with the SPACE, which it sends into) */
+static uint32_t bu_cost[BU_N];                            /* what each cost lately (cycles, smoothed; on either core) */
+static uint8_t bu_c1;                                     /* the ones this core runs this step (the second core the rest) */
 static uint8_t c2_chains;                             /* the tracks whose chains (chain_a) the second core runs this step */
 static uint32_t ca_cost[RV_TRACKS], ca_c2[RV_TRACKS]; /* each track's chain_a time (smoothed); the second core's this step */
 #define VC(e) vc_cost[vc_off[vl_kind[e]] + vl_idx[e]]
 static void vc_note(int e, uint32_t cyc) { uint32_t *p = &VC(e); *p = *p ? (*p * 3u + cyc) / 4u : cyc; }
 
-/* which voices (and so which tracks' chains) go to the second core. The tracks first, dearest first, each whole
- * (its voices and its chain) to the core that would finish the step sooner; then, of the tracks left here, single
- * voices, if that helps (such a track's chain stays here, after the second core's voices). The step's time on each
- * core, as measured a moment ago: here, the larger of (its voices and chains) and (the second's), then the chains
- * of tracks shared between them and the rest (the mix, the master); there, its voices and chains, then the buses */
+/* which voices (and so which tracks' chains), and which bus jobs, go to the second core. The tracks and the bus
+ * jobs first, dearest first, each whole (a track's voices and its chain) to the core that would finish the step
+ * sooner; then, of the tracks left here, single voices, if that helps (such a track's chain stays here, after the
+ * second core's voices); then a bus job moved across, if that helps. The step's time on each core, as measured a
+ * moment ago: here, the larger of (its voices, its bus jobs and its chains) and (the second's voices and chains),
+ * then the chains of tracks shared between them and the rest (the mix); there, its voices and chains, then its
+ * bus jobs. (The bus jobs play last step's sends, so either core can run them at any time in the step.) */
+static uint32_t sh_b1, sh_b2;                         /* (the bus jobs' time on each core, as shared so far) */
 static uint32_t share_cost(uint32_t v1, uint32_t a1, uint32_t v2, uint32_t a2, uint32_t am)
 {
-    uint32_t t1 = (v1 + a1 > v2 + a2 ? v1 + a1 : v2 + a2) + am + c1_rest, t2 = v2 + a2 + c2_bus;
+    uint32_t t1 = (v1 + a1 + sh_b1 > v2 + a2 ? v1 + a1 + sh_b1 : v2 + a2) + am + c1_rest, t2 = v2 + a2 + sh_b2;
     return t1 > t2 ? t1 : t2;
 }
 static int vl_track(int e);
 static int c2_share(void)
 {
     uint32_t vt[RV_TRACKS] = {0}, v1 = 0, a1 = 0, v2 = 0, a2 = 0, am = 0;
-    uint8_t nv[RV_TRACKS] = {0}, has = 0, on2 = 0, done = 0, mixed = 0;
+    uint8_t nv[RV_TRACKS] = {0}, has = 0, on2 = 0, done = 0, mixed = 0, bu_done = 0;
     int e, t, k, nc2 = 0;
     for (e = 0; e < vl_n; e++) {
         t = vl_track(e);
@@ -946,14 +935,34 @@ static int c2_share(void)
     for (t = 0; t < RV_TRACKS; t++)                 /* (a track with nothing to share: its chain, here) */
         if (!((has >> t) & 1u))
             a1 += ca_cost[t];
-    for (k = 0; k < RV_TRACKS; k++) {               /* the tracks, dearest first */
+    sh_b1 = sh_b2 = 0;
+    bu_c1 = 0;
+    for (k = 0; k < RV_TRACKS + BU_N; k++) {        /* the tracks and the bus jobs, dearest first */
         uint32_t w = 0, c1c, c2c;
-        int best = -1;
+        int best = -1, u;
         for (t = 0; t < RV_TRACKS; t++)
             if (((has & ~done) >> t) & 1u && (best < 0 || vt[t] + ca_cost[t] > w))
                 best = t, w = vt[t] + ca_cost[t];
+        for (u = 0; u < BU_N; u++)
+            if (!((bu_done >> u) & 1u) && (best < 0 || bu_cost[u] > w))
+                best = RV_TRACKS + u, w = bu_cost[u];
         if (best < 0)
             break;
+        if (best >= RV_TRACKS) {                    /* a bus job: to the core that ends sooner (a tie: the second) */
+            u = best - RV_TRACKS;
+            bu_done |= (uint8_t)(1u << u);
+            sh_b1 += w;
+            c1c = share_cost(v1, a1, v2, a2, am);
+            sh_b1 -= w;
+            sh_b2 += w;
+            c2c = share_cost(v1, a1, v2, a2, am);
+            if (c1c < c2c) {
+                sh_b2 -= w;
+                sh_b1 += w;
+                bu_c1 |= (uint8_t)(1u << u);
+            }
+            continue;
+        }
         done |= (uint8_t)(1u << best);
         c1c = share_cost(v1 + vt[best], a1 + ca_cost[best], v2, a2, am);
         c2c = share_cost(v1, a1, v2 + vt[best], a2 + ca_cost[best], am);
@@ -998,6 +1007,26 @@ static int c2_share(void)
         vl_c2[best] = 1;
         nv[t]--;                                    /* (one voice of it always stays here) */
         nc2++;
+    }
+    for (k = 0; k < BU_N; k++) {                    /* then a bus job across, if that helps */
+        uint32_t now = share_cost(v1, a1, v2, a2, am), c, w = bu_cost[k];
+        if ((bu_c1 >> k) & 1u) {
+            sh_b1 -= w;
+            sh_b2 += w;
+        } else {
+            sh_b1 += w;
+            sh_b2 -= w;
+        }
+        c = share_cost(v1, a1, v2, a2, am);
+        if (c < now)
+            bu_c1 ^= (uint8_t)(1u << k);
+        else if ((bu_c1 >> k) & 1u) {               /* (back as it was) */
+            sh_b1 += w;
+            sh_b2 -= w;
+        } else {
+            sh_b1 -= w;
+            sh_b2 += w;
+        }
     }
     c2_chains = on2;
     return nc2;
@@ -1156,72 +1185,102 @@ static void voices_count(uint32_t *lead_age)
  * So the second core can run them while this one plays the voices and the tracks' chains; their
  * code is in the chip's RAM (RV_HOT), so the two cores don't fight over the cache for it. With one
  * core they run here, at the same point in the sound, so it is the same either way. */
-#define BX_LEN (2 * RV_SUB)
-static float bx_fb[BX_LEN], bx_dly[BX_LEN], bx_rev[BX_LEN];   /* the tracks' sends, a ring */
-static int bx_w;                                           /* where this step's go */
+/* The tracks' sends, two steps' worth: this step's are made into one (sd_cur) while the buses read the
+ * other, last step's. A bus job is one of three: the BED and the SPACE (the BED sends into it), the
+ * FEEDBACK, the DELAY; each writes its own output, and this core adds them up afterwards in the same
+ * order as ever, so whichever core runs a job, the sound is the same. */
+static float sd[2][3][RV_SUB];                             /* [step][FEEDBACK, DELAY, SPACE] */
+static uint8_t sd_cur;
 static float bx_act;                                       /* how loud the tracks were (the BED ducks) */
-static float bo_l[RV_SUB], bo_r[RV_SUB], bo_fb[RV_SUB];   /* the buses' output this step */
+static float bo_l[RV_SUB], bo_r[RV_SUB], bo_fb[RV_SUB];   /* the BED's output, then all of it; the FEEDBACK's */
+static float bd_l[RV_SUB] RV_RAMBSS, bd_r[RV_SUB] RV_RAMBSS, bs_l[RV_SUB], bs_r[RV_SUB];   /* the DELAY's, the SPACE's */
+static uint8_t bd_ran, bs_ran;                            /* (a bus resting adds nothing at all) */
 static float bo_act;
-static int bo_n, bo_fault;
-static uint32_t bo_cyc[4], bo_all;                        /* BED, FEEDBACK, DELAY, SPACE; and in all */
+static uint8_t bo_bed;                                    /* the BED plays (the music has, lately) */
+/* the BED rests when nothing plays: the sequencer stopped and every track silent for BED_REST
+ * samples; it fades out, stops computing, and fades in again with the next sound or PLAY */
+#define BED_REST (RV_FS * 4u)
+static uint32_t bed_idle;
+static int bo_n;
+static uint16_t bu_fault[BU_N];
+static uint32_t bo_cyc[4], bo_all;                        /* BED, FEEDBACK, DELAY, SPACE (cycles, on either core); the second core's in all */
 static volatile uint8_t par_vdone;                       /* the second core's synth voices are done */
 static uint8_t par_job;                                   /* it has this step's job */
 
-static float bj_fb[RV_SUB] RV_RAMBSS, bj_dly[RV_SUB] RV_RAMBSS, bj_rev[RV_SUB] RV_RAMBSS;   /* (off the stack: the second core's is small) */
-static __attribute__((noinline)) void bus_job(void)
+/* run the bus jobs in mask (BU_ bits); clk: the core's cycle counter; cyc: where their time goes, by bus
+ * (BED, FEEDBACK, DELAY, SPACE; each core its own). Returns the cycles taken */
+static __attribute__((noinline)) uint32_t bus_jobs(uint32_t mask, uint32_t (*clk)(void), uint32_t *cyc)
 {
-    float *fin = bj_fb, *din = bj_dly, *rin = bj_rev;
-    int i, n = bo_n, j = bx_w - RV_SUB;
-    uint32_t c0 = plat_par_cycles(), c = c0, c1;
-    if (j < 0)
-        j += BX_LEN;
-    for (i = 0; i < n; i++) {
-        fin[i] = bx_fb[j];
-        din[i] = bx_dly[j];
-        rin[i] = bx_rev[j];
-        bo_l[i] = bo_r[i] = 0.0f;
-        if (++j >= BX_LEN)
-            j = 0;
-    }
-    bo_fault = 0;
-    RV_FAR(bed_run)(rin, bo_l, bo_r, n, bo_act);      /* the BED, under the tracks (it ducks under them) */
-    if (buf_fix(bo_l, n) | buf_fix(bo_r, n))
-        bo_fault = 950;
-    c1 = plat_par_cycles();
-    bo_cyc[0] += c1 - c;
-    c = c1;
-    if ((loop_mem & LM_FB) || bus_skip(BUS_FB, fin, n)) {   /* (a LOOP track may have a bus's memory: it stands still) */
+    int i, n = bo_n;
+    float *fin = sd[sd_cur ^ 1][0], *din = sd[sd_cur ^ 1][1], *rin = sd[sd_cur ^ 1][2];
+    uint32_t c0 = clk(), c = c0, c1;
+    if (mask & (1u << BU_SPACE)) {
         for (i = 0; i < n; i++)
-            bo_fb[i] = 0.0f;
-    } else {
-        RV_FAR(feedback_run)(fin, n, bo_fb);
-        bus_note(BUS_FB, peak_of(bo_fb, n));
+            bo_l[i] = bo_r[i] = 0.0f;
+        bu_fault[BU_SPACE] = 0;
+        RV_FAR(bed_run)(rin, bo_l, bo_r, n, bo_act, bo_bed);   /* the BED, under the tracks (it ducks under them), and into the SPACE */
+        if (buf_fix(bo_l, n) | buf_fix(bo_r, n))
+            bu_fault[BU_SPACE] = 950;
+        c1 = clk();
+        cyc[0] += c1 - c;
+        c = c1;
+        bs_ran = 0;
+        if (!(loop_mem & LM_SPACE) && !bus_skip(BUS_SPACE, rin, n)) {
+            for (i = 0; i < n; i++)
+                bs_l[i] = bs_r[i] = 0.0f;
+            RV_FAR(halfrate_run)(rin, n, bs_l, bs_r);
+            bus_note(BUS_SPACE, fm_maxf(peak_of(bs_l, n), peak_of(bs_r, n)));
+            if ((buf_fix(bs_l, n) | buf_fix(bs_r, n)) && !bu_fault[BU_SPACE])
+                bu_fault[BU_SPACE] = 900;
+            bs_ran = 1;
+        }
+        c1 = clk();
+        cyc[3] += c1 - c;
+        bu_cost[BU_SPACE] = (bu_cost[BU_SPACE] * 3u + (c1 - c0)) / 4u;
+        c = c1;
     }
-    if (buf_fix(bo_fb, n) && !bo_fault)
-        bo_fault = 600;
-    for (i = 0; i < n; i++) {
-        bo_l[i] += bo_fb[i];
-        bo_r[i] += bo_fb[i];
+    if (mask & (1u << BU_FB)) {
+        uint32_t cs = c;
+        bu_fault[BU_FB] = 0;
+        if ((loop_mem & LM_FB) || bus_skip(BUS_FB, fin, n)) {   /* (a LOOP track may have a bus's memory: it stands still) */
+            for (i = 0; i < n; i++)
+                bo_fb[i] = 0.0f;
+        } else {
+            RV_FAR(feedback_run)(fin, n, bo_fb);
+            bus_note(BUS_FB, peak_of(bo_fb, n));
+        }
+        if (buf_fix(bo_fb, n))
+            bu_fault[BU_FB] = 600;
+        c1 = clk();
+        cyc[1] += c1 - c;
+        bu_cost[BU_FB] = (bu_cost[BU_FB] * 3u + (c1 - cs)) / 4u;
+        c = c1;
     }
-    c1 = plat_par_cycles();
-    bo_cyc[1] += c1 - c;
-    c = c1;
-    if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
-        bus_quiet[BUS_DLY] = 0;
-    if (!(loop_mem & LM_DLY))
-        bus_stereo(BUS_DLY, delay_run, din, n, bo_l, bo_r);
-    if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
-        bo_fault = 800;
-    c1 = plat_par_cycles();
-    bo_cyc[2] += c1 - c;
-    c = c1;
-    if (!(loop_mem & LM_SPACE))
-        bus_stereo(BUS_SPACE, halfrate_run, rin, n, bo_l, bo_r);
-    if ((buf_fix(bo_l, n) | buf_fix(bo_r, n)) && !bo_fault)
-        bo_fault = 900;
-    c1 = plat_par_cycles();
-    bo_cyc[3] += c1 - c;
-    bo_all += c1 - c0;
+    if (mask & (1u << BU_DLY)) {
+        uint32_t cs = c;
+        bu_fault[BU_DLY] = 0;
+        bd_ran = 0;
+        if (dly_freeze || rv.gp[GP_DLYFREEZE])            /* frozen, it plays on with nothing coming in */
+            bus_quiet[BUS_DLY] = 0;
+        if (!(loop_mem & LM_DLY) && !bus_skip(BUS_DLY, din, n)) {
+            for (i = 0; i < n; i++)
+                bd_l[i] = bd_r[i] = 0.0f;
+            RV_FAR(delay_run)(din, n, bd_l, bd_r);
+            bus_note(BUS_DLY, fm_maxf(peak_of(bd_l, n), peak_of(bd_r, n)));
+            if (buf_fix(bd_l, n) | buf_fix(bd_r, n))
+                bu_fault[BU_DLY] = 800;
+            bd_ran = 1;
+        }
+        c1 = clk();
+        cyc[2] += c1 - c;
+        bu_cost[BU_DLY] = (bu_cost[BU_DLY] * 3u + (c1 - cs)) / 4u;
+        c = c1;
+    }
+    return c - c0;
+}
+static void bus_c2(void)                                   /* (the second core's: the jobs this one isn't running) */
+{
+    bo_all = bus_jobs(~(uint32_t)bu_c1 & 7u, plat_par_cycles, bo_cyc);
 }
 
 static void chain_a(int t, int n, const float *src, int core);
@@ -1241,7 +1300,7 @@ static void c2_job(uint32_t voices)
         par_vdone = 1;
         plat_par_sync();
     }
-    bus_job();
+    bus_c2();
 }
 
 /* this core waits for the second's voices: 0 = they are done; < 0 = it failed (and is off now:
@@ -1702,7 +1761,7 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
 /* ----------------------------------------------------------- render --- */
 static void render_sub(float *outl, float *outr, int n)
 {
-    static float fb_in[RV_SUB], dly_in[RV_SUB], rev_in[RV_SUB];
+    float *fb_in = sd[sd_cur][0], *dly_in = sd[sd_cur][1], *rev_in = sd[sd_cur][2];   /* this step's sends (the buses play them next step) */
     static float fb_out[RV_SUB];                    /* kept: the feedback return reads the last step's */
     int offs[8], np, i, t, k;
     static uint32_t lead_age[RV_TRACKS];
@@ -1711,7 +1770,7 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
-    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0, a_early = 0, t_aend;
+    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0, a_early = 0, b_early = 0, t_aend;
     uint8_t a_done = 0;                             /* the tracks whose chain_a is done (here early, or by the second core) */
     prof_t = cyc0 = plat_cycles();
     loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
@@ -1732,10 +1791,10 @@ static void render_sub(float *outl, float *outr, int n)
     PROF(PF_CTRL);
     vcyc0 = prof_t;
 
-    for (i = 0; i < n; i++) {
-        outl[i] = outr[i] = 0.0f;
+    for (i = 0; i < RV_SUB; i++)                    /* (all of it: a shorter step leaves no old sends behind) */
         fb_in[i] = dly_in[i] = rev_in[i] = 0.0f;
-    }
+    for (i = 0; i < n; i++)
+        outl[i] = outr[i] = 0.0f;
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
         in_buf[2 * i] = in_buf[2 * i + 1] = 0.0f;
@@ -1837,8 +1896,12 @@ static void render_sub(float *outl, float *outr, int n)
         }
         c2_trk = 0;
         c2_chains = 0;
-        if (rv_live.cores2)                          /* shared out by what they cost */
+        if (rv_live.cores2) {                        /* shared out by what they cost */
             nc2 = c2_share();
+#ifdef RV_BU_FORCE
+            bu_c1 = (uint8_t)((now_s / RV_SUB * 5u + 3u) % 8u);   /* (a test: every way of sharing the bus jobs, in turn) */
+#endif
+        }
         else
             for (e = 0; e < vl_n; e++)
                 vl_c2[e] = 0;
@@ -1853,6 +1916,11 @@ static void render_sub(float *outl, float *outr, int n)
         par_n = n;
         bo_n = n;
         bo_act = bx_act;
+        if (rv_live.playing || bx_act > 1e-6f)
+            bed_idle = 0;
+        else if (bed_idle < BED_REST)
+            bed_idle += (uint32_t)n;
+        bo_bed = bed_idle < BED_REST;
         par_vdone = 0;
         par_job = 0;
         rv_live.c2_used = 0;
@@ -1867,6 +1935,7 @@ static void render_sub(float *outl, float *outr, int n)
             for (e = 0; e < vl_n; e++)
                 vl_c2[e] = 0;
             c2_chains = 0;
+            bu_c1 = 0;                               /* (the buses: all here, at their place below) */
         }
         c = plat_cycles();
         for (e = 0; e < vl_n; e++)                   /* this core's */
@@ -1878,6 +1947,14 @@ static void render_sub(float *outl, float *outr, int n)
                 trk_cyc[vl_track(e)] += c1 - c;
                 c = c1;
             }
+        if (par_job && bu_c1) {                      /* the bus jobs this core has: now, while the second core works */
+            uint32_t bc[4] = {0, 0, 0, 0};
+            b_early = bus_jobs(bu_c1, plat_cycles, bc);
+            prof_acc[PF_BED] += bc[0];
+            prof_acc[PF_FB] += bc[1];
+            prof_acc[PF_DLY] += bc[2];
+            prof_acc[PF_SPACE] += bc[3];
+        }
         if (par_job && nc2) {                        /* the tracks with none of their voices there: their chains now, while it works */
             uint32_t ta = plat_cycles(), tb;
             for (t = 0; t < RV_TRACKS; t++)
@@ -1936,7 +2013,7 @@ static void render_sub(float *outl, float *outr, int n)
         v_end = prof_t;
         c2_voices_given = (uint8_t)nc2;
     }
-    vcyc = prof_t - vcyc0 - a_early;                 /* (the chains done while the second core worked: in theirs) */
+    vcyc = prof_t - vcyc0 - a_early - b_early;       /* (the chains and buses done while the second core worked: in theirs) */
     prof_acc[PF_CHAIN] += a_early;
     /* the tracks' chains (a LOOP track's lanes first, into its buffer); what the LOOP track hears */
     static float lp_cap[RV_SUB];
@@ -2019,19 +2096,14 @@ static void render_sub(float *outl, float *outr, int n)
         prof_acc[PF_CHAIN] += c - prof_t;
         prof_t = c;
     }
-    /* the buses: this step's sends go into the ring (they play next step); what they made of the
-     * last step's comes back from the second core, or is made here now */
+    /* the buses: this step's sends stay where they were made (the buses play them next step); what the
+     * buses made of the last step's comes back from the second core, is made here now (the jobs it didn't
+     * have, or all of them with one core), or was made here already, while it worked; then summed, in order */
     {
         float act = 0.0f;
-        int j = bx_w;
-        for (i = 0; i < n; i++) {
-            bx_fb[j] = fb_in[i];
-            bx_dly[j] = dly_in[i];
-            bx_rev[j] = rev_in[i];
-            if (++j >= BX_LEN)
-                j = 0;
+        uint32_t here = 7u;                          /* (the jobs still to run here) */
+        for (i = 0; i < n; i++)
             act += fm_fabsf(outl[i]) + fm_fabsf(outr[i]);
-        }
         if (par_job) {
             uint32_t w0 = plat_par_cycles(), we;
             int r;
@@ -2039,35 +2111,53 @@ static void render_sub(float *outl, float *outr, int n)
             r = plat_par_wait();
             we = plat_par_cycles() - w0;
             c2_wacc += we;
-            c2_bus = (c2_bus * 3u + bo_all) / 4u;    /* (the second's: the buses) */
-            if (r < 0) {                             /* it failed (and is off now): here */
+            if (r < 0) {                             /* it failed (and is off now): its jobs here */
                 rv_live.c2_fail = 1;
                 par_job = 0;
+                here = ~(uint32_t)bu_c1 & 7u;
+            } else {
+                here = 0;
+                prof_acc[PF_BED] += bo_cyc[0];
+                prof_acc[PF_FB] += bo_cyc[1];
+                prof_acc[PF_DLY] += bo_cyc[2];
+                prof_acc[PF_SPACE] += bo_cyc[3];
+                c2_acc += bo_all;
             }
         }
-        if (!par_job) {
-            bo_all = 0;
-            bus_job();
-            prof_acc[PF_BED] += bo_cyc[0];
-            prof_acc[PF_FB] += bo_cyc[1];
-            prof_acc[PF_DLY] += bo_cyc[2];
-            prof_acc[PF_SPACE] += bo_cyc[3];
-            prof_t += bo_all;                        /* (counted in the parts above, not the master's) */
-        } else {
-            prof_acc[PF_BED] += bo_cyc[0];
-            prof_acc[PF_FB] += bo_cyc[1];
-            prof_acc[PF_DLY] += bo_cyc[2];
-            prof_acc[PF_SPACE] += bo_cyc[3];
-            c2_acc += bo_all;
+        if (here) {
+            uint32_t bc[4] = {0, 0, 0, 0};
+            prof_t += bus_jobs(here, plat_cycles, bc);   /* (counted in the buses' parts, not the master's) */
+            prof_acc[PF_BED] += bc[0];
+            prof_acc[PF_FB] += bc[1];
+            prof_acc[PF_DLY] += bc[2];
+            prof_acc[PF_SPACE] += bc[3];
         }
         bo_cyc[0] = bo_cyc[1] = bo_cyc[2] = bo_cyc[3] = bo_all = 0;
         par_job = 0;
-        bx_w = j;
+        sd_cur ^= 1u;                                /* (these sends are the buses' next step) */
         bx_act = act / (float)n;
-        if (bo_fault) {
-            fault(bo_fault);
-            buses_reset();
+        {   /* the first fault, in the buses' order (BED, FEEDBACK, DELAY, SPACE) */
+            uint16_t f = bu_fault[BU_SPACE] == 950 ? 950 : bu_fault[BU_FB] ? bu_fault[BU_FB] : bu_fault[BU_DLY] ? bu_fault[BU_DLY] : bu_fault[BU_SPACE];
+            bu_fault[0] = bu_fault[1] = bu_fault[2] = 0;
+            if (f) {
+                fault(f);
+                buses_reset();
+            }
         }
+        for (i = 0; i < n; i++) {                    /* the BED, the FEEDBACK, the DELAY, the SPACE */
+            bo_l[i] += bo_fb[i];
+            bo_r[i] += bo_fb[i];
+        }
+        if (bd_ran)
+            for (i = 0; i < n; i++) {
+                bo_l[i] += bd_l[i];
+                bo_r[i] += bd_r[i];
+            }
+        if (bs_ran)
+            for (i = 0; i < n; i++) {
+                bo_l[i] += bs_l[i];
+                bo_r[i] += bs_r[i];
+            }
         for (i = 0; i < n; i++) {
             fb_out[i] = bo_fb[i];                    /* (the feedback return next step) */
             outl[i] += bo_l[i];

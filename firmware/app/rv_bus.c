@@ -299,7 +299,11 @@ RV_HOT static void delay_run(const float *in, int n, float *l, float *r)
             dly_wdt = 0.4f + xs_uni(&dly_rng);
             dly_wdrift = xs_bi(&dly_rng);
         }
-        mod = 1.0f + wow * 0.014f * sin_lut(dly_wph) + flut * 0.0025f * (sin_lut(dly_fph) + 0.4f * sin_lut(dly_fph * 2.7f + 0.3f));
+        mod = 1.0f;                                    /* (a sway at 0 adds nothing: not worked out) */
+        if (wow != 0.0f)
+            mod = 1.0f + wow * 0.014f * sin_lut(dly_wph);
+        if (flut != 0.0f)
+            mod = mod + flut * 0.0025f * (sin_lut(dly_fph) + 0.4f * sin_lut(dly_fph * 2.7f + 0.3f));
         tt = dly_t * mod;
         wp = (float)dly_w + (float)dly_ph * 0.5f;     /* where the tape is being written, between its samples */
         a = dly_read(wp - tt);
@@ -401,80 +405,38 @@ RV_INL void hr_layout(const int16_t *len, int n)
         b += len[k];
     }
 }
-static inline float hr_rd(const int16_t *len, int k, float d)   /* line k, d samples ago (fractional) */
-{
-    float p = (float)hr_w[k] - d;
-    int32_t a, b, L = len[k];
-    const int16_t *m = space_mem + hr_base[k];
-    float fr;
-    while (p < 0.0f)
-        p += (float)L;
-    a = (int32_t)p;
-    fr = p - (float)a;
-    if (a >= L)                                           /* (p rounds up to L at most) */
-        a -= L;
-    b = a + 1 >= L ? 0 : a + 1;
-    return (m[a] + (m[b] - m[a]) * fr) * (1.0f / 8192.0f);
-}
-/* q: the step a sample is kept in, a power of two (1: 16 bits); truncated toward zero, as cheap
- * converters did */
-static inline void hr_wr(const int16_t *len, int k, float x, int32_t q)
-{
-    int32_t v = (int32_t)clampf(x * 8192.0f, -32000.0f, 32000.0f);
-    if (q > 1)
-        v = v >= 0 ? v & -q : -((-v) & -q);
-    space_mem[hr_base[k] + hr_w[k]] = (int16_t)v;
-    if (++hr_w[k] >= len[k])
-        hr_w[k] = 0;
-}
-static inline float hr_ap(const int16_t *len, int k, float x, float g, int32_t q)
-{
-    float z = hr_rd(len, k, (float)len[k] - 1.0f), v = x + z * g;
-    hr_wr(len, k, v, q);
-    return z - v * g;
-}
-
 /* 12-BIT (after the Alesis Quadraverb's era): a bright, metallic plate of four combs and two allpasses a
  * side, kept in 12 bits (CRUNCH takes it down to 8) at half rate with its steps held, so it lisps and
  * aliases the way early digital reverbs did. SIZE is how long it rings, DAMP how dark, MOTION a little
  * chorus in the combs. */
 static const int16_t q12_len[12] = {558, 594, 639, 678, 581, 617, 662, 701, 113, 171, 124, 182};
-typedef struct { float fb, damp, modd; int32_t q; } q12_set_t;
-RV_INL void q12_tank(const q12_set_t *st, float x, float *ol, float *or_)
+
+/* a value into a line, truncated toward zero to a step of q (a power of two; 1: 16 bits) */
+RV_INL int16_t q12_q(float x, int32_t q)
 {
-    float fb = st->fb, damp = st->damp, modd = st->modd, a = 0.0f, b = 0.0f;
-    int32_t q = st->q;
-    int k;
-    hr_ph[0] += 0.6f * 2.0f * RV_DT;
-    hr_ph[0] -= fm_floorf(hr_ph[0]);
-    for (k = 0; k < 8; k++) {
-        float z = hr_rd(q12_len, k, (float)q12_len[k] - 2.0f - modd * (1.0f + sin_lut(hr_ph[0] + (float)k * 0.125f)));
-        hr_lp[k] += (z - hr_lp[k]) * damp;
-        hr_wr(q12_len, k, x * 0.6f + hr_lp[k] * fb, q);
-        if (k < 4)
-            a += z;
-        else
-            b += z;
-    }
-    a = hr_ap(q12_len, 8, a * 0.5f, 0.6f, q);
-    a = hr_ap(q12_len, 9, a, 0.6f, q);
-    b = hr_ap(q12_len, 10, b * 0.5f, 0.6f, q);
-    b = hr_ap(q12_len, 11, b, 0.6f, q);
-    *ol = (float)((int32_t)(a * 2048.0f)) * (1.0f / 2048.0f);   /* out through a 12-bit converter */
-    *or_ = (float)((int32_t)(b * 2048.0f)) * (1.0f / 2048.0f);
+    int32_t v = (int32_t)clampf(x * 8192.0f, -32000.0f, 32000.0f), sg = v >> 31;
+    return (int16_t)(((((v ^ sg) - sg) & -q) ^ sg) - sg);   /* (|v| down to the step, the sign back; q 1: v) */
 }
 
+/* (the tank works with each line's write position and memory held for the whole step; a read a whole
+ * number of samples back, as the allpasses' and, with MOTION at 0, the combs', needs no interpolation:
+ * the same values as reading it fractionally, for less) */
 RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
 {
-    int i;
+    int i, k;
     float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz_i(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
-    q12_set_t st;
-    st.fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f);   /* (the settings, once a step) */
-    st.damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
-    st.modd = gv(GP_REVMOD) * (6.0f / 127.0f);
-    st.q = 1 << (2 + (rv.gp[GP_REVDIFF] * 4) / 127);    /* 12 bits of full scale, down to 8 */
+    float fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f);   /* (the settings, once a step) */
+    float damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
+    float modd = gv(GP_REVMOD) * (6.0f / 127.0f);
+    int32_t q = 1 << (2 + (rv.gp[GP_REVDIFF] * 4) / 127);   /* 12 bits of full scale, down to 8 */
+    int32_t w[12];
+    int16_t *m[12];
     if (!hr_base[1])
         hr_layout(q12_len, 12);
+    for (k = 0; k < 12; k++) {
+        w[k] = hr_w[k];
+        m[k] = space_mem + hr_base[k];
+    }
     for (i = 0; i < n; i++) {
         float x = in[i];
         if (lowc > 0.0f) {
@@ -483,18 +445,66 @@ RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
         }
         hr_in += x * 0.5f;
         if (hr_odd) {                                     /* a pair in: one step of the tank */
-            float ol, or_, xin = hr_in;
+            float xin = hr_in, a = 0.0f, b = 0.0f, z, v;
+            int32_t L, j;
             hr_in = 0.0f;
-            q12_tank(&st, xin, &ol, &or_);
+            hr_ph[0] += 0.6f * 2.0f * RV_DT;
+            hr_ph[0] -= fm_floorf(hr_ph[0]);
+            for (k = 0; k < 8; k++) {                     /* the combs, damped */
+                int16_t *mk = m[k];
+                L = q12_len[k];
+                if (modd != 0.0f) {                       /* MOTION: read between the samples */
+                    float d = (float)L - 2.0f - modd * (1.0f + sin_lut(hr_ph[0] + (float)k * 0.125f));
+                    float p = (float)w[k] - d, fr;
+                    int32_t j1;
+                    if (p < 0.0f)                         /* (d is less than the line: once is enough) */
+                        p += (float)L;
+                    j = (int32_t)p;
+                    fr = p - (float)j;
+                    if (j >= L)
+                        j -= L;
+                    j1 = j + 1 >= L ? 0 : j + 1;
+                    z = (mk[j] + (mk[j1] - mk[j]) * fr) * (1.0f / 8192.0f);
+                } else {                                  /* L - 2 back */
+                    j = w[k] + 2;
+                    if (j >= L)
+                        j -= L;
+                    z = mk[j] * (1.0f / 8192.0f);
+                }
+                hr_lp[k] += (z - hr_lp[k]) * damp;
+                mk[w[k]] = q12_q(xin * 0.6f + hr_lp[k] * fb, q);
+                if (++w[k] >= L)
+                    w[k] = 0;
+                if (k < 4)
+                    a += z;
+                else
+                    b += z;
+            }
+            a *= 0.5f;                                    /* then two allpasses a side: L - 1 back */
+            b *= 0.5f;
+            for (k = 8; k < 12; k++) {
+                float *s = k < 10 ? &a : &b;
+                int16_t *mk = m[k];
+                L = q12_len[k];
+                j = w[k] + 1 >= L ? 0 : w[k] + 1;
+                z = mk[j] * (1.0f / 8192.0f);
+                v = *s + z * 0.6f;
+                mk[w[k]] = q12_q(v, q);
+                if (++w[k] >= L)
+                    w[k] = 0;
+                *s = z - v * 0.6f;
+            }
             hr_out[0][0] = hr_out[0][1];
             hr_out[1][0] = hr_out[1][1];
-            hr_out[0][1] = ol;
-            hr_out[1][1] = or_;
+            hr_out[0][1] = (float)((int32_t)(a * 2048.0f)) * (1.0f / 2048.0f);   /* out through a 12-bit converter */
+            hr_out[1][1] = (float)((int32_t)(b * 2048.0f)) * (1.0f / 2048.0f);
         }
         l[i] += hr_out[0][1] * lvl * 1.2f;                /* held, step by step, as the old units did */
         r[i] += hr_out[1][1] * lvl * 1.2f;
         hr_odd ^= 1u;
     }
+    for (k = 0; k < 12; k++)
+        hr_w[k] = (int16_t)w[k];
 }
 
 /* ---------------------------------------------------------------- BED --- */
@@ -537,10 +547,10 @@ static void bed_setup(void)
     }
 }
 
-/* act: how loud the tracks were (it ducks under them); adds itself to l, r and to the space's input */
-RV_HOT static void bed_run(float *rev_in, float *l, float *r, int n, float act)
+/* act: how loud the tracks were (it ducks under them); on: 0 while nothing plays (it fades out and rests); adds itself to l, r and to the space's input */
+RV_HOT static void bed_run(float *rev_in, float *l, float *r, int n, float act, int on)
 {
-    float lvl = gv(GP_BEDLEVEL) * (1.0f / 127.0f), dens = gv(GP_BEDDENS) * (1.0f / 127.0f);
+    float lvl = on ? gv(GP_BEDLEVEL) * (1.0f / 127.0f) : 0.0f, dens = gv(GP_BEDDENS) * (1.0f / 127.0f);
     float duck = gv(GP_BEDDUCK) * (1.0f / 127.0f), send = gv(GP_BEDSPACE) * (1.0f / 127.0f), want;
     float hz = 0.4f + dens * dens * 40.0f, breath = 0.004f + dens * 0.012f, env = rv_live.bed_env;
     int i, k, nlive;
