@@ -387,7 +387,8 @@ int main(int argc, char **argv)
             case 5: w->out = (uint8_t)vv; break;
             case 7: rv.tp[(tt - 1) & 7][wf_sp(ii - 1)] = (int16_t)vv; break;
             case 9: w->bmove = (uint16_t)(vv ? w->bmove | (1u << bb) : w->bmove & ~(1u << bb)); break;
-            case 10: w->run = (uint8_t)(vv ? 1 : 0); break;     /* RUN: 0 KEYS, 1 ALWAYS */
+            case 10: w->run = (uint8_t)((w->run & ~1u) | (vv ? 1u : 0u)); break;   /* RUN: 0 KEYS, 1 ALWAYS */
+            case 11: w->run = (uint8_t)((w->run & ~2u) | (vv ? 2u : 0u)); break;   /* RATE: 0 FULL, 1 HALF */
             default: break;
             }
         } else if (!strcmp(a, "storedump") || !strcmp(a, "storeput")) {   /* storedump|storeput SLOT FILE: a storage slot to or from a file */

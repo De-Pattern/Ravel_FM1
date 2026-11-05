@@ -26,17 +26,20 @@ did not change (checked sample for sample, or within the variation of a random p
 | WEFT: patches with more than eight blocks play one voice | polyphony, until the cost on the FM-1 is measured | the voice limit in `weft_voice_start` |
 | GLO › CPU: the overload guard fades voices near the limit | voices dropped instead of crackles | `rv_engine.c` |
 | The guard's relief (EASED 1–3, v1.17): past fewer voices, the delay's new grains halved, then quartered (six, four, two at most) and WEFT kept to one voice; back step by step once calm | thinner grains and fewer WEFT voices, only while overloaded | `guard_tick` in `rv_engine.c`, `gmax`/`grate` in `delay_run` (`rv_bus.c`) |
+| WEFT RATE HALF (v1.18, off by default) | the patch at 22 kHz: the top octave gone, a little grit; about half the time | the RATE knob (WEFT RATE); `weft_voice_one` in `rv_weft.c` |
 | SKIP SILENT (v1.17): a track muted or at LEVEL 0 for half a second, nothing else using it, stops its voices | a note held across an unmute doesn't come back (the next one plays) | `skip_mask` in `rv_engine.c`; GLO › CPU, SILENT PLAY |
 
 ## Scheduling (no change to the sound)
 
 | What | Effect |
 | --- | --- |
+| WEFT's blocks run 16 samples at a time where the cords allow; loops sample by sample (v1.18) | sample for sample the same; a patch without loops about half the work. `weft_plan` (the order, in the flash), `weft_voice` and the `wk_*` kernels (in the pool); some little-used kernels (`WK_FLASH`) run from the flash |
+| Tracks shared whole between the cores, their effects (chain_a) with their voices (v1.18) | one core: bit for bit the same; two: the mix adds up in the same order |
 | The two cores share the voices by their measured cost, not every other voice (v1.16.2) | the cores finish together; a heavy patch no longer piles onto the first core |
 
 ## Ideas not done yet (more CPU, if it is needed)
 
 - The tracks' chains (the per-sample loop in `render_sub`, about 34 KB with the rest of it) still run from flash; splitting the per-sample part out into RAM would need more room again.
-- Block-at-a-time WEFT for patches without feedback (about 8–10 KB more code).
+- WEFT loops through a DELAY or STRING could run a run at a time too (their own delay is longer than a run).
 - HYBRID FM: two formants instead of three.
 - A voice limit for HYBRID FM with formants on.

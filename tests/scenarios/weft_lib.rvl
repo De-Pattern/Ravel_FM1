@@ -6,7 +6,7 @@ kind 1 6
 tap EDIT
 turn SELECT -20
 wait 50
-turn SELECT 5
+turn SELECT 6
 wait 100
 expect page WEFT LIBRARY
 # the default patch, a setting changed, saved: A1

@@ -31,6 +31,8 @@ typedef struct {
     float mz[WM_N][32];                         /* the filter-bank blocks' state */
     uint16_t dw[WD_N];
     struct wcx_s *W;                            /* the core's working values it plays with this step */
+    float hr_last;                              /* HALF RATE: its last sample, and which full-rate sample is next (0: one */
+    uint8_t hr_ph;                              /* between two of its own, 1: on one) */
 } wv_t;
 
 static wv_t wv[WV_N] RV_RAMBSS;            /* (in plain RAM: the pool is full) */
@@ -49,6 +51,8 @@ typedef struct wcx_s {
     float md[WM_N][WM_K][5];                    /* the filter-bank blocks' coefficients (the six-mode resonators: per mode a1, a2, gain) */
     int8_t dn[WF_BLOCKS], mn[WF_BLOCKS];        /* a block's delay memory, its six-mode slot (-1 none) */
     float hz;
+    float dt, fs;                               /* the voice's sample time and rate: the FM-1's, or half it (HALF RATE) */
+    int hr;                                     /* 1: HALF RATE */
 } wcx_t;
 static wcx_t wcxs[2];
 
@@ -241,9 +245,11 @@ static void weft_all_off(void)
 /* a time: 0.5 ms .. about 8 s */
 RV_INL float wtime(float x) { return 0.0005f * RV_FAR(wx_exp2)(x * 14.0f); }
 /* a one-pole step toward a target over time T (s) */
-RV_INL float wk(float T) { return 1.0f - RV_FAR(wx_exp)(-RV_DT / (T > 1e-5f ? T : 1e-5f)); }
+RV_INL float wkd(float dt, float T) { return 1.0f - RV_FAR(wx_exp)(-dt / (T > 1e-5f ? T : 1e-5f)); }
+#define wk(T) wkd(W->dt, T)
 /* a ring's decay (T60): 2 ms .. 8 s, as its pole's radius */
-RV_INL float wdecay(float x) { return RV_FAR(wx_exp)(-6.9078f * RV_DT / (0.002f * RV_FAR(wx_exp2)(x * 12.0f))); }
+RV_INL float wdecayd(float dt, float x) { return RV_FAR(wx_exp)(-6.9078f * dt / (0.002f * RV_FAR(wx_exp2)(x * 12.0f))); }
+#define wdecay(x) wdecayd(W->dt, x)
 
 /* SIN, TRI, SAW and SQUARE in turn, SHAPE blending each into the next */
 RV_INL float wf_shape(int k, float p)
@@ -288,9 +294,9 @@ RV_INL int wrise(float x, float *prev, float thr)   /* a rising edge through thr
 }
 
 /* a resonator's pole pair at f Hz with radius r: a1, a2 and the input's gain (sin w keeps a struck ring near 1) */
-static void wf_pole(float *c, float f, float r, float g)
+static void wf_pole(float *c, float f, float r, float g, float dt)
 {
-    float x = f * RV_DT;
+    float x = f * dt;
     if (x > 0.45f || x <= 0.0f) {               /* (above the band: silent) */
         c[0] = c[1] = c[2] = 0.0f;
         return;
@@ -300,6 +306,11 @@ static void wf_pole(float *c, float f, float r, float g)
     c[2] = fm_sin_turns(x) * g;
 }
 
+/* a one-pole step k a sample, kept to the same time at the half rate (HALF RATE: two steps' worth a sample) */
+RV_INL float wkh(const wcx_t *W, float k) { return W->hr ? k * (2.0f - k) : k; }
+/* the highest a filter may be set: as given, or under the half rate's top (HALF RATE: 22 kHz, its top 11) */
+RV_INL float wf_top(const wcx_t *W, float f) { return W->hr && f > 0.45f * W->fs ? 0.45f * W->fs : f; }
+
 /* block i's per-step values from its settings x1, x2 (0..1); pm: B's pitch (octaves, for the resonators) */
 static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1, float x2, float pm, int full)
 {
@@ -308,12 +319,12 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
     W->p2[i] = x2;
     switch (ty) {
     case WO_SLOPE: case WO_SLEW: W->kr[i] = wk(wtime(x1)); W->kf[i] = wk(wtime(x2)); break;
-    case WO_PHASE: W->c1[i] = hz * wf_ratio_v[WN(x1, 16)] * wx_exp2(WC(x2) * (1.0f / 12.0f)) * RV_DT; break;
-    case WO_CYCLE: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * RV_DT; W->c2[i] = clampf(x2, 0.01f, 0.99f); break;
+    case WO_PHASE: W->c1[i] = hz * wf_ratio_v[WN(x1, 16)] * wx_exp2(WC(x2) * (1.0f / 12.0f)) * W->dt; break;
+    case WO_CYCLE: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; W->c2[i] = clampf(x2, 0.01f, 0.99f); break;
     case WO_LP: case WO_BP: case WO_HP:
         W->c1[i] = 20.0f * wx_exp2(x1 * 10.0f);
         W->c2[i] = 2.0f - 1.96f * x2;
-        W->fg[i] = wx_tan(3.14159265f * clampf(W->c1[i], 20.0f, 18000.0f) * RV_DT);
+        W->fg[i] = wx_tan(3.14159265f * clampf(W->c1[i], 20.0f, wf_top(W, 18000.0f)) * W->dt);
         W->fd[i] = wsvd(W->fg[i], W->c2[i] * 0.5f);
         break;
     case WO_BANDS: {
@@ -321,13 +332,13 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
         W->c1[i] = wx_exp2(WC(x1));
         W->c2[i] = 0.5f - 0.48f * x2;
         for (k = 0; k < 4; k++) {               /* (the bands sit still through a step) */
-            W->bg[i][k] = wx_tan(3.14159265f * clampf(hz * wx_pow((float)(k + 1), W->c1[i]), 20.0f, 16000.0f) * RV_DT);
+            W->bg[i][k] = wx_tan(3.14159265f * clampf(hz * wx_pow((float)(k + 1), W->c1[i]), 20.0f, wf_top(W, 16000.0f)) * W->dt);
             W->bd[i][k] = wsvd(W->bg[i][k], W->c2[i]);
         }
         break;
     }
     case WO_DELAY:
-        W->c1[i] = x1 < 0.004f ? (float)RV_FS / (hz > 20.0f ? hz : 20.0f) - 2.0f : 0.0001f * wx_exp2(x1 * 6.8f) * (float)RV_FS;
+        W->c1[i] = x1 < 0.004f ? W->fs / (hz > 20.0f ? hz : 20.0f) - 2.0f : 0.0001f * wx_exp2(x1 * 6.8f) * W->fs;
         while (W->c1[i] > (float)(WD_LEN - 2))
             W->c1[i] *= 0.5f;                  /* (a period too long for the memory: an octave up) */
         W->c2[i] = WC(x2);
@@ -338,7 +349,7 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
         float c[3];
         if (full)
             W->c2[i] = wdecay(x2);              /* (its radius: the pitch alone leaves it) */
-        wf_pole(c, hz * wf_ratio_v[WN(x1, 16)] * wx_exp2(pm), W->c2[i], 1.0f);
+        wf_pole(c, hz * wf_ratio_v[WN(x1, 16)] * wx_exp2(pm), W->c2[i], 1.0f, W->dt);
         W->kr[i] = c[0], W->kf[i] = c[1], W->fg[i] = c[2];   /* (a1, a2, the input's gain) */
         break;
     }
@@ -352,40 +363,40 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
                 if (full) {                     /* (each mode's radius and level: the pitch alone leaves them) */
                     float rel = r[k] / r[ty == WO_BELL ? 1 : 0];
                     float T = 0.002f * wx_exp2(x1 * 12.0f) * wx_pow(rel > 1.0f ? rel : 1.0f, -dark * 1.2f);
-                    c[3] = wx_exp(-6.9078f * RV_DT / T);
+                    c[3] = wx_exp(-6.9078f * W->dt / T);
                     c[4] = wx_pow((float)(k + 1), -dark * 1.5f) * 0.5f;
                 }
-                wf_pole(c, f, c[3], c[4]);
+                wf_pole(c, f, c[3], c[4], W->dt);
             }
         }
         break;
-    case WO_DIFFUSE: W->c1[i] = 0.08f + 0.92f * x1; W->c2[i] = x2 * 0.75f; break;
+    case WO_DIFFUSE: W->c1[i] = (0.08f + 0.92f * x1) * (W->hr ? 0.5f : 1.0f); W->c2[i] = x2 * 0.75f; break;
     case WO_SW14: case WO_SW41: W->c2[i] = x2 > 0.0f ? wk(0.0005f + x2 * 0.02f) : 1.0f; break;   /* SMOOTH: 0 .. 20 ms */
     case WO_STRING: {                           /* the loop's length (less what the damping adds), its gain a pass, the damping */
-        float k = 1.0f - 0.9f * x1, P = (float)RV_FS / clampf(hz * wx_exp2(pm), 20.0f, 12000.0f) - (1.0f - k) / k - 1.0f;
+        float k = 1.0f - 0.9f * x1, P = W->fs / clampf(hz * wx_exp2(pm), 20.0f, wf_top(W, 12000.0f)) - (1.0f - k) / k - 1.0f;
         while (P > (float)(WD_LEN - 2))
             P *= 0.5f;                          /* (a period too long for the memory: an octave up) */
         W->c1[i] = P < 2.0f ? 2.0f : P;
-        W->c2[i] = wx_exp(-6.9078f * W->c1[i] / (0.05f * wx_exp2(x2 * 7.5f) * (float)RV_FS));   /* DECAY: 50 ms .. 9 s */
+        W->c2[i] = wx_exp(-6.9078f * W->c1[i] / (0.05f * wx_exp2(x2 * 7.5f) * W->fs));   /* DECAY: 50 ms .. 9 s */
         W->kr[i] = k;
         break;
     }
-    case WO_CHAOS: W->c1[i] = 0.1f * wx_exp2(x2 * 14.6f) * RV_DT; W->c2[i] = 3.4f + 0.6f * x1; break;   /* steps a sample; r */
-    case WO_CRUSH: W->c1[i] = 0.5f * wx_exp2(16.0f - x1 * 15.0f); W->c2[i] = wx_exp2(x2 * 6.0f); break;   /* half the levels; samples held */
+    case WO_CHAOS: W->c1[i] = 0.1f * wx_exp2(x2 * 14.6f) * W->dt; W->c2[i] = 3.4f + 0.6f * x1; break;   /* steps a sample; r */
+    case WO_CRUSH: W->c1[i] = 0.5f * wx_exp2(16.0f - x1 * 15.0f); W->c2[i] = wx_exp2(x2 * 6.0f) * (W->hr ? 0.5f : 1.0f); break;   /* half the levels; samples held */
     case WO_FOLLOW: W->kr[i] = wk(wtime(x1)); W->kf[i] = wk(wtime(x2)); break;
     case WO_SHAPE: W->c1[i] = 1.0f + x2 * 15.0f; break;
-    case WO_RMOD: W->c1[i] = hz * wx_exp2(x1 * 7.0f - 3.0f) * RV_DT; break;   /* the inner carrier: the note x 1/8 .. 16 */
+    case WO_RMOD: W->c1[i] = hz * wx_exp2(x1 * 7.0f - 3.0f) * W->dt; break;   /* the inner carrier: the note x 1/8 .. 16 */
     case WO_SHIFT: {                            /* Hz a sample, either way of 64: 0 .. 2 kHz, finest near the middle */
         float d = (x1 - 0.5f) * 2.0f, m = 0.1f * (wx_exp2((d < 0.0f ? -d : d) * 14.3f) - 1.0f);
-        W->c1[i] = (d < 0.0f ? -m : m) * RV_DT;
+        W->c1[i] = (d < 0.0f ? -m : m) * W->dt;
         break;
     }
     case WO_DIODE: W->c1[i] = 1.0f + x1 * x1 * 30.0f; break;
-    case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f); break;           /* samples each is held: 1 .. 1024 */
-    case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * RV_DT; break;
+    case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
+    case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
         if (W->mn[i] >= 0) {
-            float *c = &W->md[W->mn[i]][0][0], fc = clampf(20.0f * wx_exp2(x1 * 10.0f + pm * 2.5f), 20.0f, 18000.0f), sh, ch, Wc;
+            float *c = &W->md[W->mn[i]][0][0], fc = clampf(20.0f * wx_exp2(x1 * 10.0f + pm * 2.5f), 20.0f, wf_top(W, 18000.0f)), sh, ch, Wc;
             if (full) {                         /* (the ripple's shape: the cutoff alone leaves it) */
                 float eps = fm_sqrtf(wx_exp2((0.1f + x2 * 5.9f) * 0.33219f) - 1.0f), iv = 1.0f / eps;
                 float v = wx_log2(iv + fm_sqrtf(iv * iv + 1.0f)) * (0.69315f / 4.0f), ev = wx_exp(v);
@@ -395,7 +406,7 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
             }
             sh = c[7];
             ch = c[8];
-            Wc = wx_tan(3.14159265f * fc * RV_DT);
+            Wc = wx_tan(3.14159265f * fc * W->dt);
             int k;
             for (k = 0; k < 2; k++) {
                 float th = (float)(2 * k + 1) * (1.0f / 16.0f), sg = sh * fm_sin_turns(th), om = ch * fm_sin_turns(th + 0.25f);
@@ -413,8 +424,8 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
             float vw = clampf(x1 + pm * 0.25f, 0.0f, 1.0f) * 3.999f, fr = vw - fm_floorf(vw), sft = wx_exp2(WC(x2));
             int v0 = (int)vw, k;
             for (k = 0; k < 3; k++) {
-                float f = clampf((fv[v0][k] + (fv[v0 + 1][k] - fv[v0][k]) * fr) * sft, 50.0f, 16000.0f);
-                W->md[W->mn[i]][k][0] = wx_tan(3.14159265f * f * RV_DT);
+                float f = clampf((fv[v0][k] + (fv[v0 + 1][k] - fv[v0][k]) * fr) * sft, 50.0f, wf_top(W, 16000.0f));
+                W->md[W->mn[i]][k][0] = wx_tan(3.14159265f * f * W->dt);
                 W->md[W->mn[i]][k][1] = bw[k] * sft / (2.0f * f);
                 W->md[W->mn[i]][k][2] = am[k];
                 W->md[W->mn[i]][k][3] = wsvd(W->md[W->mn[i]][k][0], W->md[W->mn[i]][k][1]);
@@ -427,8 +438,8 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
             int k;
             for (k = 0; k < WM_K; k++) {
                 float f = 250.0f * wx_exp2((float)k * 0.8f);
-                W->md[W->mn[i]][k][0] = wx_tan(3.14159265f * f * RV_DT);
-                W->md[W->mn[i]][k][1] = wx_tan(3.14159265f * clampf(f * sft, 50.0f, 16000.0f) * RV_DT);
+                W->md[W->mn[i]][k][0] = wx_tan(3.14159265f * f * W->dt);
+                W->md[W->mn[i]][k][1] = wx_tan(3.14159265f * clampf(f * sft, 50.0f, wf_top(W, 16000.0f)) * W->dt);
                 W->md[W->mn[i]][k][2] = R;
                 W->md[W->mn[i]][k][3] = wsvd(W->md[W->mn[i]][k][0], R);
                 W->md[W->mn[i]][k][4] = wsvd(W->md[W->mn[i]][k][1], R);
@@ -619,7 +630,7 @@ RV_INL float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int bc, float
     if (bc)
         car = b;
     else {
-        s->ph += hz * RV_DT;
+        s->ph += hz * W->dt;
         s->ph = wwrap(s->ph);
         car = s->ph * 2.0f - 1.0f;
     }
@@ -722,7 +733,7 @@ RV_HOT2 static void wk_wave(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
     {             /* reads a phase (A, else its own at the note); B: phase modulation */
-        float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f), ph = s->ph, inc = K->hz * RV_DT;
+        float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f), ph = s->ph, inc = K->hz * W->dt;
         for (j = j1; j < j2; j++) {
             if (ac)
                 p = WA * 0.5f + 0.5f;
@@ -811,7 +822,7 @@ RV_HOT2 static void wk_lp(wk_t *K, int i, int j1, int j2)
             if (bc) {
                 b = WB;
                 if (!((K->j0 + j) & 3)) {   /* (cutoff moved by B: worked out every fourth sample) */
-                    s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(c1 * fm_exp2f(b * 5.0f), 20.0f, 18000.0f) * RV_DT);
+                    s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(c1 * fm_exp2f(b * 5.0f), 20.0f, wf_top(W, 18000.0f)) * W->dt);
                     s->z[0] = wsvd(s->hold, R);
                 }
                 if (s->hold > 0.0f) {
@@ -1014,7 +1025,7 @@ RV_HOT2 static void wk_dust(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
     {             /* random particles in clumps; A: density; B (else each note): a burst */
-        float c1 = W->c1[i], tau = 0.04f, dec = 1.0f - RV_DT / tau;
+        float c1 = W->c1[i], tau = 0.04f, dec = 1.0f - W->dt / tau;
         for (j = j1; j < j2; j++) {
             float rate = c1 * (ac ? fm_exp2f(WA * 6.0f) : 1.0f), br = x2 * 0.95f / (rate * tau + 1e-3f);
             y = 0.0f;
@@ -1023,7 +1034,7 @@ RV_HOT2 static void wk_dust(wk_t *K, int i, int j1, int j2)
                 s->s1 += 6.0f / (rate * tau + 1e-3f) * (0.2f + x2);
             if (s->s1 > 400.0f)
                 s->s1 = 400.0f;
-            if (xs_uni(&s->rng) < rate * (1.0f + s->s1) * RV_DT) {
+            if (xs_uni(&s->rng) < rate * (1.0f + s->s1) * W->dt) {
                 y = 0.25f + 0.75f * xs_uni(&s->rng);
                 s->s1 += br;
             }
@@ -1045,7 +1056,7 @@ WK_FLASH static void wk_tick(wk_t *K, int i, int j1, int j2)
             if (at != s->hold) {
                 s->hold = at;
                 if ((!ac || a > 0.0f) && xs_uni(&s->rng) * 0.999f < x2)
-                    s->s1 = bc ? fm_fabsf(WB) * xs_uni(&s->rng) * L * 0.5f * clk_period * (float)RV_FS + 1.0f : 1.0f;
+                    s->s1 = bc ? fm_fabsf(WB) * xs_uni(&s->rng) * L * 0.5f * clk_period * W->fs + 1.0f : 1.0f;
             }
             if (s->s1 > 0.0f && (s->s1 -= 1.0f) <= 0.0f)
                 y = 1.0f;
@@ -1435,7 +1446,7 @@ RV_HOT2 static void wk_shift(wk_t *K, int i, int j1, int j2)
             float p, q, c, sn, g;
             p = q = WA;
             if (bc) {
-                float inc = c1 + WB * 1000.0f * RV_DT;
+                float inc = c1 + WB * 1000.0f * W->dt;
                 th = inc * 6.2831853f;
                 t2 = th * th;
                 cd = 1.0f - t2 * 0.5f;
@@ -1479,7 +1490,7 @@ RV_HOT2 static void wk_diode(wk_t *K, int i, int j1, int j2)
             y = 0.5f * (u + r) - x2 * 0.5f * (r - u) - 0.1f * (1.0f - x2);
             y = sat(y * 0.7f);
             hp = y - s->s1;
-            s->s1 += hp * 0.0015f;
+            s->s1 += hp * (W->hr ? 0.0029977f : 0.0015f);
             yo[j] = hp * 1.3f;
         }
         return;
@@ -1499,11 +1510,11 @@ RV_HOT2 static void wk_noise(wk_t *K, int i, int j1, int j2)
             }
             if (col < 0.5f) {
                 float k = col * 2.0f;
-                s->y += (s->hold - s->y) * fm_maxf(k * k, 0.002f);
+                s->y += (s->hold - s->y) * wkh(W, fm_maxf(k * k, 0.002f));
                 y = s->y * (1.0f + (1.0f - k) * 4.0f);
             } else {
                 float t2 = (col - 0.5f) * 2.0f;
-                s->y += (s->hold - s->y) * 0.15f;
+                s->y += (s->hold - s->y) * wkh(W, 0.15f);
                 y = s->hold + ((s->hold - s->y) * 1.5f - s->hold) * t2;
             }
             yo[j] = y;
@@ -1536,10 +1547,10 @@ RV_HOT2 static void wk_aout(wk_t *K, int i, int j1, int j2)
         for (j = j1; j < j2; j++) {
             float qv = WA * x1 * 1.27f * (bc ? WB : 1.0f);
             if (tn < -0.02f) {
-                s->y += (qv - s->y) * fm_maxf((1.0f + tn) * (1.0f + tn), 0.002f);
+                s->y += (qv - s->y) * wkh(W, fm_maxf((1.0f + tn) * (1.0f + tn), 0.002f));
                 qv = s->y;
             } else if (tn > 0.02f) {
-                s->y += (qv - s->y) * (1.0f - tn) * 0.5f;
+                s->y += W->hr ? (qv - s->y) * wkh(W, (1.0f - tn) * 0.5f) : (qv - s->y) * (1.0f - tn) * 0.5f;
                 qv = qv + (qv - s->y - qv) * tn;
             }
             yo[j] = qv;
@@ -1685,7 +1696,7 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
     uint8_t sa[WF_BLOCKS], sb[WF_BLOCKS];
     int i, outb = wf_outb(w), nd = 0, nm = 0, sw14 = -1, lis = -1, noise_on = 0, naud = 0, lead = (int)(v - wv) == wf_lead[t];
     unsigned live = 0, ctl = 0;
-    float pos = weft_pos16, pinc = RV_DT / (clk_period > 0.001f ? clk_period : 0.001f);
+    float pos = weft_pos16, pinc = W->dt / (clk_period > 0.001f ? clk_period : 0.001f);
     unsigned bm = w->bmove;
     /* what each block needs per sample, worked out once per step */
     W->hz = hz;
@@ -1762,7 +1773,7 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
             continue;
         noise_on |= sa[i] == WS_NOISE || sb[i] == WS_NOISE;
         if (!sa[i] && !sb[i] && !((bm >> i) & 1u) &&
-            ((ty == WO_CYCLE && W->c1[i] < 50.0f * RV_DT) || (ty == WO_LISSA && W->c1[i] < 30.0f * RV_DT)))
+            ((ty == WO_CYCLE && W->c1[i] < 50.0f * W->dt) || (ty == WO_LISSA && W->c1[i] < 30.0f * W->dt)))
             ctl |= 1u << i;
     }
     /* ---- the blocks a run of WR samples at a time ----
@@ -2031,8 +2042,8 @@ RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float
     /* a released voice ends when it has been quiet a moment (or after a long while); one a patch's
      * output block needs goes on */
     if (!v->gate) {
-        v->rel += (float)n * RV_DT;
-        v->quiet = peak < 0.0005f ? v->quiet + (float)n * RV_DT : 0.0f;
+        v->rel += (float)n * W->dt;
+        v->quiet = peak < 0.0005f ? v->quiet + (float)n * W->dt : 0.0f;
         if (!wf_has_out[t] && (v->quiet > 0.25f || v->rel > 12.0f || (P.outb < 0 && !P.naud)))
             v->on = 0;
     }
@@ -2049,11 +2060,36 @@ static float weft_voice_one(int k, float *out, int n, int c)
     const float *eff = trk[v->track & 7].eff;
     float hz = note_hz((float)v->note + eff[TP_PITCH] + eff[TP_FINE] * 0.01f), pk = 0.0f;
     int i;
-    v->W = &wcxs[c & 1];
+    wcx_t *W = v->W = &wcxs[c & 1];
+    int hr = (rv.weft[v->track & 7].run >> 1) & 1;
 #ifdef RV_WEFT_HASH
     uint32_t t0_ = plat_cycles();
 #endif
-    RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
+    W->hr = hr;                                 /* HALF RATE: the patch at 22 kHz, then back up, each new sample's half
+                                                 * way between two of its own (about half the time; the top octave goes) */
+    W->dt = hr ? RV_DT * 2.0f : RV_DT;
+    W->fs = hr ? (float)RV_FS * 0.5f : (float)RV_FS;
+    if (!hr) {
+        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
+        v->hr_ph = 0;
+    } else {
+        float hb[RV_SUB / 2 + 1];
+        int n2 = (n + 1 - v->hr_ph) / 2, j, q = 0;
+        for (j = 0; j < n2; j++)
+            hb[j] = 0.0f;
+        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 9900.0f ? 9900.0f : hz, hb, n2, k == wf_scope_v);
+        for (j = 0; j < n; j++)
+            if (!v->hr_ph) {
+                float cur = hb[q < n2 ? q : n2 - 1];
+                q++;
+                out[j] += (v->hr_last + cur) * 0.5f;
+                v->hr_last = cur;
+                v->hr_ph = 1;
+            } else {
+                out[j] += v->hr_last;
+                v->hr_ph = 0;
+            }
+    }
 #ifdef RV_WEFT_HASH
     { extern uint64_t rv_weft_ns; rv_weft_ns += plat_cycles() - t0_; }
     {   /* (the comparison build: every WEFT voice's sound, bit for bit, folded into one number) */

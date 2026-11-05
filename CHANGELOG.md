@@ -3,6 +3,22 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.18.0
+
+Faster
+- **WEFT runs its blocks sixteen samples at a time.** Each block works through a whole run before the next, wherever the cords allow; blocks in a loop of each other (through a cord from a later block, a sample late) still run sample by sample together. The sound is the same, sample for sample (checked bit for bit on every factory patch and 300 random ones). Across the twenty-eight factory patches the work is 37 % less on the simulator's count of instructions: most patches 35–60 % less (INIT 49 %, PHASE DIST 52 %, KS STRING 54 %, VIOLENCE 48 %), the ones built on loops less (TANGLE 8 %, BENJOLIN 15 %), and THREE LOOPS, nearly all loop, about the same. The FM-1's own time will differ from the count; GLO › CPU shows it.
+- DIFFUSE, SHIFT and DIODE do less work a sample; the six-mode bodies, CHEBY and FORMANT run each filter through the run in turn.
+- **Two cores share whole tracks.** A track the second core takes now has its effects (SKIN, the INSERT, RING) there too, not just its voices; the tracks are shared by what their voices and effects cost, then single voices where that helps. With one core the sound is the same, bit for bit.
+
+New
+- **WEFT RATE** (a new page after WEFT MAP): FULL, or HALF: the patch at 22 kHz, about half the time on the FM-1, its top octave gone and a little grit. Saved with the patch and in its file; also in the emulator's patcher.
+
+Changed
+- WEFT's random blocks (DUST, TICK, the switches, CHAOS, NOISE, RUNGLER) each have their own dice: the same kind of randomness, a different draw from before.
+
+Fixed
+- The new release notes on GitHub list what each release adds and fixes (CHANGELOG.md).
+
 ## 1.17.1
 
 Fixed

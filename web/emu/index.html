@@ -342,6 +342,7 @@ kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-radius: 
           <label class="note" style="margin:0">Output <select id="wfout" aria-label="Output block"></select></label>
           <label class="note" style="margin:0">Voices <select id="wfpoly" aria-label="Voices"><option value="0">1</option><option value="1">2</option></select></label>
           <label class="note" style="margin:0" title="KEYS: the patch plays while a key is held (and its tail). ALWAYS: one voice runs on its own, no key needed">Run <select id="wfrun" aria-label="Run"><option value="0">Keys</option><option value="1">Always</option></select></label>
+          <label class="note" style="margin:0" title="FULL: the patch runs at 44.1 kHz. HALF: at 22 kHz, about half the CPU on the FM-1; the top octave goes and it gets a little grit">Rate <select id="wfrate" aria-label="Rate"><option value="0">Full</option><option value="1">Half</option></select></label>
           <span class="grow"></span>
           <button class="hbtn" id="wfexp">Export patch</button>
           <button class="hbtn" id="wfimp">Import patch</button>
@@ -799,6 +800,7 @@ const GUIDE = {
 <tr><td>WEFT PATCH</td><td>the blocks and their cords; KNOB 1 picks a block, 2 its type, 3–4 input A and its amount</td></tr>
 <tr><td>WEFT BLOCK</td><td>input B and its amount, then the block's two settings</td></tr>
 <tr><td>WEFT MAP</td><td>which setting each of PLAY's knobs turns; the output block; LEVEL</td></tr>
+<tr><td>WEFT RATE</td><td>RATE: FULL, or HALF (the patch at 22 kHz: about half the CPU on the FM-1, its top octave gone); RUN</td></tr>
 <tr><td>WEFT LIBRARY</td><td>your patches, + NEW, then the factory ones: KNOB 1 picks, black key 1 loads, 2 saves (into a new slot, unless on one of yours: then it overwrites, press twice), 3 deletes, 4 INIT, 5 CLEAR (press twice); KNOB 3–4 rename</td></tr></table>
 <p>Twelve blocks a patch: PHASE, WAVE (oscillators) · SLOPE, CYCLE, SLEW (rise and fall) · LP, BP, HP · ADD, MULT, MIX, MIN, MAX, FOLD · COMP, AND, OR, XOR, FLIP · DELAY, BANDS, HOLD · DUST, TICK (particles, clocks) · RING and the six-mode bodies SKIN, BAR, PLATE, BELL, HARMS, FIXED (struck resonators) · SAT, ABS, DIFFUSE, CHAOS (for loops) · STRING, CRUSH, EDGE · SW 1&gt;4, SW 4&gt;1 (sequential switches; SW 1-4 in the input menus) · FOLLOW, SHAPE, CHEBY, FORMANT, VOCODER, RINGMOD, NOISE, RUNGLER, LISSA (its Y: LIS Y in the menus), SHIFT (frequency shifter), DIODE · AUDIO, CLK OUT, MOD OUT, SEQ OUT (mixed into the voice, a clock for the sequencers, a source for the matrix, moves for another track's steps). Inputs also take PITCH, GATE, TRIG, VEL, NOISE, the LFOs, the wheel, a constant, or V TAP, V HELD, V TURN (VIOLENCE: how hard you're playing the panel). OUT on AUTO hears the last block. On WEFT BLOCK, black key 1 sets what input B does: its own job, or moving the block's second setting (B MOVES). PRESETS on the WEFT pages walks the factory patches. The manual has <a href="#" onclick="openManual('#weft-a-voice-you-patch'); return false">every block, step by step</a>.</p>`,
   "Steps": `<p>On SEQ the white keys are 16 steps (OCT± pages through 64). Tap a key to switch a step on or off; hold it and turn the knobs to edit it: note, velocity, length, chance, micro timing, ratchets, condition, library shape, microcut, tie, graph cords.</p>
@@ -1101,7 +1103,7 @@ function wfNames() {
 function wfRead(t) {
   const g = (f, i) => rv.web_wf_get(t, f, i), b = [];
   for (let i = 0; i < WF.nb; i++) b.push({ type: g(0, i), a: g(1, i), b: g(2, i), amtA: g(3, i), amtB: g(4, i), p1: g(7, 2 * i), p2: g(7, 2 * i + 1), bMoves: g(9, i) });
-  return { blocks: b, out: g(5, 0), map: [0, 1, 2, 3].map(k => g(6, k)), voices: g(8, 0), run: g(10, 0) };
+  return { blocks: b, out: g(5, 0), map: [0, 1, 2, 3].map(k => g(6, k)), voices: g(8, 0), run: g(10, 0), rate: g(11, 0) };
 }
 const wfEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 function wfSrcName(p, s) {
@@ -1177,6 +1179,7 @@ function wfRender() {
   $("wfout").value = String(p.out);
   $("wfpoly").value = String(p.voices);
   $("wfrun").value = String(p.run);
+  $("wfrate").value = String(p.rate);
   const sets = [`<option value="0">-</option>`];
   p.blocks.forEach((bk, i) => { if (bk.type) [0, 1].forEach(k => sets.push(`<option value="${1 + 2 * i + k}">${i + 1} ${wfEsc(N.types[bk.type])}: ${wfEsc(N.label[bk.type][k])}</option>`)); });
   $("wfmap").innerHTML = [0, 1, 2, 3].map(k => `<label>KNOB ${k + 1} on WEFT PLAY<select data-map="${k}">${sets.join("")}</select></label>`).join("");
@@ -1311,6 +1314,7 @@ function wfInit() {
   $("wfout").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 5, 0, +e.target.value); WF.sig = ""; });
   $("wfpoly").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 8, 0, +e.target.value); WF.sig = ""; });
   $("wfrun").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 10, 0, +e.target.value); WF.sig = ""; });
+  $("wfrate").addEventListener("change", e => { rv.web_wf_set(rv.web_track(), 11, 0, +e.target.value); WF.sig = ""; });
   $("wfmap").addEventListener("change", e => { const k = e.target.dataset.map; if (k !== undefined) { rv.web_wf_set(rv.web_track(), 6, +k, +e.target.value); WF.sig = ""; } });
   $("wfexp").addEventListener("click", wfExport);
   $("wfimp").addEventListener("click", () => $("wffile").click());
@@ -1324,7 +1328,7 @@ function wfExport() {
   const doc = {
     format: "ravel-weft", version: 2, name: cstr(rv.web_sound_name(t)),
     blocks: p.blocks.map(b => b.type ? { type: N.types[b.type], a: b.a ? src(b.a) : null, amtA: b.amtA, b: b.b ? src(b.b) : null, amtB: b.amtB, p1: b.p1, p2: b.p2, bMoves: !!b.bMoves } : null),
-    out: p.out, map: p.map, voices: p.voices + 1, run: p.run ? "always" : "keys",
+    out: p.out, map: p.map, voices: p.voices + 1, run: p.run ? "always" : "keys", rate: p.rate ? "half" : "full",
   };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 1)], { type: "application/json" }));
@@ -1352,6 +1356,7 @@ function wfImport(text) {
   (doc.map || []).slice(0, 4).forEach((m, k) => rv.web_wf_set(t, 6, k, m | 0));
   rv.web_wf_set(t, 8, 0, (doc.voices | 0) > 1 ? 1 : 0);
   rv.web_wf_set(t, 10, 0, doc.run === "always" ? 1 : 0);
+  rv.web_wf_set(t, 11, 0, doc.rate === "half" ? 1 : 0);
   WF.sig = "";
   sideSync();
   wfSync();

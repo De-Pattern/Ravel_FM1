@@ -323,6 +323,7 @@ EXPORT(web_wf_get) int web_wf_get(int t, int f, int i)
     case 8: return rv.tp[t & 7][TP_POLY] > 0;
     case 9: return (w->bmove >> b) & 1;
     case 10: return w->run & 1;
+    case 11: return (w->run >> 1) & 1;                   /* RATE: 0 FULL, 1 HALF */
     default: return 0;
     }
 }
@@ -350,7 +351,8 @@ EXPORT(web_wf_set) void web_wf_set(int t, int f, int i, int v)
     case 7: rv.tp[t & 7][wf_sp(i)] = (int16_t)(v < 0 ? 0 : v > 127 ? 127 : v); break;
     case 8: rv.tp[t & 7][TP_POLY] = (int16_t)(v ? 1 : 0); break;
     case 9: w->bmove = (uint16_t)(v ? w->bmove | (1u << b) : w->bmove & ~(1u << b)); break;
-    case 10: w->run = (uint8_t)(v ? 1 : 0); break;
+    case 10: w->run = (uint8_t)((w->run & ~1u) | (v ? 1u : 0u)); break;
+    case 11: w->run = (uint8_t)((w->run & ~2u) | (v ? 2u : 0u)); break;
     default: return;
     }
     ui_weft_touch(t, -1);

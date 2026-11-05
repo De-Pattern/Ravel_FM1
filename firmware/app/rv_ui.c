@@ -54,7 +54,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
        PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
-       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB };
+       PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB, PIC_WEFTRATE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
        V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT, V_HFM };
@@ -99,6 +99,8 @@ static const page_t pages[] = {
     {SEC_VOICE, V_WEFT, PIC_WEFT, PR_WEFT, "WEFT PATCH", {{K_WF, 0}, {K_WF, 1}, {K_WF, 2}, {K_WF, 3}}},
     {SEC_VOICE, V_WEFT, PIC_WEFTBLK, PR_WEFT, "WEFT BLOCK", {{K_WF, 4}, {K_WF, 5}, {K_WF, 6}, {K_WF, 7}}},
     {SEC_VOICE, V_WEFT, PIC_WEFTMAP, PR_WEFT, "WEFT MAP", {{K_WF, 8}, {K_WF, 9}, {K_WF, 14}, {K_WF, 20}}},   /* (LEVEL: on MIX) */
+    /* RATE: the patch at the full rate, or half (about half the time, its top octave gone); RUN again, beside it */
+    {SEC_VOICE, V_WEFT, PIC_WEFTRATE, PR_WEFT, "WEFT RATE", {{K_WF, 21}, {K_WF, 20}, NO, NO}},
     /* the patches: the factory ones and your own (WEFT sounds in the sound bank), to load, save, name and delete */
     {SEC_VOICE, V_WEFT, PIC_WEFTLIB, PR_WLIB, "WEFT LIBRARY", {{K_WF, 16}, {K_WF, 17}, {K_WF, 18}, {K_WF, 19}}},
     {SEC_VOICE, V_SRC0, PIC_SOURCE, PR_SOUND, "SOURCE 1", {TP(TP_S0), TP(TP_S1), TP(TP_S2), TP(TP_S3)}},
@@ -974,6 +976,7 @@ static kinfo_t kb_info(kb_t k)
         case 17: { static const char *const bk[4] = {"A", "B", "C", "D"}; r.name = "BANK"; r.max = 3; r.fmt = PF_ENUM; r.names = bk; break; }
         case 18: r.name = "CURSOR"; r.min = 1; r.max = 11; break;
         case 20: { static const char *const rn[2] = {"KEYS", "ALWAYS"}; r.name = "RUN"; r.max = 1; r.fmt = PF_ENUM; r.names = rn; break; }
+        case 21: { static const char *const ra[2] = {"FULL", "HALF"}; r.name = "RATE"; r.max = 1; r.fmt = PF_ENUM; r.names = ra; break; }
         case 19: r.name = "LETTER"; r.max = rv_bank_nchars() - 1; break;
         case 14:
             outp[0] = "-";
@@ -1234,6 +1237,7 @@ static int kb_get(kb_t k)
         case 17: return rv_bank_current();
         case 18: return ui.wl_cursor + 1;
         case 20: return w->run & 1;
+        case 21: return (w->run >> 1) & 1;
         case 19: {
             int e = wl_entry();
             return e >= 100 && rv_bank_used(e - 100) ? rv_bank_char_index(rv_bank_name(e - 100)[ui.wl_cursor % 11]) : 0;
@@ -1632,6 +1636,7 @@ static void kb_set(kb_t k, int v)
         case 9: w->map[ui.wf_map & 3] = (uint8_t)v; break;
         case 14: w->out = (uint8_t)v; break;
         case 20: w->run = (uint8_t)((w->run & ~1u) | (v & 1)); break;
+        case 21: w->run = (uint8_t)((w->run & ~2u) | (v & 1) << 1); break;
         case 16: ui.wl_sel = (uint8_t)v; ui.wl_cursor = 0; break;
         case 17: bank_keep(); rv_bank_select(v); ui.wl_sel = 0; break;
         case 18: ui.wl_cursor = (uint8_t)clampi(v - 1, 0, 10); break;
@@ -5209,6 +5214,32 @@ static __attribute__((noinline)) void pic_weftmap(void)
     }
 }
 
+/* WEFT RATE: full or half, what each costs and gives, and what this track takes now */
+static __attribute__((noinline)) void pic_weftrate(void)
+{
+    const rv_weft *w = &rv.weft[ui.track];
+    int half = (w->run >> 1) & 1, i;
+    char b[32];
+    for (i = 0; i < 2; i++) {
+        int y = 82 + i * 46, on = i == half;
+        g_rbox(6, y, 228, 40, 5, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);
+        if (on)
+            g_rbox(6, y, 228, 40, 5, C_WHITE, 0);
+        g_text(14, y + 6, &FONT_B, i ? "HALF" : "FULL", on ? C_WHITE : C_MID);
+        g_text(80, y + 6, &FONT_T, i ? "22 KHZ: ABOUT HALF THE TIME" : "44.1 KHZ: AS IT WAS MADE", on ? C_INK : C_DIM);
+        g_text(80, y + 22, &FONT_T, i ? "THE TOP OCTAVE GOES; A LITTLE GRIT" : "EVERY BLOCK, EVERY SAMPLE", on ? C_INK : C_DIM);
+    }
+    b[0] = 0;
+    sx_cat(b, "THIS TRACK NOW: ");
+    if (rv_live.tprof[ui.track & 7] > 0.0f) {
+        sx_int(b + sx_cat(b, ""), (int)(rv_live.tprof[ui.track & 7] + 0.5f));
+        sx_cat(b, "% OF THE TIME");
+    } else
+        sx_cat(b, "- (GLO > CPU MEASURES IT)");
+    g_text(6, 186, &FONT_T, b, C_TEAL);
+    g_text(6, 200, &FONT_T, "SAVED WITH THE PATCH", C_DIM);
+}
+
 /* WEFT LIBRARY: the list (factory patches, then your own and the empty slots of the bank), the chosen one lit */
 static __attribute__((noinline)) void pic_weftlib(void)
 {
@@ -6063,6 +6094,7 @@ static void draw_picture(void)
     case PIC_WEFT: pic_weft(); break;
     case PIC_WEFTBLK: pic_weftblk(); break;
     case PIC_WEFTMAP: pic_weftmap(); break;
+    case PIC_WEFTRATE: pic_weftrate(); break;
     case PIC_WEFTPLAY: pic_weftplay(); break;
     case PIC_WEFTLIB: pic_weftlib(); break;
     case PIC_LOOPSEQ: pic_loopseq(); break;
