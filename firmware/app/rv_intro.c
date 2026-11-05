@@ -2,8 +2,8 @@
 /* Ravel: the start screen, as a worn VHS tape plays it. Snow fills the dark; then the snow comes loose from
  * the picture: its brightest specks stay, drift apart in the rain, and gather into the RAVEL logo while the
  * sky flickers white. The logo holds, trembling as a tape does, and starts to run in drips; then the tape
- * fails (the picture wobbles, smears down and bleeds), the player crashes into blocks, and the tube
- * collapses to a line. Greys, a little teal, a touch of deep red, and the colour fringes of tape. About
+ * fails (the picture wobbles, smears down and bleeds), the player crashes (the picture warps in waves, tears
+ * sideways in bands and breaks into sliding blocks, every frame), and the tube collapses to a line. Greys, a little teal, a touch of deep red, and the colour fringes of tape. About
  * six seconds; any key, button or knob skips it. Everything is worked out from the time each frame (no
  * state but the start), so a slow frame only skips ahead.
  * Part of the engine unit (ravel_app.c), after rv_ui.c (its drawing and its input). */
@@ -134,32 +134,48 @@ static float in_speck(int i, float t, float *x, float *y)
     return (0.35f + 0.6f * in_rnd((uint32_t)i, 6)) * in_smooth((t - 600.0f) / 500.0f) * (1.0f - in_smooth((t - 3050.0f) / 350.0f));
 }
 
-/* the background of rows b .. b+GB_H: the dark sky (lit from above when it flashes) and the snow over it,
- * streaky across as tape snow is, a few bright tracking streaks in it */
+/* the background of rows b .. b+GB_H: the dark sky (lit from above when it flashes) and the snow over it, as a
+ * worn tape's static is: dense, in short streaks across, a speck of colour in many (white, violet, blue, a little
+ * green), rows a shade brighter or darker in bands that drift, a brighter band rolling down, now and then a
+ * row of tall ticks; new every frame */
 static __attribute__((noinline)) void in_back(uint32_t t, int b, float fl, float sn, float fade)
 {
     int j, x;
     uint32_t fr = t / 33u;
+    float tf = (float)t, roll = in_mod(tf * 0.11f, 320.0f) - 40.0f, op = 1.0f - in_smooth((tf - 600.0f) / 700.0f);   /* op: the opening static */
     for (j = 0; j < GB_H; j++) {
         int y = b + j;
         float up = 1.0f - (float)y / (float)PLAT_H, sky = 0.012f + fl * (0.06f + 0.42f * up * up);
         uint16_t *row = gb + j * PLAT_W;
         uint32_t rh = in_hash((uint32_t)y * 7919u + fr * 104729u);
-        float streak = (rh & 31u) == 0u ? 0.6f : 0.0f;
-        for (x = 0; x < PLAT_W; x += 3) {
-            uint32_t h = in_hash((uint32_t)(x / 3) * 2654435761u ^ rh);
-            float n = (float)(h & 255u) * (1.0f / 255.0f), v;
-            n = n * n * n;
-            v = (sky + sn * (n * 0.85f + streak * ((h >> 8) & 1u))) * fade;
-            {
-                int g = (int)(in_clamp(v) * 255.0f), bb = g + (int)((h >> 9) & 15u);   /* (tape snow: a little blue in it) */
-                uint16_t c = RGB(g, g, bb > 255 ? 255 : bb);
-                row[x] = c;
-                if (x + 1 < PLAT_W)
-                    row[x + 1] = c;
-                if (x + 2 < PLAT_W)
-                    row[x + 2] = (h >> 12) & 1u ? c : RGB(g * 3 / 4, g * 3 / 4, g * 3 / 4);
+        float band = 0.78f + 0.14f * fm_sin_turns((float)y * 0.017f + tf * 0.0007f) + 0.08f * fm_sin_turns((float)y * 0.061f - tf * 0.0013f), dr = (float)y - roll, gain;
+        int ticks = (rh & 63u) == 0u, sx = (int)((rh >> 20) & 3u);   /* (a row of ticks; the row's own jitter) */
+        if ((rh & 7u) == 0u)
+            band *= 0.45f;                                 /* (a dropped-out row) */
+        band = 1.0f + (band - 1.0f) * op;                 /* (the bands: the opening static's) */
+        if (dr > 0.0f && dr < 14.0f)
+            band += 0.45f * (1.0f - fm_fabsf(dr - 7.0f) / 7.0f);   /* (the rolling band) */
+        gain = sn * band * fade;
+        for (x = -sx; x < PLAT_W;) {
+            uint32_t h = in_hash((uint32_t)(x + 8) * 2654435761u ^ rh);
+            int run = 1 + (int)(h & 7u), k, g, r, gg, bb;   /* a streak: 1 to 8 pixels */
+            float n = (float)((h >> 3) & 255u) * (1.0f / 255.0f), v;
+            uint16_t c;
+            n = op * n * n * (1.6f - 0.6f * n) + (1.0f - op) * n * n * n;   /* (dense at the start, sparse after, as it was) */
+            if (ticks && ((h >> 11) & 3u) == 0u)
+                n = 1.0f, run = 1;
+            v = sky * fade + gain * n * 0.95f;
+            g = (int)(in_clamp(v) * 255.0f);
+            switch ((float)((h >> 16) & 255u) < op * 255.0f ? (h >> 12) & 7u : 0u) {   /* (the speck's colour: the opening static's) */
+            case 4: case 5: r = g * 7 / 10; gg = g * 1 / 2; bb = g; break;        /* violet */
+            case 6: r = g * 2 / 5; gg = g * 1 / 2; bb = g; break;                 /* blue */
+            case 7: r = g * 1 / 2; gg = g; bb = g * 4 / 5; break;                 /* green */
+            default: r = g; gg = g; bb = g + (g >> 3); break;                     /* white */
             }
+            c = RGB(r, gg, bb > 255 ? 255 : bb);
+            for (k = 0; k < run; k++, x++)
+                if (x >= 0 && x < PLAT_W)
+                    row[x] = k == run - 1 && run > 2 ? RGB(r * 3 / 5, gg * 3 / 5, bb * 3 / 5 > 255 ? 255 : bb * 3 / 5) : c;
         }
     }
 }
@@ -173,8 +189,13 @@ static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
     if (b + GB_H < IN_MY - 6 + oy || b > IN_LY + IN_LH + 70 + oy)
         return;
     for (x = 0; x < IN_MW; x++) {                     /* the mark */
-        float lv = 0.3f + 0.7f * in_smooth((float)x / (float)(IN_MW * 0.6f)), sag = mt * mt * 30.0f * in_rnd((uint32_t)x / 3u, 81);
+        float lv;
+        if (IN_MX + x + ox < g_cx0 || IN_MX + x + ox >= g_cx1)
+            continue;                                 /* (outside the strip being drawn) */
+        {
+        float sag = mt * mt * 30.0f * in_rnd((uint32_t)x / 3u, 81);
         int k, yy;
+        lv = 0.3f + 0.7f * in_smooth((float)x / (float)(IN_MW * 0.6f));
         for (k = 0; k < 2; k++) {
             float c = in_rib(k, (float)x);
             for (yy = (int)(c - 3.0f); yy <= (int)(c + 3.0f + sag); yy++) {
@@ -185,11 +206,14 @@ static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
                     g_pset(sx, sy, in_grey(dv * (0.55f + 0.45f * lv) * (yy > (int)(c + 3.0f) ? 0.8f : 1.0f)));
             }
         }
+        }
     }
     for (s = 0; s < IN_NSEG; s++) {                   /* the letters, sagging as they melt (more at the bottom) */
         float lx = (float)(in_lx[in_seg_l[s]] + ox), x0 = lx + in_seg[s][0], x1 = lx + in_seg[s][2];
         float s0 = mt * mt * 22.0f * in_rnd((uint32_t)(x0 / 4.0f), 82), s1 = mt * mt * 22.0f * in_rnd((uint32_t)(x1 / 4.0f), 82);
         float y0 = (float)(IN_LY + oy + in_seg[s][1]), y1 = (float)(IN_LY + oy + in_seg[s][3]);
+        if (fm_maxf(x0, x1) + 3.0f < (float)g_cx0 || fm_minf(x0, x1) - 3.0f > (float)g_cx1)
+            continue;
         y0 += s0 * (float)in_seg[s][1] / (float)IN_LH;
         y1 += s1 * (float)in_seg[s][3] / (float)IN_LH;
         g_seg(x0 + 0.5f, y0 + 0.5f, x1 + 0.5f, y1 + 0.5f, 2.1f, in_grey(dv));
@@ -284,6 +308,8 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
         if (!in_drip(i, t, &x, &top, &end, &r) || end + r + (float)oy < (float)b - 2.0f || top + (float)oy > (float)(b + GB_H + 2))
             continue;
         x += (float)ox;
+        if (x + r + 3.0f < (float)g_cx0 || x - r - 3.0f > (float)g_cx1)
+            continue;
         for (yy = top; yy < end; yy += 1.0f) {        /* the thread: tapering, from the letter's width down to a hair */
             float f = (yy - top) / (end - top + 1.0f), w = 1.0f + (1.0f - f) * (1.0f - f) * 1.6f;
             g_seg(x, yy + (float)oy, x, yy + 1.0f + (float)oy, w, in_grey((0.75f - f * 0.15f) * fade));
@@ -294,7 +320,7 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
     }
     /* the maker's name, small, once the logo is there: it flickers like a failing tube, now and then jumping a
      * pixel with a teal or red ghost */
-    if (t > 3300 && b + GB_H > 210 + oy && b < 226 + oy) {
+    if (t > 3300 && b + GB_H > 210 + oy && b < 226 + oy && g_cx1 > PLAT_W / 2 - 36 + ox && g_cx0 < PLAT_W / 2 + 36 + ox) {
         uint32_t q = in_hash(t / 45u), q2 = in_hash(t / 45u + 991u);
         int dark = (q & 7u) == 0u || ((q >> 3) & 15u) == 0u, jx = (q2 & 15u) == 0u ? ((q2 >> 4) & 1u ? 1 : -1) : 0;
         float v = (0.30f + (float)((q >> 8) & 255u) * (0.32f / 255.0f)) * fade;
@@ -311,7 +337,9 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
 static __attribute__((noinline)) void in_tape(uint32_t t, int b)
 {
     float tf = (float)t, fail = in_smooth((tf - (float)IN_FAIL) / 700.0f), smear = in_smooth((tf - (float)IN_FAIL - 200.0f) / 900.0f) * 0.85f;
-    int trk = (int)in_mod(tf * 0.06f, 300.0f) - 30, cr = 1 + (int)(fail * 3.0f), j, x;
+    float crash = t >= IN_CRASH ? in_smooth((tf - (float)IN_CRASH) / 260.0f) : 0.0f;   /* (the crash: 0 .. 1) */
+    int trk = (int)in_mod(tf * 0.06f, 300.0f) - 30, cr = 1 + (int)(fail * 3.0f + crash * 2.0f), j, x;
+    uint32_t tq = t / 28u;                            /* (the tears change every 28 ms: jittery, never held) */
     uint16_t tmp[PLAT_W];
     for (j = 0; j < GB_H; j++) {
         int y = b + j, sh = 0, d = y - trk;
@@ -322,6 +350,13 @@ static __attribute__((noinline)) void in_tape(uint32_t t, int b)
         if (y >= PLAT_H - 7)                          /* the head switching */
             sh += (int)((h >> 6) % 9u) + 2;
         sh += (int)(fail * (fm_sin_turns(tf * 0.0017f + (float)y * 0.013f) * 9.0f + ((h & 7u) == 0u ? (float)((h >> 9) % 31u) - 15.0f : 0.0f)));
+        if (crash > 0.0f) {                           /* the crash: the picture warps in waves, bands of rows tear sideways */
+            uint32_t bh = in_hash((uint32_t)(y / (6 + (int)(in_hash(tq * 31u + 7u) & 15u))) * 977u + tq * 40503u);
+            float w = fm_sin_turns(tf * 0.0035f + (float)y * 0.008f) * 12.0f + fm_sin_turns(tf * 0.0071f - (float)y * 0.021f) * 4.0f;
+            sh += (int)(crash * w);
+            if ((bh & 7u) == 0u)
+                sh += (int)(crash * (float)((int)((bh >> 4) % 49u) - 24));
+        }
         for (x = 0; x < PLAT_W; x++) {                /* sideways, and the colours apart: red one way, blue the other */
             int xs = x - sh, xr = xs - cr, xb = xs + cr;
             uint16_t c = row[xs < 0 ? 0 : xs >= PLAT_W ? PLAT_W - 1 : xs];
@@ -345,23 +380,23 @@ static __attribute__((noinline)) void in_tape(uint32_t t, int b)
     }
     if (t >= IN_CRASH && t < IN_OFF) {                /* the crash: blocks of 8 frozen to a colour, moved, or garish */
         int bx, by;
-        uint32_t q = (t - IN_CRASH) / 90u;
+        uint32_t q = (t - IN_CRASH) / 30u;           /* (new blocks every 30 ms) */
         for (by = b & ~7; by < b + GB_H; by += 8)
             for (bx = 0; bx < PLAT_W; bx += 8) {
                 uint32_t h = in_hash((uint32_t)bx * 7919u + (uint32_t)by * 104729u + q * 2246822519u);
-                int yy, n = (int)(h & 15u), lim = 3 + (int)((t - IN_CRASH) / 90u);
-                if (lim > 11)
-                    lim = 11;
+                int yy, n = (int)(h & 15u), lim = 2 + (int)((t - IN_CRASH) / 90u);
+                if (lim > 7)
+                    lim = 7;
                 if (n >= lim)
                     continue;
                 for (yy = by; yy < by + 8; yy++) {
                     uint16_t *row = gb + (yy - b) * PLAT_W, c0;
                     if (yy < b || yy >= b + GB_H)
                         continue;
-                    c0 = row[bx];
+                    c0 = row[bx + (int)((h >> 14) & 7u)];
                     for (x = bx; x < bx + 8; x++)
-                        row[x] = n < 2 ? ((h >> 8) & 3u) == 0u ? IN_TEAL : ((h >> 8) & 3u) == 1u ? IN_RED : (yy & 1) ? C_WHITE : RGB(0, 40, 0)
-                               : n < 6 ? c0 : row[(x + 8 * (int)((h >> 10) % 5u)) % PLAT_W];
+                        row[x] = n < 1 && ((h >> 7) & 1u) ? ((h >> 8) & 3u) == 0u ? IN_TEAL : ((h >> 8) & 3u) == 1u ? IN_RED : (yy & 1) ? C_WHITE : RGB(0, 40, 0)
+                               : n < 5 ? g_blend(row[x], c0, 10u) : row[(x + 8 * (int)((h >> 10) % 5u) + (yy - by)) % PLAT_W];
                 }
             }
     }
@@ -379,7 +414,9 @@ static int intro_frame(void)
         in.on = 0;
         return 0;
     }
-    ts = t >= IN_CRASH && t < IN_OFF ? t - (t - IN_CRASH) % 140u : t;   /* (the crash: the picture stutters) */
+    /* (in the crash the picture's own time slows to a crawl, so the melted logo stays in it as before, while the
+     * tape warps and tears it every frame: nothing holds still) */
+    ts = t >= IN_CRASH && t < IN_OFF ? IN_CRASH + (t - IN_CRASH) / 5u : t;
     fl = in_flash(ts);
     fade = 1.0f - in_smooth(((float)t - (float)IN_END + 250.0f) / 250.0f);
     sn = in_snow(ts);
@@ -414,7 +451,7 @@ static int intro_frame(void)
                 g_cx0 = 0;
                 g_cx1 = PLAT_W;
             }
-            in_tape(ts, b);
+            in_tape(t, b);
         }
         g_send();
     }
@@ -434,7 +471,7 @@ static int intro_frame(void)
     else if (t < IN_CRASH)
         lk = in_hash(t / 60u) & in_hash(t / 60u + 5u);
     else if (t < IN_OFF) {
-        uint32_t h = in_hash(ts / 90u * 7919u), g;
+        uint32_t h = in_hash(t / 45u * 7919u), g;
         for (g = 0; g < 9; g++)
             if ((h >> (g * 3)) & 1u)
                 lk |= 7u << (g * 3);

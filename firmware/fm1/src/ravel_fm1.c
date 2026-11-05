@@ -135,6 +135,9 @@ static void ota_commit(const uint8_t *parm)
 {
     bootguard.pending = 0;                              /* intentional reset */
     bootguard.failed = 0;                               /* a new install starts with a clean slate */
+    fm1_c1_bar.barred = 0;                              /* (the second core too: held after a failure, it gets a new
+                                                         * try with the new firmware; a unit it does not suit holds
+                                                         * it again the first time it fails) */
     usb_detach();
     fm1_delay_ms(30);
     fm1_enter_update(parm);

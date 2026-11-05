@@ -3,6 +3,15 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.17.1
+
+Fixed
+- After installing an update, the second core always gets a fresh start: if it had been held after a failure during the last session, the FM-1 no longer comes back on one core (CORES 1) until it is switched off and on.
+
+Changed
+- The start screen opens on real TV static: dense streaks across, specks of violet, blue and green, rows drifting brighter and darker, a bright band rolling down.
+- The start screen runs smoothly to the end: the melt draws about six times faster, and the crash no longer freezes the picture. The tape now warps in waves, tears sideways in bands and breaks into sliding blocks every frame.
+
 ## 1.17.0
 
 New
