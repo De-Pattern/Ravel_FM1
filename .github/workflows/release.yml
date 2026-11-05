@@ -79,20 +79,16 @@ jobs:
       - name: Checksums
         working-directory: dist
         run: sha256sum ravel-emulator.html ravel-manual.pdf Ravel-FM1.fwsc > SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 0                          # (the tags: the commits since the last one, when CHANGELOG.md has no section)
       - name: Release notes
         run: |
           repo="${{ github.server_url }}/${{ github.repository }}"
           pages="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
-          cat > notes.md <<NOTES
-          **Ravel ${{ github.ref_name }}** for the M-VAVE FM-1.
-
-          - \`Ravel-FM1.fwsc\`: the FM-1 firmware. Install it from the web installer (${pages}install/, Chrome or Edge, over USB) or with \`python3 tools/fm1_install.py Ravel-FM1.fwsc\`. Keep the FM-1 connected for the whole update. The installer page can also put M-VAVE's own firmware back.
-          - \`ravel-emulator.html\`: the emulator in one file. Open it in a browser; no install.
-          - \`ravel-manual.pdf\`: the manual.
-          - \`SHA256SUMS.txt\`: checksums.
-
-          Live emulator: ${pages} · Installer: ${pages}install/ · Manual: ${pages}manual.html
-          NOTES
+          python3 src/tools/release_notes.py "${GITHUB_REF_NAME}" "$repo" "$pages" > notes.md
+          cat notes.md
       - id: ver
         run: |
           echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"

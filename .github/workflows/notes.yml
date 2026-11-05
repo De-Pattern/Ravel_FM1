@@ -1,0 +1,32 @@
+name: notes
+
+# When CHANGELOG.md changes on main, the releases it has sections for get their notes rewritten from it
+# (what changed, then the files), so a note fixed or added later shows on GitHub too.
+on:
+  push:
+    branches: [main]
+    paths: ["CHANGELOG.md", "tools/release_notes.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rewrite the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo="${{ github.server_url }}/${{ github.repository }}"
+          pages="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          for v in $(python3 tools/release_notes.py --versions); do
+            if gh release view "v$v" >/dev/null 2>&1; then
+              python3 tools/release_notes.py "v$v" "$repo" "$pages" > notes.md
+              gh release edit "v$v" --notes-file notes.md && echo "v$v: notes written"
+            fi
+          done
