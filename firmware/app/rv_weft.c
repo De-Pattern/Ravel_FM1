@@ -17,6 +17,8 @@
 
 typedef struct {
     float ph, y, s1, s2, prev, prevb, hold, z[8];
+    uint32_t rng;                               /* its own dice (DUST, TICK, the switches, CHAOS, NOISE, RUNGLER):
+                                                 * a block's draws don't depend on the order the blocks run in */
     uint8_t st;
 } wb_t;                                         /* a block's state in one voice */
 
@@ -97,6 +99,17 @@ static const float wf_modes[6][WM_K] = {
     {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f},                 /* HARMS */
     {150.0f, 310.0f, 640.0f, 1300.0f, 2700.0f, 5500.0f},  /* FIXED: a filterbank */
 };
+
+/* a number scrambled (a block's dice seeded from the voice's) */
+static uint32_t in_hash32(uint32_t x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
 
 /* the math the blocks call, out of line: each inlined at every use would not fit the FM-1's flash */
 static __attribute__((noinline)) float wx_exp2(float x) { return fm_exp2f(x); }
@@ -492,7 +505,7 @@ RV_HOT2 static float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b
             else if (pos < 0)
                 pos = 1, s->ph = 1.0f;
         } else
-            pos = (int)(xs_uni(&v->rng) * 4.0f) & 3;
+            pos = (int)(xs_uni(&s->rng) * 4.0f) & 3;
     }
     s->st = (uint8_t)pos;
     for (k = 0; k < 4; k++)
@@ -697,6 +710,8 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
     sv[WS_TURN] = rv_live.vturn;
     for (i = 0; i < WF_BLOCKS; i++) {
         int ty = w->type[i];
+        if (!v->b[i].rng)                       /* (a block's dice: seeded from the voice's, once) */
+            v->b[i].rng = in_hash32(v->rng + (uint32_t)i * 0x9E3779B9u) | 1u;
         W->dn[i] = W->mn[i] = -1;
         naud += ty == WO_AOUT;
         sa[i] = (uint8_t)(w->a[i] < WS_N ? w->a[i] : 0);
@@ -974,8 +989,8 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                     s->s1 += 6.0f / (rate * tau + 1e-3f) * (0.2f + x2);
                 if (s->s1 > 400.0f)
                     s->s1 = 400.0f;
-                if (xs_uni(&v->rng) < rate * (1.0f + s->s1) * RV_DT) {
-                    y = 0.25f + 0.75f * xs_uni(&v->rng);
+                if (xs_uni(&s->rng) < rate * (1.0f + s->s1) * RV_DT) {
+                    y = 0.25f + 0.75f * xs_uni(&s->rng);
                     s->s1 += br;
                 }
                 break;
@@ -985,8 +1000,8 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                 float L = W->c1[i], at = fm_floorf((pos + pinc * (float)j) / L);
                 if (at != s->hold) {
                     s->hold = at;
-                    if ((!ac || a > 0.0f) && xs_uni(&v->rng) * 0.999f < x2)
-                        s->s1 = bc ? fm_fabsf(b) * xs_uni(&v->rng) * L * 0.5f * clk_period * (float)RV_FS + 1.0f : 1.0f;
+                    if ((!ac || a > 0.0f) && xs_uni(&s->rng) * 0.999f < x2)
+                        s->s1 = bc ? fm_fabsf(b) * xs_uni(&s->rng) * L * 0.5f * clk_period * (float)RV_FS + 1.0f : 1.0f;
                 }
                 if (s->s1 > 0.0f && (s->s1 -= 1.0f) <= 0.0f)
                     y = 1.0f;
@@ -1038,7 +1053,7 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                         s->ph = wwrap(s->ph);
                 }
                 if (!(s->y > 0.0001f && s->y < 0.9999f))
-                    s->y = 0.1f + 0.8f * xs_uni(&v->rng);
+                    s->y = 0.1f + 0.8f * xs_uni(&s->rng);
                 if (step) {
                     float r = clampf(W->c2[i] + (bc ? b * 0.3f : 0.0f), 2.8f, 4.0f);
                     s->y = r * s->y * (1.0f - s->y);
@@ -1093,7 +1108,7 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                 float col = clampf(x1 + (bc ? b * 0.5f : 0.0f), 0.0f, 1.0f);
                 if ((s->ph += 1.0f) >= W->c2[i] * (ac ? fm_exp2f(-a * 4.0f) : 1.0f)) {
                     s->ph = 0.0f;
-                    s->hold = xs_uni(&v->rng) * 2.0f - 1.0f;
+                    s->hold = xs_uni(&s->rng) * 2.0f - 1.0f;
                 }
                 if (col < 0.5f) {
                     float k = col * 2.0f;
@@ -1110,8 +1125,8 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                                                  * sign (or a coin), or with LOOP's chance the one falling out; out, its last three */
                 int L = 3 + WN(x2, 6);
                 if (ac ? wrise(a, &s->prev, 0.0f) : trig > 0.0f) {
-                    int last = (s->st >> (L - 1)) & 1, nb = bc ? b > 0.0f : xs_uni(&v->rng) < 0.5f;
-                    s->st = (uint8_t)(((s->st << 1) | (xs_uni(&v->rng) * 0.999f < x1 ? last : nb)) & ((1 << L) - 1));
+                    int last = (s->st >> (L - 1)) & 1, nb = bc ? b > 0.0f : xs_uni(&s->rng) < 0.5f;
+                    s->st = (uint8_t)(((s->st << 1) | (xs_uni(&s->rng) * 0.999f < x1 ? last : nb)) & ((1 << L) - 1));
                 }
                 y = (float)((s->st >> (L - 3)) & 7) * (2.0f / 7.0f) - 1.0f;
                 break;

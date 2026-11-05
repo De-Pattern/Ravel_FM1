@@ -95,9 +95,10 @@ key 12 up
 wait 900
 turn PRESET 1
 wait 50
+peakreset
 key 12 down
 wait 500
-expect meter_min 1 0.005
+expect peak_db_min -46   # (DUST SKIN: random particles; heard somewhere in the half second)
 key 12 up
 wait 900
 turn PRESET 1
