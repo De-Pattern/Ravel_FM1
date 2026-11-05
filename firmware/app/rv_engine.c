@@ -900,9 +900,47 @@ static float vl_lv[VL_MAX];
 static int vl_n, par_n;
 static float c2_buf[RV_TRACKS][RV_SUB] RV_RAMBSS;    /* the second core's voices, by track (plain RAM: the pool keeps its room) */
 static uint8_t c2_trk;                                /* the tracks it plays into this step */
-static uint8_t c2_vcap = VL_MAX;                      /* at most this many voices to it (it adapts) */
 static uint32_t c2_vcyc[4];                           /* its voices' cycles, by kind */
 static uint8_t c2_voices_given;                       /* how many it had this step */
+/* what each voice cost last time (cycles, smoothed; by kind and index), and the work around them: this core's
+ * after its voices (the tracks' chains, the master) and the second's (the buses). The voices are shared out
+ * by cost, so the two cores end together, rather than every other voice */
+static const uint8_t vc_off[4] = {0, RV_SYNTH_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES, RV_SYNTH_VOICES + RV_STRIKE_VOICES + RV_PERC_VOICES};
+static uint32_t vc_cost[VL_MAX], c1_after, c2_bus, v_end;
+#define VC(e) vc_cost[vc_off[vl_kind[e]] + vl_idx[e]]
+static void vc_note(int e, uint32_t cyc) { uint32_t *p = &VC(e); *p = *p ? (*p * 3u + cyc) / 4u : cyc; }
+
+/* which voices go to the second core: the dearest first, each to the core that would finish the step sooner
+ * (this one: its voices, then the chains; the second: its voices, then the buses) */
+static int c2_share(void)
+{
+    uint8_t done[VL_MAX];
+    uint32_t v1 = 0, v2 = 0;
+    int e, k, nc2 = 0;
+    for (e = 0; e < vl_n; e++)
+        done[e] = 0, vl_c2[e] = 0;
+    for (k = 0; k < vl_n; k++) {
+        uint32_t w = 0, t1, t2, a, b;
+        int best = -1;
+        for (e = 0; e < vl_n; e++)
+            if (!done[e] && (best < 0 || VC(e) > w))
+                best = e, w = VC(e);
+        done[best] = 1;
+        a = (v1 + w > v2 ? v1 + w : v2) + c1_after;         /* (on this core) */
+        b = v2 + c2_bus;
+        t1 = a > b ? a : b;
+        a = (v1 > v2 + w ? v1 : v2 + w) + c1_after;         /* (on the second) */
+        b = v2 + w + c2_bus;
+        t2 = a > b ? a : b;
+        if (t2 < t1 || (t2 == t1 && v2 < v1)) {
+            vl_c2[best] = 1;
+            v2 += w;
+            nc2++;
+        } else
+            v1 += w;
+    }
+    return nc2;
+}
 
 static int vl_track(int e)
 {
@@ -984,6 +1022,7 @@ static void c2_voices(void)
             RV_FAR(voice_one)(e, c2_buf[vl_track(e)], par_n, 1);
             c1 = plat_par_cycles();
             c2_vcyc[vl_kind[e]] += c1 - c;
+            vc_note(e, c1 - c);
             c = c1;
         }
 }
@@ -1570,13 +1609,14 @@ static void render_sub(float *outl, float *outr, int n)
                 }
         }
         c2_trk = 0;
-        for (e = 0; e < vl_n; e++) {                 /* every other voice, up to its limit */
-            vl_c2[e] = (uint8_t)(rv_live.cores2 && (e & 1) && nc2 < c2_vcap);
-            if (vl_c2[e]) {
-                nc2++;
+        if (rv_live.cores2)                          /* shared out by what they cost */
+            nc2 = c2_share();
+        else
+            for (e = 0; e < vl_n; e++)
+                vl_c2[e] = 0;
+        for (e = 0; e < vl_n; e++)
+            if (vl_c2[e])
                 c2_trk |= (uint8_t)(1u << vl_track(e));
-            }
-        }
         for (t = 0; t < RV_TRACKS; t++)
             if ((c2_trk >> t) & 1u)
                 zero_buf(c2_buf[t], n);
@@ -1602,6 +1642,7 @@ static void render_sub(float *outl, float *outr, int n)
                 RV_FAR(voice_one)(e, trk[vl_track(e)].buf, n, 0);
                 c1 = plat_cycles();
                 prof_acc[vk_pf[vl_kind[e]]] += c1 - c;
+                vc_note(e, c1 - c);
                 c = c1;
             }
         if (par_job && nc2) {                        /* the second core's */
@@ -1631,6 +1672,7 @@ static void render_sub(float *outl, float *outr, int n)
         c2_vcyc[0] = c2_vcyc[1] = c2_vcyc[2] = c2_vcyc[3] = 0;
         voices_count(lead_age);
         prof_t = plat_cycles();                      /* (the waiting: in no part's bar, in the total) */
+        v_end = prof_t;
         c2_voices_given = (uint8_t)nc2;
     }
     vcyc = prof_t - vcyc0;
@@ -1763,17 +1805,17 @@ static void render_sub(float *outl, float *outr, int n)
             act += fm_fabsf(outl[i]) + fm_fabsf(outr[i]);
         }
         if (par_job) {
-            uint32_t w0 = plat_par_cycles(), we, bud = (uint32_t)((float)plat_cycles_hz() / (float)RV_FS * (float)n);
-            int r = plat_par_wait();
+            uint32_t w0 = plat_par_cycles(), we;
+            int r;
+            c1_after = (c1_after * 3u + (plat_cycles() - v_end)) / 4u;   /* (this core's work after the voices) */
+            r = plat_par_wait();
             we = plat_par_cycles() - w0;
             c2_wacc += we;
+            c2_bus = (c2_bus * 3u + bo_all) / 4u;    /* (the second's: the buses) */
             if (r < 0) {                             /* it failed (and is off now): here */
                 rv_live.c2_fail = 1;
                 par_job = 0;
-            } else if (we > bud / 50u)               /* this core waited for it: fewer voices to it */
-                c2_vcap = (uint8_t)(c2_voices_given ? c2_voices_given - 1 : 0);
-            else if (we < bud / 200u && c2_vcap <= c2_voices_given && c2_vcap < VL_MAX)
-                c2_vcap++;                           /* it was done in time: one more, if there are more */
+            }
         }
         if (!par_job) {
             bo_all = 0;

@@ -25,6 +25,12 @@ did not change (checked sample for sample, or within the variation of a random p
 | WEFT: patches with more than eight blocks play one voice | polyphony, until the cost on the FM-1 is measured | the voice limit in `weft_voice_start` |
 | GLO › CPU: the overload guard fades voices near the limit | voices dropped instead of crackles | `rv_engine.c` |
 
+## Scheduling (no change to the sound)
+
+| What | Effect |
+| --- | --- |
+| The two cores share the voices by their measured cost, not every other voice (v1.16.2) | the cores finish together; a heavy patch no longer piles onto the first core |
+
 ## Ideas not done yet (more CPU, if it is needed)
 
 - WEFT's main loop in RAM (needs about 16 KB more pool, or a block-at-a-time engine).
