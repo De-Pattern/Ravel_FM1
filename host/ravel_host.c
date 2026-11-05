@@ -106,6 +106,10 @@ static void input_open(const char *path)
 /* ---------------------------------------------------------- outputs --- */
 static FILE *wav;
 static uint32_t wav_frames;
+#ifdef RV_WEFT_HASH
+uint32_t rv_weft_hash = 2166136261u, rv_weft_frames;
+uint64_t rv_weft_ns;
+#endif
 static float peak_out;
 
 static void host_audio(const int32_t *blk, uint32_t n)
@@ -674,6 +678,14 @@ int main(int argc, char **argv)
     }
     wav_close();
     fclose(f);
+#ifdef RV_WEFT_HASH
+    {
+        extern uint32_t rv_weft_hash, rv_weft_frames;
+        extern uint64_t rv_weft_ns;
+        printf("wefthash %08x frames %u\n", rv_weft_hash, rv_weft_frames);
+        printf("weftns %llu\n", (unsigned long long)rv_weft_ns);
+    }
+#endif
     printf("%s: %s\n", argv[1], fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

@@ -42,9 +42,9 @@
 typedef union { float f; uint32_t u; int32_t i; } fm_bits_t;
 
 RV_INL float fm_fabsf(float x) { fm_bits_t b; b.f = x; b.u &= 0x7FFFFFFFu; return b.f; }
-static inline float fm_minf(float a, float b) { return a < b ? a : b; }
+RV_INL float fm_minf(float a, float b) { return a < b ? a : b; }
 RV_INL float fm_maxf(float a, float b) { return a > b ? a : b; }
-static inline float fm_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+RV_INL float fm_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 RV_INL float fm_flush(float x) { return fm_fabsf(x) < 1e-20f ? 0.0f : x; }
 /* n floats of decaying state: anything under about 1e-15 to 0, before it sinks into the denormals
  * (numbers so small a floating-point unit may take many times as long on them; a ringing filter
@@ -144,7 +144,7 @@ static float fm_sin_r(float r)
 }
 
 /* sin of a phase in turns (1 = a full cycle), any range */
-static inline float fm_sin_turns(float ph) { return fm_sin_r(ph - fm_floorf(ph + 0.5f)); }
+RV_INL float fm_sin_turns(float ph) { return fm_sin_r(ph - fm_floorf(ph + 0.5f)); }
 
 /* sin(x): x in turns, the whole turns taken out in two parts so large x keep their precision */
 RV_INL float fm_sinf(float x)

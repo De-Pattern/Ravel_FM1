@@ -65,30 +65,10 @@ RV_INL void wf_rot(wb_t *s, float inc)
     s->s1 = c * g;
     s->s2 = sn * g;
 }
-/* SHIFT: A split into two copies 90 degrees apart (two chains of four allpasses, within 1.5 degrees from 40 Hz to
+/* SHIFT (wk_shift): A split into two copies 90 degrees apart (two chains of four allpasses, within 1.5 degrees from 40 Hz to
  * 15 kHz), turned by a sine and cosine at the shift: every partial moves by the same Hz. SIDE: 0 down, 127 up, 64
  * both (a ring modulator) */
 static const float wf_hil[8] = {-0.51977f, 0.562206f, -0.915577f, -0.988316f, -0.78934f, -0.997096f, -0.96769f, -0.06218f};
-RV_HOT2 static float wf_shift(wb_t *s, float inc, float side, float a)
-{
-    float p = a, q = a, c, sn;
-    int k;
-    for (k = 0; k < 4; k++) {                   /* (transposed: y = c x + z, z = x - c y) */
-        float y1 = wf_hil[k] * p + s->z[k], y2 = wf_hil[4 + k] * q + s->z[4 + k];
-        s->z[k] = p - wf_hil[k] * y1;
-        s->z[4 + k] = q - wf_hil[4 + k] * y2;
-        p = y1;
-        q = y2;
-    }
-    if (!(p > -64.0f && p < 64.0f && q > -64.0f && q < 64.0f)) {
-        __builtin_memset(s->z, 0, sizeof s->z);
-        return 0.0f;
-    }
-    wf_rot(s, inc);
-    c = s->s1;
-    sn = s->s2;
-    return side * (p * c - q * sn) + (1.0f - side) * (p * c + q * sn);
-}
 
 /* the bodies' modes: frequency ratios (FIXED: Hz) */
 static const float wf_modes[6][WM_K] = {
@@ -271,7 +251,7 @@ RV_INL float wf_shape(int k, float p)
     return k == 0 ? fm_sin_turns(p) : k == 1 ? (p < 0.25f ? 4.0f * p : p < 0.75f ? 2.0f - 4.0f * p : 4.0f * p - 4.0f)
          : k == 2 ? 2.0f * p - 1.0f : (p < 0.5f ? 1.0f : -1.0f);
 }
-static float wf_wave(float p, float shape)
+RV_INL float wf_wave(float p, float shape)
 {
     float s3 = shape * 3.0f, f, a;
     int seg = (int)s3;
@@ -483,10 +463,10 @@ int rv_weft_outb(int t) { return wf_outb(&rv.weft[t & 7]); }
 /* the bigger blocks, each in a function of its own (the sample loop stays small enough for the FM-1's branches) */
 /* a sequential switch: B's rises (else each note) step it in ORDER, or in SELECT B's level picks; SMOOTH fades
  * from one to the next */
-RV_HOT2 static float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b, int bc, float trig, float x1, int sai, float kai, int sw14)
+RV_INL float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b, int bc, float trig, float x1, const float *in4, float kai)
 {
     wcx_t *W = v->W;
-    float *sv = v->sv, y = 0.0f;
+    float y = 0.0f;
     int pos = s->st & 3, ord = WN(x1, 5), k;
     if (ord == WSW_SELECT) {
         if (bc)
@@ -510,18 +490,15 @@ RV_HOT2 static float wf_switch(wv_t *v, wb_t *s, int i, int ty, float a, float b
     s->st = (uint8_t)pos;
     for (k = 0; k < 4; k++)
         s->z[k] += ((k == pos ? 1.0f : 0.0f) - s->z[k]) * W->c2[i];
-    if (ty == WO_SW14) {            /* one in, four outs: SW 1-4; its own output, where it is (-1 .. +1) */
-        if (i == sw14)
-            for (k = 0; k < 4; k++)
-                sv[WS_SW1 + k] = a * s->z[k];
+    if (ty == WO_SW14)              /* one in, four outs (SW 1-4: the caller's); its own output, where it is (-1 .. +1) */
         y = (float)pos * (2.0f / 3.0f) - 1.0f;
-    } else if (sai)               /* four in (A's source and the three after it), one out */
+    else if (in4)                   /* four in (A's source and the three after it, as the caller read them), one out */
         for (k = 0; k < 4; k++)
-            y += (sai + k < WS_N ? sv[sai + k] : 0.0f) * kai * s->z[k];
+            y += in4[k] * kai * s->z[k];
     return y;
 }
 /* Karplus-Strong: A excites a loop the note's period long, damped as it goes round */
-RV_HOT2 static float wf_string(wv_t *v, wb_t *s, int i, float a)
+RV_INL float wf_string(wv_t *v, wb_t *s, int i, float a)
 {
     wcx_t *W = v->W;
     int16_t *m;
@@ -544,7 +521,7 @@ RV_HOT2 static float wf_string(wv_t *v, wb_t *s, int i, float a)
     v->dw[W->dn[i]] = (uint16_t)((k + 1) % WD_LEN);
     return y;
 }
-RV_HOT2 static float wf_modes_run(wv_t *v, int i, float a)
+RV_INL float wf_modes_run(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     int k, m = W->mn[i];           /* six resonators tuned to a body, struck by A */
@@ -565,32 +542,9 @@ RV_HOT2 static float wf_modes_run(wv_t *v, int i, float a)
     }
     return y;
 }
-/* four allpasses in a row, each in a quarter of the memory; B: their size */
-RV_HOT2 static float wf_diffuse(wv_t *v, int i, float a, float b, int bc)
-{
-    wcx_t *W = v->W;
-    static const float base[4] = {0.43f, 0.61f, 0.79f, 1.0f};
-    int16_t *m;
-    float y;
-    int k, wpos;
-    float g = W->c2[i], sz = W->c1[i] * (bc ? fm_exp2f(b) : 1.0f), x = a;
-    if (W->dn[i] < 0)
-        return 0.0f;
-    m = wdly[v - wv][W->dn[i]];
-    wpos = v->dw[W->dn[i]] & 127;
-    for (k = 0; k < 4; k++) {
-        int L = clampi((int)(base[k] * 125.0f * sz), 1, 127);
-        float d = (float)m[k * 128 + ((wpos - L) & 127)] * (1.0f / 8192.0f), o = d - g * x;
-        m[k * 128 + wpos] = (int16_t)(clampf(x + g * o, -3.9f, 3.9f) * 8192.0f);
-        x = o;
-    }
-    v->dw[W->dn[i]] = (uint16_t)((wpos + 1) & 127);
-    y = x;
-    return y;
-}
 
 /* the transfer curves of SHAPE */
-static float wf_shape_run(int c, float x)
+RV_INL float wf_shape_run(int c, float x)
 {
     float q;
     switch (c) {
@@ -604,7 +558,7 @@ static float wf_shape_run(int c, float x)
     }
 }
 /* CHEBY: two biquads (transposed direct form II) */
-RV_HOT2 static float wf_cheby(wv_t *v, int i, float a)
+RV_INL float wf_cheby(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     const float *c;
@@ -636,7 +590,7 @@ RV_INL float wf_bp(float x, float g, float R, float d, float *z)
     return bp * 2.0f * R;
 }
 /* FORMANT: three band passes, summed by their levels */
-RV_HOT2 static float wf_formant(wv_t *v, int i, float a)
+RV_INL float wf_formant(wv_t *v, int i, float a)
 {
     wcx_t *W = v->W;
     float *z, y = 0.0f;
@@ -655,7 +609,7 @@ RV_HOT2 static float wf_formant(wv_t *v, int i, float a)
 }
 /* VOCODER: A (the modulator) through six bands, each band's level riding the same band of B (the carrier; with
  * nothing on B, a saw at the note) */
-RV_HOT2 static float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int bc, float hz)
+RV_INL float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int bc, float hz)
 {
     wcx_t *W = v->W;
     float *z, y = 0.0f, car;
@@ -684,7 +638,1043 @@ RV_HOT2 static float wf_vocoder(wv_t *v, wb_t *s, int i, float a, float b, int b
     return y;
 }
 
-RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)   /* (in the pool: it runs every sample) */
+/* ---- the blocks' work, a run of samples at a time ----
+ * Each block type is a function of its own that plays block i from sample j1 to j2 - 1 of the run (its state
+ * kept in registers through it); weft_voice says which, and when */
+#define WR 16                                   /* samples a run */
+typedef struct {
+    wv_t *v;
+    wcx_t *W;
+    float (*vb)[WR + 1];                        /* each source over the run: [0] the sample before it, [1 + j] sample j */
+    const int8_t *prod;                         /* the block that makes each source (-1: a value that holds) */
+    const float *trg;                           /* TRIG over the run */
+    float hz, gatev, pos, pinc;
+    int t, j0, lis, sw14, lead;
+    const float *PA[WF_BLOCKS], *PB[WF_BLOCKS]; /* where each block reads A and B (a sample late where so) */
+    float ka[WF_BLOCKS], kb[WF_BLOCKS];
+    uint8_t fl[WF_BLOCKS], ty[WF_BLOCKS], sa[WF_BLOCKS];
+} wk_t;
+typedef void (*wk_fn)(wk_t *K, int i, int j1, int j2);
+/* (the blocks that do little a sample, and are rarely many: the clocks, the logic, the sequencers' outputs, S&H, CHAOS,
+ * CRUSH, EDGE, RUNGLER, TICK: from the flash, to leave the pool's room to the ones that cost) */
+#define WK_FLASH __attribute__((noinline))
+#define WK_HEAD \
+    wv_t *v = K->v; \
+    wcx_t *W = K->W; \
+    wb_t *s = &v->b[i]; \
+    const float *pa = K->PA[i], *pb = K->PB[i], *trg = K->trg; \
+    float ka_ = K->ka[i], kb_ = K->kb[i], x1 = W->p1[i], x2 = W->p2[i], a = 0.0f, b = 0.0f, y = 0.0f; \
+    float *yo = &K->vb[i + 1][1]; \
+    int f = K->fl[i], ac = f & 1, bc = (f >> 1) & 1, ty = K->ty[i], j; \
+    (void)v; (void)W; (void)s; (void)pa; (void)pb; (void)trg; (void)ka_; (void)kb_; (void)x1; (void)x2; \
+    (void)a; (void)b; (void)y; (void)yo; (void)ac; (void)bc; (void)ty;
+#define WA (pa[j] * ka_)
+#define WB (pb[j] * kb_)
+
+/* a slow LFO (CYCLE, LISSA): worked out every 8th sample, a straight line between */
+RV_HOT2 static void wk_ctl(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    for (j = j1; j < j2; j++) {
+        if (!((K->j0 + j) & 7)) {
+            float y0, y1 = 0.0f;
+            if (ty == WO_CYCLE) {
+                float k = W->c2[i];
+                s->ph = wwrap(s->ph + W->c1[i] * 8.0f);
+                y0 = (s->ph < k ? s->ph / k : (1.0f - s->ph) / (1.0f - k)) * 2.0f - 1.0f;
+            } else {
+                const uint8_t *r = wf_lratio_v[WN(W->p2[i], 9)];
+                s->ph = wwrap(s->ph + W->c1[i] * 8.0f);
+                y0 = fm_sin_turns(s->ph * (float)r[0]);
+                y1 = fm_sin_turns(s->ph * (float)r[1]);
+            }
+            s->z[4] = (y0 - s->z[6]) * 0.125f;   /* (z: the steps along the lines, and where they are) */
+            s->z[5] = (y1 - s->z[7]) * 0.125f;
+        }
+        s->z[6] += s->z[4];
+        s->z[7] += s->z[5];
+        yo[j] = s->z[6];
+        if (i == K->lis)
+            K->vb[WS_LISY][1 + j] = s->z[7];
+    }
+}
+
+RV_HOT2 static void wk_phase(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* a ramp at the note x RATIO; A: FM (through zero), B: reset */
+        float ph = s->ph, c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            a = WA;
+            ph += c1 * (1.0f + 8.0f * a);
+            ph = wwrap(ph);
+            if (bc && wrise(WB, &s->prevb, 0.0f))
+                ph = 0.0f;
+            yo[j] = ph * 2.0f - 1.0f;
+        }
+        s->ph = ph;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_wave(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* reads a phase (A, else its own at the note); B: phase modulation */
+        float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f), ph = s->ph, inc = K->hz * RV_DT;
+        for (j = j1; j < j2; j++) {
+            if (ac)
+                p = WA * 0.5f + 0.5f;
+            else {
+                ph += inc;
+                ph = wwrap(ph);
+                p = ph;
+            }
+            p += WB * 0.5f;
+            p = wwrap(p);
+            p = p < k ? p / k * 0.5f : 0.5f + (p - k) / (1.0f - k) * 0.5f;   /* WARP */
+            yo[j] = wf_wave(p, x1);
+        }
+        s->ph = ph;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_slope(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* rises while A (else the note) is up, holds, falls; B: faster or slower */
+        float yv = s->y, kr = W->kr[i], kf = W->kf[i];
+        for (j = j1; j < j2; j++) {
+            float gg = ac ? WA : K->gatev, sc = bc ? fm_exp2f(-WB * 4.0f) : 1.0f;
+            if (wrise(gg, &s->prev, 0.5f) || (!ac && trg[j] > 0.0f))
+                s->st = 1;
+            if (s->st == 1) {
+                yv += (1.25f - yv) * clampf(kr * sc, 0.0f, 1.0f);
+                if (yv >= 1.0f) {
+                    yv = 1.0f;
+                    s->st = 2;
+                }
+            } else if (s->st == 2 && gg <= 0.5f)
+                s->st = 0;
+            if (!s->st)
+                yv -= yv * clampf(kf * sc, 0.0f, 1.0f);
+            yo[j] = yv;
+        }
+        s->y = yv;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_cycle(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* rises and falls on its own (SKEW); A: rate, B: reset */
+        float ph = s->ph, c1 = W->c1[i], k = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float inc = c1 * (ac ? fm_exp2f(WA * 5.0f) : 1.0f);
+            ph += inc;
+            ph = wwrap(ph);
+            if (bc && wrise(WB, &s->prevb, 0.0f))
+                ph = 0.0f;
+            yo[j] = (ph < k ? ph / k : (1.0f - ph) / (1.0f - k)) * 2.0f - 1.0f;
+        }
+        s->ph = ph;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_slew(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {   /* SLEW follows A; FOLLOW follows A's size: RISE (ATTACK) up, FALL (RELEASE) down */
+        float yv = s->y, kr = W->kr[i], kf = W->kf[i];
+        for (j = j1; j < j2; j++) {
+            float r = ty == WO_FOLLOW ? fm_fabsf(WA) : WA, sc = bc ? fm_exp2f(-WB * 4.0f) : 1.0f;
+            yv += (r - yv) * clampf((r > yv ? kr : kf) * sc, 0.0f, 1.0f);
+            yo[j] = yv;
+        }
+        s->y = yv;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_lp(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {   /* a state-variable filter; B: the cutoff, five octaves each way */
+        float R = W->c2[i] * 0.5f, s1 = s->s1, s2 = s->s2, fg = W->fg[i], fd = W->fd[i], c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            float g = fg, d = fd, hp, bp, lp;
+            a = WA;
+            if (bc) {
+                b = WB;
+                if (!((K->j0 + j) & 3)) {   /* (cutoff moved by B: worked out every fourth sample) */
+                    s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(c1 * fm_exp2f(b * 5.0f), 20.0f, 18000.0f) * RV_DT);
+                    s->z[0] = wsvd(s->hold, R);
+                }
+                if (s->hold > 0.0f) {
+                    g = s->hold;
+                    d = s->z[0];
+                }
+            }
+            hp = (a - (2.0f * R + g) * s1 - s2) * d;
+            bp = g * hp + s1;
+            s1 = g * hp + bp;
+            lp = g * bp + s2;
+            s2 = g * bp + lp;
+            y = ty == WO_LP ? lp : ty == WO_BP ? bp * (2.0f * R) : hp;
+            if (!(y > -8.0f && y < 8.0f))   /* (blown up: start over) */
+                s1 = s2 = y = 0.0f;
+            yo[j] = y;
+        }
+        s->s1 = s1;
+        s->s2 = s2;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_add(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float o = WC(x1) * 2.0f, gn = WG(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = (WA + WB + o) * gn;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_mult(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float o = WC(x1) * 2.0f, gn = WG(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = WA * ((bc ? WB : 1.0f) + o) * gn;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_mix(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float gn = WG(x2);
+        for (j = j1; j < j2; j++) {
+            a = WA;
+            yo[j] = (a + (WB - a) * x1) * gn;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_min(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float o = WC(x1) * 2.0f, gn = WG(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = (ty == WO_MIN ? fm_minf(WA, WB + o) : fm_maxf(WA, WB + o)) * gn;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_fold(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* driven round a sine: folds back as it grows */
+        float dr = 1.0f + x1 * 15.0f, o = WC(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = fm_sin_turns((WA * dr * (1.0f + (bc ? WB : 0.0f)) + o) * 0.25f);
+        return;
+    }
+}
+
+WK_FLASH static void wk_comp(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float thr = WC(x2);
+        for (j = j1; j < j2; j++) {
+            int ta, tb, r;
+            a = WA;
+            b = WB;
+            ta = a > thr;
+            tb = b > thr;
+            if (ty == WO_COMP)
+                r = a > b + thr;
+            else if (ty == WO_AND)
+                r = ta && tb;
+            else if (ty == WO_OR)
+                r = ta || tb;
+            else if (ty == WO_XOR)
+                r = ta != tb;
+            else {              /* FLIP: over on each rise of A, B sets it back */
+                if (wrise(a, &s->prev, thr))
+                    s->st ^= 1;
+                if (bc && wrise(b, &s->prevb, thr))
+                    s->st = 0;
+                r = s->st;
+            }
+            yo[j] = (r ? 1.0f : -1.0f) * x1;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_delay(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* up to 11 ms; TIME at 0: the note's period. B: the time, two octaves each way */
+        int16_t *mm;
+        float c1 = W->c1[i], c2 = W->c2[i];
+        int k;
+        if (W->dn[i] < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = 0.0f;
+            return;
+        }
+        mm = wdly[v - wv][W->dn[i]];
+        k = v->dw[W->dn[i]];
+        for (j = j1; j < j2; j++) {
+            float d = clampf(c1 * (bc ? fm_exp2f(WB * 2.0f) : 1.0f), 2.0f, (float)(WD_LEN - 2)), fr, r0, r1, wr;
+            int i0;
+            a = WA;
+            fr = (float)k - d;
+            if (fr < 0.0f)
+                fr += (float)WD_LEN;
+            i0 = (int)fr;
+            fr -= (float)i0;
+            r0 = (float)mm[i0];
+            r1 = (float)mm[(i0 + 1) & (WD_LEN - 1)];
+            y = (r0 + (r1 - r0) * fr) * (1.0f / 16384.0f);
+            wr = sat(a + y * c2);
+            mm[k] = (int16_t)(wr * 16384.0f);
+            k = (k + 1) & (WD_LEN - 1);
+            yo[j] = y;
+        }
+        v->dw[W->dn[i]] = (uint16_t)k;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_bands(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* four bands at the note's 1st-4th harmonics (SPREAD bends them); B: scan */
+        float R = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            int k;
+            float sum = 0.0f, pos2;
+            a = WA;
+            b = WB;
+            pos2 = (b * 0.5f + 0.5f) * 3.0f;
+            for (k = 0; k < 4; k++) {
+                float gk = W->bg[i][k], hp, bp, wgt;
+                hp = (a - (2.0f * R + gk) * s->z[2 * k] - s->z[2 * k + 1]) * W->bd[i][k];
+                bp = gk * hp + s->z[2 * k];
+                s->z[2 * k] = gk * hp + bp;
+                s->z[2 * k + 1] = gk * bp + (gk * bp + s->z[2 * k + 1]);
+                wgt = bc ? fm_maxf(0.0f, 1.0f - fm_fabsf((float)k - pos2)) : 0.5f;
+                sum += bp * 2.0f * R * wgt;
+            }
+            y = sum * 3.0f;
+            if (!(y > -8.0f && y < 8.0f)) {
+                __builtin_memset(s->z, 0, sizeof s->z);
+                y = 0.0f;
+            }
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_hold(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* takes A on each rise of B (else each note); STEPS: rounds it; GLIDE */
+        float kh = x2 > 0.0f ? wk(wtime(x2 * 0.8f)) : 1.0f, lv = 2.0f + x1 * 30.0f;
+        for (j = j1; j < j2; j++) {
+            if (bc ? wrise(WB, &s->prevb, 0.0f) : trg[j] > 0.0f) {
+                float qv = WA;
+                if (x1 > 0.0f)
+                    qv = fm_floorf((qv * 0.5f + 0.5f) * lv + 0.5f) / lv * 2.0f - 1.0f;
+                s->hold = qv;
+            }
+            s->y += (s->hold - s->y) * kh;
+            yo[j] = s->y;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_dust(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* random particles in clumps; A: density; B (else each note): a burst */
+        float c1 = W->c1[i], tau = 0.04f, dec = 1.0f - RV_DT / tau;
+        for (j = j1; j < j2; j++) {
+            float rate = c1 * (ac ? fm_exp2f(WA * 6.0f) : 1.0f), br = x2 * 0.95f / (rate * tau + 1e-3f);
+            y = 0.0f;
+            s->s1 *= dec;
+            if (bc ? wrise(WB, &s->prevb, 0.0f) : trg[j] > 0.0f)
+                s->s1 += 6.0f / (rate * tau + 1e-3f) * (0.2f + x2);
+            if (s->s1 > 400.0f)
+                s->s1 = 400.0f;
+            if (xs_uni(&s->rng) < rate * (1.0f + s->s1) * RV_DT) {
+                y = 0.25f + 0.75f * xs_uni(&s->rng);
+                s->s1 += br;
+            }
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_tick(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* a click each DIV of the tempo, CHANCE of it sounding; A: gate; B: late */
+        float L = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            float at = fm_floorf((K->pos + K->pinc * (float)(K->j0 + j)) / L);
+            y = 0.0f;
+            a = WA;
+            if (at != s->hold) {
+                s->hold = at;
+                if ((!ac || a > 0.0f) && xs_uni(&s->rng) * 0.999f < x2)
+                    s->s1 = bc ? fm_fabsf(WB) * xs_uni(&s->rng) * L * 0.5f * clk_period * (float)RV_FS + 1.0f : 1.0f;
+            }
+            if (s->s1 > 0.0f && (s->s1 -= 1.0f) <= 0.0f)
+                y = 1.0f;
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_ring(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* one resonator, struck by A */
+        float a1 = W->kr[i], a2 = W->kf[i], gn = W->fg[i], s1 = s->s1, s2 = s->s2;
+        for (j = j1; j < j2; j++) {
+            y = a1 * s1 + a2 * s2 + gn * WA;
+            s2 = s1;
+            s1 = y;
+            if (!(y > -16.0f && y < 16.0f))
+                s1 = s2 = y = 0.0f;
+            yo[j] = y;
+        }
+        s->s1 = s1;
+        s->s2 = s2;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_skin(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    int mi = W->mn[i];
+    if (mi >= 0 && j2 - j1 > 1) {       /* a run: each mode over all of it in turn (its state held throughout), the
+                                         * modes summed in the same order as wf_modes_run; if it blows up anywhere,
+                                         * the run again a sample at a time, as wf_modes_run does */
+        float *z = v->mz[mi], z0[2 * WM_K], acc[WR], ain[WR];
+        int k;
+        for (k = 0; k < 2 * WM_K; k++)
+            z0[k] = z[k];
+        for (j = j1; j < j2; j++) {
+            acc[j] = 0.0f;
+            ain[j] = WA;
+        }
+        for (k = 0; k < WM_K; k++) {
+            const float *c = W->md[mi][k];
+            float c0 = c[0], c1 = c[1], c2 = c[2], y0 = z[2 * k], y1 = z[2 * k + 1];
+            for (j = j1; j < j2; j++) {
+                float yk = c0 * y0 + c1 * y1 + c2 * ain[j];
+                y1 = y0;
+                y0 = yk;
+                acc[j] += yk;
+            }
+            z[2 * k] = y0;
+            z[2 * k + 1] = y1;
+        }
+        for (j = j1; j < j2; j++)
+            if (!(acc[j] > -16.0f && acc[j] < 16.0f))
+                break;
+        if (j == j2) {
+            for (j = j1; j < j2; j++)
+                yo[j] = acc[j];
+            return;
+        }
+        for (k = 0; k < 2 * WM_K; k++)
+            z[k] = z0[k];
+    }
+    for (j = j1; j < j2; j++)
+        yo[j] = wf_modes_run(v, i, WA);
+}
+
+RV_HOT2 static void wk_sat(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {              /* A driven into a soft clip; B: more drive */
+        float dr = 1.0f + x1 * 15.0f, o = WC(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = sat((WA * dr * (bc ? fm_exp2f(WB * 2.0f) : 1.0f) + o) * 0.8f);
+        return;
+    }
+}
+
+RV_HOT2 static void wk_abs(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float o = WC(x1) * 2.0f, gn = WG(x2);
+        for (j = j1; j < j2; j++)
+            yo[j] = fm_fabsf(WA + WB + o) * gn;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_diffuse(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {   /* four allpasses in a row, each in a quarter of the memory; B: their size (as wf_diffuse, the sizes worked
+         * out once while B doesn't move them) */
+        static const float base[4] = {0.43f, 0.61f, 0.79f, 1.0f};
+        int16_t *m;
+        int k, wpos, L[4];
+        float g = W->c2[i], c1 = W->c1[i];
+        if (W->dn[i] < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = 0.0f;
+            return;
+        }
+        m = wdly[v - wv][W->dn[i]];
+        wpos = v->dw[W->dn[i]] & 127;
+        if (!bc)
+            for (k = 0; k < 4; k++)
+                L[k] = clampi((int)(base[k] * 125.0f * (c1 * 1.0f)), 1, 127);
+        for (j = j1; j < j2; j++) {
+            float x = WA;
+            if (bc) {
+                float sz = c1 * fm_exp2f(WB);
+                for (k = 0; k < 4; k++)
+                    L[k] = clampi((int)(base[k] * 125.0f * sz), 1, 127);
+            }
+            for (k = 0; k < 4; k++) {
+                float d = (float)m[k * 128 + ((wpos - L[k]) & 127)] * (1.0f / 8192.0f), o = d - g * x;
+                m[k * 128 + wpos] = (int16_t)(clampf(x + g * o, -3.9f, 3.9f) * 8192.0f);
+                x = o;
+            }
+            wpos = (wpos + 1) & 127;
+            yo[j] = x;
+        }
+        v->dw[W->dn[i]] = (uint16_t)wpos;
+    }
+}
+
+WK_FLASH static void wk_oclk(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* A's rises, every DIV-th: the WEFT clock; B: back to step 1 */
+        float thr = WC(x2);
+        int dv = WN(x1, 16);
+        for (j = j1; j < j2; j++) {
+            y = a = WA;
+            if (wrise(a, &s->prev, thr) && ++s->st > dv) {
+                s->st = 1;
+                if (K->t == wf_clk_owner)
+                    weft_clk_fired = 1;
+            }
+            if (bc && wrise(WB, &s->prevb, 0.0f) && K->t == wf_clk_owner)
+                weft_clk_reset = 1;
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_omod(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* A (x B), smoothed: the matrix's WEFT source */
+        float c1 = W->c1[i];
+        int rg = WN(x2, 2);
+        for (j = j1; j < j2; j++) {
+            float x = WA * (bc ? WB : 1.0f);
+            s->y += (x - s->y) * c1;
+            y = s->y;
+            if (K->t == wf_mod_owner)
+                weft_mod_v = rg ? clampf(y * 0.5f + 0.5f, 0.0f, 1.0f) : clampf(y, -1.0f, 1.0f);
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_sw14(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        const float *p4[4];
+        float in4[4];
+        int k, sai = K->sa[i];
+        for (k = 0; k < 4; k++) {
+            int src = sai + k;
+            p4[k] = src < WS_N ? &K->vb[src][1 - (K->prod[src] >= 0 && K->prod[src] >= i)] : &K->vb[0][1];
+        }
+        for (j = j1; j < j2; j++) {
+            a = WA;
+            for (k = 0; k < 4; k++)
+                in4[k] = p4[k][j];
+            y = wf_switch(v, s, i, ty, a, WB, bc, trg[j], x1, ty == WO_SW41 && sai ? in4 : 0, ka_);
+            if (ty == WO_SW14 && i == K->sw14)
+                for (k = 0; k < 4; k++)
+                    K->vb[WS_SW1 + k][1 + j] = a * s->z[k];
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_string(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+        for (j = j1; j < j2; j++)
+            yo[j] = wf_string(v, s, i, WA);
+        return;
+}
+
+WK_FLASH static void wk_chaos(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* the logistic map, stepped by A's rises (else at RATE); B: more or less */
+        float c1 = W->c1[i], c2 = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            int stp;
+            a = WA;
+            if (ac)
+                stp = wrise(a, &s->prev, 0.0f);
+            else {
+                s->ph += c1;
+                stp = s->ph >= 1.0f;
+                if (stp)
+                    s->ph = wwrap(s->ph);
+            }
+            if (!(s->y > 0.0001f && s->y < 0.9999f))
+                s->y = 0.1f + 0.8f * xs_uni(&s->rng);
+            if (stp) {
+                float r = clampf(c2 + (bc ? WB * 0.3f : 0.0f), 2.8f, 4.0f);
+                s->y = r * s->y * (1.0f - s->y);
+            }
+            yo[j] = s->y * 2.0f - 1.0f;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_crush(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A held for RATE samples at a time, in BITS' levels; B: the rate */
+        float c1 = W->c1[i], c2 = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float hl = c2 * (bc ? fm_exp2f(WB * 3.0f) : 1.0f);
+            if ((s->ph += 1.0f) >= hl) {
+                s->ph = 0.0f;
+                s->hold = fm_floorf(WA * c1 + 0.5f) / c1;
+            }
+            yo[j] = s->hold;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_edge(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* a click at each rise of A */
+        float o = WC(x1);
+        for (j = j1; j < j2; j++)
+            yo[j] = wrise(WA, &s->prev, o + (bc ? WB : 0.0f)) ? x2 : 0.0f;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_shape(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float c1 = W->c1[i];
+        int cv = WN(x1, 7);
+        for (j = j1; j < j2; j++)
+            yo[j] = wf_shape_run(cv, WA * c1 * (bc ? fm_exp2f(WB * 2.0f) : 1.0f));
+        return;
+    }
+}
+
+RV_HOT2 static void wk_cheby(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    int mi = W->mn[i];
+    if (mi >= 0 && j2 - j1 > 1) {       /* a run: the first biquad over all of it, then the second (as wf_cheby, a sample
+                                         * at a time again if it blows up anywhere) */
+        const float *c = &W->md[mi][0][0];
+        float *z = v->mz[mi], z0[4], buf[WR];
+        int k;
+        for (k = 0; k < 4; k++)
+            z0[k] = z[k];
+        for (j = j1; j < j2; j++)
+            buf[j] = WA;
+        for (k = 0; k < 2; k++) {
+            float b0 = c[3 * k], a1 = c[3 * k + 1], a2 = c[3 * k + 2], s0 = z[2 * k], s1 = z[2 * k + 1];
+            for (j = j1; j < j2; j++) {
+                float x = buf[j], yv = b0 * x + s0;
+                s0 = 2.0f * b0 * x - a1 * yv + s1;
+                s1 = b0 * x - a2 * yv;
+                buf[j] = yv;
+            }
+            z[2 * k] = s0;
+            z[2 * k + 1] = s1;
+        }
+        for (j = j1; j < j2; j++) {
+            buf[j] *= c[6];
+            if (!(buf[j] > -16.0f && buf[j] < 16.0f))
+                break;
+        }
+        if (j == j2) {
+            for (j = j1; j < j2; j++)
+                yo[j] = buf[j];
+            return;
+        }
+        for (k = 0; k < 4; k++)
+            z[k] = z0[k];
+    }
+    for (j = j1; j < j2; j++)
+        yo[j] = wf_cheby(v, i, WA);
+}
+
+RV_HOT2 static void wk_formant(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    int mi = W->mn[i];
+    if (mi >= 0 && j2 - j1 > 1) {       /* a run: each band pass over all of it, summed in wf_formant's order (a sample at a
+                                         * time again if it blows up anywhere) */
+        float *z = v->mz[mi], z0[6], acc[WR], ain[WR];
+        int k;
+        for (k = 0; k < 6; k++)
+            z0[k] = z[k];
+        for (j = j1; j < j2; j++) {
+            acc[j] = 0.0f;
+            ain[j] = WA;
+        }
+        for (k = 0; k < 3; k++) {
+            const float *c = W->md[mi][k];
+            float g = c[0], R = c[1], am = c[2], d = c[3];
+            for (j = j1; j < j2; j++)
+                acc[j] += wf_bp(ain[j], g, R, d, z + 2 * k) * am;
+        }
+        for (j = j1; j < j2; j++) {
+            acc[j] *= 3.0f;
+            if (!(acc[j] > -16.0f && acc[j] < 16.0f))
+                break;
+        }
+        if (j == j2) {
+            for (j = j1; j < j2; j++)
+                yo[j] = acc[j];
+            return;
+        }
+        for (k = 0; k < 6; k++)
+            z[k] = z0[k];
+    }
+    for (j = j1; j < j2; j++)
+        yo[j] = wf_formant(v, i, WA);
+}
+
+RV_HOT2 static void wk_vocoder(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+        for (j = j1; j < j2; j++)
+            yo[j] = wf_vocoder(v, s, i, WA, WB, bc, K->hz);
+        return;
+}
+
+RV_HOT2 static void wk_rmod(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* A x B (with nothing on B, a sine at the note x FREQ); MIX: A to the product */
+        float c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            float car;
+            a = WA;
+            if (bc)
+                car = WB;
+            else {
+                s->ph += c1;
+                s->ph = wwrap(s->ph);
+                car = fm_sin_turns(s->ph);
+            }
+            yo[j] = a + (a * car - a) * x2;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_shift(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        /* (as wf_shift was: the carrier's turn worked out once while B doesn't move it) */
+        float c1 = W->c1[i], th = (c1 + 0.0f) * 6.2831853f, t2 = th * th, cd = 1.0f - t2 * 0.5f, sd = th - th * t2 * (1.0f / 6.0f);
+        float s1 = s->s1, s2 = s->s2, *z = s->z;
+        int k;
+        for (j = j1; j < j2; j++) {
+            float p, q, c, sn, g;
+            p = q = WA;
+            if (bc) {
+                float inc = c1 + WB * 1000.0f * RV_DT;
+                th = inc * 6.2831853f;
+                t2 = th * th;
+                cd = 1.0f - t2 * 0.5f;
+                sd = th - th * t2 * (1.0f / 6.0f);
+            }
+            for (k = 0; k < 4; k++) {           /* (transposed: y = c x + z, z = x - c y) */
+                float y1 = wf_hil[k] * p + z[k], y2 = wf_hil[4 + k] * q + z[4 + k];
+                z[k] = p - wf_hil[k] * y1;
+                z[4 + k] = q - wf_hil[4 + k] * y2;
+                p = y1;
+                q = y2;
+            }
+            if (!(p > -64.0f && p < 64.0f && q > -64.0f && q < 64.0f)) {
+                for (k = 0; k < 8; k++)
+                    z[k] = 0.0f;
+                yo[j] = 0.0f;
+                continue;
+            }
+            c = s1 * cd - s2 * sd;              /* (the carrier turned: wf_rot) */
+            sn = s1 * sd + s2 * cd;
+            g = 1.5f - 0.5f * (c * c + sn * sn);
+            if (!(g > 0.5f && g < 1.5f))
+                c = 1.0f, sn = 0.0f, g = 1.0f;
+            s1 = c * g;
+            s2 = sn * g;
+            yo[j] = x2 * (p * s1 - q * s2) + (1.0f - x2) * (p * s1 + q * s2);
+        }
+        s->s1 = s1;
+        s->s2 = s2;
+        return;
+    }
+}
+
+RV_HOT2 static void wk_diode(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* a diode (PAIR 0: half-wave), or a pair (127: even); B: drive */
+        float c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            float u = WA * c1 * (bc ? fm_exp2f(WB * 2.0f) : 1.0f), hp, r = fm_sqrtf(u * u + 0.04f);   /* (once: the same both times) */
+            y = 0.5f * (u + r) - x2 * 0.5f * (r - u) - 0.1f * (1.0f - x2);
+            y = sat(y * 0.7f);
+            hp = y - s->s1;
+            s->s1 += hp * 0.0015f;
+            yo[j] = hp * 1.3f;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_noise(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* white noise held RATE samples at a time, coloured; A: the rate, B: the colour */
+        float c2 = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float col = clampf(x1 + (bc ? WB * 0.5f : 0.0f), 0.0f, 1.0f);
+            if ((s->ph += 1.0f) >= c2 * (ac ? fm_exp2f(-WA * 4.0f) : 1.0f)) {
+                s->ph = 0.0f;
+                s->hold = xs_uni(&s->rng) * 2.0f - 1.0f;
+            }
+            if (col < 0.5f) {
+                float k = col * 2.0f;
+                s->y += (s->hold - s->y) * fm_maxf(k * k, 0.002f);
+                y = s->y * (1.0f + (1.0f - k) * 4.0f);
+            } else {
+                float t2 = (col - 0.5f) * 2.0f;
+                s->y += (s->hold - s->y) * 0.15f;
+                y = s->hold + ((s->hold - s->y) * 1.5f - s->hold) * t2;
+            }
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_rungler(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {          /* a shift register stepped by A's rises (else each note) */
+        int L = 3 + WN(x2, 6);
+        for (j = j1; j < j2; j++) {
+            if (ac ? wrise(WA, &s->prev, 0.0f) : trg[j] > 0.0f) {
+                int last = (s->st >> (L - 1)) & 1, nb = bc ? WB > 0.0f : xs_uni(&s->rng) < 0.5f;
+                s->st = (uint8_t)(((s->st << 1) | (xs_uni(&s->rng) * 0.999f < x1 ? last : nb)) & ((1 << L) - 1));
+            }
+            yo[j] = (float)((s->st >> (L - 3)) & 7) * (2.0f / 7.0f) - 1.0f;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_aout(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {             /* A into the track's sound, at LEVEL (x B), through a tilt */
+        float tn = WC(x2);
+        for (j = j1; j < j2; j++) {
+            float qv = WA * x1 * 1.27f * (bc ? WB : 1.0f);
+            if (tn < -0.02f) {
+                s->y += (qv - s->y) * fm_maxf((1.0f + tn) * (1.0f + tn), 0.002f);
+                qv = s->y;
+            } else if (tn > 0.02f) {
+                s->y += (qv - s->y) * (1.0f - tn) * 0.5f;
+                qv = qv + (qv - s->y - qv) * tn;
+            }
+            yo[j] = qv;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_seq(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {              /* A's rises do MODE to TRACK's sequencer; B: where (JUMP), which (PATTERN) */
+        int tr = WN(x1, 8), md = WN(x2, 5);
+        for (j = j1; j < j2; j++) {
+            y = a = WA;
+            yo[j] = y;
+            if (!K->lead)
+                continue;       /* (one voice of the track conducts) */
+            b = WB;
+            if (md == WSQ_GATE) {
+                if (a > 0.0f)
+                    weft_gate_open |= (uint8_t)(1u << tr);
+            } else if (wrise(a, &s->prev, 0.0f)) {
+                if (md == WSQ_STEP)
+                    wsq_steps[tr]++;
+                else if (md == WSQ_JUMP)
+                    wsq_jump[tr] = (uint8_t)(1 + (int)(clampf(b, 0.0f, 1.0f) * 254.0f));
+                else if (md == WSQ_RESTART)
+                    wsq_restart |= (uint8_t)(1u << tr);
+                else
+                    wsq_pat[tr] = (int8_t)(bc ? b > 0.0f : 2);
+            }
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_lissa(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* X and Y sines at RATIO of one RATE: X out, Y the source LIS Y */
+        const uint8_t *r = wf_lratio_v[WN(x2, 9)];
+        float c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            s->ph += c1 * (ac ? fm_exp2f(WA * 5.0f) : 1.0f);
+            s->ph = wwrap(s->ph);
+            yo[j] = fm_sin_turns(s->ph * (float)r[0]);
+            if (i == K->lis)
+                K->vb[WS_LISY][1 + j] = fm_sin_turns(s->ph * (float)r[1] + (bc ? WB * 0.5f : 0.0f));
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_none(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+        for (j = j1; j < j2; j++)
+            yo[j] = 0.0f;
+        return;
+}
+
+static const wk_fn wk_tab[WO_N] = {
+    [WO_PHASE] = wk_phase,
+    [WO_WAVE] = wk_wave,
+    [WO_SLOPE] = wk_slope,
+    [WO_CYCLE] = wk_cycle,
+    [WO_SLEW] = wk_slew,
+    [WO_FOLLOW] = wk_slew,
+    [WO_LP] = wk_lp,
+    [WO_BP] = wk_lp,
+    [WO_HP] = wk_lp,
+    [WO_ADD] = wk_add,
+    [WO_MULT] = wk_mult,
+    [WO_MIX] = wk_mix,
+    [WO_MIN] = wk_min,
+    [WO_MAX] = wk_min,
+    [WO_FOLD] = wk_fold,
+    [WO_COMP] = wk_comp,
+    [WO_AND] = wk_comp,
+    [WO_OR] = wk_comp,
+    [WO_XOR] = wk_comp,
+    [WO_FLIP] = wk_comp,
+    [WO_DELAY] = wk_delay,
+    [WO_BANDS] = wk_bands,
+    [WO_HOLD] = wk_hold,
+    [WO_DUST] = wk_dust,
+    [WO_TICK] = wk_tick,
+    [WO_RING] = wk_ring,
+    [WO_SKIN] = wk_skin,
+    [WO_BAR] = wk_skin,
+    [WO_PLATE] = wk_skin,
+    [WO_BELL] = wk_skin,
+    [WO_HARMS] = wk_skin,
+    [WO_FIXED] = wk_skin,
+    [WO_SAT] = wk_sat,
+    [WO_ABS] = wk_abs,
+    [WO_DIFFUSE] = wk_diffuse,
+    [WO_OCLK] = wk_oclk,
+    [WO_OMOD] = wk_omod,
+    [WO_SW14] = wk_sw14,
+    [WO_SW41] = wk_sw14,
+    [WO_STRING] = wk_string,
+    [WO_CHAOS] = wk_chaos,
+    [WO_CRUSH] = wk_crush,
+    [WO_EDGE] = wk_edge,
+    [WO_SHAPE] = wk_shape,
+    [WO_CHEBY] = wk_cheby,
+    [WO_FORMANT] = wk_formant,
+    [WO_VOCODER] = wk_vocoder,
+    [WO_RMOD] = wk_rmod,
+    [WO_SHIFT] = wk_shift,
+    [WO_DIODE] = wk_diode,
+    [WO_NOISE] = wk_noise,
+    [WO_RUNGLER] = wk_rungler,
+    [WO_AOUT] = wk_aout,
+    [WO_SEQ] = wk_seq,
+    [WO_LISSA] = wk_lissa,
+};
+#undef WA
+#undef WB
+
+/* a WEFT voice's step, worked out before its samples: each block's settings, the blocks it needs, what makes each
+ * source, the order the blocks run in and which run sample by sample (in the flash: once a step) */
+typedef struct {
+    int outb, naud, ng, na, nmade, noise_on;
+    unsigned ctl;
+    uint16_t comp;
+    int8_t prod[WS_N];
+    uint8_t mv[WF_BLOCKS], fl[WF_BLOCKS], ol[WF_BLOCKS], gst[WF_BLOCKS + 1], al[WF_BLOCKS], made[WS_N];
+    const float *PBo[WF_BLOCKS];
+    float kbo[WF_BLOCKS];
+    wk_fn fn[WF_BLOCKS];
+} wplan_t;
+
+static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff, float hz, int scope, wplan_t *P, wk_t *K, float (*vb)[WR + 1])
 {
     wcx_t *W = v->W;
     const rv_weft *w = &rv.weft[t];
@@ -692,9 +1682,9 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
     float ka[WF_BLOCKS], kb[WF_BLOCKS];
     float *sv = v->sv;
     uint8_t sa[WF_BLOCKS], sb[WF_BLOCKS];
-    int i, j, outb = wf_outb(w), nd = 0, nm = 0, sw14 = -1, lis = -1, noise_on = 0, naud = 0, lead = (int)(v - wv) == wf_lead[t];
+    int i, outb = wf_outb(w), nd = 0, nm = 0, sw14 = -1, lis = -1, noise_on = 0, naud = 0, lead = (int)(v - wv) == wf_lead[t];
     unsigned live = 0, ctl = 0;
-    float peak = 0.0f, pos = weft_pos16, pinc = RV_DT / (clk_period > 0.001f ? clk_period : 0.001f);
+    float pos = weft_pos16, pinc = RV_DT / (clk_period > 0.001f ? clk_period : 0.001f);
     unsigned bm = w->bmove;
     /* what each block needs per sample, worked out once per step */
     W->hz = hz;
@@ -774,411 +1764,172 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
             ((ty == WO_CYCLE && W->c1[i] < 50.0f * RV_DT) || (ty == WO_LISSA && W->c1[i] < 30.0f * RV_DT)))
             ctl |= 1u << i;
     }
-    for (j = 0; j < n; j++) {
-        float trig = v->trig ? 1.0f : 0.0f, gate = v->gate ? 1.0f : 0.0f, aud = 0.0f;
-        v->trig = 0;
-        sv[WS_GATE] = gate;
-        sv[WS_TRIG] = trig;
-        if (noise_on)
-            sv[WS_NOISE] = xs_uni(&v->rng) * 2.0f - 1.0f;
+    /* ---- the blocks a run of WR samples at a time ----
+     * A block reads a source as it was this sample if what makes it comes before the block, as it was a sample
+     * ago if it comes after it (or is the block itself), as ever. Each source's run is kept in vb: [0] the sample
+     * before the run, [1 + j] sample j. A block whose inputs are all ready (made earlier this run, or a sample
+     * late and made in a group before it) runs its whole run in one go; blocks in a loop of each other through
+     * the later-block (a sample late) cords run sample by sample, in their order, as before. So the sound is the
+     * same, sample for sample; the blocks just don't change places each sample */
+    {
+        int8_t *prod = P->prod;
+        uint16_t pred[WF_BLOCKS], scc[WF_BLOCKS], reach[WF_BLOCKS], comp = 0;
+        uint8_t *mv = P->mv, *fl = P->fl, *ol = P->ol, *gst = P->gst, *al = P->al, *made = P->made;
+        uint32_t need = 0, back = 0;
+        const float **PBo = P->PBo;
+        float *kbo = P->kbo;
+        wk_fn *fn = P->fn;
+        int ng = 0, na = 0, nmade = 0, si, q;
+        float gatev = v->gate ? 1.0f : 0.0f;
+        /* who makes what */
+        for (si = 0; si < WS_N; si++)
+            prod[si] = -1;
+        for (i = 0; i < WF_BLOCKS; i++)
+            if (w->type[i] && ((live >> i) & 1u)) {
+                comp |= (uint16_t)(1u << i);
+                prod[i + 1] = (int8_t)i;
+                if (w->type[i] == WO_AOUT)
+                    al[na++] = (uint8_t)i;
+            }
+        if (sw14 >= 0 && ((comp >> sw14) & 1u))
+            prod[WS_SW1] = prod[WS_SW2] = prod[WS_SW3] = prod[WS_SW4] = (int8_t)sw14;
+        if (lis >= 0 && ((comp >> lis) & 1u))
+            prod[WS_LISY] = (int8_t)lis;
+        /* each block's inputs and what makes them; a block moving its settings each 8 samples (B MOVES, a
+         * resonator's PITCH) runs 8 at a time */
         for (i = 0; i < WF_BLOCKS; i++) {
-            wb_t *s = &v->b[i];
-            int ty = w->type[i], ac = sa[i] != 0, bc = sb[i] != 0;
-            float a, b, y = 0.0f, x1, x2;
-            if (!ty || !((live >> i) & 1u))
+            int ty = w->type[i], src[6], ns = 0, k;
+            pred[i] = 0;
+            if (!((comp >> i) & 1u))
                 continue;
-            if ((ctl >> i) & 1u) {             /* a slow LFO: worked out every 8th sample, a straight line between */
-                if (!(j & 7)) {
-                    float y0, y1 = 0.0f;
-                    if (ty == WO_CYCLE) {
-                        float k = W->c2[i];
-                        s->ph = wwrap(s->ph + W->c1[i] * 8.0f);
-                        y0 = (s->ph < k ? s->ph / k : (1.0f - s->ph) / (1.0f - k)) * 2.0f - 1.0f;
-                    } else {
-                        const uint8_t *r = wf_lratio_v[WN(W->p2[i], 9)];
-                        s->ph = wwrap(s->ph + W->c1[i] * 8.0f);
-                        y0 = fm_sin_turns(s->ph * (float)r[0]);
-                        y1 = fm_sin_turns(s->ph * (float)r[1]);
+            if (!((ctl >> i) & 1u)) {
+                src[ns++] = sa[i];
+                src[ns++] = sb[i];
+                if (ty == WO_SW41 && sa[i])
+                    for (k = 1; k < 4; k++)
+                        if (sa[i] + k < WS_N)
+                            src[ns++] = sa[i] + k;
+            }
+            for (k = 0; k < ns; k++) {
+                need |= 1u << src[k];
+                if (prod[src[k]] >= 0 && prod[src[k]] != i)
+                    pred[i] |= (uint16_t)(1u << prod[src[k]]);
+            }
+            back |= pred[i] >> i;               /* (a cord from a later block: maybe a loop) */
+            /* fl: 1 A in, 2 B in (as the block sees it), 4 a slow LFO, 8 B MOVES, 16 B on a resonator's pitch, 32 B MOVES
+             * with a B */
+            fl[i] = (uint8_t)((sa[i] != 0) | (sb[i] != 0 && !((bm >> i) & 1u)) << 1 | ((ctl >> i) & 1u) << 2 | ((bm >> i) & 1u) << 3 |
+                              (sb[i] && !((bm >> i) & 1u) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING || ty == WO_CHEBY || ty == WO_FORMANT)) << 4 |
+                              (sb[i] != 0 && ((bm >> i) & 1u)) << 5);
+            mv[i] = (uint8_t)((fl[i] & 16u) || (fl[i] & 40u) == 40u);
+            K->PA[i] = &vb[sa[i]][1 - (prod[sa[i]] >= 0 && prod[sa[i]] >= i)];   /* (a sample late: made here, after it or by it) */
+            PBo[i] = &vb[sb[i]][1 - (prod[sb[i]] >= 0 && prod[sb[i]] >= i)];
+            kbo[i] = kb[i];
+            K->PB[i] = (bm >> i) & 1u ? &vb[0][1] : PBo[i];   /* (B MOVES: the block itself sees no B) */
+            K->kb[i] = (bm >> i) & 1u ? 0.0f : kb[i];
+            K->ka[i] = ka[i];
+            K->fl[i] = fl[i];
+            K->ty[i] = (uint8_t)ty;
+            K->sa[i] = sa[i];
+            fn[i] = (fl[i] & 4u) ? wk_ctl : wk_tab[ty] ? wk_tab[ty] : wk_none;
+        }
+        if (outb >= 0)
+            need |= 1u << (outb + 1);
+        K->v = v;
+        K->W = W;
+        K->vb = vb;
+        K->prod = prod;
+        K->trg = &vb[WS_TRIG][1];
+        K->hz = hz;
+        K->gatev = gatev;
+        K->pos = pos;
+        K->pinc = pinc;
+        K->t = t;
+        K->lis = lis;
+        K->sw14 = sw14;
+        K->lead = lead;
+        /* the values that hold through the step (the built-ins, and what nothing here makes), where read */
+        sv[WS_GATE] = gatev;
+        for (si = 1; si < WS_N; si++)
+            if (prod[si] < 0 && si != WS_TRIG && !(si == WS_NOISE && noise_on)) {
+                if ((need >> si) & 1u)
+                    for (q = 0; q <= WR; q++)
+                        vb[si][q] = sv[si];
+            } else {
+                vb[si][WR] = sv[si];              /* (made here: where the last run ended, moved to [0] below) */
+                made[nmade++] = (uint8_t)si;
+            }
+        for (q = 0; q <= WR; q++)
+            vb[0][q] = 0.0f;
+        if (!back) {                            /* no cord from a later block: no loops, every block on its own, in order */
+            for (i = 0; i < WF_BLOCKS; i++)
+                if ((comp >> i) & 1u) {
+                    gst[ng] = (uint8_t)ng;
+                    ol[ng++] = (uint8_t)i;
+                }
+            gst[ng] = (uint8_t)ng;
+        } else {
+            /* loops: blocks that reach each other run sample by sample together */
+            for (i = 0; i < WF_BLOCKS; i++)
+                reach[i] = pred[i];
+            for (q = 0; q < WF_BLOCKS; q++)      /* (reach[i]: every block i depends on, through any cords) */
+                for (i = 0; i < WF_BLOCKS; i++)
+                    if ((reach[i] >> q) & 1u)
+                        reach[i] |= reach[q];
+            for (i = 0; i < WF_BLOCKS; i++) {
+                scc[i] = (uint16_t)(1u << i);
+                for (q = 0; q < WF_BLOCKS; q++)
+                    if (q != i && ((reach[i] >> q) & 1u) && ((reach[q] >> i) & 1u))
+                        scc[i] |= (uint16_t)(1u << q);
+            }
+            {   /* the groups in an order that has every block's makers first (the lowest block first where free) */
+                uint16_t done = 0;
+                int nol = 0;
+                while ((done & comp) != comp) {
+                    for (i = 0; i < WF_BLOCKS; i++) {
+                        uint16_t gm = scc[i], ext = 0;
+                        if (!((comp >> i) & 1u) || ((done >> i) & 1u))
+                            continue;
+                        for (q = 0; q < WF_BLOCKS; q++)
+                            if ((gm >> q) & 1u)
+                                ext |= pred[q];
+                        if (!((ext & ~gm) & ~done))
+                            break;
                     }
-                    s->z[4] = (y0 - s->z[6]) * 0.125f;   /* (z: the steps along the lines, and where they are) */
-                    s->z[5] = (y1 - s->z[7]) * 0.125f;
+                    if (i == WF_BLOCKS)         /* (can't be: each loop is a group) */
+                        break;
+                    gst[ng++] = (uint8_t)nol;
+                    for (q = 0; q < WF_BLOCKS; q++)   /* (its blocks in their order) */
+                        if ((scc[i] >> q) & 1u)
+                            ol[nol++] = (uint8_t)q;
+                    done |= scc[i];
                 }
-                s->z[6] += s->z[4];
-                s->z[7] += s->z[5];
-                sv[i + 1] = s->z[6];
-                if (i == lis)
-                    sv[WS_LISY] = s->z[7];
-                continue;
+                gst[ng] = (uint8_t)nol;
             }
-            a = sv[sa[i]] * ka[i];
-            b = sv[sb[i]] * kb[i];
-            if ((bm >> i) & 1u) {               /* B MOVES: B turns the second setting (worked out every 8th sample) */
-                if (bc && !(j & 7))
-                    RV_FAR(wf_setup)(W, i, ty, W->p1[i], clampf(clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f) + b * 0.5f, 0.0f, 1.0f), 0.0f, 1);
-                b = 0.0f;
-                bc = 0;
-            } else if (bc && !(j & 7) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING || ty == WO_CHEBY || ty == WO_FORMANT))   /* the resonators' PITCH, two octaves each way */
-                RV_FAR(wf_setup)(W, i, ty, W->p1[i], W->p2[i], b * 2.0f, 0);   /* (the pitch alone: what doesn't follow it kept) */
-            x1 = W->p1[i];
-            x2 = W->p2[i];
-            switch (ty) {
-            case WO_PHASE:                      /* a ramp at the note x RATIO; A: FM (through zero), B: reset */
-                s->ph += W->c1[i] * (1.0f + 8.0f * a);
-                s->ph = wwrap(s->ph);
-                if (bc && wrise(b, &s->prevb, 0.0f))
-                    s->ph = 0.0f;
-                y = s->ph * 2.0f - 1.0f;
-                break;
-            case WO_WAVE: {                     /* reads a phase (A, else its own at the note); B: phase modulation */
-                float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f);
-                if (ac)
-                    p = a * 0.5f + 0.5f;
-                else {
-                    s->ph += hz * RV_DT;
-                    s->ph = wwrap(s->ph);
-                    p = s->ph;
-                }
-                p += b * 0.5f;
-                p = wwrap(p);
-                p = p < k ? p / k * 0.5f : 0.5f + (p - k) / (1.0f - k) * 0.5f;   /* WARP: the CZ's bent phase */
-                y = wf_wave(p, x1);
-                break;
-            }
-            case WO_SLOPE: {                    /* rises while A (else the note) is up, holds, falls; B: faster or slower */
-                float g = ac ? a : gate, sc = bc ? fm_exp2f(-b * 4.0f) : 1.0f;
-                if (wrise(g, &s->prev, 0.5f) || (!ac && trig > 0.0f))
-                    s->st = 1;
-                if (s->st == 1) {
-                    s->y += (1.25f - s->y) * clampf(W->kr[i] * sc, 0.0f, 1.0f);
-                    if (s->y >= 1.0f) {
-                        s->y = 1.0f;
-                        s->st = 2;
-                    }
-                } else if (s->st == 2 && g <= 0.5f)
-                    s->st = 0;
-                if (!s->st)
-                    s->y -= s->y * clampf(W->kf[i] * sc, 0.0f, 1.0f);
-                y = s->y;
-                break;
-            }
-            case WO_CYCLE: {                    /* rises and falls on its own (SKEW: which takes longer); A: rate, B: reset */
-                float inc = W->c1[i] * (ac ? fm_exp2f(a * 5.0f) : 1.0f), k = W->c2[i];
-                s->ph += inc;
-                s->ph = wwrap(s->ph);
-                if (bc && wrise(b, &s->prevb, 0.0f))
-                    s->ph = 0.0f;
-                y = (s->ph < k ? s->ph / k : (1.0f - s->ph) / (1.0f - k)) * 2.0f - 1.0f;
-                break;
-            }
-            case WO_SLEW: {                     /* follows A, taking RISE to go up and FALL to come down */
-                float sc = bc ? fm_exp2f(-b * 4.0f) : 1.0f;
-                s->y += (a - s->y) * clampf((a > s->y ? W->kr[i] : W->kf[i]) * sc, 0.0f, 1.0f);
-                y = s->y;
-                break;
-            }
-            case WO_LP: case WO_BP: case WO_HP: {   /* a state-variable filter; B: the cutoff, five octaves each way */
-                float g, R = W->c2[i] * 0.5f, hp, bp, lp;
-                float d = W->fd[i];
-                if (bc && !(j & 3)) {           /* (cutoff moved by B: worked out every fourth sample) */
-                    s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(W->c1[i] * fm_exp2f(b * 5.0f), 20.0f, 18000.0f) * RV_DT);
-                    s->z[0] = wsvd(s->hold, R);
-                }
-                g = W->fg[i];
-                if (bc && s->hold > 0.0f) {
-                    g = s->hold;
-                    d = s->z[0];
-                }
-                hp = (a - (2.0f * R + g) * s->s1 - s->s2) * d;
-                bp = g * hp + s->s1;
-                s->s1 = g * hp + bp;
-                lp = g * bp + s->s2;
-                s->s2 = g * bp + lp;
-                y = ty == WO_LP ? lp : ty == WO_BP ? bp * (2.0f * R) : hp;
-                if (!(y > -8.0f && y < 8.0f))   /* (blown up: start over) */
-                    s->s1 = s->s2 = y = 0.0f;
-                break;
-            }
-            case WO_ADD: y = (a + b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_MULT: y = a * ((bc ? b : 1.0f) + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_MIX: y = (a + (b - a) * x1) * WG(x2); break;
-            case WO_MIN: y = fm_minf(a, b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_MAX: y = fm_maxf(a, b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_FOLD:                       /* driven round a sine: folds back as it grows */
-                y = fm_sin_turns((a * (1.0f + x1 * 15.0f) * (1.0f + (bc ? b : 0.0f)) + WC(x2)) * 0.25f);
-                break;
-            case WO_COMP: case WO_AND: case WO_OR: case WO_XOR: case WO_FLIP: {
-                float thr = WC(x2);
-                int ta = a > thr, tb = b > thr, r;
-                if (ty == WO_COMP)
-                    r = a > b + thr;
-                else if (ty == WO_AND)
-                    r = ta && tb;
-                else if (ty == WO_OR)
-                    r = ta || tb;
-                else if (ty == WO_XOR)
-                    r = ta != tb;
-                else {                          /* FLIP: over on each rise of A (half its rate), B sets it back */
-                    if (wrise(a, &s->prev, thr))
-                        s->st ^= 1;
-                    if (bc && wrise(b, &s->prevb, thr))
-                        s->st = 0;
-                    r = s->st;
-                }
-                y = (r ? 1.0f : -1.0f) * x1;
-                break;
-            }
-            case WO_DELAY: {                    /* up to 11 ms; TIME at 0: the note's period. B: the time, two octaves each way */
-                int16_t *m;
-                float d, fr, r0, r1, wr;
-                int k, i0;
-                if (W->dn[i] < 0)
-                    break;
-                m = wdly[v - wv][W->dn[i]];
-                d = clampf(W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f), 2.0f, (float)(WD_LEN - 2));
-                k = v->dw[W->dn[i]];
-                fr = (float)k - d;
-                if (fr < 0.0f)
-                    fr += (float)WD_LEN;
-                i0 = (int)fr;
-                fr -= (float)i0;
-                r0 = (float)m[i0];
-                r1 = (float)m[(i0 + 1) % WD_LEN];
-                y = (r0 + (r1 - r0) * fr) * (1.0f / 16384.0f);
-                wr = sat(a + y * W->c2[i]);
-                m[k] = (int16_t)(wr * 16384.0f);
-                v->dw[W->dn[i]] = (uint16_t)((k + 1) % WD_LEN);
-                break;
-            }
-            case WO_BANDS: {                    /* four bands at the note's 1st-4th harmonics (SPREAD bends them); B: scan */
-                int k;
-                float sum = 0.0f, pos2 = (b * 0.5f + 0.5f) * 3.0f;
-                for (k = 0; k < 4; k++) {
-                    float g = W->bg[i][k], R = W->c2[i], hp, bp, wgt;
-                    hp = (a - (2.0f * R + g) * s->z[2 * k] - s->z[2 * k + 1]) * W->bd[i][k];
-                    bp = g * hp + s->z[2 * k];
-                    s->z[2 * k] = g * hp + bp;
-                    s->z[2 * k + 1] = g * bp + (g * bp + s->z[2 * k + 1]);
-                    wgt = bc ? fm_maxf(0.0f, 1.0f - fm_fabsf((float)k - pos2)) : 0.5f;
-                    sum += bp * 2.0f * R * wgt;
-                }
-                y = sum * 3.0f;                 /* (narrow bands pass little: brought up) */
-                if (!(y > -8.0f && y < 8.0f)) {
-                    __builtin_memset(s->z, 0, sizeof s->z);
-                    y = 0.0f;
-                }
-                break;
-            }
-            case WO_HOLD: {                     /* takes A on each rise of B (else each note); STEPS: rounds it; GLIDE */
-                if (bc ? wrise(b, &s->prevb, 0.0f) : trig > 0.0f) {
-                    float q = a;
-                    if (x1 > 0.0f) {
-                        float lv = 2.0f + x1 * 30.0f;
-                        q = fm_floorf((q * 0.5f + 0.5f) * lv + 0.5f) / lv * 2.0f - 1.0f;
-                    }
-                    s->hold = q;
-                }
-                s->y += (s->hold - s->y) * (x2 > 0.0f ? wk(wtime(x2 * 0.8f)) : 1.0f);
-                y = s->y;
-                break;
-            }
-            case WO_DUST: {                     /* random particles; each one makes more likely soon after it (CLUSTER), so
-                                                 * they come in clumps that spread out. A: density; B (else each note): a burst */
-                float rate = W->c1[i] * (ac ? fm_exp2f(a * 6.0f) : 1.0f), tau = 0.04f, br = x2 * 0.95f / (rate * tau + 1e-3f);
-                s->s1 *= 1.0f - RV_DT / tau;
-                if (bc ? wrise(b, &s->prevb, 0.0f) : trig > 0.0f)
-                    s->s1 += 6.0f / (rate * tau + 1e-3f) * (0.2f + x2);
-                if (s->s1 > 400.0f)
-                    s->s1 = 400.0f;
-                if (xs_uni(&s->rng) < rate * (1.0f + s->s1) * RV_DT) {
-                    y = 0.25f + 0.75f * xs_uni(&s->rng);
-                    s->s1 += br;
-                }
-                break;
-            }
-            case WO_TICK: {                     /* a click each DIV of the tempo (on the transport's grid), CHANCE of it
-                                                 * sounding; A: ticks only while it is up; B: each one late by up to B x half a DIV */
-                float L = W->c1[i], at = fm_floorf((pos + pinc * (float)j) / L);
-                if (at != s->hold) {
-                    s->hold = at;
-                    if ((!ac || a > 0.0f) && xs_uni(&s->rng) * 0.999f < x2)
-                        s->s1 = bc ? fm_fabsf(b) * xs_uni(&s->rng) * L * 0.5f * clk_period * (float)RV_FS + 1.0f : 1.0f;
-                }
-                if (s->s1 > 0.0f && (s->s1 -= 1.0f) <= 0.0f)
-                    y = 1.0f;
-                break;
-            }
-            case WO_RING: {                     /* one resonator, struck by A (an impulse rings at about A's height) */
-                y = W->kr[i] * s->s1 + W->kf[i] * s->s2 + W->fg[i] * a;
-                s->s2 = s->s1;
-                s->s1 = y;
-                if (!(y > -16.0f && y < 16.0f))
-                    s->s1 = s->s2 = y = 0.0f;
-                break;
-            }
-            case WO_SKIN: case WO_BAR: case WO_PLATE: case WO_BELL: case WO_HARMS: case WO_FIXED: y = RV_FAR(wf_modes_run)(v, i, a); break;
-            case WO_SAT:                        /* A driven into a soft clip; B: more drive */
-                y = sat((a * (1.0f + x1 * 15.0f) * (bc ? fm_exp2f(b * 2.0f) : 1.0f) + WC(x2)) * 0.8f);
-                break;
-            case WO_ABS: y = fm_fabsf(a + b + WC(x1) * 2.0f) * WG(x2); break;
-            case WO_DIFFUSE: y = RV_FAR(wf_diffuse)(v, i, a, b, bc); break;
-            case WO_OCLK:                       /* A's rises (through THRESH), every DIV-th: the WEFT clock; B: back to step 1 */
-                y = a;
-                if (wrise(a, &s->prev, WC(x2)) && ++s->st > WN(x1, 16)) {
-                    s->st = 1;
-                    if (t == wf_clk_owner)
-                        weft_clk_fired = 1;
-                }
-                if (bc && wrise(b, &s->prevb, 0.0f) && t == wf_clk_owner)
-                    weft_clk_reset = 1;
-                break;
-            case WO_OMOD: {                     /* A (x B), smoothed: the matrix's WEFT source */
-                float x = a * (bc ? b : 1.0f);
-                s->y += (x - s->y) * W->c1[i];
-                y = s->y;
-                if (t == wf_mod_owner)
-                    weft_mod_v = WN(x2, 2) ? clampf(y * 0.5f + 0.5f, 0.0f, 1.0f) : clampf(y, -1.0f, 1.0f);
-                break;
-            }
-            case WO_SW14: case WO_SW41: y = RV_FAR(wf_switch)(v, s, i, ty, a, b, bc, trig, x1, sa[i], ka[i], sw14); break;
-            case WO_STRING: y = RV_FAR(wf_string)(v, s, i, a); break;
-            case WO_CHAOS: {                    /* the logistic map x = r x (1 - x), stepped by A's rises (else at RATE): CHAOS
-                                                 * from settling (r 3.4: two values in turn) to noise (4); B: more or less */
-                int step;
-                if (ac)
-                    step = wrise(a, &s->prev, 0.0f);
-                else {
-                    s->ph += W->c1[i];
-                    step = s->ph >= 1.0f;
-                    if (step)
-                        s->ph = wwrap(s->ph);
-                }
-                if (!(s->y > 0.0001f && s->y < 0.9999f))
-                    s->y = 0.1f + 0.8f * xs_uni(&s->rng);
-                if (step) {
-                    float r = clampf(W->c2[i] + (bc ? b * 0.3f : 0.0f), 2.8f, 4.0f);
-                    s->y = r * s->y * (1.0f - s->y);
-                }
-                y = s->y * 2.0f - 1.0f;
-                break;
-            }
-            case WO_CRUSH: {                    /* A held for RATE samples at a time, in BITS' levels; B: the rate */
-                float hl = W->c2[i] * (bc ? fm_exp2f(b * 3.0f) : 1.0f);
-                if ((s->ph += 1.0f) >= hl) {
-                    s->ph = 0.0f;
-                    s->hold = fm_floorf(a * W->c1[i] + 0.5f) / W->c1[i];
-                }
-                y = s->hold;
-                break;
-            }
-            case WO_EDGE: y = wrise(a, &s->prev, WC(x1) + (bc ? b : 0.0f)) ? x2 : 0.0f; break;   /* a click at each rise of A */
-            case WO_FOLLOW: {                   /* how loud A is: its size, rising over ATTACK and falling over RELEASE; B: faster, slower */
-                float r = fm_fabsf(a), sc = bc ? fm_exp2f(-b * 4.0f) : 1.0f;
-                s->y += (r - s->y) * clampf((r > s->y ? W->kr[i] : W->kf[i]) * sc, 0.0f, 1.0f);
-                y = s->y;
-                break;
-            }
-            case WO_SHAPE: y = wf_shape_run(WN(x1, 7), a * W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f)); break;
-            case WO_CHEBY: y = RV_FAR(wf_cheby)(v, i, a); break;
-            case WO_FORMANT: y = RV_FAR(wf_formant)(v, i, a); break;
-            case WO_VOCODER: y = RV_FAR(wf_vocoder)(v, s, i, a, b, bc, hz); break;
-            case WO_RMOD: {                     /* A x B (with nothing on B, a sine at the note x FREQ); MIX: A to the product */
-                float car;
-                if (bc)
-                    car = b;
-                else {
-                    s->ph += W->c1[i];
-                    s->ph = wwrap(s->ph);
-                    car = fm_sin_turns(s->ph);
-                }
-                y = a + (a * car - a) * x2;
-                break;
-            }
-            case WO_SHIFT: y = RV_FAR(wf_shift)(s, W->c1[i] + (bc ? b * 1000.0f * RV_DT : 0.0f), x2, a); break;
-            case WO_DIODE: {                    /* a diode (PAIR 0: half-wave), or a pair (127: even), soft at the knee; B: drive */
-                float u = a * W->c1[i] * (bc ? fm_exp2f(b * 2.0f) : 1.0f), hp;
-                y = 0.5f * (u + fm_sqrtf(u * u + 0.04f)) - x2 * 0.5f * (fm_sqrtf(u * u + 0.04f) - u) - 0.1f * (1.0f - x2);
-                y = sat(y * 0.7f);
-                hp = y - s->s1;                 /* (the half-wave's offset taken out: ~10 Hz) */
-                s->s1 += hp * 0.0015f;
-                y = hp * 1.3f;
-                break;
-            }
-            case WO_NOISE: {                    /* white noise held RATE samples at a time, coloured: COLOR down dark (low passed,
-                                                 * brown at 0), 64 white, up bright; A: the rate, B: the colour */
-                float col = clampf(x1 + (bc ? b * 0.5f : 0.0f), 0.0f, 1.0f);
-                if ((s->ph += 1.0f) >= W->c2[i] * (ac ? fm_exp2f(-a * 4.0f) : 1.0f)) {
-                    s->ph = 0.0f;
-                    s->hold = xs_uni(&s->rng) * 2.0f - 1.0f;
-                }
-                if (col < 0.5f) {
-                    float k = col * 2.0f;
-                    s->y += (s->hold - s->y) * fm_maxf(k * k, 0.002f);
-                    y = s->y * (1.0f + (1.0f - k) * 4.0f);
-                } else {
-                    float t2 = (col - 0.5f) * 2.0f;
-                    s->y += (s->hold - s->y) * 0.15f;
-                    y = s->hold + ((s->hold - s->y) * 1.5f - s->hold) * t2;   /* (toward the high passed: blue) */
-                }
-                break;
-            }
-            case WO_RUNGLER: {                  /* a shift register stepped by A's rises (else each note): the bit going in is B's
-                                                 * sign (or a coin), or with LOOP's chance the one falling out; out, its last three */
-                int L = 3 + WN(x2, 6);
-                if (ac ? wrise(a, &s->prev, 0.0f) : trig > 0.0f) {
-                    int last = (s->st >> (L - 1)) & 1, nb = bc ? b > 0.0f : xs_uni(&s->rng) < 0.5f;
-                    s->st = (uint8_t)(((s->st << 1) | (xs_uni(&s->rng) * 0.999f < x1 ? last : nb)) & ((1 << L) - 1));
-                }
-                y = (float)((s->st >> (L - 3)) & 7) * (2.0f / 7.0f) - 1.0f;
-                break;
-            }
-            case WO_AOUT: {                     /* A into the track's sound, at LEVEL (x B), through a tilt: TONE down a low
-                                                 * pass, up a high pass, 64 neither */
-                float tn = WC(x2), q = a * x1 * 1.27f * (bc ? b : 1.0f);
-                if (tn < -0.02f) {
-                    s->y += (q - s->y) * fm_maxf((1.0f + tn) * (1.0f + tn), 0.002f);
-                    q = s->y;
-                } else if (tn > 0.02f) {
-                    s->y += (q - s->y) * (1.0f - tn) * 0.5f;
-                    q = q + (q - s->y - q) * tn;
-                }
-                y = q;
-                aud += q;
-                break;
-            }
-            case WO_SEQ: {                      /* A's rises do MODE to TRACK's sequencer; B: where (JUMP), which (PATTERN) */
-                int tr = WN(x1, 8), md = WN(x2, 5);
-                y = a;
-                if (!lead)
-                    break;                      /* (one voice of the track conducts) */
-                if (md == WSQ_GATE) {
-                    if (a > 0.0f)
-                        weft_gate_open |= (uint8_t)(1u << tr);
-                } else if (wrise(a, &s->prev, 0.0f)) {
-                    if (md == WSQ_STEP)
-                        wsq_steps[tr]++;
-                    else if (md == WSQ_JUMP)
-                        wsq_jump[tr] = (uint8_t)(1 + (int)(clampf(b, 0.0f, 1.0f) * 254.0f));   /* (WHERE: B 0..1 across the steps) */
-                    else if (md == WSQ_RESTART)
-                        wsq_restart |= (uint8_t)(1u << tr);
-                    else
-                        wsq_pat[tr] = (int8_t)(bc ? b > 0.0f : 2);
-                }
-                break;
-            }
-            case WO_LISSA: {                    /* X and Y sines at RATIO of one RATE: X out, Y the source LIS Y; A: rate, B: Y's phase */
-                const uint8_t *r = wf_lratio_v[WN(x2, 9)];
-                s->ph += W->c1[i] * (ac ? fm_exp2f(a * 5.0f) : 1.0f);
-                s->ph = wwrap(s->ph);
-                y = fm_sin_turns(s->ph * (float)r[0]);
-                if (i == lis)
-                    sv[WS_LISY] = fm_sin_turns(s->ph * (float)r[1] + (bc ? b * 0.5f : 0.0f));
-                break;
-            }
-            default: break;
-            }
-            sv[i + 1] = y;
-            if (scope && wsc[i].on) {           /* the scope: a moment of each block (each point the biggest of
-                                                 * those it stands for), started on a rising crossing */
+        }
+        P->outb = outb;
+        P->naud = naud;
+        P->ng = ng;
+        P->na = na;
+        P->nmade = nmade;
+        P->noise_on = noise_on;
+        P->ctl = ctl;
+        P->comp = comp;
+    }
+}
+
+/* the scopes over a run: a moment of each block (each point the biggest of those it stands for), started on a rising
+ * crossing (in the flash: only while they are on screen) */
+static __attribute__((noinline)) void weft_scopes(const wplan_t *P, const wcx_t *W, const rv_weft *w, float (*vb)[WR + 1], int m)
+{
+    int i, j;
+    for (i = 0; i < WF_BLOCKS; i++) {
+        {
+            int ty = w->type[i];
+            if (!wsc[i].on || !((P->comp >> i) & 1u) || ((P->ctl >> i) & 1u))
+                continue;                   /* (as before: a slow LFO's scope stands still) */
+            for (j = 0; j < m; j++) {
+                float y = vb[i + 1][1 + j];
                 if (wsc[i].wait) {
                     if ((y >= 0.0f && wsc[i].last < 0.0f) || ++wsc[i].wait > 200) {
                         wsc[i].wait = 0;
@@ -1205,20 +1956,83 @@ RV_HOT2 __attribute__((flatten)) static void weft_voice(wv_t *v, int t, const fl
                 }
             }
         }
-        {
-            float x = (outb >= 0 ? v->sv[outb + 1] : 0.0f) + aud;
-            x = sat(x * 0.6f) * 0.7f;           /* (a patch can't run away with the level) */
-            out[j] += x;
-            if (fm_fabsf(x) > peak)
-                peak = fm_fabsf(x);
+}
+}
+
+RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)   /* (in the pool: it runs every sample) */
+{
+    wcx_t *W = v->W;
+    const rv_weft *w = &rv.weft[t];
+    float *sv = v->sv, peak = 0.0f;
+    float vb[WS_N][WR + 1];                     /* (2 KB of the stack: the second core's has room for it) */
+    wplan_t P;
+    wk_t K;
+    int i, j, g, q, j0;
+    RV_FAR(weft_plan)(v, t, eff, hz, scope, &P, &K, vb);
+    {
+        for (j0 = 0; j0 < n; j0 += WR) {
+            int m = n - j0 < WR ? n - j0 : WR;
+            for (q = 0; q < P.nmade; q++)               /* the sample before this run */
+                vb[P.made[q]][0] = vb[P.made[q]][WR];   /* ([WR]: where the last run ended) */
+            if (!j0) {                          /* TRIG: the step's first sample, if a note has just come */
+                for (q = 1; q <= WR; q++)
+                    vb[WS_TRIG][q] = 0.0f;
+                vb[WS_TRIG][1] = v->trig ? 1.0f : 0.0f;
+            } else
+                vb[WS_TRIG][1] = 0.0f;
+            if (P.noise_on)
+                for (j = 0; j < m; j++)
+                    vb[WS_NOISE][1 + j] = xs_uni(&v->rng) * 2.0f - 1.0f;
+            for (g = 0; g < P.ng; g++) {
+                int g0 = P.gst[g], g1 = P.gst[g + 1], single = g1 - g0 == 1, step, jj, gq;
+                for (jj = 0; jj < m; jj += step) {
+                    step = single ? m - jj : 1;
+                    for (gq = g0; gq < g1; gq++) {
+                        i = P.ol[gq];
+                        if (single && P.mv[i] && step > 8 - (jj & 7))
+                            step = 8 - (jj & 7);   /* (a moving block: to the next eighth sample) */
+                        /* ---- block i, samples jj .. jj + step - 1 of this run ---- */
+                        if (P.fl[i] & 0x18u) {   /* its settings moved by B, each eighth sample */
+                            if (!((j0 + jj) & 7)) {
+                                if (P.fl[i] & 8u) {        /* B MOVES: B turns the second setting */
+                                    if (P.fl[i] & 32u)
+                                        RV_FAR(wf_setup)(W, i, w->type[i], W->p1[i], clampf(clampf(eff[wf_sp(2 * i + 1)], 0.0f, 127.0f) * (1.0f / 127.0f) + P.PBo[i][jj] * P.kbo[i] * 0.5f, 0.0f, 1.0f), 0.0f, 1);
+                                } else                  /* the resonators' PITCH, two octaves each way */
+                                    RV_FAR(wf_setup)(W, i, w->type[i], W->p1[i], W->p2[i], K.PB[i][jj] * K.kb[i] * 2.0f, 0);
+                            }
+                        }
+                        K.j0 = j0;
+                        P.fn[i](&K, i, jj, jj + step);
+                    }
+                }
+            }
+            if (scope)
+                RV_FAR(weft_scopes)(&P, W, w, vb, m);
+            /* the voice's sound: OUT's block and the AUDIO blocks, through a soft limit */
+            for (j = 0; j < m; j++) {
+                float aud = 0.0f, x;
+                for (q = 0; q < P.na; q++)
+                    aud += vb[P.al[q] + 1][1 + j];
+                x = (P.outb >= 0 ? vb[P.outb + 1][1 + j] : 0.0f) + aud;
+                x = sat(x * 0.6f) * 0.7f;       /* (a patch can't run away with the level) */
+                out[j0 + j] += x;
+                if (fm_fabsf(x) > peak)
+                    peak = fm_fabsf(x);
+            }
+            for (q = 0; q < P.nmade; q++)              /* (this run's last sample: the next one's [0]) */
+                vb[P.made[q]][WR] = vb[P.made[q]][m];
         }
+        if (n > 0)
+            v->trig = 0;
+        for (q = 0; q < P.nmade; q++)                  /* what was made, kept for the next step */
+            sv[P.made[q]] = vb[P.made[q]][WR];
     }
     /* a released voice ends when it has been quiet a moment (or after a long while); one a patch's
      * output block needs goes on */
     if (!v->gate) {
         v->rel += (float)n * RV_DT;
         v->quiet = peak < 0.0005f ? v->quiet + (float)n * RV_DT : 0.0f;
-        if (!wf_has_out[t] && (v->quiet > 0.25f || v->rel > 12.0f || (outb < 0 && !naud)))
+        if (!wf_has_out[t] && (v->quiet > 0.25f || v->rel > 12.0f || (P.outb < 0 && !P.naud)))
             v->on = 0;
     }
 }
@@ -1235,7 +2049,22 @@ static float weft_voice_one(int k, float *out, int n, int c)
     float hz = note_hz((float)v->note + eff[TP_PITCH] + eff[TP_FINE] * 0.01f), pk = 0.0f;
     int i;
     v->W = &wcxs[c & 1];
+#ifdef RV_WEFT_HASH
+    uint32_t t0_ = plat_cycles();
+#endif
     RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
+#ifdef RV_WEFT_HASH
+    { extern uint64_t rv_weft_ns; rv_weft_ns += plat_cycles() - t0_; }
+    {   /* (the comparison build: every WEFT voice's sound, bit for bit, folded into one number) */
+        extern uint32_t rv_weft_hash, rv_weft_frames;
+        for (i = 0; i < n; i++) {
+            uint32_t u;
+            __builtin_memcpy(&u, &out[i], 4);
+            rv_weft_hash = (rv_weft_hash ^ u) * 16777619u;
+        }
+        rv_weft_frames += (uint32_t)n;
+    }
+#endif
     for (i = 0; i < n; i++)
         pk = fm_maxf(pk, fm_fabsf(out[i]));
     return pk;
