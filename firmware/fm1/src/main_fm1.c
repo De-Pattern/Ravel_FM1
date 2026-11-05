@@ -152,6 +152,7 @@ static void fm1_fault(const fm1_crash_t *c)
 
 static void enter_uboot(const char *why)
 {
+    plat_par_on(0);                                 /* (an update is no crash: the second core starts again after it) */
     fm1_audio_stop();
     ui_notice(why, "UPDATE MODE", 0, 0, 0);
     fm1_delay_ms(20);
@@ -295,8 +296,13 @@ static void fm1_main(void)
         if (usb.ota_req) {
             usb.ota_req = 0;
             rv_transport(0);
-            if (flash_ok)
+            if (flash_ok) {
+                int c2 = fm1_c1_on;
+                plat_par_on(0);                     /* (an install resets: not as a crash, so the second core is back after) */
                 ota_session();                      /* returns only if nothing was committed */
+                if (c2)
+                    plat_par_on(1);
+            }
         }
         if (usb.uboot_req)
             enter_uboot("UBOOT (USB)");

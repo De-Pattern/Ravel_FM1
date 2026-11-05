@@ -6147,6 +6147,8 @@ void ui_frame(void)
         ui.c2_tried = 1;
         if (plat_par_on(1) == 0)
             rv_live.cores2 = 1;
+        else
+            msg("ONE CORE: POWER OFF AND ON FOR TWO");   /* (held after a crash or reset while it ran) */
     }
     stress_tick();
     if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || (ui.sec != SEC_SAVE && cur_page()->pic != PIC_WEFTLIB)))
