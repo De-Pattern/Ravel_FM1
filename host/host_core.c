@@ -197,9 +197,15 @@ uint32_t plat_cycles(void) { return 0; }        /* (the browser gives no clock t
 uint32_t plat_cycles_hz(void) { return 1000000000u; }
 #else
 #include <time.h>
+#include <stdlib.h>
 uint32_t plat_cycles(void)                       /* this machine: nanoseconds stand in for cycles */
 {
     struct timespec ts;
+    static int off = -1;
+    if (off < 0)
+        off = getenv("RAVEL_NO_CLOCK") != 0;        /* (no clock: the guard never acts, so a profile under valgrind is repeatable) */
+    if (off)
+        return 0;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint32_t)((uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec);
 }

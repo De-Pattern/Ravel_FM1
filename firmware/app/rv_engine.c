@@ -36,11 +36,10 @@ static void fault(int where)
 }
 RV_INL int buf_bad(const float *b, int n)
 {
-    int i;
-    for (i = 0; i < n; i++)
-        if (!(b[i] > -RV_GUARD && b[i] < RV_GUARD))   /* false for NaN too */
-            return 1;
-    return 0;
+    int i, bad = 0;
+    for (i = 0; i < n; i++)                           /* (no early way out: the loop pipelines) */
+        bad |= !(b[i] > -RV_GUARD && b[i] < RV_GUARD);   /* false for NaN too */
+    return bad;
 }
 /* clear the bad samples; 1 if there were any */
 static int buf_fix(float *b, int n)
@@ -816,9 +815,25 @@ static float peak_of(const float *b, int n)
 {
     float m = 0.0f;
     int i;
-    for (i = 0; i < n; i++)
-        if (fm_fabsf(b[i]) > m)
-            m = fm_fabsf(b[i]);
+    for (i = 0; i < n; i++) {
+        float a = fm_fabsf(b[i]);
+        m = a > m ? a : m;                            /* (a NaN is passed over, as ever) */
+    }
+    return m;
+}
+/* a bus's output: its peak, with any bad sample cleared (1 if there was one): one pass, not two */
+static float peak_fix(float *b, int n, int *bad)
+{
+    float m = 0.0f;
+    int i;
+    for (i = 0; i < n; i++) {
+        float x = b[i];
+        if (!(x > -RV_GUARD && x < RV_GUARD)) {
+            b[i] = 0.0f;
+            *bad = 1;
+        } else
+            m = fm_maxf(m, fm_fabsf(x));
+    }
     return m;
 }
 static int bus_skip(int k, const float *in, int n)
@@ -1229,9 +1244,13 @@ static __attribute__((noinline)) uint32_t bus_jobs(uint32_t mask, uint32_t (*clk
             for (i = 0; i < n; i++)
                 bs_l[i] = bs_r[i] = 0.0f;
             RV_FAR(halfrate_run)(rin, n, bs_l, bs_r);
-            bus_note(BUS_SPACE, fm_maxf(peak_of(bs_l, n), peak_of(bs_r, n)));
-            if ((buf_fix(bs_l, n) | buf_fix(bs_r, n)) && !bu_fault[BU_SPACE])
-                bu_fault[BU_SPACE] = 900;
+            {
+                int bad = 0;
+                float pk = fm_maxf(peak_fix(bs_l, n, &bad), peak_fix(bs_r, n, &bad));
+                if (bad && !bu_fault[BU_SPACE])
+                    bu_fault[BU_SPACE] = 900;
+                bus_note(BUS_SPACE, pk);
+            }
             bs_ran = 1;
         }
         c1 = clk();
@@ -1246,11 +1265,12 @@ static __attribute__((noinline)) uint32_t bus_jobs(uint32_t mask, uint32_t (*clk
             for (i = 0; i < n; i++)
                 bo_fb[i] = 0.0f;
         } else {
+            int bad = 0;
             RV_FAR(feedback_run)(fin, n, bo_fb);
-            bus_note(BUS_FB, peak_of(bo_fb, n));
+            bus_note(BUS_FB, peak_fix(bo_fb, n, &bad));
+            if (bad)
+                bu_fault[BU_FB] = 600;
         }
-        if (buf_fix(bo_fb, n))
-            bu_fault[BU_FB] = 600;
         c1 = clk();
         cyc[1] += c1 - c;
         bu_cost[BU_FB] = (bu_cost[BU_FB] * 3u + (c1 - cs)) / 4u;
@@ -1266,9 +1286,13 @@ static __attribute__((noinline)) uint32_t bus_jobs(uint32_t mask, uint32_t (*clk
             for (i = 0; i < n; i++)
                 bd_l[i] = bd_r[i] = 0.0f;
             RV_FAR(delay_run)(din, n, bd_l, bd_r);
-            bus_note(BUS_DLY, fm_maxf(peak_of(bd_l, n), peak_of(bd_r, n)));
-            if (buf_fix(bd_l, n) | buf_fix(bd_r, n))
-                bu_fault[BU_DLY] = 800;
+            {
+                int bad = 0;
+                float pk = fm_maxf(peak_fix(bd_l, n, &bad), peak_fix(bd_r, n, &bad));
+                if (bad)
+                    bu_fault[BU_DLY] = 800;
+                bus_note(BUS_DLY, pk);
+            }
             bd_ran = 1;
         }
         c1 = clk();
