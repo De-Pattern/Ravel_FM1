@@ -423,19 +423,32 @@ RV_INL int16_t q12_q(float x, int32_t q)
  * the same values as reading it fractionally, for less) */
 RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
 {
-    int i, k;
+    int i, k, ts = 0, nts;
     float lvl = gv(GP_REVLEVEL) * (1.0f / 127.0f), lowc = rv.gp[GP_REVLOW] > 0 ? clampf(rv_cut_hz_i(rv.gp[GP_REVLOW] * 0.55f) * 6.2832f * RV_DT, 0.0f, 0.9f) : 0.0f;
     float fb = 0.80f + gv(GP_REVSIZE) * (0.185f / 127.0f);   /* (the settings, once a step) */
     float damp = 0.15f + (127 - gv(GP_REVDAMP)) * (0.7f / 127.0f);
-    float modd = gv(GP_REVMOD) * (6.0f / 127.0f);
+    float modd = gv(GP_REVMOD) * (6.0f / 127.0f), og = lvl * 1.2f;
     int32_t q = 1 << (2 + (rv.gp[GP_REVDIFF] * 4) / 127);   /* 12 bits of full scale, down to 8 */
     int32_t w[12];
     int16_t *m[12];
+    float d[8], dd[8];                                    /* MOTION: each comb's read-back this tank step, and its change a step */
     if (!hr_base[1])
         hr_layout(q12_len, 12);
     for (k = 0; k < 12; k++) {
         w[k] = hr_w[k];
         m[k] = space_mem + hr_base[k];
+    }
+    nts = (n + (int)hr_odd) / 2;                          /* (the tank steps in this call) */
+    if (modd != 0.0f && nts > 0) {                        /* MOTION: the sway worked out at the step's ends, a straight line
+                                                           * between (it moves 0.002 of a turn a step: the bend is under
+                                                           * 0.0001 of a sample; v1.20, for the eight sines a tank step) */
+        float ph0 = hr_ph[0], ph1 = ph0 + (float)nts * (0.6f * 2.0f * RV_DT), inv = 1.0f / (float)nts;
+        for (k = 0; k < 8; k++) {
+            float da = (float)q12_len[k] - 2.0f - modd * (1.0f + sin_lut(ph0 + (float)k * 0.125f));
+            float db = (float)q12_len[k] - 2.0f - modd * (1.0f + sin_lut(ph1 + (float)k * 0.125f));
+            dd[k] = (db - da) * inv;
+            d[k] = da;
+        }
     }
     for (i = 0; i < n; i++) {
         float x = in[i];
@@ -445,62 +458,103 @@ RV_HOT static void halfrate_run(const float *in, int n, float *l, float *r)
         }
         hr_in += x * 0.5f;
         if (hr_odd) {                                     /* a pair in: one step of the tank */
-            float xin = hr_in, a = 0.0f, b = 0.0f, z, v;
+            float xin = hr_in * 0.6f, a = 0.0f, b = 0.0f, z, v, za, zb;
             int32_t L, j;
             hr_in = 0.0f;
             hr_ph[0] += 0.6f * 2.0f * RV_DT;
             hr_ph[0] -= fm_floorf(hr_ph[0]);
-            for (k = 0; k < 8; k++) {                     /* the combs, damped */
-                int16_t *mk = m[k];
-                L = q12_len[k];
-                if (modd != 0.0f) {                       /* MOTION: read between the samples */
-                    float d = (float)L - 2.0f - modd * (1.0f + sin_lut(hr_ph[0] + (float)k * 0.125f));
-                    float p = (float)w[k] - d, fr;
-                    int32_t j1;
-                    if (p < 0.0f)                         /* (d is less than the line: once is enough) */
-                        p += (float)L;
-                    j = (int32_t)p;
-                    fr = p - (float)j;
-                    if (j >= L)
-                        j -= L;
-                    j1 = j + 1 >= L ? 0 : j + 1;
-                    z = (mk[j] + (mk[j1] - mk[j]) * fr) * (1.0f / 8192.0f);
-                } else {                                  /* L - 2 back */
-                    j = w[k] + 2;
-                    if (j >= L)
-                        j -= L;
-                    z = mk[j] * (1.0f / 8192.0f);
+            if (modd != 0.0f) {                           /* MOTION: read between the samples; two combs at a time (the
+                                                           * FPU overlaps them: each its own line and sum) */
+                for (k = 0; k < 4; k++) {
+                    int16_t *ma = m[k], *mb = m[k + 4];
+                    int32_t La = q12_len[k], Lb = q12_len[k + 4], ja, jb, ja1, jb1;
+                    float pa, pb, fa, fb2;
+                    d[k] += dd[k];
+                    d[k + 4] += dd[k + 4];
+                    pa = (float)w[k] - d[k];
+                    pb = (float)w[k + 4] - d[k + 4];
+                    if (pa < 0.0f)                        /* (d is less than the line: once is enough) */
+                        pa += (float)La;
+                    if (pb < 0.0f)
+                        pb += (float)Lb;
+                    ja = (int32_t)pa;
+                    jb = (int32_t)pb;
+                    fa = pa - (float)ja;
+                    fb2 = pb - (float)jb;
+                    if (ja >= La)
+                        ja -= La;
+                    if (jb >= Lb)
+                        jb -= Lb;
+                    ja1 = ja + 1 >= La ? 0 : ja + 1;
+                    jb1 = jb + 1 >= Lb ? 0 : jb + 1;
+                    za = (ma[ja] + (ma[ja1] - ma[ja]) * fa) * (1.0f / 8192.0f);
+                    zb = (mb[jb] + (mb[jb1] - mb[jb]) * fb2) * (1.0f / 8192.0f);
+                    hr_lp[k] += (za - hr_lp[k]) * damp;
+                    hr_lp[k + 4] += (zb - hr_lp[k + 4]) * damp;
+                    ma[w[k]] = q12_q(xin + hr_lp[k] * fb, q);
+                    mb[w[k + 4]] = q12_q(xin + hr_lp[k + 4] * fb, q);
+                    if (++w[k] >= La)
+                        w[k] = 0;
+                    if (++w[k + 4] >= Lb)
+                        w[k + 4] = 0;
+                    a += za;
+                    b += zb;
                 }
-                hr_lp[k] += (z - hr_lp[k]) * damp;
-                mk[w[k]] = q12_q(xin * 0.6f + hr_lp[k] * fb, q);
-                if (++w[k] >= L)
-                    w[k] = 0;
-                if (k < 4)
-                    a += z;
-                else
-                    b += z;
+            } else {                                      /* L - 2 back */
+                for (k = 0; k < 4; k++) {
+                    int16_t *ma = m[k], *mb = m[k + 4];
+                    int32_t La = q12_len[k], Lb = q12_len[k + 4], ja = w[k] + 2, jb = w[k + 4] + 2;
+                    if (ja >= La)
+                        ja -= La;
+                    if (jb >= Lb)
+                        jb -= Lb;
+                    za = ma[ja] * (1.0f / 8192.0f);
+                    zb = mb[jb] * (1.0f / 8192.0f);
+                    hr_lp[k] += (za - hr_lp[k]) * damp;
+                    hr_lp[k + 4] += (zb - hr_lp[k + 4]) * damp;
+                    ma[w[k]] = q12_q(xin + hr_lp[k] * fb, q);
+                    mb[w[k + 4]] = q12_q(xin + hr_lp[k + 4] * fb, q);
+                    if (++w[k] >= La)
+                        w[k] = 0;
+                    if (++w[k + 4] >= Lb)
+                        w[k + 4] = 0;
+                    a += za;
+                    b += zb;
+                }
             }
-            a *= 0.5f;                                    /* then two allpasses a side: L - 1 back */
+            a *= 0.5f;                                    /* then two allpasses a side: L - 1 back (a side at a time) */
             b *= 0.5f;
-            for (k = 8; k < 12; k++) {
-                float *s = k < 10 ? &a : &b;
-                int16_t *mk = m[k];
-                L = q12_len[k];
-                j = w[k] + 1 >= L ? 0 : w[k] + 1;
-                z = mk[j] * (1.0f / 8192.0f);
-                v = *s + z * 0.6f;
-                mk[w[k]] = q12_q(v, q);
-                if (++w[k] >= L)
+            for (k = 8; k < 10; k++) {
+                int16_t *ma = m[k], *mb = m[k + 2];
+                int32_t La = q12_len[k], Lb = q12_len[k + 2], ja, jb;
+                float va, vb;
+                ja = w[k] + 1 >= La ? 0 : w[k] + 1;
+                jb = w[k + 2] + 1 >= Lb ? 0 : w[k + 2] + 1;
+                za = ma[ja] * (1.0f / 8192.0f);
+                zb = mb[jb] * (1.0f / 8192.0f);
+                va = a + za * 0.6f;
+                vb = b + zb * 0.6f;
+                ma[w[k]] = q12_q(va, q);
+                mb[w[k + 2]] = q12_q(vb, q);
+                if (++w[k] >= La)
                     w[k] = 0;
-                *s = z - v * 0.6f;
+                if (++w[k + 2] >= Lb)
+                    w[k + 2] = 0;
+                a = za - va * 0.6f;
+                b = zb - vb * 0.6f;
             }
             hr_out[0][0] = hr_out[0][1];
             hr_out[1][0] = hr_out[1][1];
             hr_out[0][1] = (float)((int32_t)(a * 2048.0f)) * (1.0f / 2048.0f);   /* out through a 12-bit converter */
             hr_out[1][1] = (float)((int32_t)(b * 2048.0f)) * (1.0f / 2048.0f);
+            ts++;
+            (void)z;
+            (void)v;
+            (void)L;
+            (void)j;
         }
-        l[i] += hr_out[0][1] * lvl * 1.2f;                /* held, step by step, as the old units did */
-        r[i] += hr_out[1][1] * lvl * 1.2f;
+        l[i] += hr_out[0][1] * og;                        /* held, step by step, as the old units did */
+        r[i] += hr_out[1][1] * og;
         hr_odd ^= 1u;
     }
     for (k = 0; k < 12; k++)
@@ -692,7 +746,7 @@ static void cuts_run(float *l, float *r, int n)
     for (i = 0; i < n; i++) {
         if (cut_reps <= 0) {
             cut_buf[cut_w] = (int16_t)clampf((l[i] + r[i]) * 8192.0f, -32000.0f, 32000.0f);
-            cut_w = (cut_w + 1) % (int32_t)RV_CUT_SAMPLES;
+            cut_w = (cut_w + 1) & (int32_t)(RV_CUT_SAMPLES - 1u);   /* (a power of two) */
             continue;
         }
         {

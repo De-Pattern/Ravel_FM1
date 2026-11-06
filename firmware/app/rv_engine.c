@@ -2254,8 +2254,8 @@ static void render_sub(float *outl, float *outr, int n)
 /* ------------------------------------------------------------ core test --- */
 /* GLO > CPU 2, CORE TEST: the same work timed on each core, to see whether the second core runs the
  * render's code as fast as the first (both fetch from one flash through one cache). Three pieces:
- * code in RAM on data in RAM, the same code in the flash, and code in the pool on data in the pool;
- * each a two-pole filter over 64 floats, 256 times. Run inside the render (the audio pauses a
+ * code in RAM (the pool's) on data in plain RAM, the same code in the flash, and the RAM code on
+ * data in the pool; each a two-pole filter over 64 floats, 256 times. Run inside the render (the audio pauses a
  * moment), the second core's through its job */
 #define CT_N 64
 static float ct_ram[CT_N] RV_RAMBSS, ct_pool[CT_N];
@@ -2273,18 +2273,17 @@ static volatile uint8_t ct_req;
                 d[i] = s2 * 0.999f + (float)(i & 3) * 0.001f; \
             } \
     }
-RV_HOT static void ct_ram_fn(float *d) CT_BODY
 static __attribute__((noinline)) void ct_flash_fn(float *d) CT_BODY
 RV_HOT2 static void ct_pool_fn(float *d) CT_BODY
 static void ct_run(int core)                        /* (core 0: this one, its cycle counter; 1: the second's) */
 {
     uint32_t (*clk)(void) = core ? plat_par_cycles : plat_cycles, t0, t1, t2, t3, hz = plat_cycles_hz();
     t0 = clk();
-    RV_FAR(ct_ram_fn)(ct_ram);
+    RV_FAR(ct_pool_fn)(ct_ram);                     /* RAM code on RAM data */
     t1 = clk();
-    ct_flash_fn(ct_ram);
+    ct_flash_fn(ct_ram);                            /* the same from the flash */
     t2 = clk();
-    RV_FAR(ct_pool_fn)(ct_pool);
+    RV_FAR(ct_pool_fn)(ct_pool);                    /* RAM code on the pool's data */
     t3 = clk();
     if (hz) {
         ct_res[0 + core] = (uint32_t)((uint64_t)(t1 - t0) * 1000000u / hz);

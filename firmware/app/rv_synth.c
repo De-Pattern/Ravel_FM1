@@ -4,7 +4,7 @@
 #include "rv_int.h"
 
 /* ----------------------------------------------------------- articulation --- */
-RV_HOT static void artic_cfg_track(artic_cfg_t *c, const float *eff)
+static __attribute__((noinline)) void artic_cfg_track(artic_cfg_t *c, const float *eff)   /* (once a voice a step: in the flash since v1.20, for SPACE's room in RAM) */
 {
     c->atk = rv_time_f(eff[TP_ATK]);
     c->dec = rv_time_f(eff[TP_DEC]);
@@ -2345,6 +2345,7 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
 {
     int i;
     float lvl, vf = 1.0f - velamt + velamt * v->vel, trim = eng_trim[eng];   /* (once a step) */
+    float sem_g = ft == FT_SEM && sem_bp ? fm_sqrtf(v->svf.k) : 0.0f;         /* (the SEM's BP gain, once: k holds through the step) */
     lvl = 0.0f;
     if (eng == ENG_PHYS)                              /* (PHYS takes the excitation itself) */
         exc = 0;
@@ -2389,7 +2390,7 @@ RV_HOT static float voice_post(voice_t *v, const float *exc, const float *buf, f
         case FT_SEM: {                                /* Oberheim SEM: one state variable, LP to notch to HP, or BP */
             float lp = svf_tick(&v->svf, x, &bp, &hp);
             v->svf.ic1 = 2.0f * sat(v->svf.ic1 * 0.5f);   /* the OTA integrators round off when it rings */
-            y = sem_bp ? bp * fm_sqrtf(v->svf.k) : lp + (hp - lp) * sem_m;   /* BP rises with RESO, as the SEM's does */
+            y = sem_bp ? bp * sem_g : lp + (hp - lp) * sem_m;   /* BP rises with RESO, as the SEM's does */
             break;
         }
         case FT_LP: y = svf_tick(&v->svf, x, 0, 0); break;
