@@ -17,6 +17,14 @@
 #define FM_LN2 0.693147180559945f
 #define FM_LOG2E 1.44269504088896f
 
+/* a loop four samples at a time (the FM-1's taken branch costs ~5 cycles: in a short loop, a good part of
+ * each pass); the same sums in the same order. Clang (the FM-1's compiler) only */
+#ifdef __clang__
+#define RV_UNROLL4 _Pragma("clang loop unroll_count(4)")
+#else
+#define RV_UNROLL4
+#endif
+
 /* RV_HOT: render code the FM-1 copies into the chip's own RAM at start (app.ld .fast_text), so it runs
  * without waiting on the flash. That RAM is more than a direct call's reach (4 MB) from the flash both
  * ways, so: the flash calls it through a pointer the compiler cannot see through (RV_FAR), and it calls

@@ -3624,7 +3624,7 @@ static void pic_tracks(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(cx, PIC_Y + 2, &FONT_B, b, t == ui.track ? C_WHITE : kc);
-        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : rv.tp[t][TP_KIND] == KIND_LOOP ? "GLT" : "CMP", muted ? C_DIM : kc);
+        g_text_c(cx, PIC_Y + 20, &FONT_T, rv.tp[t][TP_KIND] == KIND_SYNTH ? "SYN" : rv.tp[t][TP_KIND] == KIND_STRIKE ? "STK" : rv.tp[t][TP_KIND] == KIND_PERC ? "PRC" : rv.tp[t][TP_KIND] == KIND_LOOP ? "GLT" : rv.tp[t][TP_KIND] == KIND_WEFT ? "WFT" : "CMP", muted ? C_DIM : kc);
         /* the level, in the track's colour, and beside it the articulation (its envelope) */
         meter_bar(x + 6, PIC_Y + 32, 11, 66, fm_sqrtf(rv_live.meter[t]), C_LINE, muted ? C_DIM : kc);
         meter_bar(x + 19, PIC_Y + 32, 6, 66, rv_live.env[t], C_LINE, muted ? C_DIM : g_mix(kc, C_INK, 0.55f));
@@ -5934,7 +5934,7 @@ static void pic_mutes(void)
         b[0] = (char)('1' + t);
         b[1] = 0;
         g_text_c(x + 14, y + 6, &FONT_B, b, out ? C_DIM : t == ui.track ? C_WHITE : kc);
-        g_text_c(x + 14, y + 24, &FONT_T, k == KIND_SYNTH ? "SYN" : k == KIND_STRIKE ? "STK" : k == KIND_PERC ? "PRC" : k == KIND_LOOP ? "GLT" : "CMP", fc);
+        g_text_c(x + 14, y + 24, &FONT_T, k == KIND_SYNTH ? "SYN" : k == KIND_STRIKE ? "STK" : k == KIND_PERC ? "PRC" : k == KIND_LOOP ? "GLT" : k == KIND_WEFT ? "WFT" : "CMP", fc);
         meter_bar(x + 9, y + 38, 10, 40, out ? 0.0f : fm_sqrtf(rv_live.meter[t]), C_LINE, fc);
         g_text_c(x + 14, y + 84, &FONT_T, muted ? "MUTE" : solo ? "SOLO" : out ? "-" : "ON", muted ? C_RED : solo ? C_TRIG : fc);
     }

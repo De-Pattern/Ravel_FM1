@@ -58,6 +58,21 @@ RV_INL void zero_buf(float *b, int n)
     for (i = 0; i < n; i++)
         b[i] = 0.0f;
 }
+/* the render's bulk copies and clears, from RAM (v1.21: from the flash, each track's took its time a sample) */
+RV_HOT static void rv_fill0(float *b, int n)
+{
+    int i;
+    RV_UNROLL4
+    for (i = 0; i < n; i++)
+        b[i] = 0.0f;
+}
+RV_HOT static void rv_copyf(float *d, const float *s, int n)
+{
+    int i;
+    RV_UNROLL4
+    for (i = 0; i < n; i++)
+        d[i] = s[i];
+}
 static float master_drive_comp = 1.0f;
 
 uint32_t rv_rng(void) { return xs32(&eng_rng); }
@@ -1708,6 +1723,30 @@ static uint8_t skip_mask(int n)
  * order: the level, the pan, the chorus, into the mix and the sends. The two halves do what the one loop did, sample
  * for sample */
 static float ring_bufs[2][RV_SUB];                  /* (each core's RING carriers) */
+/* chain_a for a track with no SKIN, INSERT or RING (most of them): the DC block, the blowup check and the
+ * peak, from RAM (v1.21; the same as the loop in chain_a with those off, sample for sample). 1 if it blew up */
+RV_HOT static int chain_plain(const float *src, float *buf, int n, dcb_t *dc, float *pk)
+{
+    float peak = *pk;
+    int i, bad = 0;
+    float x1 = dc->x1, y1 = dc->y1;
+    for (i = 0; i < n; i++) {
+        float in = src[i], x = in - x1 + 0.995f * y1;   /* (dcb_tick, written out: RAM code can't call it in the flash) */
+        x1 = in;
+        y1 = fm_flush(x);
+        if (!(x > -RV_GUARD && x < RV_GUARD)) {
+            x = 0.0f;
+            bad = 1;
+        }
+        buf[i] = x;
+        if (fm_fabsf(x) > peak)
+            peak = fm_fabsf(x);
+    }
+    dc->x1 = x1;
+    dc->y1 = y1;
+    *pk = peak;
+    return bad;
+}
 static __attribute__((noinline)) void chain_a(int t, int n, const float *src, int core)
 {
     track_t *tr = &trk[t];
@@ -1742,6 +1781,10 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
             }
         }
     }
+    if (n_chain && !(drive > 0.01f) && !(fld > 0.01f) && !(derez > 0.01f) && bits <= 0 && mask <= 0 && !ins && !(ring > 0.001f)) {
+        chain_bad = RV_FAR(chain_plain)(src, tr->buf, n_chain, &tr->dc, &peak);   /* (no SKIN, INSERT or RING: the DC block alone, from RAM) */
+        n_chain = -n_chain;                         /* (done: the loop below runs none) */
+    }
     for (i = 0; i < n_chain; i++) {
         float x = src[i];
         x = skin(tr, x, drive, fld, bits, derez, mask);
@@ -1758,6 +1801,8 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
         if (fm_fabsf(x) > peak)
             peak = fm_fabsf(x);
     }
+    if (n_chain < 0)
+        n_chain = -n_chain;
     if (!n_chain && src != tr->buf)                 /* (skipped: what came in, as it was) */
         for (i = 0; i < n; i++)
             tr->buf[i] = src[i];
@@ -1785,6 +1830,37 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
 
 
 /* ----------------------------------------------------------- render --- */
+/* chain_b's mix of one track into the main mix and the sends, without CHORUS or THROW (those stay in
+ * render_sub): x times the left and right gains into o[0], o[1], x times the level into the sends o[2..4]
+ * (FEEDBACK as m * SEND / 127, DELAY and SPACE as m * (SEND / 127)), and the main mix into o[5] for the LOOP track (if
+ * it's not 0). In RAM: it runs each sample for every track (v1.21; in the flash it was the render's
+ * busiest loop). The same sums, in the same order, as the loop in render_sub */
+RV_HOT static void mix_track(const float *x, int n, const float *g, float *const *o)
+{
+    float gl = g[0], gr = g[1], lvl = g[2], efb = g[3], kd = g[4] * (1.0f / 127.0f), kr = g[5] * (1.0f / 127.0f);   /* (as render_sub groups them) */
+    float *ol = o[0], *orr = o[1], *fb = o[2], *dl = o[3], *rv = o[4], *lp = o[5];
+    int i;
+    if (lp)
+        for (i = 0; i < n; i++) {
+            float v = x[i], sl = v * gl, sr = v * gr, m = v * lvl;
+            ol[i] += sl;
+            orr[i] += sr;
+            lp[i] += (sl + sr) * 0.5f;
+            fb[i] += m * efb * (1.0f / 127.0f);
+            dl[i] += m * kd;
+            rv[i] += m * kr;
+        }
+    else
+        for (i = 0; i < n; i++) {
+            float v = x[i], sl = v * gl, sr = v * gr, m = v * lvl;
+            ol[i] += sl;
+            orr[i] += sr;
+            fb[i] += m * efb * (1.0f / 127.0f);
+            dl[i] += m * kd;
+            rv[i] += m * kr;
+        }
+}
+
 static void render_sub(float *outl, float *outr, int n)
 {
     float *fb_in = sd[sd_cur][0], *dly_in = sd[sd_cur][1], *rev_in = sd[sd_cur][2];   /* this step's sends (the buses play them next step) */
@@ -1830,8 +1906,7 @@ static void render_sub(float *outl, float *outr, int n)
         track_t *tr = &trk[t];
         int a, ret = clampi(rv.gp[GP_FBRET], 0, 8);
         tr->ring_amt = 0.0f;
-        for (i = 0; i < n; i++)
-            tr->exc[i] = 0.0f;
+        RV_FAR(rv_fill0)(tr->exc, n);
         for (a = 0; a < RV_TRACKS; a++) {
             const rv_route *r = &rv.infl[a][t];
             if (r->type == RT_EXCITE && r->amt) {
@@ -1851,14 +1926,17 @@ static void render_sub(float *outl, float *outr, int n)
                 tr->exc[i] += (in_buf[2 * i] + in_buf[2 * i + 1]) * 0.5f * ingain;
         {
             float pk = 0.0f;
-            for (i = 0; i < n; i++)
-                if (fm_fabsf(tr->exc[i]) > pk)
-                    pk = fm_fabsf(tr->exc[i]);
+            int any = ret == t + 1 || (rv.tp[t][TP_KIND] == KIND_STRIKE && rv.tp[t][TP_S0] == EXC_INPUT);
+            for (a = 0; a < RV_TRACKS && !any; a++)
+                any = rv.infl[a][t].type == RT_EXCITE && rv.infl[a][t].amt;
+            if (any)                                 /* (nothing came in: all zeros, no need to look) */
+                for (i = 0; i < n; i++)
+                    if (fm_fabsf(tr->exc[i]) > pk)
+                        pk = fm_fabsf(tr->exc[i]);
             rv_live.exc_in[t] = pk > rv_live.exc_in[t] ? pk : rv_live.exc_in[t] * 0.995f;   /* held, falling slowly */
             tr->exc_on = pk > 0.0f;                  /* (the voices skip adding none) */
         }
-        for (i = 0; i < n; i++)
-            tr->buf[i] = 0.0f;
+        RV_FAR(rv_fill0)(tr->buf, n);
     }
     /* the voices: synth, strike, drum, in that order; every other one to the second core when it is
      * on (the buses go there too); then what they did is counted, here */
@@ -2077,7 +2155,14 @@ static void render_sub(float *outl, float *outr, int n)
             gl *= 0.6f;
             gr *= 0.6f;
         }
-        if (!muted)
+        if (!muted && !chorus && !punch[6] && n_chain) {   /* (the usual way: from RAM, the same sums) */
+            float g[6];
+            float *o[6];
+            g[0] = gl, g[1] = gr, g[2] = lvl, g[3] = eff[TP_FBS], g[4] = eff[TP_DLYS], g[5] = eff[TP_REVS];
+            o[0] = outl, o[1] = outr, o[2] = fb_in, o[3] = dly_in, o[4] = rev_in;
+            o[5] = t != loop_t && lp_src == 0 ? lp_cap : 0;
+            RV_FAR(mix_track)(tr->buf, n_chain, g, o);
+        } else if (!muted)
             for (i = 0; i < n_chain; i++) {
                 float x = tr->buf[i], sl = x * gl, sr = x * gr, m = x * lvl;
                 if (chorus) {                       /* Juno-60 style: dry + bbd left, dry - bbd right */
@@ -2114,8 +2199,7 @@ static void render_sub(float *outl, float *outr, int n)
         trk_cyc[t] += plat_cycles() - tc0;
     }
     for (t = 0; t < RV_TRACKS; t++)                  /* (after all the chains: a RING carrier reads the last step's) */
-        for (i = 0; i < n; i++)
-            trk[t].prev[i] = trk[t].buf[i];
+        RV_FAR(rv_copyf)(trk[t].prev, trk[t].buf, n);
     rv_live.scope_w = (uint8_t)((rv_live.scope_w + n / 16) & 63);
     {   /* the chains: all the tracks' loop */
         uint32_t c = plat_cycles();
