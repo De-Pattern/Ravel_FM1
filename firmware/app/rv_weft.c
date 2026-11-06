@@ -1685,10 +1685,23 @@ typedef struct {
     float kbo[WF_BLOCKS];
     wk_fn fn[WF_BLOCKS];
 } wplan_t;
+/* a plan's structure, kept from step to step: the last two patches planned (a patch and its key: the
+ * types, cords, B MOVES, OUT, whether the scopes show, which blocks are slow LFOs) */
+typedef struct {
+    uint8_t type[WF_BLOCKS], a[WF_BLOCKS], b[WF_BLOCKS], out, scope, valid;
+    uint16_t bmove, comp;
+    uint32_t ctl, need, live;
+    int8_t prod[WS_N], ng, na;
+    uint8_t fl[WF_BLOCKS], mv[WF_BLOCKS], ol[WF_BLOCKS], gst[WF_BLOCKS + 1], al[WF_BLOCKS];
+} wps_t;
+static wps_t wps[2][2];                     /* [core][the last two]: each core its own (they plan at the same time) */
+static uint8_t wps_next[2];
+static void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl, int outb, int sw14, int lis, int scope);
 
-static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff, float hz, int scope, wplan_t *P, wk_t *K, float (*vb)[WR + 1])
+static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff, float hz, int scope, wplan_t *P, wk_t *K, float (*vb)[WR + 1], int core)
 {
     wcx_t *W = v->W;
+    wps_t *S = 0, *wc = wps[core & 1];
     const rv_weft *w = &rv.weft[t];
     float lfo1 = lfo[0].value, lfo2 = lfo[1].value, wheel = midi_wheel, pitch = ((float)v->note + eff[TP_PITCH] - 60.0f) * (1.0f / 48.0f);
     float ka[WF_BLOCKS], kb[WF_BLOCKS];
@@ -1736,45 +1749,68 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
     if (lis < 0)
         sv[WS_LISY] = 0.0f;
     /* the blocks the voice needs: the output and the output blocks, and whatever feeds them (back to front, a few
-     * passes); the rest rest. While the scopes show, all of them play, so a block being patched can be seen */
-    if (scope)
-        live = (1u << WF_BLOCKS) - 1u;
-    else {
-        int pass, k;
-        if (outb >= 0)
-            live |= 1u << outb;
-        for (i = 0; i < WF_BLOCKS; i++)
-            if (WO_ISOUT(w->type[i]))
-                live |= 1u << i;
-        for (pass = 0; pass < 4; pass++)
-            for (i = WF_BLOCKS - 1; i >= 0; i--) {
-                int src[5], ns = 0;
-                if (!((live >> i) & 1u) || !w->type[i])
-                    continue;
-                src[ns++] = sa[i];
-                src[ns++] = sb[i];
-                if (w->type[i] == WO_SW41)       /* (it reads A's block and the three after it) */
-                    for (k = 1; k < 4; k++)
-                        src[ns++] = sa[i] ? sa[i] + k : 0;
-                for (k = 0; k < ns; k++) {
-                    int q = src[k];
-                    if (q >= 1 && q <= WF_BLOCKS)
-                        live |= 1u << (q - 1);
-                    else if (q >= WS_SW1 && q <= WS_SW4 && sw14 >= 0)
-                        live |= 1u << sw14;
-                    else if (q == WS_LISY && lis >= 0)
-                        live |= 1u << lis;
+     * passes); the rest rest. While the scopes show, all of them play, so a block being patched can be seen.
+     * Kept with the plan's structure (wps) from step to step, found by the patch */
+    {
+        int q;
+        for (q = 0; q < 2; q++)
+            if (wc[q].valid && wc[q].bmove == bm && wc[q].out == w->out && wc[q].scope == (uint8_t)(scope != 0)) {
+                for (i = 0; i < WF_BLOCKS; i++)
+                    if (wc[q].type[i] != w->type[i] || wc[q].a[i] != sa[i] || wc[q].b[i] != sb[i])
+                        break;
+                if (i == WF_BLOCKS) {
+                    S = &wc[q];
+                    break;
                 }
             }
-    }
-    for (i = 0; i < WF_BLOCKS; i++) {          /* does anything heard read the noise; which slow LFOs can run at an eighth of the rate */
-        int ty = w->type[i];
-        if (!((live >> i) & 1u))
-            continue;
-        noise_on |= sa[i] == WS_NOISE || sb[i] == WS_NOISE;
-        if (!sa[i] && !sb[i] && !((bm >> i) & 1u) &&
-            ((ty == WO_CYCLE && W->c1[i] < 50.0f * W->dt) || (ty == WO_LISSA && W->c1[i] < 30.0f * W->dt)))
-            ctl |= 1u << i;
+        if (S)
+            live = S->live;
+        else if (scope)
+            live = (1u << WF_BLOCKS) - 1u;
+        else {
+            int pass, k;
+            if (outb >= 0)
+                live |= 1u << outb;
+            for (i = 0; i < WF_BLOCKS; i++)
+                if (WO_ISOUT(w->type[i]))
+                    live |= 1u << i;
+            for (pass = 0; pass < 4; pass++)
+                for (i = WF_BLOCKS - 1; i >= 0; i--) {
+                    int src[5], ns = 0;
+                    if (!((live >> i) & 1u) || !w->type[i])
+                        continue;
+                    src[ns++] = sa[i];
+                    src[ns++] = sb[i];
+                    if (w->type[i] == WO_SW41)       /* (it reads A's block and the three after it) */
+                        for (k = 1; k < 4; k++)
+                            src[ns++] = sa[i] ? sa[i] + k : 0;
+                    for (k = 0; k < ns; k++) {
+                        int q2 = src[k];
+                        if (q2 >= 1 && q2 <= WF_BLOCKS)
+                            live |= 1u << (q2 - 1);
+                        else if (q2 >= WS_SW1 && q2 <= WS_SW4 && sw14 >= 0)
+                            live |= 1u << sw14;
+                        else if (q2 == WS_LISY && lis >= 0)
+                            live |= 1u << lis;
+                    }
+                }
+        }
+        for (i = 0; i < WF_BLOCKS; i++) {      /* does anything heard read the noise; which slow LFOs can run at an eighth of the rate */
+            int ty = w->type[i];
+            if (!((live >> i) & 1u))
+                continue;
+            noise_on |= sa[i] == WS_NOISE || sb[i] == WS_NOISE;
+            if (!sa[i] && !sb[i] && !((bm >> i) & 1u) &&
+                ((ty == WO_CYCLE && W->c1[i] < 50.0f * W->dt) || (ty == WO_LISSA && W->c1[i] < 30.0f * W->dt)))
+                ctl |= 1u << i;
+        }
+        if (!S || S->ctl != ctl) {              /* (new, or a slow LFO's flag changed: worked out again) */
+            if (!S) {
+                S = &wc[wps_next[core & 1]];
+                wps_next[core & 1] ^= 1u;
+            }
+            RV_FAR(weft_structure)(S, w, sa, sb, live, ctl, outb, sw14, lis, scope);
+        }
     }
     /* ---- the blocks a run of WR samples at a time ----
      * A block reads a source as it was this sample if what makes it comes before the block, as it was a sample
@@ -1782,58 +1818,39 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
      * before the run, [1 + j] sample j. A block whose inputs are all ready (made earlier this run, or a sample
      * late and made in a group before it) runs its whole run in one go; blocks in a loop of each other through
      * the later-block (a sample late) cords run sample by sample, in their order, as before. So the sound is the
-     * same, sample for sample; the blocks just don't change places each sample */
+     * same, sample for sample; the blocks just don't change places each sample.
+     * What follows from the patch alone (who makes what, each block's cords, the loops and the order) is kept
+     * from step to step (wps: the last two patches planned) and worked out again only when the patch, its
+     * B MOVES, OUT, the scopes or a slow LFO's eighth-rate flag changed */
     {
         int8_t *prod = P->prod;
-        uint16_t pred[WF_BLOCKS], scc[WF_BLOCKS], reach[WF_BLOCKS], comp = 0;
         uint8_t *mv = P->mv, *fl = P->fl, *ol = P->ol, *gst = P->gst, *al = P->al, *made = P->made;
-        uint32_t need = 0, back = 0;
+        uint32_t need;
         const float **PBo = P->PBo;
         float *kbo = P->kbo;
         wk_fn *fn = P->fn;
-        int ng = 0, na = 0, nmade = 0, si, q;
+        uint16_t comp;
+        int ng, na, nmade = 0, si, q;
         float gatev = v->gate ? 1.0f : 0.0f;
-        /* who makes what */
+        comp = S->comp;
+        need = S->need;
+        ng = S->ng;
+        na = S->na;
         for (si = 0; si < WS_N; si++)
-            prod[si] = -1;
-        for (i = 0; i < WF_BLOCKS; i++)
-            if (w->type[i] && ((live >> i) & 1u)) {
-                comp |= (uint16_t)(1u << i);
-                prod[i + 1] = (int8_t)i;
-                if (w->type[i] == WO_AOUT)
-                    al[na++] = (uint8_t)i;
-            }
-        if (sw14 >= 0 && ((comp >> sw14) & 1u))
-            prod[WS_SW1] = prod[WS_SW2] = prod[WS_SW3] = prod[WS_SW4] = (int8_t)sw14;
-        if (lis >= 0 && ((comp >> lis) & 1u))
-            prod[WS_LISY] = (int8_t)lis;
-        /* each block's inputs and what makes them; a block moving its settings each 8 samples (B MOVES, a
-         * resonator's PITCH) runs 8 at a time */
+            prod[si] = S->prod[si];
         for (i = 0; i < WF_BLOCKS; i++) {
-            int ty = w->type[i], src[6], ns = 0, k;
-            pred[i] = 0;
+            fl[i] = S->fl[i];
+            mv[i] = S->mv[i];
+            ol[i] = S->ol[i];
+            gst[i] = S->gst[i];
+            al[i] = S->al[i];
+        }
+        gst[WF_BLOCKS] = S->gst[WF_BLOCKS];
+        /* each block's inputs, where they are this step (vb is this call's) */
+        for (i = 0; i < WF_BLOCKS; i++) {
+            int ty = w->type[i];
             if (!((comp >> i) & 1u))
                 continue;
-            if (!((ctl >> i) & 1u)) {
-                src[ns++] = sa[i];
-                src[ns++] = sb[i];
-                if (ty == WO_SW41 && sa[i])
-                    for (k = 1; k < 4; k++)
-                        if (sa[i] + k < WS_N)
-                            src[ns++] = sa[i] + k;
-            }
-            for (k = 0; k < ns; k++) {
-                need |= 1u << src[k];
-                if (prod[src[k]] >= 0 && prod[src[k]] != i)
-                    pred[i] |= (uint16_t)(1u << prod[src[k]]);
-            }
-            back |= pred[i] >> i;               /* (a cord from a later block: maybe a loop) */
-            /* fl: 1 A in, 2 B in (as the block sees it), 4 a slow LFO, 8 B MOVES, 16 B on a resonator's pitch, 32 B MOVES
-             * with a B */
-            fl[i] = (uint8_t)((sa[i] != 0) | (sb[i] != 0 && !((bm >> i) & 1u)) << 1 | ((ctl >> i) & 1u) << 2 | ((bm >> i) & 1u) << 3 |
-                              (sb[i] && !((bm >> i) & 1u) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING || ty == WO_CHEBY || ty == WO_FORMANT)) << 4 |
-                              (sb[i] != 0 && ((bm >> i) & 1u)) << 5);
-            mv[i] = (uint8_t)((fl[i] & 16u) || (fl[i] & 40u) == 40u);
             K->PA[i] = &vb[sa[i]][1 - (prod[sa[i]] >= 0 && prod[sa[i]] >= i)];   /* (a sample late: made here, after it or by it) */
             PBo[i] = &vb[sb[i]][1 - (prod[sb[i]] >= 0 && prod[sb[i]] >= i)];
             kbo[i] = kb[i];
@@ -1845,8 +1862,6 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
             K->sa[i] = sa[i];
             fn[i] = (fl[i] & 4u) ? wk_ctl : wk_tab[ty] ? wk_tab[ty] : wk_none;
         }
-        if (outb >= 0)
-            need |= 1u << (outb + 1);
         K->v = v;
         K->W = W;
         K->vb = vb;
@@ -1873,52 +1888,6 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
             }
         for (q = 0; q <= WR; q++)
             vb[0][q] = 0.0f;
-        if (!back) {                            /* no cord from a later block: no loops, every block on its own, in order */
-            for (i = 0; i < WF_BLOCKS; i++)
-                if ((comp >> i) & 1u) {
-                    gst[ng] = (uint8_t)ng;
-                    ol[ng++] = (uint8_t)i;
-                }
-            gst[ng] = (uint8_t)ng;
-        } else {
-            /* loops: blocks that reach each other run sample by sample together */
-            for (i = 0; i < WF_BLOCKS; i++)
-                reach[i] = pred[i];
-            for (q = 0; q < WF_BLOCKS; q++)      /* (reach[i]: every block i depends on, through any cords) */
-                for (i = 0; i < WF_BLOCKS; i++)
-                    if ((reach[i] >> q) & 1u)
-                        reach[i] |= reach[q];
-            for (i = 0; i < WF_BLOCKS; i++) {
-                scc[i] = (uint16_t)(1u << i);
-                for (q = 0; q < WF_BLOCKS; q++)
-                    if (q != i && ((reach[i] >> q) & 1u) && ((reach[q] >> i) & 1u))
-                        scc[i] |= (uint16_t)(1u << q);
-            }
-            {   /* the groups in an order that has every block's makers first (the lowest block first where free) */
-                uint16_t done = 0;
-                int nol = 0;
-                while ((done & comp) != comp) {
-                    for (i = 0; i < WF_BLOCKS; i++) {
-                        uint16_t gm = scc[i], ext = 0;
-                        if (!((comp >> i) & 1u) || ((done >> i) & 1u))
-                            continue;
-                        for (q = 0; q < WF_BLOCKS; q++)
-                            if ((gm >> q) & 1u)
-                                ext |= pred[q];
-                        if (!((ext & ~gm) & ~done))
-                            break;
-                    }
-                    if (i == WF_BLOCKS)         /* (can't be: each loop is a group) */
-                        break;
-                    gst[ng++] = (uint8_t)nol;
-                    for (q = 0; q < WF_BLOCKS; q++)   /* (its blocks in their order) */
-                        if ((scc[i] >> q) & 1u)
-                            ol[nol++] = (uint8_t)q;
-                    done |= scc[i];
-                }
-                gst[ng] = (uint8_t)nol;
-            }
-        }
         P->outb = outb;
         P->naud = naud;
         P->ng = ng;
@@ -1928,6 +1897,124 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
         P->ctl = ctl;
         P->comp = comp;
     }
+}
+
+/* a plan's structure (weft_plan): worked out from the patch, in the flash, when the patch changed */
+static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl,
+                                                     int outb, int sw14, int lis, int scope)
+{
+    int8_t *prod = S->prod;
+    uint16_t pred[WF_BLOCKS], scc[WF_BLOCKS], reach[WF_BLOCKS], comp = 0;
+    uint8_t *mv = S->mv, *fl = S->fl, *ol = S->ol, *gst = S->gst, *al = S->al;
+    uint32_t need = 0, back = 0;
+    unsigned bm = w->bmove;
+    int i, q, ng = 0, na = 0;
+    for (i = 0; i < WF_BLOCKS; i++) {           /* (the key: this patch) */
+        S->type[i] = w->type[i];
+        S->a[i] = sa[i];
+        S->b[i] = sb[i];
+    }
+    S->bmove = (uint16_t)bm;
+    S->out = w->out;
+    S->scope = (uint8_t)(scope != 0);
+    S->ctl = ctl;
+    S->live = live;
+    /* who makes what */
+    for (i = 0; i < WS_N; i++)
+        prod[i] = -1;
+    for (i = 0; i < WF_BLOCKS; i++)
+        if (w->type[i] && ((live >> i) & 1u)) {
+            comp |= (uint16_t)(1u << i);
+            prod[i + 1] = (int8_t)i;
+            if (w->type[i] == WO_AOUT)
+                al[na++] = (uint8_t)i;
+        }
+    if (sw14 >= 0 && ((comp >> sw14) & 1u))
+        prod[WS_SW1] = prod[WS_SW2] = prod[WS_SW3] = prod[WS_SW4] = (int8_t)sw14;
+    if (lis >= 0 && ((comp >> lis) & 1u))
+        prod[WS_LISY] = (int8_t)lis;
+    /* each block's inputs and what makes them; a block moving its settings each 8 samples (B MOVES, a
+     * resonator's PITCH) runs 8 at a time */
+    for (i = 0; i < WF_BLOCKS; i++) {
+        int ty = w->type[i], src[6], ns = 0, k;
+        pred[i] = 0;
+        fl[i] = mv[i] = 0;
+        if (!((comp >> i) & 1u))
+            continue;
+        if (!((ctl >> i) & 1u)) {
+            src[ns++] = sa[i];
+            src[ns++] = sb[i];
+            if (ty == WO_SW41 && sa[i])
+                for (k = 1; k < 4; k++)
+                    if (sa[i] + k < WS_N)
+                        src[ns++] = sa[i] + k;
+        }
+        for (k = 0; k < ns; k++) {
+            need |= 1u << src[k];
+            if (prod[src[k]] >= 0 && prod[src[k]] != i)
+                pred[i] |= (uint16_t)(1u << prod[src[k]]);
+        }
+        back |= pred[i] >> i;                   /* (a cord from a later block: maybe a loop) */
+        /* fl: 1 A in, 2 B in (as the block sees it), 4 a slow LFO, 8 B MOVES, 16 B on a resonator's pitch, 32 B MOVES
+         * with a B */
+        fl[i] = (uint8_t)((sa[i] != 0) | (sb[i] != 0 && !((bm >> i) & 1u)) << 1 | ((ctl >> i) & 1u) << 2 | ((bm >> i) & 1u) << 3 |
+                          (sb[i] && !((bm >> i) & 1u) && (ty == WO_RING || WO_MODES(ty) || ty == WO_STRING || ty == WO_CHEBY || ty == WO_FORMANT)) << 4 |
+                          (sb[i] != 0 && ((bm >> i) & 1u)) << 5);
+        mv[i] = (uint8_t)((fl[i] & 16u) || (fl[i] & 40u) == 40u);
+    }
+    if (outb >= 0)
+        need |= 1u << (outb + 1);
+    if (!back) {                                /* no cord from a later block: no loops, every block on its own, in order */
+        for (i = 0; i < WF_BLOCKS; i++)
+            if ((comp >> i) & 1u) {
+                gst[ng] = (uint8_t)ng;
+                ol[ng++] = (uint8_t)i;
+            }
+        gst[ng] = (uint8_t)ng;
+    } else {
+        /* loops: blocks that reach each other run sample by sample together */
+        for (i = 0; i < WF_BLOCKS; i++)
+            reach[i] = pred[i];
+        for (q = 0; q < WF_BLOCKS; q++)          /* (reach[i]: every block i depends on, through any cords) */
+            for (i = 0; i < WF_BLOCKS; i++)
+                if ((reach[i] >> q) & 1u)
+                    reach[i] |= reach[q];
+        for (i = 0; i < WF_BLOCKS; i++) {
+            scc[i] = (uint16_t)(1u << i);
+            for (q = 0; q < WF_BLOCKS; q++)
+                if (q != i && ((reach[i] >> q) & 1u) && ((reach[q] >> i) & 1u))
+                    scc[i] |= (uint16_t)(1u << q);
+        }
+        {   /* the groups in an order that has every block's makers first (the lowest block first where free) */
+            uint16_t done = 0;
+            int nol = 0;
+            while ((done & comp) != comp) {
+                for (i = 0; i < WF_BLOCKS; i++) {
+                    uint16_t gm = scc[i], ext = 0;
+                    if (!((comp >> i) & 1u) || ((done >> i) & 1u))
+                        continue;
+                    for (q = 0; q < WF_BLOCKS; q++)
+                        if ((gm >> q) & 1u)
+                            ext |= pred[q];
+                    if (!((ext & ~gm) & ~done))
+                        break;
+                }
+                if (i == WF_BLOCKS)             /* (can't be: each loop is a group) */
+                    break;
+                gst[ng++] = (uint8_t)nol;
+                for (q = 0; q < WF_BLOCKS; q++)   /* (its blocks in their order) */
+                    if ((scc[i] >> q) & 1u)
+                        ol[nol++] = (uint8_t)q;
+                done |= scc[i];
+            }
+            gst[ng] = (uint8_t)nol;
+        }
+    }
+    S->comp = comp;
+    S->need = need;
+    S->ng = (int8_t)ng;
+    S->na = (int8_t)na;
+    S->valid = 1;
 }
 
 /* the scopes over a run: a moment of each block (each point the biggest of those it stands for), started on a rising
@@ -1971,7 +2058,7 @@ static __attribute__((noinline)) void weft_scopes(const wplan_t *P, const wcx_t 
 }
 }
 
-RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope)   /* (in the pool: it runs every sample) */
+RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float *out, int n, int scope, int core)   /* (in the pool: it runs every sample) */
 {
     wcx_t *W = v->W;
     const rv_weft *w = &rv.weft[t];
@@ -1980,7 +2067,7 @@ RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float
     wplan_t P;
     wk_t K;
     int i, j, g, q, j0;
-    RV_FAR(weft_plan)(v, t, eff, hz, scope, &P, &K, vb);
+    RV_FAR(weft_plan)(v, t, eff, hz, scope, &P, &K, vb, core);
     {
         for (j0 = 0; j0 < n; j0 += WR) {
             int m = n - j0 < WR ? n - j0 : WR;
@@ -2070,14 +2157,14 @@ static float weft_voice_one(int k, float *out, int n, int c)
     W->dt = hr ? RV_DT * 2.0f : RV_DT;
     W->fs = hr ? (float)RV_FS * 0.5f : (float)RV_FS;
     if (!hr) {
-        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v);
+        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 12000.0f ? 12000.0f : hz, out, n, k == wf_scope_v, c);
         v->hr_ph = 0;
     } else {
         float hb[RV_SUB / 2 + 1];
         int n2 = (n + 1 - v->hr_ph) / 2, j, q = 0;
         for (j = 0; j < n2; j++)
             hb[j] = 0.0f;
-        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 9900.0f ? 9900.0f : hz, hb, n2, k == wf_scope_v);
+        RV_FAR(weft_voice)(v, v->track & 7, eff, hz > 9900.0f ? 9900.0f : hz, hb, n2, k == wf_scope_v, c);
         for (j = 0; j < n; j++)
             if (!v->hr_ph) {
                 float cur = hb[q < n2 ? q : n2 - 1];
