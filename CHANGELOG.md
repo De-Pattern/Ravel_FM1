@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.22.1
+
+Faster
+- The tracks' mix adds nothing for a send at 0 (the FEEDBACK's almost always is, the DELAY's often), and the main mix is captured for a LOOP track only when there is one. The step's clears, the excitation's sums and the mix's loudness run from RAM, and the clock works out only the wave its shape uses. Measured with the FM-1's instruction costs in an emulator (TANGLE on T1, DEMO 1 playing): the step from 51.3 % to 50.0 % of its time, the part after the voices that only core 1 can do from 5.2 % to 3.3 %. The sound is the same, sample for sample.
+
+Changed
+- Bench builds for the emulator time each part of a step on both cores (`rvb_ph`, `docs/fm1-emu.md`); normal builds leave it out.
+
 ## 1.22.0
 
 Faster

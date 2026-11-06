@@ -21,24 +21,26 @@ static float clk_period = 0.134f;                   /* seconds per pulse (one st
 
 RV_HOT static float clock_wave(float ph, float s)
 {
-    float saw, tri, sine, w, t;
+    float w, t;
     ph -= fm_floorf(ph);
-    saw = 2.0f * ph - 1.0f;
-    tri = ph < 0.5f ? 4.0f * ph - 1.0f : 3.0f - 4.0f * ph;
-    sine = -sin_lut(ph + 0.25f);
     s = clampf(s, 0.0f, 1.0f);
+    /* (v1.22: each wave worked out only where the shape uses it; the same values) */
+#define CW_SAW (2.0f * ph - 1.0f)
+#define CW_TRI (ph < 0.5f ? 4.0f * ph - 1.0f : 3.0f - 4.0f * ph)
     if (s < 0.25f)
         w = ph < 0.5f + 0.2f * (s / 0.25f) ? 1.0f : -1.0f;
     else if (s < 0.5f) {
         t = (s - 0.25f) / 0.25f;
-        w = (ph < 0.7f ? 1.0f : -1.0f) * (1.0f - t) + saw * t;
+        w = (ph < 0.7f ? 1.0f : -1.0f) * (1.0f - t) + CW_SAW * t;
     } else if (s < 0.75f) {
         t = (s - 0.5f) / 0.25f;
-        w = saw * (1.0f - t) + tri * t;
+        w = CW_SAW * (1.0f - t) + CW_TRI * t;
     } else {
         t = (s - 0.75f) / 0.25f;
-        w = tri * (1.0f - t) + sine * t;
+        w = CW_TRI * (1.0f - t) + -sin_lut(ph + 0.25f) * t;
     }
+#undef CW_SAW
+#undef CW_TRI
     return w;
 }
 

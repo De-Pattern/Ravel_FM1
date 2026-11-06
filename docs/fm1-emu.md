@@ -53,3 +53,23 @@ check): core 1's audio from 53.5 % to 50.6 %. Unrolling `mix_track` and `chain_p
 measured slower (more registers spilled), so they stay as they are. What is left on core 1 is mostly the
 step's serial part (the chains' second half, the mix, the master), which core 2 can only take if the step is
 split differently.
+
+### Timing a step (v1.22.1)
+
+A bench build (`RAVEL_BENCH=K`) adds up, step by step, when each part of a step ends, counted from its
+start on the cores' shared clock, in `rvb_ph[]` (`rv_engine.c`; index 0 counts the steps, and the sums
+start again at step 2500, about 7 s in). Run it with `FM1_STRICT=1 FM1_NO_PLAY=1 FM1_DUMPRAM=FILE --shot`
+and read the array out of the dump at its address from `nm`. With TANGLE on T1 and DEMO 1 (v1.22.1, % of the
+step's time):
+
+| Core 1 | | Core 2 | |
+|---|---|---|---|
+| the parameters, events, clock, clears, the voice list | 0 - 9.2 | (waits) | |
+| its voices, its tracks' chains | 9.2 - 42.4 | its voices and chains | 9.2 - 38.3 |
+| chains of tracks both cores played, the mix | 42.4 - 46.3 | its bus jobs | 38.3 - 44.8 |
+| the buses back, the master | 46.6 - 50.0 | (waits) | |
+
+The shared part is even (core 1 waits for core 2 for about 3 % of a step), so moving more voices (WEFT's
+or any) to core 2 gains nothing here: tried, with WEFT tracks always given to core 2, the balance moved the
+synth track the other way and the step took the same time. What keeps core 2 waiting is the work before and
+after the voices that only core 1 can do.

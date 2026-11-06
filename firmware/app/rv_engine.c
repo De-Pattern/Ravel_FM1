@@ -967,6 +967,7 @@ static int c2_share(void)
             a1 += ca_cost[t];
     sh_b1 = sh_b2 = 0;
     bu_c1 = 0;
+
     for (k = 0; k < RV_TRACKS + BU_N; k++) {        /* the tracks and the bus jobs, dearest first */
         uint32_t w = 0, c1c, c2c;
         int best = -1, u;
@@ -1346,6 +1347,12 @@ static void bus_c2(void)                                   /* (the second core's
 
 static void chain_a(int t, int n, const float *src, int core);
 /* the second core's work for a step: its voices (if any) and the chains of the tracks all its own, then the buses */
+#ifdef RAVEL_BENCH                                  /* (a bench build: when each part of a step ends, from its start) */
+volatile uint32_t rvb_ph[12], rvb_t0;
+#define PH(k) (rvb_ph[k] += plat_par_cycles() - rvb_t0)
+#else
+#define PH(k) ((void)0)
+#endif
 static void c2_job(uint32_t voices)
 {
     if (voices) {
@@ -1357,11 +1364,13 @@ static void c2_job(uint32_t voices)
                 chain_a(t, par_n, c2_buf[t], 1);
                 ca_c2[t] = plat_par_cycles() - c0;
             }
+        PH(3);
         plat_par_sync();
         par_vdone = 1;
         plat_par_sync();
     }
     bus_c2();
+    PH(4);
 }
 
 /* this core waits for the second's voices: 0 = they are done; < 0 = it failed (and is off now:
@@ -1879,7 +1888,7 @@ RV_HOT static void mix_track(const float *x, int n, const float *g, float *const
             dl[i] += m * kd;
             rv[i] += m * kr;
         }
-    else
+    else if (efb != 0.0f)
         for (i = 0; i < n; i++) {
             float v = x[i], sl = v * gl, sr = v * gr, m = v * lvl;
             ol[i] += sl;
@@ -1888,6 +1897,37 @@ RV_HOT static void mix_track(const float *x, int n, const float *g, float *const
             dl[i] += m * kd;
             rv[i] += m * kr;
         }
+    else if (kd != 0.0f)        /* (v1.22: a send at 0 adds nothing; the FEEDBACK's almost always is, often the DELAY's) */
+        for (i = 0; i < n; i++) {
+            float v = x[i], m = v * lvl;
+            ol[i] += v * gl;
+            orr[i] += v * gr;
+            dl[i] += m * kd;
+            rv[i] += m * kr;
+        }
+    else
+        for (i = 0; i < n; i++) {
+            float v = x[i];
+            ol[i] += v * gl;
+            orr[i] += v * gr;
+            rv[i] += v * lvl * kr;
+        }
+}
+/* the step's other sums, from RAM (v1.22; from the flash they were the render's glue): d += s * g, in order */
+RV_HOT static void rv_addmul(float *d, const float *s, float g, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        d[i] += s[i] * g;
+}
+/* how loud the mix is: the sum of |l| + |r|, sample by sample in order */
+RV_HOT static float rv_abs_sum(const float *l, const float *r, int n)
+{
+    float a = 0.0f;
+    int i;
+    for (i = 0; i < n; i++)
+        a += fm_fabsf(l[i]) + fm_fabsf(r[i]);
+    return a;
 }
 
 static void render_sub(float *outl, float *outr, int n)
@@ -1908,6 +1948,7 @@ static void render_sub(float *outl, float *outr, int n)
     weft_tidy(n);                                   /* (WEFT voices of tracks that changed kind go; outputs keep one) */
     movement_tick(n);
     RV_FAR(eff_compute)();
+    PH(1);
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
     midi_drain();
     np = rv.gp[GP_MIDICLK] ? midi_clock_steps(n, offs, 8) : RV_FAR(clock_tick)(n, offs, 8);
@@ -1920,12 +1961,14 @@ static void render_sub(float *outl, float *outr, int n)
     seq_events(n);
     glide_tick(n);
     PROF(PF_CTRL);
+    PH(10);
     vcyc0 = prof_t;
 
-    for (i = 0; i < RV_SUB; i++)                    /* (all of it: a shorter step leaves no old sends behind) */
-        fb_in[i] = dly_in[i] = rev_in[i] = 0.0f;
-    for (i = 0; i < n; i++)
-        outl[i] = outr[i] = 0.0f;
+    RV_FAR(rv_fill0)(fb_in, RV_SUB);                /* (all of it: a shorter step leaves no old sends behind) */
+    RV_FAR(rv_fill0)(dly_in, RV_SUB);
+    RV_FAR(rv_fill0)(rev_in, RV_SUB);
+    RV_FAR(rv_fill0)(outl, n);
+    RV_FAR(rv_fill0)(outr, n);
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
         in_buf[2 * i] = in_buf[2 * i + 1] = 0.0f;
@@ -1940,16 +1983,14 @@ static void render_sub(float *outl, float *outr, int n)
             const rv_route *r = &rv.infl[a][t];
             if (r->type == RT_EXCITE && r->amt) {
                 float g = r->amt * (2.0f / 64.0f);
-                for (i = 0; i < n; i++)
-                    tr->exc[i] += trk[a].prev[i] * g;
+                RV_FAR(rv_addmul)(tr->exc, trk[a].prev, g, n);
             } else if (r->type == RT_RING && r->amt) {
                 float g = r->amt * (1.0f / 64.0f);
                 tr->ring_amt += fm_fabsf(g);             /* (the carrier itself is summed in the chain, below) */
             }
         }
         if (ret == t + 1)
-            for (i = 0; i < n; i++)
-                tr->exc[i] += fb_out[i] * 1.5f;
+            RV_FAR(rv_addmul)(tr->exc, fb_out, 1.5f, n);
         if (rv.tp[t][TP_KIND] == KIND_STRIKE && rv.tp[t][TP_S0] == EXC_INPUT)
             for (i = 0; i < n; i++)
                 tr->exc[i] += (in_buf[2 * i] + in_buf[2 * i + 1]) * 0.5f * ingain;
@@ -1969,6 +2010,7 @@ static void render_sub(float *outl, float *outr, int n)
     }
     /* the voices: synth, strike, drum, in that order; every other one to the second core when it is
      * on (the buses go there too); then what they did is counted, here */
+    PH(11);
     rv_live.voices_synth = rv_live.voices_strike = 0;
     rv_live.skipped = skip_mask(n);
     {
@@ -2058,6 +2100,7 @@ static void render_sub(float *outl, float *outr, int n)
         par_job = 0;
         rv_live.c2_used = 0;
         if (rv_live.cores2) {                        /* the second core: its voices, then the buses */
+            PH(2);
             if (plat_par_run(c2_job, (uint32_t)nc2)) {
                 par_job = 1;
                 rv_live.c2_used = 1;
@@ -2108,6 +2151,7 @@ static void render_sub(float *outl, float *outr, int n)
             int r = par_voices_wait();
             wwait = plat_par_cycles() - w0;
             c2_wacc += wwait;
+            PH(5);
             if (r < 0) {                             /* it failed (and is off now): its voices here, again */
                 rv_live.c2_fail = 1;
                 par_job = 0;                         /* (and the buses) */
@@ -2151,8 +2195,9 @@ static void render_sub(float *outl, float *outr, int n)
     /* the tracks' chains (a LOOP track's lanes first, into its buffer); what the LOOP track hears */
     static float lp_cap[RV_SUB];
     int lp_src = loop_t >= 0 ? clampi(rv.tp[loop_t][TP_S12], 0, 8) : 0;
-    for (i = 0; i < n; i++)
-        lp_cap[i] = 0.0f;
+    int lp_mix = loop_t >= 0 && lp_src == 0;          /* (the main mix is captured only for a LOOP track; v1.22) */
+    if (loop_t >= 0)
+        RV_FAR(rv_fill0)(lp_cap, n);
     for (t = 0; t < RV_TRACKS; t++)                  /* chain_a: the tracks the second core didn't take (it ran its own) */
         if (!((a_done >> t) & 1u)) {
             uint32_t tc0 = plat_cycles(), d;
@@ -2164,6 +2209,7 @@ static void render_sub(float *outl, float *outr, int n)
             trk_cyc[t] += d;
         }
     t_aend = plat_cycles();
+    PH(6);
     for (t = 0; t < RV_TRACKS; t++) {                /* chain_b: into the mix and the sends, every track in order */
         track_t *tr = &trk[t];
         const float *eff = tr->eff;
@@ -2189,7 +2235,7 @@ static void render_sub(float *outl, float *outr, int n)
             float *o[6];
             g[0] = gl, g[1] = gr, g[2] = lvl, g[3] = eff[TP_FBS], g[4] = eff[TP_DLYS], g[5] = eff[TP_REVS];
             o[0] = outl, o[1] = outr, o[2] = fb_in, o[3] = dly_in, o[4] = rev_in;
-            o[5] = t != loop_t && lp_src == 0 ? lp_cap : 0;
+            o[5] = t != loop_t && lp_mix ? lp_cap : 0;
             RV_FAR(mix_track)(tr->buf, n_chain, g, o);
         } else if (!muted)
             for (i = 0; i < n_chain; i++) {
@@ -2201,7 +2247,7 @@ static void render_sub(float *outl, float *outr, int n)
                 }
                 outl[i] += sl;
                 outr[i] += sr;
-                if (t != loop_t && lp_src == 0)
+                if (t != loop_t && lp_mix)
                     lp_cap[i] += (sl + sr) * 0.5f;    /* (the main mix, without the LOOP track) */
                 fb_in[i] += m * eff[TP_FBS] * (1.0f / 127.0f);
                 dly_in[i] += m * (punch[6] ? 0.8f : eff[TP_DLYS] * (1.0f / 127.0f));
@@ -2241,14 +2287,15 @@ static void render_sub(float *outl, float *outr, int n)
     {
         float act = 0.0f;
         uint32_t here = 7u;                          /* (the jobs still to run here) */
-        for (i = 0; i < n; i++)
-            act += fm_fabsf(outl[i]) + fm_fabsf(outr[i]);
+        act = RV_FAR(rv_abs_sum)(outl, outr, n);
         if (par_job) {
             uint32_t w0 = plat_par_cycles(), we;
             int r;
             c1_rest = (c1_rest * 3u + (plat_cycles() - t_aend)) / 4u;   /* (this core's work after the chains: the mix) */
+            PH(7);
             r = plat_par_wait();
             we = plat_par_cycles() - w0;
+            PH(8);
             c2_wacc += we;
             if (r < 0) {                             /* it failed (and is off now): its jobs here */
                 rv_live.c2_fail = 1;
@@ -2418,7 +2465,14 @@ void rv_render(int32_t *out, int frames)
         ct_tick(rv_live.core_res);
     while (done < frames) {
         int n = frames - done > RV_SUB ? RV_SUB : frames - done;
+#ifdef RAVEL_BENCH
+        rvb_t0 = plat_par_cycles();
+        if (++rvb_ph[0] == 2500u)                    /* (from about 7 s in: the steady part) */
+            for (i = 1; i < 12; i++)
+                rvb_ph[i] = 0;
+#endif
         render_sub(l, r, n);
+        PH(9);
         for (i = 0; i < n; i++) {
             float a = l[i] == l[i] ? clampf(l[i], -1.0f, 1.0f) : 0.0f;   /* never NaN into an integer */
             float b = r[i] == r[i] ? clampf(r[i], -1.0f, 1.0f) : 0.0f;
