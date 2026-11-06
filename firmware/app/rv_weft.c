@@ -660,7 +660,7 @@ typedef struct {
     const int8_t *prod;                         /* the block that makes each source (-1: a value that holds) */
     const float *trg;                           /* TRIG over the run */
     float hz, gatev, pos, pinc;
-    int t, j0, lis, sw14, lead;
+    int t, j0, lis, sw14, lead, ph;            /* ph: a loop breaker's phase (1 read, 2 write) */
     const float *PA[WF_BLOCKS], *PB[WF_BLOCKS]; /* where each block reads A and B (a sample late where so) */
     float ka[WF_BLOCKS], kb[WF_BLOCKS];
     uint8_t fl[WF_BLOCKS], ty[WF_BLOCKS], sa[WF_BLOCKS];
@@ -938,10 +938,15 @@ WK_FLASH static void wk_comp(wk_t *K, int i, int j1, int j2)
 RV_HOT2 static void wk_delay(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
-    {            /* up to 11 ms; TIME at 0: the note's period. B: the time, two octaves each way */
+    {            /* up to 11 ms; TIME at 0: the note's period. B: the time, two octaves each way.
+                  * A loop breaker (weft_plan: 18 samples or more, no B) comes here twice a run: K->ph 1 reads
+                  * its whole run first, before any block of the run, and 2 writes it last, after them all.
+                  * Each sample's reads are of samples written before the run (the read-back is over a run
+                  * long), so the sound is the same, sample for sample, and a loop through it needn't run
+                  * sample by sample */
         int16_t *mm;
         float c1 = W->c1[i], c2 = W->c2[i];
-        int k;
+        int k, ph = K->ph;
         if (W->dn[i] < 0) {
             for (j = j1; j < j2; j++)
                 yo[j] = 0.0f;
@@ -950,23 +955,28 @@ RV_HOT2 static void wk_delay(wk_t *K, int i, int j1, int j2)
         mm = wdly[v - wv][W->dn[i]];
         k = v->dw[W->dn[i]];
         for (j = j1; j < j2; j++) {
-            float d = clampf(c1 * (bc ? fm_exp2f(WB * 2.0f) : 1.0f), 2.0f, (float)(WD_LEN - 2)), fr, r0, r1, wr;
-            int i0;
-            a = WA;
-            fr = (float)k - d;
-            if (fr < 0.0f)
-                fr += (float)WD_LEN;
-            i0 = (int)fr;
-            fr -= (float)i0;
-            r0 = (float)mm[i0];
-            r1 = (float)mm[(i0 + 1) & (WD_LEN - 1)];
-            y = (r0 + (r1 - r0) * fr) * (1.0f / 16384.0f);
-            wr = sat(a + y * c2);
-            mm[k] = (int16_t)(wr * 16384.0f);
+            if (ph != 2) {
+                float d = clampf(c1 * (bc ? fm_exp2f(WB * 2.0f) : 1.0f), 2.0f, (float)(WD_LEN - 2)), fr, r0, r1;
+                int i0;
+                fr = (float)k - d;
+                if (fr < 0.0f)
+                    fr += (float)WD_LEN;
+                i0 = (int)fr;
+                fr -= (float)i0;
+                r0 = (float)mm[i0];
+                r1 = (float)mm[(i0 + 1) & (WD_LEN - 1)];
+                y = (r0 + (r1 - r0) * fr) * (1.0f / 16384.0f);
+                yo[j] = y;
+            } else
+                y = yo[j];
+            if (ph != 1) {
+                a = WA;
+                mm[k] = (int16_t)(sat(a + y * c2) * 16384.0f);
+            }
             k = (k + 1) & (WD_LEN - 1);
-            yo[j] = y;
         }
-        v->dw[W->dn[i]] = (uint16_t)k;
+        if (ph != 1)
+            v->dw[W->dn[i]] = (uint16_t)k;
         return;
     }
 }
@@ -1678,7 +1688,7 @@ static const wk_fn wk_tab[WO_N] = {
 typedef struct {
     int outb, naud, ng, na, nmade, noise_on;
     unsigned ctl;
-    uint16_t comp;
+    uint16_t comp, brk;
     int8_t prod[WS_N];
     uint8_t mv[WF_BLOCKS], fl[WF_BLOCKS], ol[WF_BLOCKS], gst[WF_BLOCKS + 1], al[WF_BLOCKS], made[WS_N];
     const float *PBo[WF_BLOCKS];
@@ -1689,14 +1699,14 @@ typedef struct {
  * types, cords, B MOVES, OUT, whether the scopes show, which blocks are slow LFOs) */
 typedef struct {
     uint8_t type[WF_BLOCKS], a[WF_BLOCKS], b[WF_BLOCKS], out, scope, valid;
-    uint16_t bmove, comp;
+    uint16_t bmove, comp, brk;                  /* brk: the loop breakers (a DELAY of a run or more, no B) */
     uint32_t ctl, need, live;
     int8_t prod[WS_N], ng, na;
     uint8_t fl[WF_BLOCKS], mv[WF_BLOCKS], ol[WF_BLOCKS], gst[WF_BLOCKS + 1], al[WF_BLOCKS];
 } wps_t;
 static wps_t wps[2][2];                     /* [core][the last two]: each core its own (they plan at the same time) */
 static uint8_t wps_next[2];
-static void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl, int outb, int sw14, int lis, int scope);
+static void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl, unsigned brk, int outb, int sw14, int lis, int scope);
 
 static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff, float hz, int scope, wplan_t *P, wk_t *K, float (*vb)[WR + 1], int core)
 {
@@ -1708,7 +1718,7 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
     float *sv = v->sv;
     uint8_t sa[WF_BLOCKS], sb[WF_BLOCKS];
     int i, outb = wf_outb(w), nd = 0, nm = 0, sw14 = -1, lis = -1, noise_on = 0, naud = 0, lead = (int)(v - wv) == wf_lead[t];
-    unsigned live = 0, ctl = 0;
+    unsigned live = 0, ctl = 0, brk = 0;
     float pos = weft_pos16, pinc = W->dt / (clk_period > 0.001f ? clk_period : 0.001f);
     unsigned bm = w->bmove;
     /* what each block needs per sample, worked out once per step */
@@ -1803,13 +1813,15 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
             if (!sa[i] && !sb[i] && !((bm >> i) & 1u) &&
                 ((ty == WO_CYCLE && W->c1[i] < 50.0f * W->dt) || (ty == WO_LISSA && W->c1[i] < 30.0f * W->dt)))
                 ctl |= 1u << i;
+            if (ty == WO_DELAY && !sb[i] && !((bm >> i) & 1u) && W->c1[i] >= (float)(WR + 2) && W->dn[i] >= 0)
+                brk |= 1u << i;                 /* (a loop breaker: read before the run, written after it) */
         }
-        if (!S || S->ctl != ctl) {              /* (new, or a slow LFO's flag changed: worked out again) */
+        if (!S || S->ctl != ctl || S->brk != brk) {   /* (new, or a slow LFO's or a breaker's flag changed: worked out again) */
             if (!S) {
                 S = &wc[wps_next[core & 1]];
                 wps_next[core & 1] ^= 1u;
             }
-            RV_FAR(weft_structure)(S, w, sa, sb, live, ctl, outb, sw14, lis, scope);
+            RV_FAR(weft_structure)(S, w, sa, sb, live, ctl, brk, outb, sw14, lis, scope);
         }
     }
     /* ---- the blocks a run of WR samples at a time ----
@@ -1896,12 +1908,13 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
         P->noise_on = noise_on;
         P->ctl = ctl;
         P->comp = comp;
+        P->brk = S->brk;
     }
 }
 
 /* a plan's structure (weft_plan): worked out from the patch, in the flash, when the patch changed */
 static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl,
-                                                     int outb, int sw14, int lis, int scope)
+                                                     unsigned brk, int outb, int sw14, int lis, int scope)
 {
     int8_t *prod = S->prod;
     uint16_t pred[WF_BLOCKS], scc[WF_BLOCKS], reach[WF_BLOCKS], comp = 0;
@@ -1918,6 +1931,7 @@ static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w,
     S->out = w->out;
     S->scope = (uint8_t)(scope != 0);
     S->ctl = ctl;
+    S->brk = (uint16_t)brk;
     S->live = live;
     /* who makes what */
     for (i = 0; i < WS_N; i++)
@@ -1951,9 +1965,11 @@ static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w,
         }
         for (k = 0; k < ns; k++) {
             need |= 1u << src[k];
-            if (prod[src[k]] >= 0 && prod[src[k]] != i)
+            if (prod[src[k]] >= 0 && prod[src[k]] != i && !((brk >> prod[src[k]]) & 1u))   /* (a breaker's run is read before any block runs) */
                 pred[i] |= (uint16_t)(1u << prod[src[k]]);
         }
+        if ((brk >> i) & 1u)                    /* (a breaker: its own run needs nothing of this run; it is written after all of it) */
+            pred[i] = 0;
         back |= pred[i] >> i;                   /* (a cord from a later block: maybe a loop) */
         /* fl: 1 A in, 2 B in (as the block sees it), 4 a slow LFO, 8 B MOVES, 16 B on a resonator's pitch, 32 B MOVES
          * with a B */
@@ -1964,6 +1980,7 @@ static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w,
     }
     if (outb >= 0)
         need |= 1u << (outb + 1);
+    comp &= (uint16_t)~brk;                     /* (the breakers run before and after the groups, not in them) */
     if (!back) {                                /* no cord from a later block: no loops, every block on its own, in order */
         for (i = 0; i < WF_BLOCKS; i++)
             if ((comp >> i) & 1u) {
@@ -2010,7 +2027,7 @@ static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w,
             gst[ng] = (uint8_t)nol;
         }
     }
-    S->comp = comp;
+    S->comp = (uint16_t)(comp | brk);
     S->need = need;
     S->ng = (int8_t)ng;
     S->na = (int8_t)na;
@@ -2082,6 +2099,14 @@ RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float
             if (P.noise_on)
                 for (j = 0; j < m; j++)
                     vb[WS_NOISE][1 + j] = xs_uni(&v->rng) * 2.0f - 1.0f;
+            K.j0 = j0;
+            if (P.brk) {                        /* the loop breakers: their runs read first */
+                K.ph = 1;
+                for (i = 0; i < WF_BLOCKS; i++)
+                    if ((P.brk >> i) & 1u)
+                        wk_delay(&K, i, 0, m);
+            }
+            K.ph = 0;
             for (g = 0; g < P.ng; g++) {
                 int g0 = P.gst[g], g1 = P.gst[g + 1], single = g1 - g0 == 1, step, jj, gq;
                 for (jj = 0; jj < m; jj += step) {
@@ -2104,6 +2129,12 @@ RV_HOT2 static void weft_voice(wv_t *v, int t, const float *eff, float hz, float
                         P.fn[i](&K, i, jj, jj + step);
                     }
                 }
+            }
+            if (P.brk) {                        /* and written last */
+                K.ph = 2;
+                for (i = 0; i < WF_BLOCKS; i++)
+                    if ((P.brk >> i) & 1u)
+                        wk_delay(&K, i, 0, m);
             }
             if (scope)
                 RV_FAR(weft_scopes)(&P, W, w, vb, m);

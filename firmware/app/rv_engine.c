@@ -2253,13 +2253,13 @@ static void render_sub(float *outl, float *outr, int n)
 
 /* ------------------------------------------------------------ core test --- */
 /* GLO > CPU 2, CORE TEST: the same work timed on each core, to see whether the second core runs the
- * render's code as fast as the first (both fetch from one flash through one cache). Three pieces:
- * code in RAM (the pool's) on data in plain RAM, the same code in the flash, and the RAM code on
- * data in the pool; each a two-pole filter over 64 floats, 256 times. Run inside the render (the audio pauses a
+ * render's code as fast as the first (both fetch from one flash through one cache). Two pieces:
+ * code in RAM (the pool's) and the same code in the flash; each a two-pole filter over 64 floats,
+ * 256 times. Run inside the render (the audio pauses a
  * moment), the second core's through its job */
 #define CT_N 64
-static float ct_ram[CT_N] RV_RAMBSS, ct_pool[CT_N];
-static volatile uint32_t ct_res[6];
+static float ct_ram[CT_N] RV_RAMBSS;
+static volatile uint32_t ct_res[4];
 static volatile uint8_t ct_req;
 #define CT_BODY \
     { \
@@ -2279,23 +2279,21 @@ static void ct_run(int core)                        /* (core 0: this one, its cy
 {
     uint32_t (*clk)(void) = core ? plat_par_cycles : plat_cycles, t0, t1, t2, t3, hz = plat_cycles_hz();
     t0 = clk();
-    RV_FAR(ct_pool_fn)(ct_ram);                     /* RAM code on RAM data */
+    RV_FAR(ct_pool_fn)(ct_ram);                     /* RAM code */
     t1 = clk();
     ct_flash_fn(ct_ram);                            /* the same from the flash */
     t2 = clk();
-    RV_FAR(ct_pool_fn)(ct_pool);                    /* RAM code on the pool's data */
-    t3 = clk();
     if (hz) {
         ct_res[0 + core] = (uint32_t)((uint64_t)(t1 - t0) * 1000000u / hz);
         ct_res[2 + core] = (uint32_t)((uint64_t)(t2 - t1) * 1000000u / hz);
-        ct_res[4 + core] = (uint32_t)((uint64_t)(t3 - t2) * 1000000u / hz);
     }
+    (void)t3;
 }
 static void ct_c2(uint32_t arg) { (void)arg; ct_run(1); }
-int rv_core_test(volatile uint32_t res[6])                   /* asks for it; the result is in res once res[0] is set */
+int rv_core_test(volatile uint32_t res[4])                   /* asks for it; the result is in res once res[0] is set */
 {
     int k;
-    for (k = 0; k < 6; k++)
+    for (k = 0; k < 4; k++)
         res[k] = 0;
     if (!plat_cycles_hz())
         return -1;
@@ -2308,12 +2306,12 @@ static void ct_tick(volatile uint32_t *res)
     if (!ct_req)
         return;
     ct_req = 0;
-    for (k = 0; k < 6; k++)
+    for (k = 0; k < 4; k++)
         ct_res[k] = 0;
     ct_run(0);
     if (rv_live.cores2 && !rv_live.c2_fail && plat_par_run(ct_c2, 0) > 0)
         plat_par_wait();
-    for (k = 0; k < 6; k++)
+    for (k = 0; k < 4; k++)
         res[k] = ct_res[k];
 }
 

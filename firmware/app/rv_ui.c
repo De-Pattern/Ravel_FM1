@@ -4648,11 +4648,11 @@ static void pic_cpu2(void)                          /* BUFFER, GUARD, SCREEN, CO
     g_text(6, y + 46, &FONT_T, "WATCH RENDER AND XRUNS ON THE CPU PAGE.", C_DIM);
     g_text(6, y + 62, &FONT_T, "CORE TEST: THE SAME WORK ON EACH CORE", C_DIM);
     g_text(6, y + 72, &FONT_T, "(IT STOPS THE MUSIC FOR A MOMENT)", C_DIM);
-    if (rv_live.core_res[0]) {                           /* microseconds: RAM code on RAM data; flash code; RAM code on the pool */
-        static const char *const nm[3] = {"RAM", "FLASH", "POOL"};
+    if (rv_live.core_res[0]) {                           /* microseconds: code in RAM; the same code in the flash */
+        static const char *const nm[2] = {"RAM", "FLASH"};
         int k;
         g_text(6, y + 88, &FONT_T, "CORE 1 / CORE 2, US:", C_INK);
-        for (k = 0; k < 3; k++) {
+        for (k = 0; k < 2; k++) {
             b[0] = 0;
             sx_cat(b, nm[k]);
             sx_cat(b, " ");
@@ -4667,7 +4667,7 @@ static void pic_cpu2(void)                          /* BUFFER, GUARD, SCREEN, CO
                 l += 3;
                 sx_int(b + l, (int)rv_live.core_res[k * 2 + 1]);
             }
-            g_text(6 + k * 78, y + 100, &FONT_T, b, rv_live.core_res[k * 2 + 1] > rv_live.core_res[k * 2] * 5 / 4 ? C_RED : C_TEAL);
+            g_text(6 + k * 110, y + 100, &FONT_T, b, rv_live.core_res[k * 2 + 1] > rv_live.core_res[k * 2] * 5 / 4 ? C_RED : C_TEAL);
         }
     }
 }
