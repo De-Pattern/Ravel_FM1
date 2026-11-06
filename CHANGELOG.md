@@ -3,6 +3,18 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.21.0
+
+Faster
+- The tracks' mix into the main mix and the sends runs from RAM (in the flash it was the render's busiest loop), and so does a track's chain when it has no SKIN, INSERT or RING (most tracks): the DC block alone. The step's clears and copies run from RAM, four samples at a time. Measured with the FM-1's own instruction costs in an emulator: the audio's share of core 1 down from 58.5 % to 54.6 %, of core 2 from 38.6 % to 34.7 %. The sound is the same, sample for sample.
+- A track nothing excites skips looking for the peak of its silence.
+
+Fixed
+- A WEFT track reads WFT on the track list and the TRACKS page, not CMP.
+
+Changed
+- Each release is booted and played in fm1-emu, an emulator of the FM-1, before it goes out: as it is, with a second core that misreads RAM, and with the FM-1's measured timing (`docs/fm1-emu.md`).
+
 ## 1.20.0
 
 New

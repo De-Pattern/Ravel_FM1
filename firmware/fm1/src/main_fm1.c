@@ -294,6 +294,20 @@ static void fm1_main(void)
         panel_setup();                              /* OCT- + OCT+ held at power-on: calibration */
     else
         ui_intro();                                 /* the start screen: the storm, the word, the drips */
+#ifdef RAVEL_BENCH
+    {   /* a bench build (RAVEL_BENCH=K, for the emulator): DEMO 1, factory WEFT patch K on T1 (K < 0: none), playing */
+        void rv_weft_preset(int t, int k);
+        rv_demo(0);
+        if (RAVEL_BENCH >= 0) {
+            rv_track_set_kind(0, 6);               /* (KIND_WEFT) */
+            rv_weft_preset(0, RAVEL_BENCH);
+        }
+        rv_transport(1);
+#ifdef RAVEL_BENCH_SLOWUI
+        ui_slow = 1;                                /* (and the screen once a second: what drawing costs the audio) */
+#endif
+    }
+#endif
 
     for (;;) {
         fm1_wdt_feed();

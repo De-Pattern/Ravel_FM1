@@ -59,6 +59,13 @@ jobs:
           mkdir -p build/fm1test
           cc -o build/fm1test/ota_test tests/fm1/ota_test.c && build/fm1test/ota_test build/fm1/Ravel-FM1.fwsc
           python3 tests/fm1/install_test.py
+      - name: fm1-emu, built once and kept between runs
+        uses: actions/cache@v4
+        with:
+          path: build/fm1-emu
+          key: fm1-emu-9fa0215
+      - name: Boots and plays in fm1-emu (as it is, with a flaky second core, with the FM-1's timing)
+        run: FM1_EMU_REV=9fa0215 sh tools/emu_check.sh build/fm1/Ravel-FM1.fwsc build/fm1-emu
       - uses: actions/upload-artifact@v4
         with:
           name: firmware

@@ -218,6 +218,13 @@ def build_app():
         v = os.environ.get(flag)    # unset: the default in firmware/fm1/src/ravel_fm1.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
+    b = os.environ.get("RAVEL_BENCH")       # a bench build for the emulator (DEMO 1, a WEFT patch on T1, playing)
+    if b is not None and b.lstrip("-").isdigit():
+        flags.append(f"-DRAVEL_BENCH={int(b)}")
+        if os.environ.get("RAVEL_BENCH_SLOWUI") == "1":
+            flags.append("-DRAVEL_BENCH_SLOWUI")
+    if os.environ.get("RAVEL_DEBUG") == "1":    # line numbers in the ELF (tools/emu_prof.py --lines); the code is the same
+        flags.append("-g")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     flags.append(f'-DRAVEL_BUILD="{_build_name().upper()}"')   # the version the FM-1 shows (start screen, GLO > FLASH)
     flags.append("-DRV_NO_AUDIO_IN")    # the FM-1 build has no audio input: its controls are hidden

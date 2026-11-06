@@ -1719,6 +1719,7 @@ Ravel runs bare metal on the FM-1's JieLi AC791N, on the open hardware layer tha
 - **Storage:** eight project slots of 32 KB in the flash's data area; the panel calibration beside them.
 - **USB:** MIDI, and USB audio *to* the computer (Ravel's output, recordable): a class-compliant stereo input, 16-bit at 44.1 kHz, that needs no setting on the FM-1 or driver on the computer. On a Mac it is **Ravel FM-1** in Audio MIDI Setup and in any recording app's input list (set the app to 44.1 kHz); on Windows a recording device of that name. One stereo pair, the main mix: no separate tracks over USB. MIDI in on the TRS jack too: notes, CC 1, clock, start and stop (GLO › MIDI IN).
 - **Not checked on hardware:** everything. In particular the CPU load of a dense project (the render runs inside the DMA's deadline; an overrun drops a block; the CPU meter in the top bar shows it, and the TINE and PHYS engines cost the most), and moving projects and sounds over USB (tools/fm1_data.py and the emulator's Send to FM-1).
+- **Tested in an emulator of the FM-1:** each release package boots and plays in [fm1-emu](https://github.com/joakimeriksson/fm1-emu) before it goes out, also with a second core that misreads RAM and with the FM-1's measured instruction timing; the same emulator profiles where the FM-1's time goes (`docs/fm1-emu.md`).
 - **Not in this version:** Bluetooth, audio input.
 
 ## Ravel Software
@@ -1735,6 +1736,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (@kurogedelic), Hügelton Instruments: the FM-1's open hardware layer, USB, storage, update loader and web installer that Ravel runs on.
 - [X0X](https://github.com/charlesvestal/fm1-x0x), a Felucca fork, for the platform as Ravel takes it, the simulator's design, its PNG writer and the build, install and rescue tools.
 - The authors of JIANT, SLOOP and sloopDX, and everyone who mapped the FM-1.
+- [fm1-emu](https://github.com/joakimeriksson/fm1-emu) by Joakim Eriksson (MIT), the FM-1 emulator Ravel's releases are checked and profiled in, and the cycle costs fm1-dock's probes measured on the chip.
 - XAOC Devices' Zadar, whose library of morphing shapes the WAVE engine's WAVE ENV follows (the shapes are Ravel's own).
 - The screen is set in Ravel's own runic stroke alphabet (`tools/runic_glyphs.py`: straight strokes only, curves turned into points), drawn at eight times the size and brought down to the screen at 16 levels. The palette is black and greys with bone and verdigris accents; tracks are told apart by colour: synth white, strike slate, tape verdigris, perc maroon.
 - Moog's MF-105 MuRF, whose fixed resonant bands and patterns Ravel Software's BANDS bus follows.
