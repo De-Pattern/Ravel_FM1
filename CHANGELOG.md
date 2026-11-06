@@ -3,7 +3,9 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
-## 1.21.0
+## 1.21.1
+
+(1.21.0 was tagged but not released: its new release check could not build the emulator on GitHub. 1.21.1 is the same firmware.)
 
 Faster
 - The tracks' mix into the main mix and the sends runs from RAM (in the flash it was the render's busiest loop), and so does a track's chain when it has no SKIN, INSERT or RING (most tracks): the DC block alone. The step's clears and copies run from RAM, four samples at a time. Measured with the FM-1's own instruction costs in an emulator: the audio's share of core 1 down from 58.5 % to 54.6 %, of core 2 from 38.6 % to 34.7 %. The sound is the same, sample for sample.

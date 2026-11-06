@@ -59,6 +59,8 @@ jobs:
           mkdir -p build/fm1test
           cc -o build/fm1test/ota_test tests/fm1/ota_test.c && build/fm1test/ota_test build/fm1/Ravel-FM1.fwsc
           python3 tests/fm1/install_test.py
+      - name: fm1-emu's build needs ALSA's headers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev pkg-config
       - name: fm1-emu, built once and kept between runs
         uses: actions/cache@v4
         with:
