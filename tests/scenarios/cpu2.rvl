@@ -1,0 +1,56 @@
+wait 300
+tap GLO
+turn SELECT -20
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+turn SELECT 1
+wait 40
+wait 150
+expect page CPU 2
+# GLO > CPU 2: BUFFER (not set here: the FM-1 buffers), GUARD off and on, SCREEN 1 FPS and back, CORE TEST
+# (not measured here); the music plays on through it all
+demo 1
+wait 300
+tap PLAY
+wait 500
+wav cpu2.wav
+turn K1 1
+wait 100
+turn K1 -1
+wait 100
+turn K2 -1
+wait 300
+turn K2 1
+wait 300
+turn K3 1
+wait 300
+turn K3 -1
+wait 300
+turn K4 1
+wait 500
+expect page CPU 2
+wait 1000
+expect peak_db_min -40
+wavstop
+expect playing 1

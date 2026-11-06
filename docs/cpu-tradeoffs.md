@@ -27,6 +27,10 @@ did not change (checked sample for sample, or within the variation of a random p
 | GLO › CPU: the overload guard fades voices near the limit | voices dropped instead of crackles | `rv_engine.c` |
 | The guard's relief (EASED 1–3, v1.17): past fewer voices, the delay's new grains halved, then quartered (six, four, two at most) and WEFT kept to one voice; back step by step once calm | thinner grains and fewer WEFT voices, only while overloaded | `guard_tick` in `rv_engine.c`, `gmax`/`grate` in `delay_run` (`rv_bus.c`) |
 | WEFT RATE HALF (v1.18, off by default) | the patch at 22 kHz: the top octave gone, a little grit; about half the time | the RATE knob (WEFT RATE); `weft_voice_one` in `rv_weft.c` |
+| BUFFER SAFE (v1.20): a block rendered ahead (`sbuf`, main_fm1.c) | +11.6 ms of latency (TIGHT: the old way, GLO › CPU 2); the guard then reads 1024 frames and allows 90 % (`GUARD_HI`, `GUARD_WIN` in `rv_engine.c`) | 4 KB of RAM, found by sending the screen in 4-row bands (`BLIT_ROWS`, plat_fm1.c) |
+| SPACE's MOTION once a step, a straight line between (v1.20) | about 55 dB under the signal (the 12-bit grain); `halfrate_run` in `rv_bus.c`, the `d[]`/`dd[]` lines | about 18 % less work, more on the FM-1 (two combs at a time) |
+| WEFT's plan structure cached (`wps`, two a core), loop breakers (a DELAY ≥ 18 samples, no B: `brk`) (v1.20) | bit for bit the same (`tools/weft_compare.py`) | each core its own cache, since both plan at once |
+| `artic_cfg_track` in the flash (v1.20) | once a voice a step; no measurable cost | room in RAMTEXT for SPACE |
 | The BED rests when nothing plays (v1.19): sequencer stopped and every track silent for 4 s | it fades out, and back in with the next sound or PLAY (no drone left running on its own) | `BED_REST`/`bo_bed` in `rv_engine.c` |
 | SKIP SILENT (v1.17): a track muted or at LEVEL 0 for half a second, nothing else using it, stops its voices | a note held across an unmute doesn't come back (the next one plays) | `skip_mask` in `rv_engine.c`; GLO › CPU, SILENT PLAY |
 

@@ -3,6 +3,21 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.20.0
+
+New
+- **BUFFER SAFE** (GLO › CPU 2, the setting at start): one audio block rendered ahead, so a busy block (a bar's note-ons, a chord of new WEFT voices) may take up to twice its time without a dropout; everything is heard 11.6 ms later. TIGHT is the old way. With SAFE the overload guard reads two blocks at a time and allows 90 % instead of 80 %, so it fades far fewer voices.
+- **GLO › CPU 2**, with three tests for finding what holds the FM-1 up: GUARD OFF, SCREEN 1 FPS (the screen drawn once a second: what its drawing costs the audio) and CORE TEST (the same work timed on each core, in RAM and from the flash).
+
+Faster
+- WEFT: the plan of a patch (who feeds whom, the loops, the order the blocks run in) is kept from step to step and worked out again only when the patch changes; about 5 % less work a voice, more on the FM-1 (it ran from the flash).
+- WEFT: a DELAY of 18 samples or more with nothing on its B breaks a loop: its run is read before the run's blocks and written after them, so a loop through it runs a run at a time instead of sample by sample. THREE LOOPS does about 18 % less work. The sound is the same, sample for sample.
+- SPACE: MOTION's sway is worked out at each step's ends and run straight between (it moves a tenth of a thousandth of a sample a step), and the combs go two at a time, so the FPU overlaps them: about 18 % less work, more on the FM-1. The sound differs by about 55 dB under the signal, the reverb's own 12-bit grain.
+- The buses' peak and blowup checks in one pass; the voices' check without an early exit, so it pipelines; the SEM filter's BP gain once a step; the delay's CUTS ring without a division.
+
+Changed
+- The screen goes to the panel in bands of 4 rows (not 8), to make room in RAM for the audio's spare block.
+
 ## 1.19.0
 
 Faster

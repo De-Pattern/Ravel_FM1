@@ -1519,7 +1519,6 @@ static void kb_set(kb_t k, int v)
         if (k.id == 10) {                              /* CORE TEST: the same work timed on each core */
             ui.core_test = (uint8_t)v;
             if (v) {
-                rv_transport(0);
                 if (rv_core_test(rv_live.core_res) < 0)
                     msg("NOT MEASURED HERE: THE FM-1 TIMES IT");
                 else
