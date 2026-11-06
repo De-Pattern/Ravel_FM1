@@ -74,6 +74,10 @@ uint32_t plat_cpu_peak(void);           /* the busiest audio block lately, % of 
 uint32_t plat_cycles(void);             /* a free-running count of the processor's cycles (0: none to read) */
 uint32_t plat_cycles_hz(void);          /* how many of them a second */
 uint32_t plat_xruns(void);
+/* the audio's buffering: on = SAFE (a block rendered ahead: a busy block may take twice its time, and
+ * everything is heard a block, 11.6 ms, later), off = TIGHT, < 0 asks. Returns what it is now (< 0: not here) */
+int plat_audio_safe(int on);
+void plat_ui_slow(int on);              /* a test: the screen drawn once a second (on), to see what drawing costs the audio */
 /* a second core (the FM-1's AC79 has one): on asks it to start (0 = running; < 0 = none here, or it
  * would not start, or it failed before and stays off until power-off). run hands it fn(arg) while
  * this core goes on (1 = it took it); wait waits for it (0 = done; < 0 = it failed and is off now:

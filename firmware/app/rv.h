@@ -405,6 +405,9 @@ typedef struct {
     float c2_load;                         /* its work (the buses, its synth voices), % of the time it has (smoothed) */
     float c2_wait;                         /* this core waiting for it, % of the time (smoothed) */
     uint8_t fetch_on;                      /* GLO > CPU, FLASH WAIT: counting the code fetch's waits */
+    uint8_t buf_safe;                      /* GLO > CPU 2, BUFFER SAFE: the FM-1 renders a block ahead (the guard reads two blocks at a time, and allows more) */
+    uint8_t ui_freeze;                     /* GLO > CPU 2, SCREEN FREEZE: a test; the screen stops drawing, to see what its drawing costs the audio */
+    uint32_t core_res[6];                  /* GLO > CPU 2, CORE TEST: microseconds on core 1 and core 2 for RAM code, flash code, pool code */
     float fetch_pct;                       /* the render's time spent waiting for its code (smoothed) */
     uint8_t arp_n[RV_TRACKS];              /* ARP: how many notes each track's arpeggiator holds */
     uint8_t arp_note[RV_TRACKS][8];        /* them, as they were played */
@@ -465,6 +468,7 @@ void rv_render(int32_t *out, int frames);       /* interleaved stereo, Q23 */
 void rv_note(int t, int note, int vel);         /* vel 0 = off; from the control side */
 void rv_all_off(void);
 void rv_transport(int run);                     /* start/stop */
+int rv_core_test(volatile uint32_t res[6]);              /* GLO > CPU 2, CORE TEST: asks for it (< 0: no clock here); the result comes in rv_live.core_res */
 void rv_punch(int fx, int on);                  /* punch-in effects */
 void rv_cut(int action);                        /* microcut now */
 void rv_scene_launch(int s);

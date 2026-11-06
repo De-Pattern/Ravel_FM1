@@ -52,7 +52,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_STRESS, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_CPU2, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB, PIC_WEFTRATE };
 /* when a page shows */
@@ -215,6 +215,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_ARR, PR_ARR, "ARRANGE", {{K_ARR, AF_SCENE}, {K_ARR, AF_BARS}, {K_ARR, AF_ROWS}, {K_ARR, AF_MODE}}},
     {SEC_SONG, V_ALL, PIC_ARCS, PR_ARC, "ARCS", {{K_ARC, 0}, GP(GP_ARCSPAN), NO, NO}},
     {SEC_SONG, V_ALL, PIC_CPU, PR_NONE, "CPU", {{K_STRESS, 3}, {K_STRESS, 4}, {K_STRESS, 5}, {K_STRESS, 6}}},   /* where the audio's time goes; CORES */
+    {SEC_SONG, V_ALL, PIC_CPU2, PR_NONE, "CPU 2", {{K_STRESS, 7}, {K_STRESS, 8}, {K_STRESS, 9}, {K_STRESS, 10}}},   /* BUFFER, GUARD, SCREEN, CORE TEST */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
     {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
     {SEC_SONG, V_ALL, PIC_PANEL, PR_NONE, "PANEL", {{K_LRN, 3}, NO, NO, NO}},   /* the FM-1's own: kept through power-off */
@@ -270,6 +271,7 @@ static struct {
      * the one in memory; what each step measured (% of the time, 255: not yet) and where XRUNS came */
     uint8_t st_step, st_built, st_eng, st_auto, st_on;
     uint8_t cpu_view;                           /* GLO > CPU, VIEW: 0 the render's parts, 1 the tracks */
+    uint8_t core_test;                          /* GLO > CPU 2, CORE TEST: RUN (it runs at once, then OFF) */
     uint8_t c2_tried;                         /* the second core was asked for at start */
     uint16_t st_res[RV_STRESS_N];               /* (0xFFFF: not measured yet) */
     uint8_t st_res2[RV_STRESS_N];               /* the second core's, % (0: not working) */
@@ -894,11 +896,13 @@ static kinfo_t kb_info(kb_t k)
         static const char *const autos[2] = {"OFF", "RUN"};
         static const char *const nums[RV_STRESS_N] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
         static const char *const cores[2] = {"1", "2"}, *const onoff[2] = {"OFF", "ON"}, *const views[2] = {"PARTS", "TRACKS"}, *const skipn[2] = {"PLAY", "SKIP"};
-        static const char *const sn[7] = {"STEP", "ENGINE", "AUTO", "CORES", "FLASH WT", "VIEW", "SILENT"};
-        r.name = sn[k.id % 7];
+        static const char *const bufs[2] = {"TIGHT", "SAFE"}, *const scr[2] = {"NORMAL", "1 FPS"}, *const runs[2] = {"OFF", "RUN"};
+        static const char *const sn[11] = {"STEP", "ENGINE", "AUTO", "CORES", "FLASH WT", "VIEW", "SILENT", "BUFFER", "GUARD", "SCREEN", "CORE TEST"};
+        r.name = sn[k.id % 11];
         r.max = k.id == 0 ? RV_STRESS_N - 1 : k.id == 1 ? ENG_N - 1 : 1;
         r.fmt = PF_ENUM;
-        r.names = k.id == 0 ? nums : k.id == 1 ? rv_engine_names : k.id == 2 ? autos : k.id == 3 ? cores : k.id == 5 ? views : k.id == 6 ? skipn : onoff;
+        r.names = k.id == 0 ? nums : k.id == 1 ? rv_engine_names : k.id == 2 ? autos : k.id == 3 ? cores : k.id == 5 ? views : k.id == 6 ? skipn
+                : k.id == 7 ? bufs : k.id == 9 ? scr : k.id == 10 ? runs : onoff;
         break;
     }
     case K_EUC:
@@ -1176,7 +1180,8 @@ static int kb_get(kb_t k)
         return rv.gp[GP_SONGMODE];
     case K_ARC: return rv.arcs[ui.track][ui.cur_arc & 15];
     case K_STRESS: return k.id == 0 ? ui.st_step : k.id == 1 ? ui.st_eng : k.id == 2 ? ui.st_auto : k.id == 3 ? rv_live.cores2
-                        : k.id == 5 ? ui.cpu_view : k.id == 6 ? !rv_live.skip_off : rv_live.fetch_on;
+                        : k.id == 5 ? ui.cpu_view : k.id == 6 ? !rv_live.skip_off : k.id == 7 ? rv_live.buf_safe : k.id == 8 ? !rv_live.guard_off
+                        : k.id == 9 ? rv_live.ui_freeze : k.id == 10 ? ui.core_test : rv_live.fetch_on;
     case K_EUC: return k.id ? clampi(ui.euc_rot[ui.track][euc_lane(ui.track)], 0, euc_len(ui.track) - 1) : euc_hits(ui.track);
     case K_LIB: {
         const rv_senv *e = &rv.senv[ui.cur_lib % RV_SENV];
@@ -1488,6 +1493,39 @@ static void kb_set(kb_t k, int v)
     case K_STRESS:
         if (k.id == 5) {                               /* VIEW: the parts of the render, or the tracks */
             ui.cpu_view = (uint8_t)v;
+            break;
+        }
+        if (k.id == 7) {                               /* BUFFER: SAFE (a block rendered ahead) or TIGHT */
+            if (plat_audio_safe(v) < 0) {
+                msg("THE FM-1 BUFFERS; NOTHING TO SET HERE");
+                break;
+            }
+            rv_live.buf_safe = (uint8_t)v;
+            msg(v ? "SAFE: A BLOCK AHEAD, HEARD 12 MS LATER" : "TIGHT: 12 MS SOONER, LESS ROOM FOR A BUSY BLOCK");
+            break;
+        }
+        if (k.id == 8) {                               /* GUARD: the overload guard (off: a test; it can crackle) */
+            rv_live.guard_off = (uint8_t)!v;
+            if (!v)
+                msg("GUARD OFF: VOICES ARE NOT FADED, IT CAN CRACKLE");
+            break;
+        }
+        if (k.id == 9) {                               /* SCREEN: 1 FPS, a test of what drawing costs the audio */
+            rv_live.ui_freeze = (uint8_t)v;
+            plat_ui_slow(v);
+            msg(v ? "SCREEN AT 1 FPS: WATCH RENDER AND XRUNS" : "SCREEN BACK TO NORMAL");
+            break;
+        }
+        if (k.id == 10) {                              /* CORE TEST: the same work timed on each core */
+            ui.core_test = (uint8_t)v;
+            if (v) {
+                rv_transport(0);
+                if (rv_core_test(rv_live.core_res) < 0)
+                    msg("NOT MEASURED HERE: THE FM-1 TIMES IT");
+                else
+                    msg(rv_live.cores2 ? "TESTING BOTH CORES" : "CORES IS 1: ONLY THE FIRST IS TIMED");
+                ui.core_test = 0;
+            }
             break;
         }
         if (k.id == 6) {                               /* SILENT: SKIP (their voices stop) or PLAY */
@@ -4599,6 +4637,41 @@ static void pic_stress(void)
 
 /* GLO > CPU: each part of the audio render as a share of the time it has, the whole, the
  * platform's own reading and the blocks that came too late */
+static void pic_cpu2(void)                          /* BUFFER, GUARD, SCREEN, CORE TEST: what they are, and the test's result */
+{
+    char b[48];
+    int y = PIC_Y + 2;
+    g_text(6, y, &FONT_T, "BUFFER SAFE: A BLOCK RENDERED AHEAD, SO", C_DIM);
+    g_text(6, y + 10, &FONT_T, "ONE BUSY BLOCK FITS. HEARD 12 MS LATER.", C_DIM);
+    g_text(6, y + 20, &FONT_T, "TIGHT: SOONER, BUT A BUSY BLOCK DROPS OUT.", C_DIM);
+    g_text(6, y + 36, &FONT_T, "SCREEN 1 FPS AND GUARD OFF ARE TESTS:", C_DIM);
+    g_text(6, y + 46, &FONT_T, "WATCH RENDER AND XRUNS ON THE CPU PAGE.", C_DIM);
+    g_text(6, y + 62, &FONT_T, "CORE TEST: THE SAME WORK ON EACH CORE", C_DIM);
+    g_text(6, y + 72, &FONT_T, "(IT STOPS THE MUSIC FOR A MOMENT)", C_DIM);
+    if (rv_live.core_res[0]) {                           /* microseconds: RAM code on RAM data; flash code; RAM code on the pool */
+        static const char *const nm[3] = {"RAM", "FLASH", "POOL"};
+        int k;
+        g_text(6, y + 88, &FONT_T, "CORE 1 / CORE 2, US:", C_INK);
+        for (k = 0; k < 3; k++) {
+            b[0] = 0;
+            sx_cat(b, nm[k]);
+            sx_cat(b, " ");
+            {
+                int l = 0;
+                while (b[l])
+                    l++;
+                sx_int(b + l, (int)rv_live.core_res[k * 2]);
+                while (b[l])
+                    l++;
+                sx_cat(b, " / ");
+                l += 3;
+                sx_int(b + l, (int)rv_live.core_res[k * 2 + 1]);
+            }
+            g_text(6 + k * 78, y + 100, &FONT_T, b, rv_live.core_res[k * 2 + 1] > rv_live.core_res[k * 2] * 5 / 4 ? C_RED : C_TEAL);
+        }
+    }
+}
+
 static void pic_cpu(void)
 {
     static const char *const nm[11] = {"CONTROL", "SYNTH", "STRIKE", "PERC", "TRACK FX", "BED", "FEEDBACK",
@@ -6064,6 +6137,7 @@ static void draw_picture(void)
     case PIC_MASTER: pic_master(); break;
     case PIC_BED: pic_bed(); break;
     case PIC_CPU: pic_cpu(); break;
+    case PIC_CPU2: pic_cpu2(); break;
     case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
     case PIC_SCALE: pic_scale(); break;
@@ -6294,6 +6368,7 @@ void ui_init(void)
     for (t = 0; t < RV_TRACKS; t++)
         ui.preset_idx[t] = -1;
     ui.sec = SEC_HOME;
+    rv_live.buf_safe = (uint8_t)(plat_audio_safe(-1) > 0);   /* (the FM-1 starts SAFE) */
     ui.prev_btn = plat_buttons();
     ui.prev_keys = plat_keys();
 }

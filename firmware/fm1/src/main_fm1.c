@@ -16,7 +16,14 @@ extern uint32_t _fast_start[], _fast_end[], _fast_load[];
 _Static_assert(REND_FRAMES == UA_HALF, "usb.c sizes the USB audio ring band for this block");
 #endif
 static int32_t abuf[2u * HALF_WORDS] __attribute__((aligned(4)));
-static volatile uint8_t in_audio;
+/* BUFFER SAFE (GLO > CPU 2): a spare block, rendered ahead. The interrupt that frees a half first copies
+ * the spare into it (a few microseconds), then renders the next block into the spare: a render may then
+ * take up to two halves' time (23 ms) when the one before it was quick, where TIGHT gives it one half
+ * (11.6 ms) and anything over is a dropout. SAFE hears everything 11.6 ms later. */
+static int32_t sbuf[HALF_WORDS] __attribute__((aligned(4)));
+static volatile uint8_t in_audio, buf_safe = 1, sbuf_full;
+static uint8_t ui_slow;                             /* GLO > CPU 2, SCREEN 1 FPS: a test */
+void plat_ui_slow(int on) { ui_slow = (uint8_t)(on != 0); }
 static uint8_t safe_mode;
 
 /* rv_render gives full scale as 2^23; the codec's comfortable ceiling is Felucca's 2^22 (-6 dBFS).
@@ -63,11 +70,39 @@ void fm1_alnk0_irq(void)                            /* via isr_alnk0 (hal/fm1_is
     fm1_audio_ack_aux(p);
     if (p & FM1_AUDIO_HALF) {
         uint32_t half = fm1_audio_free_half();
-        render_block(&abuf[half * HALF_WORDS]);
-        fm1_audio_ack_half();
-        if (fm1_audio_free_half() != half)
-            audio_xruns++;                          /* the DMA moved on while we rendered */
+        if (buf_safe) {
+            static uint32_t last_t;
+            uint32_t t = fm1_ticks(), i;
+            int32_t *o = &abuf[half * HALF_WORDS];
+            if (sbuf_full) {                        /* the block rendered ahead: into the half, at once */
+                for (i = 0; i < HALF_WORDS; i++)
+                    o[i] = sbuf[i];
+                /* late by a whole half or more: the DMA had wrapped to this half before it was filled */
+                if (last_t && t - last_t >= (2u * HALF_FRAMES * 1000000u / 44100u - 300u) * FM1_TICKS_PER_US)
+                    audio_xruns++;
+            } else {
+                render_block(o);                    /* (the first block: nothing ahead yet) */
+                if (fm1_audio_free_half() != half)
+                    audio_xruns++;
+            }
+            last_t = t;
+            fm1_audio_ack_half();
+            render_block(sbuf);                     /* the next block, ahead of its time */
+            sbuf_full = 1;
+        } else {
+            sbuf_full = 0;
+            render_block(&abuf[half * HALF_WORDS]);
+            fm1_audio_ack_half();
+            if (fm1_audio_free_half() != half)
+                audio_xruns++;                      /* the DMA moved on while we rendered */
+        }
     }
+}
+int plat_audio_safe(int on)                         /* GLO > CPU 2, BUFFER: SAFE (1) or TIGHT (0); < 0 asks */
+{
+    if (on >= 0)
+        buf_safe = (uint8_t)(on != 0);
+    return buf_safe;
 }
 extern void isr_alnk0(void);
 
@@ -310,7 +345,7 @@ static void fm1_main(void)
 #if RAVEL_CDC
         cdc_task();
 #endif
-        if (fm1_ms - last_frame >= (audio_cpu_pct > 70u ? 66u : 33u)) {   /* ~30 frames/s, 15 when the audio is busy
+        if (fm1_ms - last_frame >= (ui_slow ? 1000u : audio_cpu_pct > 70u ? 66u : 33u)) {   /* ~30 frames/s, 15 when the audio is busy (1 as a test: GLO > CPU 2, SCREEN)
                                                      * (each frame also pushes the audio's code out of the cache); input in between */
             last_frame = fm1_ms;
             ui_frame();

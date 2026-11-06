@@ -223,6 +223,8 @@ uint32_t plat_xruns(void) { return 0; }
  * bookkeeping tested); =fail one that takes the work and never does it (the fallback tested) */
 static int par_fake, par_fail;
 int plat_fetch_on(int on) { return on ? -1 : 0; }   /* (no flash to wait on here) */
+int plat_audio_safe(int on) { (void)on; return -1; }   /* (no DMA to run ahead of here) */
+void plat_ui_slow(int on) { (void)on; }
 uint32_t plat_fetch_wait(void) { return 0; }
 int plat_par_on(int on)
 {

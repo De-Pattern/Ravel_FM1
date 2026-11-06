@@ -1325,10 +1325,11 @@ static int par_voices_wait(void)
  * note past the limit fades out the least needed to make room. Once the reading is clear of the edge
  * (under GUARD_LO for eight blocks running) the limit comes back up by one, and again. Where there is no clock (the browser)
  * it never acts. A voice being faded is marked by its shading's decay, SHED_DK */
-#define GUARD_HI 0.80f                  /* (the interface needs the rest of the time) */
-#define GUARD_LO 0.76f                  /* (below it, the limit rises a voice at a time) */
+#define GUARD_HI (rv_live.buf_safe ? 0.90f : 0.80f)   /* (the interface needs the rest of the time; with a block rendered
+                                                        * ahead, BUFFER SAFE, one block may go over, so the edge is higher) */
+#define GUARD_LO (GUARD_HI - 0.04f)     /* (below it, the limit rises a voice at a time) */
 #define SHED_DK 300.0f                  /* about 3 ms (the Deluge's soft cull) */
-#define GUARD_WIN 512u                  /* frames read at a time */
+#define GUARD_WIN (rv_live.buf_safe ? 1024u : 512u)   /* frames read at a time: the FM-1's audio block, or two of them */
 static float guard_load, guard_vc = 0.05f, guard_x, guard_last;   /* guard_x, guard_last: this window's reading, the one before */
 static uint32_t guard_acc, guard_vacc, guard_n;
 static uint16_t guard_cool, guard_calm, guard_relief_calm;
@@ -1439,7 +1440,8 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
     if (!cyc || hz <= 0.0f || n <= 0)
         return;                                     /* no clock here */
     /* read over the FM-1's audio block (512 frames, 11.6 ms), as it falls behind or not: one step
-     * alone can be busy (a bar's events) and still fit */
+     * alone can be busy (a bar's events) and still fit; over two blocks with BUFFER SAFE, where one
+     * block alone may go over and still fit */
     guard_acc += cyc;
     guard_vacc += vcyc;
     guard_n += (uint32_t)n;
@@ -2225,10 +2227,79 @@ static void render_sub(float *outl, float *outr, int n)
     guard_tick(prof_t - cyc0, vcyc, n);
 }
 
+/* ------------------------------------------------------------ core test --- */
+/* GLO > CPU 2, CORE TEST: the same work timed on each core, to see whether the second core runs the
+ * render's code as fast as the first (both fetch from one flash through one cache). Three pieces:
+ * code in RAM on data in RAM, the same code in the flash, and code in the pool on data in the pool;
+ * each a two-pole filter over 64 floats, 256 times. Run inside the render (the audio pauses a
+ * moment), the second core's through its job */
+#define CT_N 64
+static float ct_ram[CT_N] RV_RAMBSS, ct_pool[CT_N];
+static volatile uint32_t ct_res[6];
+static volatile uint8_t ct_req;
+#define CT_BODY \
+    { \
+        float s1 = 0.0f, s2 = 0.0f, g = 0.2f, k = 1.4f; \
+        int i, r; \
+        for (r = 0; r < 256; r++) \
+            for (i = 0; i < CT_N; i++) { \
+                float v = d[i] - k * s1 - s2; \
+                s2 += g * s1; \
+                s1 += g * v; \
+                d[i] = s2 * 0.999f + (float)(i & 3) * 0.001f; \
+            } \
+    }
+RV_HOT static void ct_ram_fn(float *d) CT_BODY
+static __attribute__((noinline)) void ct_flash_fn(float *d) CT_BODY
+RV_HOT2 static void ct_pool_fn(float *d) CT_BODY
+static void ct_run(int core)                        /* (core 0: this one, its cycle counter; 1: the second's) */
+{
+    uint32_t (*clk)(void) = core ? plat_par_cycles : plat_cycles, t0, t1, t2, t3, hz = plat_cycles_hz();
+    t0 = clk();
+    RV_FAR(ct_ram_fn)(ct_ram);
+    t1 = clk();
+    ct_flash_fn(ct_ram);
+    t2 = clk();
+    RV_FAR(ct_pool_fn)(ct_pool);
+    t3 = clk();
+    if (hz) {
+        ct_res[0 + core] = (uint32_t)((uint64_t)(t1 - t0) * 1000000u / hz);
+        ct_res[2 + core] = (uint32_t)((uint64_t)(t2 - t1) * 1000000u / hz);
+        ct_res[4 + core] = (uint32_t)((uint64_t)(t3 - t2) * 1000000u / hz);
+    }
+}
+static void ct_c2(uint32_t arg) { (void)arg; ct_run(1); }
+int rv_core_test(volatile uint32_t res[6])                   /* asks for it; the result is in res once res[0] is set */
+{
+    int k;
+    for (k = 0; k < 6; k++)
+        res[k] = 0;
+    if (!plat_cycles_hz())
+        return -1;
+    ct_req = 1;
+    return 0;
+}
+static void ct_tick(volatile uint32_t *res)
+{
+    int k;
+    if (!ct_req)
+        return;
+    ct_req = 0;
+    for (k = 0; k < 6; k++)
+        ct_res[k] = 0;
+    ct_run(0);
+    if (rv_live.cores2 && !rv_live.c2_fail && plat_par_run(ct_c2, 0) > 0)
+        plat_par_wait();
+    for (k = 0; k < 6; k++)
+        res[k] = ct_res[k];
+}
+
 void rv_render(int32_t *out, int frames)
 {
     float l[RV_SUB], r[RV_SUB];
     int done = 0, i;
+    if (ct_req)
+        ct_tick(rv_live.core_res);
     while (done < frames) {
         int n = frames - done > RV_SUB ? RV_SUB : frames - done;
         render_sub(l, r, n);

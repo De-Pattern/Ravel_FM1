@@ -89,12 +89,13 @@ void plat_leds(uint32_t buttons, uint32_t keys)
  * the transfer runs on while the next band is drawn. Two swap buffers take turns (lcd_window waits
  * for the transfer before starting the next, so the one being filled is never being sent).
  * Bands that did not change are not sent: the SPI link is the slow part of a frame. */
-#define BLIT_ROWS 8                             /* (a taller band goes as several: half the RAM of 16, and a half
-                                                 * that did not change is not sent) */
+#define BLIT_ROWS 4                             /* (a taller band goes as several: a quarter of the RAM of 16, and a
+                                                 * quarter that did not change is not sent; 8 to 4 in v1.20 made room
+                                                 * for the audio's spare block) */
 #define BLIT_MAX (PLAT_W * BLIT_ROWS)
 static uint16_t blit_buf[2][BLIT_MAX] __attribute__((aligned(4)));
 static uint8_t blit_k;
-static uint32_t band_hash[PLAT_H / 8];
+static uint32_t band_hash[PLAT_H / BLIT_ROWS];
 static void blit_one(int x, int y, int w, int h, const uint16_t *px);
 void plat_blit(int x, int y, int w, int h, const uint16_t *px)
 {
@@ -119,10 +120,10 @@ static void blit_one(int x, int y, int w, int h, const uint16_t *px)
     n = (uint32_t)(w * h);
     for (i = 0; i < n; i++)
         hsh = (hsh ^ px[i]) * 16777619u;
-    if (x == 0 && w == PLAT_W && (y & 7) == 0) {
-        if (band_hash[y / 8] == hsh)
+    if (x == 0 && w == PLAT_W && (y % BLIT_ROWS) == 0) {
+        if (band_hash[y / BLIT_ROWS] == hsh)
             return;
-        band_hash[y / 8] = hsh;
+        band_hash[y / BLIT_ROWS] = hsh;
     }
     b = blit_buf[blit_k];
     blit_k ^= 1u;
