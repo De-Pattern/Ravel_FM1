@@ -47,3 +47,9 @@ CHANGELOG 1.21.0): core 1's audio work went from 58.5 % to 54.6 % of its time, c
 the sound the same, sample for sample. Drawing the screen once a second instead of 15-30 times changed the
 audio's share by nothing measurable: in the model, the screen's code passing through the shared cache is not
 what holds the audio up. Core 2 was idle about 60 % of the time.
+
+v1.22 moved the next flash loops in `render_sub` to RAM (the clock, CUTS, the buses' sum, the mix's blowup
+check): core 1's audio from 53.5 % to 50.6 %. Unrolling `mix_track` and `chain_plain` by two was tried and
+measured slower (more registers spilled), so they stay as they are. What is left on core 1 is mostly the
+step's serial part (the chains' second half, the mix, the master), which core 2 can only take if the step is
+split differently.

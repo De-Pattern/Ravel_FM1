@@ -6015,7 +6015,7 @@ static void pic_clock(void)
     g_text(8 + g_text_w(&FONT_B, b) + 4, PIC_Y + 10, &FONT_T, "BPM", C_DIM);
     for (i = 0; i <= 224; i += 2) {
         float p = (float)i / 224.0f * 2.0f;
-        float w = clock_wave(p, rv.gp[GP_CLKSHAPE] / 127.0f);
+        float w = RV_FAR(clock_wave)(p, rv.gp[GP_CLKSHAPE] / 127.0f);
         int y = PIC_Y + 70 - (int)(w * 26.0f);
         if (i)
             g_line(8 + i - 2, prev, 8 + i, y, C_TEAL);
@@ -6023,7 +6023,7 @@ static void pic_clock(void)
     }
     for (i = 0; i <= 224; i += 2) {
         float p = (float)i / 224.0f;
-        float w = clock_wave(p, rv.gp[GP_CLKBSHAPE] / 127.0f);
+        float w = RV_FAR(clock_wave)(p, rv.gp[GP_CLKBSHAPE] / 127.0f);
         int y = PIC_Y + 112 - (int)(w * 12.0f);
         if (i)
             g_line(8 + i - 2, prev, 8 + i, y, C_AMBER_D);

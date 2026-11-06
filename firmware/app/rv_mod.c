@@ -19,7 +19,7 @@ static float clk_pha, clk_phb, clk_wprev = -1.0f, clk_drift = 1.0f, clk_env;
 static uint8_t clk_gprev;
 static float clk_period = 0.134f;                   /* seconds per pulse (one step) */
 
-static float clock_wave(float ph, float s)
+RV_HOT static float clock_wave(float ph, float s)
 {
     float saw, tri, sine, w, t;
     ph -= fm_floorf(ph);
@@ -42,8 +42,9 @@ static float clock_wave(float ph, float s)
     return w;
 }
 
-/* advance n samples; pulse offsets (samples into the block) go to off[], returns the count */
-static int clock_tick(int n, int *off, int max)
+/* advance n samples; pulse offsets (samples into the block) go to off[], returns the count (v1.22: from RAM;
+ * from the flash it was a tenth of the render's own time) */
+RV_HOT static int clock_tick(int n, int *off, int max)
 {
     float fa0 = G(GP_TEMPO) / 60.0f * 4.0f * 0.5f;   /* two pulses per cycle of A: one per step */
     int mode = clampi((int)G(GP_CLKMODE), 0, 7), i, fired = 0;
@@ -364,7 +365,7 @@ RV_INL float key_units(int pid)
     }
 }
 
-RV_HOT static void eff_compute(void)
+RV_HOT2 static void eff_compute(void)   /* (in the pool since v1.22: RAMTEXT for the per-sample loops) */
 {
     int t, p, i, k;
     float src[MS_N];

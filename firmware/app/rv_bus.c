@@ -737,7 +737,7 @@ static void cut_now(int action, float step_s)
 }
 
 /* in place on the master: writes the ring, plays the cut over it */
-static void cuts_run(float *l, float *r, int n)
+RV_HOT static void cuts_run(float *l, float *r, int n)   /* (v1.22: from RAM) */
 {
     if (loop_mem & LM_CUT)
         return;

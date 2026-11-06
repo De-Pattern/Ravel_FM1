@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.22.0
+
+Faster
+- More of the render's per-sample work runs from RAM instead of the flash: the clock (its two waves), the delay's CUTS ring, the buses' sum into the main mix (one pass instead of four) and the blowup check on the mix. The master's DC block and gain keep their state in registers through the block. Measured with the FM-1's own instruction costs in an emulator (TANGLE on T1, DEMO 1 playing): the audio's share of core 1 down from 53.5 % to 50.6 %. The sound is the same, sample for sample.
+
+Changed
+- The modulation's once-a-step parameter work (`eff_compute`) moved from RAMTEXT to the pool, same speed, to make room for the above; the pool's required spare room for later code is now 2 KB (was 6 KB).
+
 ## 1.21.1
 
 (1.21.0 was tagged but not released: its new release check could not build the emulator on GitHub. 1.21.1 is the same firmware.)

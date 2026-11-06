@@ -42,7 +42,7 @@ RV_INL int buf_bad(const float *b, int n)
     return bad;
 }
 /* clear the bad samples; 1 if there were any */
-static int buf_fix(float *b, int n)
+RV_HOT static int buf_fix(float *b, int n)   /* (v1.22: from RAM) */
 {
     int i, bad = 0;
     for (i = 0; i < n; i++)
@@ -1234,6 +1234,28 @@ static uint32_t bed_idle;
 static int bo_n;
 static uint16_t bu_fault[BU_N];
 static uint32_t bo_cyc[4], bo_all;                        /* BED, FEEDBACK, DELAY, SPACE (cycles, on either core); the second core's in all */
+/* the buses into the mix: the BED (in bo_), the FEEDBACK, the DELAY, the SPACE, each sample summed in that
+ * order as before; the FEEDBACK kept in fb for the return next step (v1.22: one loop, from RAM) */
+RV_HOT static void bus_sum(float *outl, float *outr, float *fb, int n)
+{
+    int i, d = bd_ran, s = bs_ran;
+    for (i = 0; i < n; i++) {
+        float f = bo_fb[i], l = bo_l[i] + f, r = bo_r[i] + f;
+        if (d) {
+            l += bd_l[i];
+            r += bd_r[i];
+        }
+        if (s) {
+            l += bs_l[i];
+            r += bs_r[i];
+        }
+        bo_l[i] = l;
+        bo_r[i] = r;
+        fb[i] = f;
+        outl[i] += l;
+        outr[i] += r;
+    }
+}
 static volatile uint8_t par_vdone;                       /* the second core's synth voices are done */
 static uint8_t par_job;                                   /* it has this step's job */
 
@@ -1249,7 +1271,7 @@ static __attribute__((noinline)) uint32_t bus_jobs(uint32_t mask, uint32_t (*clk
             bo_l[i] = bo_r[i] = 0.0f;
         bu_fault[BU_SPACE] = 0;
         RV_FAR(bed_run)(rin, bo_l, bo_r, n, bo_act, bo_bed);   /* the BED, under the tracks (it ducks under them), and into the SPACE */
-        if (buf_fix(bo_l, n) | buf_fix(bo_r, n))
+        if (RV_FAR(buf_fix)(bo_l, n) | RV_FAR(buf_fix)(bo_r, n))
             bu_fault[BU_SPACE] = 950;
         c1 = clk();
         cyc[0] += c1 - c;
@@ -1553,23 +1575,24 @@ static void guard_tick(uint32_t cyc, uint32_t vcyc, int n)   /* vcyc: the voices
 RV_HOT static void master_tail(float *outl, float *outr, int n)
 {
     int i;
+    /* (the state in locals for the block: the same sums; the compiler need not reload each one a sample) */
+    float x1l = master_dc[0].x1, x1r = master_dc[1].x1, y1l = master_dc[0].y1, y1r = master_dc[1].y1;
+    float lg = lim_gain, ml = rv_live.master_l, mr = rv_live.master_r;
     for (i = 0; i < n; i++) {
-        float a;
-        float yl = outl[i] - master_dc[0].x1 + 0.9995f * master_dc[0].y1;   /* DC blocker, about 3.5 Hz */
-        float yr = outr[i] - master_dc[1].x1 + 0.9995f * master_dc[1].y1;
-        master_dc[0].x1 = outl[i];
-        master_dc[1].x1 = outr[i];
-        master_dc[0].y1 = fm_flush(yl);
-        master_dc[1].y1 = fm_flush(yr);
-        outl[i] = yl;
-        outr[i] = yr;
-        a = fm_maxf(fm_fabsf(outl[i]), fm_fabsf(outr[i])) * lim_gain;
+        float a, il = outl[i], ir = outr[i], l, r;
+        float yl = il - x1l + 0.9995f * y1l;           /* DC blocker, about 3.5 Hz */
+        float yr = ir - x1r + 0.9995f * y1r;
+        x1l = il;
+        x1r = ir;
+        y1l = fm_flush(yl);
+        y1r = fm_flush(yr);
+        a = fm_maxf(fm_fabsf(yl), fm_fabsf(yr)) * lg;
         if (a > 0.89f)
-            lim_gain *= 0.89f / a;
+            lg *= 0.89f / a;
         else
-            lim_gain += (1.0f - lim_gain) * 0.0003f;
-        outl[i] = clampf(outl[i] * lim_gain, -0.95f, 0.95f);
-        outr[i] = clampf(outr[i] * lim_gain, -0.95f, 0.95f);
+            lg += (1.0f - lg) * 0.0003f;
+        l = clampf(yl * lg, -0.95f, 0.95f);
+        r = clampf(yr * lg, -0.95f, 0.95f);
         if (click_armed && (int32_t)(now_s + (uint32_t)i - click_when) >= 0) {   /* the metronome: a short blip */
             click_armed = 0;
             click_env = click_amp;
@@ -1581,12 +1604,18 @@ RV_HOT static void master_tail(float *outl, float *outr, int n)
             click_ph += click_hz * RV_DT;
             click_ph -= fm_floorf(click_ph);
             click_env *= 0.9978f;
-            outl[i] = clampf(outl[i] + c, -0.98f, 0.98f);
-            outr[i] = clampf(outr[i] + c, -0.98f, 0.98f);
+            l = clampf(l + c, -0.98f, 0.98f);
+            r = clampf(r + c, -0.98f, 0.98f);
         }
-        rv_live.master_l = fm_maxf(fm_fabsf(outl[i]), rv_live.master_l * 0.9999f);
-        rv_live.master_r = fm_maxf(fm_fabsf(outr[i]), rv_live.master_r * 0.9999f);
+        outl[i] = l;
+        outr[i] = r;
+        ml = fm_maxf(fm_fabsf(l), ml * 0.9999f);
+        mr = fm_maxf(fm_fabsf(r), mr * 0.9999f);
     }
+    master_dc[0].x1 = x1l, master_dc[1].x1 = x1r, master_dc[0].y1 = y1l, master_dc[1].y1 = y1r;
+    lim_gain = lg;
+    rv_live.master_l = ml;
+    rv_live.master_r = mr;
 }
 
 
@@ -1881,7 +1910,7 @@ static void render_sub(float *outl, float *outr, int n)
     RV_FAR(eff_compute)();
     cmd_drain();                                    /* after the parameters: a note sees this step's values */
     midi_drain();
-    np = rv.gp[GP_MIDICLK] ? midi_clock_steps(n, offs, 8) : clock_tick(n, offs, 8);
+    np = rv.gp[GP_MIDICLK] ? midi_clock_steps(n, offs, 8) : RV_FAR(clock_tick)(n, offs, 8);
     arp_control();
     for (i = 0; i < np; i++) {
         seq_pulse(offs[i]);
@@ -2016,7 +2045,7 @@ static void render_sub(float *outl, float *outr, int n)
                 c2_trk |= (uint8_t)(1u << vl_track(e));
         for (t = 0; t < RV_TRACKS; t++)
             if ((c2_trk >> t) & 1u)
-                zero_buf(c2_buf[t], n);
+                RV_FAR(rv_fill0)(c2_buf[t], n);
         par_n = n;
         bo_n = n;
         bo_act = bx_act;
@@ -2084,7 +2113,7 @@ static void render_sub(float *outl, float *outr, int n)
                 par_job = 0;                         /* (and the buses) */
                 for (t = 0; t < RV_TRACKS; t++)      /* (its tracks' buffers, whatever it left in them: anew) */
                     if ((c2_chains >> t) & 1u)
-                        zero_buf(trk[t].buf, n);
+                        RV_FAR(rv_fill0)(trk[t].buf, n);
                 c2_chains = 0;
                 for (e = 0; e < vl_n; e++)
                     if (vl_c2[e]) {
@@ -2254,25 +2283,7 @@ static void render_sub(float *outl, float *outr, int n)
                 buses_reset();
             }
         }
-        for (i = 0; i < n; i++) {                    /* the BED, the FEEDBACK, the DELAY, the SPACE */
-            bo_l[i] += bo_fb[i];
-            bo_r[i] += bo_fb[i];
-        }
-        if (bd_ran)
-            for (i = 0; i < n; i++) {
-                bo_l[i] += bd_l[i];
-                bo_r[i] += bd_r[i];
-            }
-        if (bs_ran)
-            for (i = 0; i < n; i++) {
-                bo_l[i] += bs_l[i];
-                bo_r[i] += bs_r[i];
-            }
-        for (i = 0; i < n; i++) {
-            fb_out[i] = bo_fb[i];                    /* (the feedback return next step) */
-            outl[i] += bo_l[i];
-            outr[i] += bo_r[i];
-        }
+        RV_FAR(bus_sum)(outl, outr, fb_out, n);
         if (loop_t >= 0) {                           /* the LOOP track records: the main mix with the effects still
                                                       * running (SPACE or DELAY, kept), or one track */
             if (lp_src == 0)
@@ -2295,7 +2306,7 @@ static void render_sub(float *outl, float *outr, int n)
                 outr[i] += (sat(outr[i] * pre) * master_drive_comp - outr[i]) * w;
             }
         }
-        cuts_run(outl, outr, n);
+        RV_FAR(cuts_run)(outl, outr, n);
         if (punch[4] || punch[5]) {
             static float sweep = 1.0f;
             sweep += ((punch[4] ? 0.15f : 0.05f) - sweep) * (1.0f - fm_expf(-0.0202f * (float)n * (1.0f / 32.0f)));
@@ -2316,7 +2327,7 @@ static void render_sub(float *outl, float *outr, int n)
         }
         /* the safety stage: no DC, a peak limiter at -1 dB (instant attack, about 80 ms
          * release), and nothing non-finite past it */
-        if (buf_fix(outl, n) | buf_fix(outr, n)) {
+        if (RV_FAR(buf_fix)(outl, n) | RV_FAR(buf_fix)(outr, n)) {
             fault(1100);
             buses_reset();
         }
