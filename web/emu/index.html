@@ -5,7 +5,7 @@
 <link rel="apple-touch-icon" href="__RAVEL_TOUCH__">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Share+Tech+Mono&display=swap">
 <style>
 /* A dark medical monitor in a black, finely speckled matte-plastic case (docs/design/emulator-redesign): phosphor
    green for anything live, sunken pale readouts for values, pale deep teal for held keys, maroon only for
@@ -16,6 +16,9 @@
   --ink: #e2e5dd; --muted: #8a8f88; --dim: #565b57;
   --metal: #262a2e; --etch: #a7b0b7;
   --read: #c8ceb6; --read-hi: #d9dec8; --read-ink: #1a1e18; --read-dim: #6f765f;
+  --vfd: #ff5a46; --vfd-dim: rgba(255, 92, 70, .42); --vfd-face: "Share Tech Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --vfd-glow: 0 0 1px rgba(255, 120, 96, .95), 0 0 5px rgba(255, 52, 36, .7), 0 0 13px rgba(255, 36, 24, .38);
+  --vfd-ghost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 20'%3E%3Cg fill='none' stroke='%23ff4a3a' stroke-opacity='0.045' stroke-width='1.25' stroke-linecap='round'%3E%3Cpath d='M2.6 1.4H9.4M2.6 18.6H9.4M2.6 10H5.4M6.6 10H9.4M1.6 2.4V8.9M1.6 11.1V17.6M10.4 2.4V8.9M10.4 11.1V17.6M6 2.6V8.6M6 11.4V17.4M2.9 2.8L5 8.4M9.1 2.8L7 8.4M2.9 17.2L5 11.6M9.1 17.2L7 11.6'/%3E%3C/g%3E%3C/svg%3E");
   --ph: #6dffa6; --ph-mid: #3fbf78; --ph-dim: #1d5c3a; --ph-grid: #10261a; --crt: #050806;
   --mar: #6b1218; --mar-hi: #a3161c; --mar-lo: #3e0b0f;
   --cream: #e9e2cc; --teal: #4f8682; --teal-glow: #6fe3d4;
@@ -61,18 +64,23 @@ select { font: 600 13px var(--display); color: var(--ink); background: #0f1110; 
   background-repeat: no-repeat; background-position: right 10px center; }
 select option, select optgroup { color: var(--ink); background: var(--panel); }
 /* the sunken pale readout: a label, a value, maybe a unit on the right */
-.ro { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; border-radius: 4px; padding: 5px 8px 7px; color: var(--read-ink);
-  background: linear-gradient(180deg, var(--read-hi), var(--read)); border: 1px solid rgba(10,11,10,.9);
-  box-shadow: inset 0 2px 3px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.25), 0 1px 0 rgba(255,255,255,.10); }
-.ro > label, .ro > .rl { position: absolute; left: 8px; top: 5px; font: 700 9px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--read-dim); }
-.ro > .rv { font: 600 16px var(--mono); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2px; }
-.ro > .ru { position: absolute; right: 8px; bottom: 8px; font: 500 10px var(--mono); color: var(--read-dim); }
+.ro { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; border-radius: 4px; padding: 5px 8px 7px; color: var(--vfd);
+  background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0,0,0,.22) 2px 3px), radial-gradient(120% 140% at 50% 40%, rgba(255,40,24,.07), transparent 70%), linear-gradient(180deg, #0d0909, #060404);
+  border: 1px solid #000; box-shadow: inset 0 2px 5px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,80,60,.05), 0 1px 0 rgba(207,224,255,.08); }
+.ro::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.045), transparent 38%); }
+.ro > label, .ro > .rl { position: absolute; left: 8px; top: 5px; font: 700 9px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--vfd-dim); }
+.ro > .rv, .ro > select, .statusro #status { --ls: .08em; font-family: var(--vfd-face); font-weight: 400; letter-spacing: var(--ls); color: var(--vfd); text-shadow: var(--vfd-glow); }
+.ro > .rv { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: clip; padding-right: 2px; line-height: 1.25; text-transform: uppercase;
+  background: var(--vfd-ghost) 0 50% / calc(1ch + var(--ls)) .76em repeat-x; }
+.ro > .ru { position: absolute; right: 8px; bottom: 8px; font: 400 11px var(--vfd-face); letter-spacing: .08em; color: var(--vfd-dim); }
 .ro.lab { min-height: 48px; padding-top: 20px; }
 .ro.flat { justify-content: center; min-height: 30px; padding: 4px 8px; }
-.ro.flat > .rv { font-size: 11px; letter-spacing: .06em; font-weight: 500; }
-.ro > select { height: 22px; border: 0; padding: 0 22px 0 0; background-color: transparent; background-position: right 2px center; color: var(--read-ink); font: 600 14px var(--mono); letter-spacing: .02em; text-transform: uppercase;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%236f765f' stroke-width='1.6'/%3E%3C/svg%3E"); }
-.ro > select:disabled { cursor: default; background-image: none; }
+.ro.flat > .rv { font-size: 13px; }
+.ro > select { height: 24px; border: 0; padding: 0 22px 0 0; font-size: 16px; text-transform: uppercase; background-color: transparent;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ff5a46' stroke-opacity='.6' stroke-width='1.6'/%3E%3C/svg%3E") right 2px center no-repeat,
+    var(--vfd-ghost) 0 50% / calc(1ch + var(--ls)) .76em repeat-x; }
+.ro > select option, .ro > select optgroup { text-shadow: none; font-family: var(--display); letter-spacing: 0; text-transform: none; }
+.ro > select:disabled { cursor: default; background: var(--vfd-ghost) 0 50% / calc(1ch + var(--ls)) .76em repeat-x; }
 .note { font: 400 10px/1.4 var(--mono); color: var(--muted); margin: 0; }
 .hint { font: 400 10px var(--mono); color: var(--dim); }
 
@@ -106,7 +114,7 @@ select option, select optgroup { color: var(--ink); background: var(--panel); }
 .ident #ver { font-size: 12px; letter-spacing: .2em; }
 .ident #fwver { font: 400 11px var(--mono); color: #7b848b; }
 .statusro { flex: 0 1 380px; min-width: 0; height: 44px; margin-left: auto; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; }
-.statusro #status { font: 500 11px/1.35 var(--mono); letter-spacing: .04em; text-transform: uppercase; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.statusro #status { font-size: 13px; line-height: 1.3; text-transform: uppercase; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .statusro #sdot { width: 9px; height: 9px; }
 .statusro #sdot.on { background: radial-gradient(circle, #fff 0, var(--ph) 35%, var(--ph)); box-shadow: 0 0 8px rgba(109,255,166,.85); }
 .hnav { display: flex; gap: 8px; align-items: center; flex: none; margin-left: 12px; }
@@ -125,7 +133,7 @@ select option, select optgroup { color: var(--ink); background: var(--panel); }
 
 /* session, track, sound, connections, output */
 .ro.proj { min-height: 62px; padding-top: 22px; }
-.ro.proj #proj { font-size: 24px; letter-spacing: .02em; text-transform: uppercase; }
+.ro.proj #proj { font-size: 28px; }
 .ro.proj .ru { bottom: 10px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
 .r-load { grid-template-columns: minmax(0, 1fr) 88px; }
 .ro.pos { min-height: 56px; }
@@ -207,7 +215,7 @@ input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 
 #octro { justify-self: stretch; }
 .legend { font: 600 9px var(--display); letter-spacing: .1em; color: var(--etch); text-shadow: 0 -1px 0 rgba(0,0,0,.8); margin-top: 4px; }
 .ro.now { min-height: 56px; max-width: 342px; }
-.ro.now .rv { font-size: 13px; letter-spacing: .03em; text-transform: uppercase; }
+.ro.now .rv { font-size: 16px; }
 .righthand { display: grid; gap: 10px; min-width: 0; align-content: start; }
 /* the screen: a thin maroon-red bezel whose glow breathes; now and then a glare passes over the glass */
 .bezel { position: relative; width: 100%; aspect-ratio: 1; border-radius: 10px; padding: 4px; justify-self: center;
