@@ -233,7 +233,7 @@ The current track is highlighted.
 | --- | --- |
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
-| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP), GLITCH (the GLITCH LOOPER) or WEFT (a voice you patch). **Changing it resets the track to that kind's defaults.** |
+| 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP), GLITCH (the GLITCH LOOPER) or WEFT (a voice you patch). **Changing it resets the track to that kind's defaults.** If you have changed the track's sound by hand since it was loaded or made, the first turn only asks (TURN AGAIN: NEW SOUND) and a second turn switches; a fresh sound, or one just loaded from PRESETS, a bank or a project, switches at once. Save a sound you want to keep (SAVE › SOUNDS, or WEFT LIBRARY) before you change KIND. |
 | 4 **ENGINE** | For synth tracks: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.

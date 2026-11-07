@@ -1,0 +1,59 @@
+# KIND asks first only when the track's sound was changed by hand (v1.23.1): a fresh or loaded sound switches at
+# once; after a knob edit the first turn of KIND asks (TURN AGAIN: NEW SOUND) and a second turn switches
+wait 300
+tap EDIT
+wait 100
+expect page SOUND
+expect tp 1 KIND 0
+# a fresh sound: at once, and back
+turn K1 1
+wait 400
+expect tp 1 KIND 1
+turn K1 -1
+wait 400
+expect tp 1 KIND 0
+# changed by hand (VELO): the first turn only asks
+turn K4 5
+wait 100
+turn K1 1
+wait 100
+expect tp 1 KIND 0
+shot kind_guard.png
+wait 400
+turn K1 1
+wait 400
+expect tp 1 KIND 1
+# the new sound is fresh again: at once
+turn K1 -1
+wait 400
+expect tp 1 KIND 0
+# a preset loaded: nothing of yours to lose, at once
+turn K4 5
+wait 100
+turn PRESET 1
+wait 300
+turn K1 1
+wait 400
+expect tp 1 KIND 1
+turn K1 -1
+wait 3000
+# a WEFT patch changed by hand (a block's type on WEFT PATCH) asks too
+kind 1 6
+wait 100
+turn SELECT 2
+wait 100
+expect page WEFT PATCH
+turn K1 5
+wait 100
+turn K2 1
+wait 100
+turn SELECT -20
+wait 100
+expect page SOUND
+turn K1 -1
+wait 100
+expect tp 1 KIND 6
+wait 400
+turn K1 -1
+wait 400
+expect tp 1 KIND 5

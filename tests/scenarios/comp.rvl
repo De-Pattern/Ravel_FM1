@@ -32,6 +32,10 @@ wait 100
 expect page COMP 2
 turn K3 -1
 wait 300
+# (the threshold was turned: the sound was changed by hand, so KIND asks first, v1.23.1)
+expect tp 8 KIND 4
+turn K3 -1
+wait 300
 expect tp 8 KIND 3
 expect comp_gr_max 0
 # and back from SOUND, EDIT's first page, as on any track

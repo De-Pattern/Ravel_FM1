@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.23.1
+
+Changed
+- KIND asks before it replaces a sound you have changed by hand: the first turn shows TURN AGAIN: NEW SOUND (or SOUND+STEPS when it would clear steps too) and a second turn within a couple of seconds switches. A fresh sound, or one just loaded (PRESETS, a bank, WEFT LIBRARY, a project, a demo), still switches at once, so turning through the kinds stays quick.
+
 ## 1.23.0
 
 New

@@ -254,6 +254,8 @@ static struct {
     uint8_t wl_sel, wl_cursor;      /* WEFT LIBRARY: the entry chosen, the name's cursor */
     char wf_name[RV_TRACKS][12];    /* WEFT: the name of the patch each track has (its own: "") */
     int8_t wf_pre[RV_TRACKS];       /* WEFT: the factory patch each track has (-1: its own) */
+    uint8_t snd_edit;               /* bit t: track t's sound changed by hand since it was loaded or made (a KIND
+                                     * change asks first then; v1.23.1) */
     uint8_t lp_lane, lp_type;       /* LOOP TRIGS: the lane the keys write, and the trig (0 PLAY, 1 REC) */
     int8_t srec_seen;               /* the cursor last shown (the keys' page follows it) */
     uint8_t save_confirm;
@@ -332,7 +334,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR, CONF_WUNP };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR, CONF_WUNP, CONF_KSND };   /* (CONF_SCENE + the scene) */
 /* every cord into block b and out of it: its A and B, and the inputs that read it (as SW 1-4 or LIS Y too,
  * when it is the first SW 1>4 or LISSA, the one those read); the count taken off */
 static int wf_unpatch(rv_weft *w, int b)
@@ -1300,12 +1302,18 @@ static void kb_set(kb_t k, int v)
         v = in.min;
     if (v > in.max)
         v = in.max;
+    if (((k.kind == K_TP && k.id != TP_KIND) || k.kind == K_CZ || (k.kind == K_LANE && lane_field(k.id) > LF_SEL && lane_field(k.id) < LF_NONE) ||
+         (k.kind == K_WF && k.id != 0 && k.id != 8 && k.id < 16)) && v != kb_get(k))
+        ui.snd_edit |= (uint8_t)(1u << ui.track);    /* (the track's sound, changed by hand) */
     switch (k.kind) {
     case K_TP:
         if (k.id == TP_KIND && v != rv.tp[ui.track][TP_KIND]) {
-            if ((is_kit_ui(ui.track) != (v == KIND_PERC) || loop_track_ui(ui.track) != (v == KIND_LOOP)) && track_has_steps(ui.track) &&
-                !confirmed(CONF_KIND, "TURN AGAIN: CLEARS STEPS"))
+            int steps = (is_kit_ui(ui.track) != (v == KIND_PERC) || loop_track_ui(ui.track) != (v == KIND_LOOP)) && track_has_steps(ui.track);
+            int snd = (ui.snd_edit >> ui.track) & 1u;  /* (a sound changed by hand: KIND makes a new one; v1.23.1) */
+            if ((steps || snd) && !confirmed(snd ? CONF_KSND : CONF_KIND, steps && snd ? "TURN AGAIN: SOUND+STEPS"
+                                                            : snd ? "TURN AGAIN: NEW SOUND" : "TURN AGAIN: CLEARS STEPS"))
                 return;
+            ui.snd_edit &= (uint8_t)~(1u << ui.track);
             rv_track_set_kind(ui.track, v);
             if (v == KIND_WEFT) {
                 ui.wf_pre[ui.track] = 0;             /* (it starts from the first patch) */
@@ -2111,11 +2119,13 @@ static __attribute__((noinline)) void wl_do(int act)
         if (slot < 0) {
             weft_preset_apply(t, e);
             ui.wf_pre[t] = (int8_t)e;
+            ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
             wl_name_set(t, rv_weft_preset_name(e));
         } else {
             if (rv_bank_apply(t, slot))
                 return;
             ui.wf_pre[t] = -1;
+            ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
             wl_name_set(t, rv_bank_name(slot));
         }
         b[0] = 0;
@@ -2166,6 +2176,7 @@ static __attribute__((noinline)) void wl_do(int act)
         ui.wf_pre[t] = 0;
         wl_name_set(t, rv_weft_preset_name(0));
         msg("INIT: A SAW, A LOW PASS, AN ENVELOPE");
+        ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
     } else {                                          /* CLEAR: no blocks at all */
         if (!confirmed(CONF_WCLR, "AGAIN: CLEAR EVERY BLOCK"))
             return;
@@ -2197,6 +2208,7 @@ static void bank_do(void)
         }
         rv_bank_apply(t, i);
         ui.preset_idx[t] = -1;
+        ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
         msg(rv_bank_name(i)[0] ? rv_bank_name(i) : "LOADED");
         break;
     case 1:
@@ -2315,6 +2327,7 @@ static void preset_turn(int d)
             msg(rv_preset_name(cur));
         }
         ui.preset_idx[t] = (int16_t)cur;
+        ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
         break;
     }
     case PR_WLIB: {                                   /* WEFT LIBRARY: PRESETS walks the list */
@@ -2329,6 +2342,7 @@ static void preset_turn(int d)
         c = ((c + d) % n + n) % n;
         weft_preset_apply(t, c);
         ui.wf_pre[t] = (int8_t)c;
+        ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
         wl_name_set(t, rv_weft_preset_name(c));
         msg(rv_weft_preset_name(c));
         break;
@@ -2412,6 +2426,7 @@ static void save_do(void)
     case 1:
         rv_transport(0);
         if (rv_load(PLAT_PROJ(ui.cur_slot)) == 0) {
+            ui.snd_edit = 0;
             sx_cat(b, "LOADED ");
             sx_int(b + 7, ui.cur_slot + 1);
             msg(b);
@@ -2423,6 +2438,7 @@ static void save_do(void)
     case 4:
         rv_transport(0);
         rv_demo(ui.save_action == 4 ? 3 : ui.save_action - 2);
+        ui.snd_edit = 0;
         msg(ui.save_action == 2 ? "DEMO: RAVEL" : ui.save_action == 3 ? "DEMO: DUST" : "DEMO: GRAPH");
         break;
     case 6:                                           /* CLEAR: the slot emptied (the project you have is kept) */
@@ -2437,6 +2453,7 @@ static void save_do(void)
         rv_transport(0);
         rv_demo(2);
         msg("NEW PROJECT");
+        ui.snd_edit = 0;
         break;
     }
     slots_refresh();
@@ -2828,6 +2845,7 @@ static void key_event(int k, int on)
                     sx_int(m + sx_cat(m, ": "), n);
                     sx_cat(m, n == 1 ? " CORD OFF" : " CORDS OFF");
                     ui.wf_pre[t] = -1;
+                    ui.snd_edit |= (uint8_t)(1u << t);
                 }
                 msg(m);
             }
@@ -2844,6 +2862,7 @@ static void key_event(int k, int on)
             else {
                 char m[40];
                 w->bmove ^= (uint16_t)(1u << b);
+                ui.snd_edit |= (uint8_t)(1u << t);
                 m[0] = 0;
                 sx_cat(m, "B MOVES ");
                 sx_cat(m, (w->bmove >> b) & 1u ? wf_types[w->type[b] % WO_N].p2 : wf_types[w->type[b] % WO_N].b);
