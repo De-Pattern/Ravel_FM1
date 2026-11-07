@@ -1479,13 +1479,13 @@ Turning ALGORITHM while armed moves recording to the new track.
 - Notes from a MIDI keyboard step-record too.
 - Press **PLAY** to hear it: recording carries on live as usual. Stop, and step recording picks up after the last note. Tap **REC** to finish.
 
-Step recording is for synth and strike tracks; a kit's keys stay its steps (tap them in).
+Step recording is for the tracks whose keys play notes: SYNTH, STRIKE, WEFT, and a PERC track with one machine; a kit's keys stay its steps (tap them in).
 
 **TAKE: keep what you just played.** While the transport runs and you're not recording, Ravel quietly listens to what you play on the track you're on (the keys or a MIDI keyboard), as recording would write it. If you played something you like, hold **REC** and tap **SAVE**: the last loop's worth of it (the track's LENGTH, back from now) goes into the pattern, chords, timing and lengths as played, over what's there; the screen says how many steps it kept. It works after you stop, too. Changing track starts it afresh.
 
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
-**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a synth or strike track they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a track whose keys play notes (SYNTH, STRIKE, WEFT, or a PERC track with one machine) they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
 
 ## 17. Recipes, step by step
 

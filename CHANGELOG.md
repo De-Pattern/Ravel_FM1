@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.22.2
+
+Fixed
+- With REC armed on a SEQ page, the keys of a WEFT track, and of a PERC track with one machine, played and recorded notes the way a synth track's do; they used to stay steps, so a key turned a step on or launched a pattern instead. Stopped and armed, step recording now takes their notes too. A kit's keys stay its steps, as before.
+
 ## 1.22.1
 
 Faster

@@ -2464,12 +2464,19 @@ static void lane_msg(int t)
 
 
 /* a key went down (on) or up */
-/* on a SEQ page the keys are the steps, except while recording on a synth or strike track:
+/* a track whose keys play notes: SYNTH, STRIKE, WEFT, a PERC with one machine (a kit's keys are its lanes;
+ * COMP and LOOP play none). (v1.22.2: WEFT and one PERC machine were left out, and their keys stayed steps
+ * while recording) */
+static int note_track_ui(int t)
+{
+    int kind = rv.tp[t][TP_KIND];
+    return kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_WEFT || (kind == KIND_PERC && !is_kit_ui(t));
+}
+/* on a SEQ page the keys are the steps, except while recording on a note track:
  * then they play (and record) notes, and holding SEQ makes them steps again */
 static int seq_keys_play(int t)
 {
-    int kind = rv.tp[t][TP_KIND];
-    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (kind == KIND_SYNTH || kind == KIND_STRIKE);
+    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && note_track_ui(t);
 }
 
 /* MUTE / SOLO: a track's mute or solo, turned over, and said */
@@ -3189,8 +3196,8 @@ void ui_input_only(void)
     }
     midi_cc_ui();
     {                                                 /* step recording: stopped and armed on a SEQ page */
-        int t = ui.track, kind = rv.tp[t][TP_KIND];
-        int want = ui.sec == SEC_SEQ && ui.armed && !rv_live.playing && (kind == KIND_SYNTH || kind == KIND_STRIKE) ? t : -1;
+        int t = ui.track;
+        int want = ui.sec == SEC_SEQ && ui.armed && !rv_live.playing && note_track_ui(t) ? t : -1;
         if (want != ui.srec_t) {
             if (want >= 0) {
                 rv_step_rec(SREC_ON, want, 0);

@@ -1,0 +1,61 @@
+# (black key 1: as a step key it would launch pattern A, so a step recorded is a note played)
+# Recording on a WEFT track and on a PERC track with one machine, as on a synth track (v1.22.2): with REC
+# armed on SEQ the keys play and record notes, not steps; stopped and armed, step recording takes them.
+wait 300
+kind 1 6
+wait 100
+expect tp 1 KIND 6
+tap SEQ
+wait 150
+expect steps 1 0
+tap PLAY
+tap REC
+wait 200
+key 1 down
+wait 120
+key 1 up
+wait 300
+key 1 down
+wait 120
+key 1 up
+wait 300
+expect steps 1 2
+tap REC
+tap PLAY
+wait 200
+# stopped and armed, on an empty WEFT track: step recording
+kind 3 6
+turn ALGO 2
+wait 100
+tap REC
+wait 100
+expect sreccur 1
+key 0 down
+wait 50
+key 0 up
+wait 50
+expect sreccur 2
+expect stepnote 3 1 53
+tap REC
+wait 100
+turn ALGO -2
+wait 100
+# a PERC track with one machine (not a kit)
+kind 2 3
+settp 2 MODE 0
+wait 100
+turn ALGO 1
+wait 100
+tap SEQ
+wait 150
+expect steps 2 0
+tap PLAY
+tap REC
+wait 200
+key 1 down
+wait 120
+key 1 up
+wait 300
+expect steps 2 1
+tap REC
+tap PLAY
