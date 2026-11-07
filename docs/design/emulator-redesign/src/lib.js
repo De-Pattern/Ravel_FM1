@@ -238,13 +238,16 @@ const rnd = () => { SEED = (SEED * 16807) % 2147483647; return SEED / 2147483647
 
 // ── CRT unit: thin pale-wine bezel with a short soft glow, glass, real screen, scanlines, glare ──
 // glow: 0 (rest) … 1 (pulse peak). glare: null (none) or 0 … 1 (position of the sweep, top-left → bottom-right).
-const WINE = { rim: '#b06a76', hi: '#8e4552', lo: '#5c2531', glow: '#b2495d' };
+// deep maroon-red bezel with a subtle iridescent drift: oxblood → crimson → faint violet-wine → copper-red glint → oxblood
+const WINE = { rim: '#c23a3f', glow: '#b3202c' };
+const DIAG = { m00: 0.5, m01: 0.5, m02: 0, m10: -0.5, m11: 0.5, m12: 0.5 };   // top-left → bottom-right
+const BEZEL = { type: 'GRADIENT_LINEAR', gradientTransform: DIAG, gradientStops: stops([[0, '#4c0a12'], [0.22, '#8a1622'], [0.45, '#6b1430'], [0.62, '#5a0f1f'], [0.8, '#9b2a1c'], [1, '#430910']]) };
 function crt(parent, x, y, s, o = {}) {
-  const g = o.glow ?? 0.3, B = o.border ?? 7;
+  const g = o.glow ?? 0.3, B = o.border ?? 4;
   const bez = frame(parent, x, y, s, s, {
-    fill: lin([[0, WINE.hi], [1, WINE.lo]]), r: 12, stroke: WINE.rim, sa: 0.55,
-    fx: [inner('#ffffff', 0.22, 0, 1, 0), inner('#000000', 0.35, 0, -1, 1), drop(WINE.glow, 0.28 + 0.32 * g, 0, 0, 7 + 6 * g), drop('#000000', 0.6, 0, 4, 10)],
-    name: o.name || 'CRT bezel · pale wine',
+    fill: [BEZEL, lin([[0, '#ffffff', 0.10], [0.25, '#ffffff', 0], [1, '#000000', 0.18]])], r: 10, stroke: WINE.rim, sa: 0.45,
+    fx: [inner('#ffffff', 0.22, 0, 1, 0), inner('#000000', 0.35, 0, -1, 1), drop(WINE.glow, 0.30 + 0.30 * g, 0, 0, 6 + 5 * g), drop('#000000', 0.6, 0, 4, 10)],
+    name: o.name || 'CRT bezel · maroon',
   });
   const gs = s - B * 2;
   const glass = frame(bez, B, B, gs, gs, { fill: solid('#020302'), r: 7, stroke: '#000000', fx: [inner('#000000', 1, 0, 0, 12)], clip: true, name: 'CRT glass' });

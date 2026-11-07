@@ -6,7 +6,7 @@
 /* One device, one screen: the thin wine bezel breathes; a glare passes now and then. Single dark look on purpose. */
 :root {
   --room: #0a0b0c; --plastic: #18191b; --ink: #d9dde0; --etch: #a7b0b7; --muted: #7b848b;
-  --wine-hi: #8e4552; --wine-lo: #5c2531; --wine-rim: rgba(176,106,118,.55); --wine-glow: 178,73,93;
+  --wine-rim: rgba(194,58,63,.45); --wine-glow: 179,32,44;
   --read: #c8ceb6; --read-ink: #1a1e18;
   --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -26,14 +26,14 @@ p.lede { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; ma
   background: linear-gradient(180deg, rgba(217,235,255,.10), rgba(217,235,255,.03) 12%, rgba(217,235,255,.06) 30%, transparent 55%, rgba(0,0,0,.3)); }
 .label { font: 700 11px var(--display); letter-spacing: .3em; color: var(--etch); text-shadow: 0 -1px 0 rgba(0,0,0,.8); justify-self: stretch; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,.7); padding-bottom: 10px; box-shadow: 0 1px 0 rgba(207,224,255,.08); }
 
-.bezel { position: relative; width: min(340px, 100%); aspect-ratio: 1; border-radius: 12px; padding: 7px; box-sizing: border-box;
-  background: linear-gradient(180deg, var(--wine-hi), var(--wine-lo));
+.bezel { position: relative; width: min(340px, 100%); aspect-ratio: 1; border-radius: 10px; padding: 4px; box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 25%, rgba(0,0,0,.18)), linear-gradient(135deg, #4c0a12 0%, #8a1622 22%, #6b1430 45%, #5a0f1f 62%, #9b2a1c 80%, #430910 100%);
   border: 1px solid var(--wine-rim);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 7px rgba(var(--wine-glow), .28), 0 4px 10px rgba(0,0,0,.6);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 6px rgba(var(--wine-glow), .30), 0 4px 10px rgba(0,0,0,.6);
   animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse {
-  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 7px rgba(var(--wine-glow), .28), 0 4px 10px rgba(0,0,0,.6); }
-  50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 13px rgba(var(--wine-glow), .60), 0 4px 10px rgba(0,0,0,.6); }
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 6px rgba(var(--wine-glow), .30), 0 4px 10px rgba(0,0,0,.6); }
+  50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 11px rgba(var(--wine-glow), .60), 0 4px 10px rgba(0,0,0,.6); }
 }
 .glass { position: relative; width: 100%; height: 100%; border-radius: 7px; overflow: hidden; background: #020302; border: 1px solid #000;
   box-shadow: inset 0 0 12px #000; }
@@ -69,7 +69,7 @@ button:focus-visible { outline: 2px solid rgb(var(--wine-glow)); outline-offset:
 
 <div class="wrap">
   <h1>Ravel · screen motion</h1>
-  <p class="lede">The FM-1 screen in its thin pale-wine bezel on the speckled plastic case. The bezel glow breathes on a 2.4 s loop, and every 7 to 12 seconds a soft glare passes over the glass.</p>
+  <p class="lede">The FM-1 screen in its thin maroon-red bezel on the speckled plastic case. The bezel glow breathes on a 2.4 s loop, and every 7 to 12 seconds a soft glare passes over the glass.</p>
 
   <div class="case" id="case">
     <div class="label"><span>FM-1 · RAVEL</span><span>SYNTHESIZE · CATCH · REBUILD</span></div>
@@ -90,7 +90,7 @@ button:focus-visible { outline: 2px solid rgb(var(--wine-glow)); outline-offset:
   </div>
 
   <div class="spec">
-    <div><b>GLOW PULSE</b>2.4 s loop, ease-in-out. Glow opacity 0.28 → 0.60, blur 7 → 13 px, wine #B2495D.</div>
+    <div><b>GLOW PULSE</b>2.4 s loop, ease-in-out. Glow opacity 0.30 → 0.60, blur 6 → 11 px, red #B3202C.</div>
     <div><b>GLARE SWEEP</b>Every 7–12 s, random. 1.1 s pass, top-left to bottom-right, band peak opacity 0.16.</div>
   </div>
 </div>
