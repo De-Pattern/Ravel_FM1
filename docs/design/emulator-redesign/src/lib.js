@@ -23,7 +23,7 @@ const C = {
   read: '#c8ceb6', readHi: '#d9dec8', readInk: '#1a1e18', readDim: '#6f765f',
   ph: '#6dffa6', phMid: '#3fbf78', phDim: '#1d5c3a', phGrid: '#10261a', crt: '#050806',
   mar: '#6b1218', marHi: '#a3161c', marLo: '#3e0b0f',
-  cream: '#e9e2cc', teal: '#2f8f86',
+  cream: '#e9e2cc', teal: '#4f8682', tealGlow: '#6fe3d4',
   key: '#2f3439', keyHi: '#3e444a', keyBk: '#1b1f23',
 };
 

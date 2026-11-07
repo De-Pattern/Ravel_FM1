@@ -53,14 +53,14 @@
   readout(mp, 290, 110, 200, 52, 'Now', 'K1 LEVEL 84', { vsize: 13 });
   const kb = frame(mp, 530, 30, 470, 170, { fill: [solid('#141615'), imgFill('plastic-dark', 'FILL', 0.6)], r: 12, stroke: '#000000', fx: [inner('#000000', 0.9, 0, 3, 10)], clip: true, name: 'keys' });
   [['C4', false], ['D4', true], ['E4', false]].forEach(([k, on], i) => {
-    const key = frame(kb, 20 + i * 70, 86, 58, 72, { fill: lin([[0, on ? '#5a5547' : C.keyHi], [1, on ? '#3d392f' : C.key]]), r: 8, stroke: '#000000', sa: 0.8, fx: [inner('#ffffff', 0.14, 0, 1, 0), drop('#000000', 0.6, 0, 3, 4)].concat(on ? [glow(C.cream, 0.35, 12)] : []), name: `white ${on ? 'held' : 'idle'}` });
-    rect(key, 28, 10, 2, 30, solid('#000000', 0.35), { r: 1, name: 'groove' }); ctext(key, k, 29, 52, { font: F.m5, size: 9, color: on ? C.cream : C.muted });
+    const key = frame(kb, 20 + i * 70, 86, 58, 72, { fill: lin([[0, on ? '#4f8682' : C.keyHi], [1, on ? '#2c5755' : C.key]]), r: 8, stroke: '#000000', sa: 0.8, fx: [inner('#ffffff', 0.14, 0, 1, 0), drop('#000000', 0.6, 0, 3, 4)].concat(on ? [glow('#6fe3d4', 0.55, 14)] : []), name: `white ${on ? 'held' : 'idle'}` });
+    rect(key, 28, 10, 2, 30, solid('#000000', 0.35), { r: 1, name: 'groove' }); ctext(key, k, 29, 52, { font: F.m5, size: 9, color: on ? '#d4f4ef' : C.muted });
   });
   [['C#4', false], ['D#4', true]].forEach(([k, on], i) => {
-    const key = frame(kb, 55 + i * 70, 12, 58, 66, { fill: lin([[0, on ? '#4a4538' : '#272c31'], [1, on ? '#2f2b22' : C.keyBk]]), r: 8, stroke: '#000000', fx: [inner('#ffffff', 0.10, 0, 1, 0), drop('#000000', 0.7, 0, 3, 4)].concat(on ? [glow(C.cream, 0.35, 12)] : []), name: `black ${on ? 'held' : 'idle'}` });
-    rect(key, 28, 10, 2, 26, solid('#000000', 0.45), { r: 1, name: 'groove' }); ctext(key, k, 29, 46, { font: F.m5, size: 9, color: on ? C.cream : C.muted });
+    const key = frame(kb, 55 + i * 70, 12, 58, 66, { fill: lin([[0, on ? '#457a76' : '#272c31'], [1, on ? '#244a48' : C.keyBk]]), r: 8, stroke: '#000000', fx: [inner('#ffffff', 0.10, 0, 1, 0), drop('#000000', 0.7, 0, 3, 4)].concat(on ? [glow('#6fe3d4', 0.55, 14)] : []), name: `black ${on ? 'held' : 'idle'}` });
+    rect(key, 28, 10, 2, 26, solid('#000000', 0.45), { r: 1, name: 'groove' }); ctext(key, k, 29, 46, { font: F.m5, size: 9, color: on ? '#d4f4ef' : C.muted });
   });
-  text(kb, 'held keys glow cream —\nthe screen’s own highlight', 260, 70, { font: F.m4, size: 10, lh: 15, color: C.muted });
+  text(kb, 'held keys glow pale teal', 260, 70, { font: F.m4, size: 10, lh: 15, color: C.muted });
 
   // live visuals
   head('LIVE VISUALS', 990);

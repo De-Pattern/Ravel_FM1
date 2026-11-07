@@ -141,16 +141,16 @@ const DX = X0 + RW + 16, DW = CW - RW - 16, DY = TOP, DH = 612;
   const held = new Set(['C4', 'E4', 'G4', 'D#4']);
   whites.forEach((k, i) => {
     const x = 16 + i * (kw + gap), on = held.has(k);
-    const key = frame(kb, x, 86, kw, 72, { fill: lin([[0, on ? '#5a5547' : C.keyHi], [1, on ? '#3d392f' : C.key]]), r: 8, stroke: '#000000', sa: 0.8, fx: [inner('#ffffff', on ? 0.25 : 0.14, 0, 1, 0), drop('#000000', 0.6, 0, on ? 1 : 3, on ? 2 : 4)].concat(on ? [glow(C.cream, 0.35, 12)] : []), name: `key ${k}` });
+    const key = frame(kb, x, 86, kw, 72, { fill: lin([[0, on ? '#4f8682' : C.keyHi], [1, on ? '#2c5755' : C.key]]), r: 8, stroke: '#000000', sa: 0.8, fx: [inner('#e0fffb', on ? 0.30 : 0.14, 0, 1, 0), drop('#000000', 0.6, 0, on ? 1 : 3, on ? 2 : 4)].concat(on ? [glow('#6fe3d4', 0.55, 14)] : []), name: `key ${k}` });
     rect(key, kw / 2 - 1, 10, 2, 30, solid('#000000', 0.35), { r: 1, name: 'groove' });
-    ctext(key, k, kw / 2, 52, { font: F.m5, size: 9, color: on ? C.cream : C.muted });
+    ctext(key, k, kw / 2, 52, { font: F.m5, size: 9, color: on ? '#d4f4ef' : C.muted });
   });
   const blacks = [['F#3', 0], ['G#3', 1], ['A#3', 2], ['C#4', 4], ['D#4', 5], ['F#4', 7], ['G#4', 8], ['A#4', 9], ['C#5', 11], ['D#5', 12], ['F#5', 14]];
   blacks.forEach(([k, b]) => {
     const x = 16 + (b + 1) * (kw + gap) - gap / 2 - kw / 2, on = k === 'D#4';
-    const key = frame(kb, x, 12, kw, 66, { fill: lin([[0, on ? '#4a4538' : '#272c31'], [1, on ? '#2f2b22' : C.keyBk]]), r: 8, stroke: '#000000', fx: [inner('#ffffff', 0.10, 0, 1, 0), drop('#000000', 0.7, 0, 3, 4)].concat(on ? [glow(C.cream, 0.35, 12)] : []), name: `key ${k}` });
+    const key = frame(kb, x, 12, kw, 66, { fill: lin([[0, on ? '#457a76' : '#272c31'], [1, on ? '#244a48' : C.keyBk]]), r: 8, stroke: '#000000', fx: [inner('#ffffff', 0.10, 0, 1, 0), drop('#000000', 0.7, 0, 3, 4)].concat(on ? [glow('#6fe3d4', 0.55, 14)] : []), name: `key ${k}` });
     rect(key, kw / 2 - 1, 10, 2, 26, solid('#000000', 0.45), { r: 1, name: 'groove' });
-    ctext(key, k, kw / 2, 46, { font: F.m5, size: 9, color: on ? C.cream : C.muted });
+    ctext(key, k, kw / 2, 46, { font: F.m5, size: 9, color: on ? '#d4f4ef' : C.muted });
   });
 }
 
