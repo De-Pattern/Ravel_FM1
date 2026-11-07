@@ -451,6 +451,24 @@ All signals run about −1 to +1; SLOPE and SLEW run 0 to 1 (envelopes). An inpu
 
 **Factory patches** (PRESETS on the WEFT pages): **INIT** (saw, low pass, one envelope), **SYNC LEAD** (hard sync, a slow LFO on the synced ramp), **DX BELL** (two-operator FM at 7:1, its index falling), **PLUCK** (Karplus-Strong), **CMOS XOR** (two ramps XORed, a FLIP sub-octave, scanned BANDS), **PHASE DIST** (an envelope bending a sine, CZ-style), **DRONE** (two saws a fifth apart, a slowly swept band pass), **TANGLE** (a triangle phase-modulated by its own folded, filtered self), **SPECTRA** (noise through four harmonic bands, scanned), **S&H BLIPS** (a clock sampling noise into the pitch, each tick an envelope), **DUST SKIN** (clumped particles on a drum skin, smeared, fed back), **PLONK** (a click of noise strikes a bar, its pitch falling), **TOM SKIN** (a pulse on a skin, its brightness moved by velocity with B MOVES), **PINGS** (two clocks on the tempo's grid strike tuned rings while a key is held), **TICK CLOCK** (sixteenths with a CLK OUT: set another track's CLOCK to WEFT), **DUST MOD** (smoothed clumps of dust as the matrix's WEFT source; silent), **SCATTER** (each particle of dust sent at random by SW 1>4 to one of four rings, crushed), **PING SWITCH** (a clock picks, tick by tick, between two rings, a string and its clipped self with SW 4>1), **KS STRING** (a click of noise into STRING), **CHAOS STRING** (a logistic map plucks a string at each zero crossing and sets its pitch), **BENJOLIN** (after Rob Hordijk's: two free oscillators, a rungler clocked by one and fed by the other bending both, their comparison through a resonant filter), **VOWELS** (a saw through FORMANT, the vowel wandering with a LISSA), **ROBOT VOX** (a vowel-shaped saw speaking through a square an octave down: VOCODER), **RUNGLE PINGS** (a rungler stepping the pitch of a ring struck in sixteenths, a CHEBY after), **LISSA DRONE** (two saws, a CHEBY and a RINGMOD moved by a LISSA's X and Y), **WIND** (dark noise through two band passes swept by a LISSA), **VIOLENCE** (play the panel hard: strikes thicken the DUST that steps T3 and drive the clip, a knob turned unsettles the CHAOS that jumps T4 about, a hard strike restarts T2, held keys bend a ring; give T2–T4 some steps and press PLAY) and **THREE LOOPS** (no oscillators, after Jaap Vink's feedback patches at the Institute of Sonology: a low pass, a folder and a short delay in one loop; a SHIFT, a DIODE and a smear in a second fed a little of the first; the two ring-modulated and crushed; the second loop's level darkening the first and moving the shift; hold a key).
 
+#### Switching between four sounds with SW 4>1
+
+<p align="center"><img src="docs/manual/weft-sw41.svg" alt="Four sources in blocks 3 to 6 in a row; SW 4>1 on block 7 with A on block 3 reads all four, one at a time; a TICK on block 1 into B steps it; its output goes to AUDIO" width="620"></p>
+
+SW 4>1 has one cord to patch: **A** goes to the first of the four sounds, and the switch reads that block **and the three after it**, so the four have to be in a row.
+
+1. Put the four sounds in four blocks in a row: here a saw and a square on blocks 3 and 4, a RING on 5, a STRING on 6. Each can have its own patching around it (an envelope, a filter feeding it); what has to be in the row is the block whose output you want to hear.
+2. Add an SW 4>1 on any block outside the row and set its **A (FROM)** to block 3. A's amount is the switch's level.
+3. Set **B (STEP)** to what moves it on: a TICK (on the tempo's grid), an EDGE, CHAOS, DUST. With nothing on B it moves on at each note.
+4. Patch the switch into an **AUDIO** output.
+
+**ORDER** picks how it moves: UP, DOWN and PING go through the four in turn, RANDOM picks one each time, and **SELECT** ignores B's rises and lets B's level choose (a slow LFO or LISSA on B sweeps through the four sounds). **SMOOTH** fades from one to the next over 0 to 20 ms: at 0 the switch cuts at once and can click, so turn it up a little for clean changes.
+
+- All four sources keep running while one is heard, so switching saves no CPU.
+- A sound doesn't have to be an oscillator: a SAT on block 5 clipping the STRING on block 4 gives the switch the string clean and dirty.
+- With **A on PITCH** the switch reads the built-in PITCH, GATE, TRIG and VEL instead.
+- The factory patch **PING SWITCH** is built this way: a clock picks at random between two rings, a string and its clipped self (blocks 2 to 5).
+
 #### WEFT LIBRARY: load, save and delete patches on the FM-1
 
 <p align="center"><img src="docs/manual/weft-library.png" alt="WEFT LIBRARY" width="240"></p>
