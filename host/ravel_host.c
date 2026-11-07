@@ -32,6 +32,8 @@
  *   wset T F I V                  WEFT: a field of track T's patch, as the emulator's patcher sets it (F: 0 type,
  *                                 1 input A, 2 input B, 3 amount A, 4 amount B (block I, 1..12), 5 the output,
  *                                 7 setting I (1..24), 9 B moves (block I))
+ *   setmat K T N | setlock T S N  matrix row K (1..8) into, or step S of track T locking, track T's WEFT setting N (1..24)
+ *   expect wsetting T N V | matset K N | lockset T S N   a WEFT setting's value; which setting a matrix row / lock names
  *   expect soundused N K          the bank's slot N holds a sound of kind K (-1: empty)
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
@@ -372,6 +374,19 @@ int main(int argc, char **argv)
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);
             rv_weft_preset((tt - 1) & 7, kk);
+        } else if (!strcmp(a, "setmat") || !strcmp(a, "setlock")) {   /* setmat K T N: matrix row K (1..8) into track T's
+                                                 * WEFT setting N (1..24); setlock T S N: step S (1..64) locks it */
+            int x = 0, y = 0, z = 0;
+            sscanf(line, "%*s %d %d %d", &x, &y, &z);
+            if (a[3] == 'm') {
+                rv.mat[(x - 1) & 7].src = MS_LFO1;
+                rv.mat[(x - 1) & 7].amt = 10;
+                rv.mat[(x - 1) & 7].dst = (uint16_t)PID_T((y - 1) & 7, wf_sp(z - 1));
+            } else {
+                rv_step *st = &rv.pat[(x - 1) & 7][rv.pat_cur[(x - 1) & 7] % RV_PATTERNS].s[(y - 1) % RV_STEPS];
+                st->lp[0] = (uint8_t)(wf_sp(z - 1) + 1);
+                st->lv[0] = 10;
+            }
         } else if (!strcmp(a, "wset")) {      /* wset T F I V: a field of track T's WEFT patch */
             int tt = 0, ff = 0, ii = 0, vv = 0, bb;
             rv_weft *w;
@@ -607,6 +622,16 @@ int main(int argc, char **argv)
                 want = atoi(w3);
             } else if (!strcmp(b, "wsrcb")) {                /* WEFT: track T's block B's input B comes from S */
                 got = rv.weft[(atoi(w1) - 1) & 7].b[(unsigned)(atoi(w2) - 1) % WF_BLOCKS];
+                want = atoi(w3);
+            } else if (!strcmp(b, "wsetting")) {             /* WEFT: track T's setting N (1..24) is V */
+                got = rv.tp[(atoi(w1) - 1) & 7][wf_sp(atoi(w2) - 1)];
+                want = atoi(w3);
+            } else if (!strcmp(b, "matset")) {               /* matrix row K's destination is WEFT setting N (1..24; 0 other) */
+                got = wf_spi(rv.mat[(atoi(w1) - 1) & 7].dst % RV_TP) + 1;
+                want = atoi(w2);
+            } else if (!strcmp(b, "lockset")) {              /* track T's step S's first lock is WEFT setting N (1..24) */
+                rv_step *st = &rv.pat[(atoi(w1) - 1) & 7][rv.pat_cur[(atoi(w1) - 1) & 7] % RV_PATTERNS].s[(atoi(w2) - 1) % RV_STEPS];
+                got = st->lp[0] ? wf_spi(st->lp[0] - 1) + 1 : 0;
                 want = atoi(w3);
             } else if (!strcmp(b, "wbmove")) {               /* WEFT: track T's block B's input B moves its second setting */
                 got = (rv.weft[(atoi(w1) - 1) & 7].bmove >> ((unsigned)(atoi(w2) - 1) % WF_BLOCKS)) & 1;

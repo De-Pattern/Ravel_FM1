@@ -1,0 +1,55 @@
+# WEFT: hold EDIT on WEFT PATCH and turn KNOB 1 (BLOCK): the block moves a place a detent, the others shift along,
+# and everything that names it follows: cords, its settings' values, a matrix row and a step lock on them.
+# PING SWITCH: 1 TICK, 2 RING (A 1; settings 3-4 = 11, 25), 3 RING (A 1, B 9; settings 5-6 = 13, 35), 6 SW 4>1 (A 2)
+wait 300
+kind 1 6
+wpreset 1 17
+setmat 1 1 3
+setlock 1 1 4
+tap EDIT
+wait 50
+turn SELECT 2
+wait 100
+expect page WEFT PATCH
+turn K1 1
+wait 100
+press EDIT
+wait 100
+shot weft_move_held.png
+turn K1 1
+wait 100
+shot weft_move.png
+release EDIT
+wait 200
+expect page WEFT PATCH
+expect wtype 1 3 25
+expect wsrc 1 3 1
+expect wsrcb 1 3 0
+expect wsrcb 1 2 9
+expect wsrc 1 6 3
+expect wsetting 1 5 11
+expect wsetting 1 6 25
+expect wsetting 1 3 13
+expect wsetting 1 4 35
+expect matset 1 5
+expect lockset 1 1 6
+# two more places, then three back: the patch as it was
+press EDIT
+turn K1 2
+wait 100
+turn K1 -3
+wait 100
+release EDIT
+wait 200
+expect wsrc 1 6 2
+expect wsrc 1 2 1
+expect wsrcb 1 3 9
+expect wsetting 1 3 11
+expect wsetting 1 5 13
+expect matset 1 3
+expect lockset 1 1 4
+expect page WEFT PATCH
+# EDIT tapped on its own still does what it did (here, in EDIT already: the next page)
+tap EDIT
+wait 100
+expect page WEFT BLOCK

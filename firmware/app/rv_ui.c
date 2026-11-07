@@ -364,6 +364,69 @@ static int wf_unpatch(rv_weft *w, int b)
     }
     return n;
 }
+/* moving a block (v1.23.2): blocks i and j trade places. The patch follows: the cords (A and B, OUT) that read
+ * either, B MOVES, WEFT PLAY's knobs; and so do their settings, which are track parameters: their values, and
+ * everything that names them (step locks, the DEST settings, the matrix, the macros, influence MOD routes, the
+ * scenes' copies of those). (MIDI-learned controls are the FM-1's, kept for every project: left as they are.) */
+static int wf_swp(int v, int a, int b) { return v == a ? b : v == b ? a : v; }
+static void wf_param_swap(int t, int pa, int pb)
+{
+    static const uint8_t dests[4] = {TP_EDST1, TP_EDST2, TP_SEDST, TP_FDST};
+    int i, k, m, sc;
+    int16_t x = rv.tp[t][pa];
+    rv.tp[t][pa] = rv.tp[t][pb];
+    rv.tp[t][pb] = x;
+    for (m = 0; m < RV_PATTERNS; m++)
+        for (i = 0; i < RV_STEPS; i++)
+            for (k = 0; k < 2; k++) {
+                rv_step *st = &rv.pat[t][m].s[i];
+                if (st->lp[k])
+                    st->lp[k] = (uint8_t)(wf_swp(st->lp[k] - 1, pa, pb) + 1);
+            }
+    for (k = 0; k < 4; k++)
+        rv.tp[t][dests[k]] = (int16_t)wf_swp(rv.tp[t][dests[k]], pa, pb);
+    for (k = 0; k < RV_MATRIX; k++)
+        if (rv.mat[k].dst < RV_GPID && rv.mat[k].dst / RV_TP == t)
+            rv.mat[k].dst = (uint16_t)PID_T(t, wf_swp(rv.mat[k].dst % RV_TP, pa, pb));
+    for (m = 0; m < RV_MACROS; m++)
+        for (k = 0; k < RV_MACRO_DESTS; k++)
+            if (rv.macro[m].d[k].dst < RV_GPID && rv.macro[m].d[k].dst / RV_TP == t)
+                rv.macro[m].d[k].dst = (uint16_t)PID_T(t, wf_swp(rv.macro[m].d[k].dst % RV_TP, pa, pb));
+    for (k = 0; k < RV_TRACKS; k++) {
+        if (rv.infl[k][t].type == RT_MOD)
+            rv.infl[k][t].arg = (uint8_t)wf_swp(rv.infl[k][t].arg, pa, pb);
+        for (sc = 0; sc < RV_SCENES; sc++)
+            if (rv.scene[sc].infl[k][t].type == RT_MOD)
+                rv.scene[sc].infl[k][t].arg = (uint8_t)wf_swp(rv.scene[sc].infl[k][t].arg, pa, pb);
+    }
+}
+static void wf_swap(int t, int i, int j)
+{
+    rv_weft *w = &rv.weft[t];
+    int k, h;
+    uint8_t u;
+    int8_t c;
+    u = w->type[i]; w->type[i] = w->type[j]; w->type[j] = u;
+    u = w->a[i]; w->a[i] = w->a[j]; w->a[j] = u;
+    u = w->b[i]; w->b[i] = w->b[j]; w->b[j] = u;
+    c = w->amta[i]; w->amta[i] = w->amta[j]; w->amta[j] = c;
+    c = w->amtb[i]; w->amtb[i] = w->amtb[j]; w->amtb[j] = c;
+    if (((w->bmove >> i) ^ (w->bmove >> j)) & 1u)
+        w->bmove ^= (uint16_t)((1u << i) | (1u << j));
+    for (k = 0; k < WF_BLOCKS; k++) {
+        w->a[k] = (uint8_t)wf_swp(w->a[k], i + 1, j + 1);
+        w->b[k] = (uint8_t)wf_swp(w->b[k], i + 1, j + 1);
+    }
+    w->out = (uint8_t)wf_swp(w->out, i + 1, j + 1);
+    for (k = 0; k < 4; k++)
+        if (w->map[k]) {
+            int sp = w->map[k] - 1, bl = sp / 2;
+            if (bl == i || bl == j)
+                w->map[k] = (uint8_t)(1 + 2 * (bl == i ? j : i) + sp % 2);
+        }
+    for (h = 0; h < 2; h++)
+        wf_param_swap(t, wf_sp(2 * i + h), wf_sp(2 * j + h));
+}
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -2015,6 +2078,27 @@ static void knob_turn(int i, int d)
         ui.turned_ms[i] = plat_ms();
         return;
     }
+    if ((btn & (1u << B_EDIT)) && i == 0 && pg->pic == PIC_WEFT) {   /* EDIT held on WEFT PATCH: BLOCK carries the block (v1.23.2) */
+        int t = ui.track, n = d > 0 ? d : -d, b = ui.wf_blk % WF_BLOCKS, to;
+        char m[32] = "BLOCK MOVED TO ";
+        ui.layer_used[B_EDIT] = 1;
+        while (n--) {
+            to = b + (d > 0 ? 1 : -1);
+            if (to < 0 || to >= WF_BLOCKS)
+                break;
+            wf_swap(t, b, to);                       /* (one place at a time: the others shift along) */
+            b = to;
+        }
+        if (b != ui.wf_blk % WF_BLOCKS) {
+            ui.wf_blk = (uint8_t)b;
+            ui.wf_pre[t] = -1;
+            ui.snd_edit |= (uint8_t)(1u << t);
+            sx_int(m + sx_cat(m, ""), b + 1);
+            msg(m);
+        } else
+            msg(d > 0 ? "THE LAST PLACE" : "THE FIRST PLACE");
+        return;
+    }
     if (btn & (1u << B_ENV) && held >= 0 && i == 0 && !is_kit_ui(ui.track)) {   /* ENV held with a step: its library shape */
         rv_step *s = step_ptr(held);
         s->env = (uint8_t)clampi(s->env + d, 0, RV_SENV);
@@ -3549,7 +3633,8 @@ static void draw_footer(void)
     case PR_WLIB: hint = "SAVE: SAVE  BLK: LD SV DEL INIT CLR"; break;
     case PR_WEFT:
         hint = pg->pic == PIC_WEFTBLK ? "BLK1: B MOVES  11 X2: UNPATCH" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY"
-             : pg->pic == PIC_WEFT ? "PRESETS  BLK11 X2: UNPATCH" : "PRESETS: PATCHES  KEYS: PLAY";
+             : pg->pic == PIC_WEFT ? ((plat_buttons() & (1u << B_EDIT)) ? "EDIT HELD: BLOCK MOVES IT" : "PRESETS  BLK11 X2: UNPATCH")
+             : "PRESETS: PATCHES  KEYS: PLAY";
         break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
         static char gh[40];

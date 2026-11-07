@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.24.0
+
+New
+- WEFT: move a block. On WEFT PATCH, hold EDIT and turn KNOB 1 (BLOCK): the block moves a place a detent and the others shift along. Its cords, the cords reading it, OUT, B MOVES, WEFT PLAY's knobs and its settings (their values, step locks, DEST settings, matrix rows, macros, influence MOD routes, the scenes' copies) all follow it. The footer shows the shortcut while EDIT is held.
+
 ## 1.23.1
 
 Changed
