@@ -235,3 +235,31 @@ const finish = (g, w, h) => { rect(g, 0, 0, w, h, imgFill('scanlines', 'FILL', 0
 // a deterministic pseudo-random for traces
 let SEED = 1234;
 const rnd = () => { SEED = (SEED * 16807) % 2147483647; return SEED / 2147483647; };
+
+// ── CRT unit: thin pale-wine bezel with a short soft glow, glass, real screen, scanlines, glare ──
+// glow: 0 (rest) … 1 (pulse peak). glare: null (none) or 0 … 1 (position of the sweep, top-left → bottom-right).
+const WINE = { rim: '#b06a76', hi: '#8e4552', lo: '#5c2531', glow: '#b2495d' };
+function crt(parent, x, y, s, o = {}) {
+  const g = o.glow ?? 0.3, B = o.border ?? 7;
+  const bez = frame(parent, x, y, s, s, {
+    fill: lin([[0, WINE.hi], [1, WINE.lo]]), r: 12, stroke: WINE.rim, sa: 0.55,
+    fx: [inner('#ffffff', 0.22, 0, 1, 0), inner('#000000', 0.35, 0, -1, 1), drop(WINE.glow, 0.28 + 0.32 * g, 0, 0, 7 + 6 * g), drop('#000000', 0.6, 0, 4, 10)],
+    name: o.name || 'CRT bezel · pale wine',
+  });
+  const gs = s - B * 2;
+  const glass = frame(bez, B, B, gs, gs, { fill: solid('#020302'), r: 7, stroke: '#000000', fx: [inner('#000000', 1, 0, 0, 12)], clip: true, name: 'CRT glass' });
+  rect(glass, 6, 6, gs - 12, gs - 12, imgFill(o.screen || 'screen-tracks', 'FILL'), { name: 'screen · live render' });
+  rect(glass, 0, 0, gs, gs, imgFill('scanlines', 'FILL', 0.5), { name: 'scanlines' });
+  rect(glass, 0, 0, gs, gs, imgFill('vignette', 'FILL', 0.65), { name: 'vignette' });
+  rect(glass, 0, 0, gs, gs * 0.2, lin([[0, '#ffffff', 0.05], [1, '#ffffff', 0]]), { name: 'glass sheen' });
+  if (o.glare !== null && o.glare !== undefined) {
+    // a soft diagonal band; its centre travels from beyond the top-left to beyond the bottom-right corner
+    const t = o.glare, w = gs * 0.34, h = gs * 2.2, th = -28, rr = th * Math.PI / 180;
+    const cx = -gs * 0.35 + t * gs * 1.7, cy = gs / 2;
+    const band = rect(glass, 0, 0, w, h, lin([[0, '#ffffff', 0], [0.5, '#f4e9ec', 0.16], [1, '#ffffff', 0]], HORZ), { name: 'glare · animated' });
+    band.rotation = th;
+    const c = Math.cos(rr), sn = Math.sin(rr);
+    band.x = cx - (c * w / 2 + sn * h / 2); band.y = cy - (-sn * w / 2 + c * h / 2);
+  }
+  return bez;
+}

@@ -120,12 +120,7 @@ const DX = X0 + RW + 16, DW = CW - RW - 16, DY = TOP, DH = 612;
 
   // CRT
   const SX = 258, SY = 62, SS = 340;
-  const bez = frame(dv, SX, SY, SS, SS, { fill: lin([[0, '#1f2120'], [1, '#0a0b0a']]), r: 16, stroke: '#000000', stroke: '#000000', fx: [inner('#cfe0ff', 0.12, 0, 1, 0), drop('#000000', 0.7, 0, 6, 14), drop('#cfe0ff', 0.10, 0, -1, 0)], name: 'CRT bezel' });
-  const glass = frame(bez, 18, 18, SS - 36, SS - 36, { fill: solid('#020302'), r: 10, fx: [inner('#000000', 1, 0, 0, 14), glow(C.ph, 0.18, 26)], clip: true, name: 'CRT glass' });
-  rect(glass, 8, 8, SS - 52, SS - 52, imgFill('screen-tracks', 'FILL'), { name: 'screen · live render (TRACKS page)' });
-  rect(glass, 0, 0, SS - 36, SS - 36, imgFill('scanlines', 'FILL', 0.55), { name: 'scanlines' });
-  rect(glass, 0, 0, SS - 36, SS - 36, imgFill('vignette', 'FILL', 0.7), { name: 'vignette' });
-  rect(glass, 0, 0, SS - 36, 70, lin([[0, '#ffffff', 0.07], [1, '#ffffff', 0]]), { name: 'glass sheen' });
+  crt(dv, SX, SY, SS, { glow: 0.5, glare: 0.42 });
 
   // right: knobs 1-4 and buttons
   const KX = 622, step = 90;

@@ -6,7 +6,7 @@ import base64, json, pathlib, subprocess, sys
 here = pathlib.Path(__file__).resolve().parent
 out = here / "out"; out.mkdir(exist_ok=True)
 assets = {p.stem: base64.b64encode(p.read_bytes()).decode() for p in sorted((here / "assets").glob("*.png"))}
-parts = sys.argv[1:] or ["desktop", "components"]
+parts = sys.argv[1:] or ["desktop", "components", "motion"]
 code = "const ASSETS = " + json.dumps(assets) + ";\n"
 code += "for (const n of [...figma.currentPage.children]) n.remove();\nfigma.currentPage.name = 'Ravel emulator';\n"
 code += (here / "src" / "lib.js").read_text() + "\n"
@@ -18,7 +18,7 @@ fig = out / "ravel-emulator-redesign.fig"
 r = subprocess.run(["openpencil", "eval", str(here / "base.fig"), "--stdin", "-o", str(fig), "--json"], input=code, text=True, capture_output=True)
 if r.returncode or "Error" in r.stdout[:400]:
     print(r.stdout[-3000:], r.stderr[-3000:]); sys.exit(1)
-for name, slug in [("Emulator — Desktop 1440", "desktop-1440"), ("Components & tokens", "components")]:
+for name, slug in [("Emulator — Desktop 1440", "desktop-1440"), ("Components & tokens", "components"), ("Screen motion", "screen-motion")]:
     q = subprocess.run(["openpencil", "find", str(fig), "--name", name, "--json"], capture_output=True, text=True)
     try: nid = json.loads(q.stdout)[0]["id"]
     except Exception: continue
