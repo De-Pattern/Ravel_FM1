@@ -227,7 +227,7 @@ input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 
   0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 6px rgba(var(--wine-glow), .30), 0 4px 10px rgba(0,0,0,.6); }
   50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 1px rgba(0,0,0,.35), 0 0 11px rgba(var(--wine-glow), .60), 0 4px 10px rgba(0,0,0,.6); }
 }
-.glass { position: relative; width: 100%; height: 100%; border-radius: 7px; overflow: hidden; background: #020302; border: 1px solid #000; box-shadow: inset 0 0 12px #000; }
+.glass { position: absolute; inset: 4px; border-radius: 7px; overflow: hidden; background: #020302; border: 1px solid #000; box-shadow: inset 0 0 12px #000; }
 canvas#screen { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); image-rendering: pixelated; display: block; background: #000; }
 .glass .scan { position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0,0,0,.27) 2px 3px); pointer-events: none; }
 .glass .vig { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%); pointer-events: none; }
@@ -446,8 +446,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
   .keys > div { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 620px) {
-  /* a phone: one column, in the order the hands meet it: MASTER, SELECT, PRESETS and ALGORITHM in a row with OCT- and
-     OCT+ under them, the screen as wide as the device, KNOB 1-4, the buttons, the keys */
+  /* a phone: one column */
   .wrap { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
   .plate .screw { display: none; }
   .logoimg { height: 26px; }
@@ -458,30 +457,35 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
   .statusro #status { font-size: 11px; }
   .panicrow .hint { display: none; }
   .rack { grid-template-columns: minmax(0, 1fr); }
-  .device { padding: 14px 12px 14px; border-radius: 12px; gap: 12px; }
-  .device > .screw { display: none; }
-  .dhead { font-size: 10px; letter-spacing: .2em; padding-bottom: 10px; }
-  .dhead span:last-child { display: none; }
-  .upper { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .lhs { order: 0; }
-  .lefthand { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 4px; }
-  .lefthand .btn.oct { width: auto; grid-column: span 2; justify-self: stretch; height: 34px; }
-  .enc { --k: 34px; }
+  /* the device as one grid, in the order the hands meet it, so the knobs, the screen and the keys fit in one view:
+     MASTER, SELECT, PRESETS, ALGORITHM over the screen, KNOB 1-4 under it, then the keys; OCT, the buttons and the
+     readouts after them (.upper, .lhs, .lefthand and .righthand give their pieces to the device's grid) */
+  .device { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 10px 10px 12px; border-radius: 12px; gap: 8px 4px; }
+  .device > .screw, .dhead, .legend { display: none; }
+  .upper, .lhs, .lefthand, .righthand { display: contents; }
+  .device > *, .bezel, .knobs4, .btns, #octro, .ro.now { grid-column: 1 / -1; }
+  .mnote { order: 0; }
+  .lefthand > .enc { order: 1; grid-column: auto; }
+  .bezel { order: 2; width: min(100%, calc(100svh - 318px)); min-width: 220px; justify-self: center; margin: 2px 0; }
+  .knobs4 { order: 3; margin: 0; gap: 4px; }
+  .keybed { order: 4; }
+  .lefthand > .btn.oct { order: 5; grid-column: span 2; width: auto; height: 34px; }
+  #octro { order: 6; }
+  #btnrow1 { order: 7; } #btnrow2 { order: 8; }
+  .ro.now { order: 9; }
+  .enc, .knobs4 .enc { --k: 30px; }
   .enc .fn { display: none; }
-  .bezel { order: -1; }
-  .righthand { grid-template-columns: minmax(0, 1fr); }
-  .knobs4 .enc { --k: 32px; }
+  .enc .lbl { margin-top: 8px; font-size: 9px; letter-spacing: .1em; }
   .btns { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
   .btn { height: 44px; }
   .btn .fn { display: none; }
-  .legend { display: none; }
-  .keybed { padding: 10px 8px 10px; gap: 6px; border-radius: 10px; }
+  .keybed { padding: 8px 6px; gap: 5px; border-radius: 10px; margin-top: 0; }
   .krow { gap: 3px; }
   #blackrow { transform: translateX(calc((100% + 3px) / -32)); }
-  .key { height: 64px; border-radius: 6px; padding-bottom: 5px; }
-  .key.b { height: 54px; }
-  .key::before { top: 7px; height: 20px; }
-  .key.b::before { height: 16px; }
+  .key { height: 58px; border-radius: 6px; padding-bottom: 4px; }
+  .key.b { height: 46px; }
+  .key::before { top: 6px; height: 18px; }
+  .key.b::before { height: 14px; }
   .key span { font-size: 7px; }
   .rail { padding: 6px; }
   .rail .rl { display: none; }
