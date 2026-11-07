@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.23.0
+
+New
+- WEFT: **black key 11** twice on WEFT PATCH or WEFT BLOCK unpatches the block: every cord into it and out of it comes off (its A and B, and every input reading it), the block, its settings and amounts kept; the top line says how many came off, and the footer shows the key on both pages.
+
 ## 1.22.2
 
 Fixed

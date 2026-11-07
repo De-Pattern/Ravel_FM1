@@ -332,7 +332,36 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR, CONF_WUNP };   /* (CONF_SCENE + the scene) */
+/* every cord into block b and out of it: its A and B, and the inputs that read it (as SW 1-4 or LIS Y too,
+ * when it is the first SW 1>4 or LISSA, the one those read); the count taken off */
+static int wf_unpatch(rv_weft *w, int b)
+{
+    int i, n = 0, sw14 = -1, lis = -1;
+    for (i = 0; i < WF_BLOCKS; i++) {
+        if (w->type[i] == WO_SW14 && sw14 < 0)
+            sw14 = i;
+        if (w->type[i] == WO_LISSA && lis < 0)
+            lis = i;
+    }
+    n += w->a[b] != 0;
+    n += w->b[b] != 0;
+    w->a[b] = w->b[b] = 0;
+    for (i = 0; i < WF_BLOCKS; i++) {
+        uint8_t *in[2];
+        int k;
+        in[0] = &w->a[i];
+        in[1] = &w->b[i];
+        for (k = 0; k < 2; k++) {
+            int q = *in[k];
+            if (q && (q == b + 1 || (b == sw14 && q >= WS_SW1 && q <= WS_SW4) || (b == lis && q == WS_LISY))) {
+                *in[k] = 0;
+                n++;
+            }
+        }
+    }
+    return n;
+}
 static int confirmed(int what, const char *warn)
 {
     uint32_t now = plat_ms(), dt = now - ui.conf_at;
@@ -2780,6 +2809,31 @@ static void key_event(int k, int on)
             wl_do(bi);
         return;
     }
+    /* --- WEFT PATCH and WEFT BLOCK: black key 11 twice unpatches the block: every cord into it and out of
+     * it (its A and B, and the blocks that read it) comes off; the block, its settings and the amounts stay
+     * (v1.23) --- */
+    if ((cur_page()->pic == PIC_WEFT || cur_page()->pic == PIC_WEFTBLK) && bi == 10) {
+        if (on) {
+            rv_weft *w = &rv.weft[t];
+            int b = ui.wf_blk % WF_BLOCKS;
+            char m[40] = "BLOCK ";
+            if (!w->type[b])
+                msg("AN EMPTY BLOCK: NOTHING TO UNPATCH");
+            else if (confirmed(CONF_WUNP, "AGAIN: UNPATCH BLOCK")) {
+                int n = wf_unpatch(w, b);
+                sx_int(m + 6, b + 1);
+                if (!n)
+                    sx_cat(m, ": NO CORDS");
+                else {
+                    sx_int(m + sx_cat(m, ": "), n);
+                    sx_cat(m, n == 1 ? " CORD OFF" : " CORDS OFF");
+                    ui.wf_pre[t] = -1;
+                }
+                msg(m);
+            }
+        }
+        return;
+    }
     /* --- WEFT BLOCK: black key 1, what input B does (its own job, or the second setting) --- */
     if (cur_page()->pic == PIC_WEFTBLK && bi == 0) {
         if (on) {
@@ -3475,7 +3529,8 @@ static void draw_footer(void)
     case PR_LEARN: hint = "PRESETS: PICK ONE"; break;
     case PR_WLIB: hint = "SAVE: SAVE  BLK: LD SV DEL INIT CLR"; break;
     case PR_WEFT:
-        hint = pg->pic == PIC_WEFTBLK ? "BLK1: WHAT B MOVES" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY" : "PRESETS: PATCHES  KEYS: PLAY";
+        hint = pg->pic == PIC_WEFTBLK ? "BLK1: B MOVES  11 X2: UNPATCH" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY"
+             : pg->pic == PIC_WEFT ? "PRESETS  BLK11 X2: UNPATCH" : "PRESETS: PATCHES  KEYS: PLAY";
         break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
         static char gh[40];

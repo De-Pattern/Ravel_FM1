@@ -23,7 +23,7 @@
  *   expect tp T NAME VALUE        track T's (1..8) parameter, by its screen name
  *   expect mutes M | solos S       the muted / soloed tracks as a bitmask (T1 = 1)
  *   expect held T N               track T's synth voices held now
- *   expect wtype T B N | wsrc T B S   WEFT: track T's block B's type / input A's source
+ *   expect wtype T B N | wsrc T B S | wsrcb T B S   WEFT: track T's block B's type / input A's / input B's source
  *   expect wvoices N              WEFT voices sounding
  *   expect wbmove T B 0|1         WEFT: track T's block B's input B moves its second setting
  *   expect playstep T S           track T's playhead is on step S (1..64; 0: none)
@@ -604,6 +604,9 @@ int main(int argc, char **argv)
                 want = atoi(w3);
             } else if (!strcmp(b, "wsrc")) {                 /* WEFT: track T's block B's input A comes from S */
                 got = rv.weft[(atoi(w1) - 1) & 7].a[(unsigned)(atoi(w2) - 1) % WF_BLOCKS];
+                want = atoi(w3);
+            } else if (!strcmp(b, "wsrcb")) {                /* WEFT: track T's block B's input B comes from S */
+                got = rv.weft[(atoi(w1) - 1) & 7].b[(unsigned)(atoi(w2) - 1) % WF_BLOCKS];
                 want = atoi(w3);
             } else if (!strcmp(b, "wbmove")) {               /* WEFT: track T's block B's input B moves its second setting */
                 got = (rv.weft[(atoi(w1) - 1) & 7].bmove >> ((unsigned)(atoi(w2) - 1) % WF_BLOCKS)) & 1;
