@@ -5,7 +5,7 @@
   sh.fills = [solid(C.room)]; sh.clipsContent = true; figma.currentPage.appendChild(sh); sh.x = sx; sh.y = 0;
   rect(sh, 0, 0, SWD, SHT, imgFill('grain', 'FILL', 0.05), { name: 'grain' });
   text(sh, 'RAVEL EMULATOR — COMPONENTS & TOKENS', 48, 40, { font: F.d7, size: 20, ls: 14, color: C.ink });
-  text(sh, 'Direction: a dark medical monitor in a cold, dark brushed-aluminium case — phosphor-green traces for anything live, sunken pale readouts for values, maroon only for selection, recording and warnings.', 48, 72, { font: F.m4, size: 12, lh: 18, color: C.muted, w: SWD - 96 });
+  text(sh, 'Direction: a dark medical monitor in a black speckled matte-plastic case — phosphor-green traces for anything live, sunken pale readouts for values, maroon only for selection, recording and warnings.', 48, 72, { font: F.m4, size: 12, lh: 18, color: C.muted, w: SWD - 96 });
 
   const head = (t, y) => { text(sh, t, 48, y, { font: F.d7, size: 12, ls: 20, color: C.dim }); rect(sh, 48, y + 22, SWD - 96, 1, solid(C.line), { name: 'rule' }); };
 
@@ -44,14 +44,14 @@
 
   // knobs & keys on a metal swatch
   head('ON THE METAL', 680);
-  const mp = frame(sh, 48, 718, SWD - 96, 230, { fill: [solid(C.metal), imgFill('metal-device'), SHEEN], r: 14, stroke: '#07080a', sw: 1.5, fx: [inner('#d6e6ff', 0.22, 0, 1, 0), drop('#000000', 0.7, 0, 12, 28)], clip: true, name: 'metal swatch' });
+  const mp = frame(sh, 48, 718, SWD - 96, 230, { fill: [solid(C.metal), imgFill('speckle-device'), SHEEN], r: 14, stroke: '#07080a', sw: 1.5, fx: [inner('#d6e6ff', 0.22, 0, 1, 0), drop('#000000', 0.7, 0, 12, 28)], clip: true, name: 'metal swatch' });
   screw(mp, 16, 16, 11); screw(mp, SWD - 112, 16, 11);
   knob(mp, 90, 92, 34, 'MASTER', 'volume', 40);
   knob(mp, 200, 92, 30, 'KNOB 1', 'level', -40);
   etched(mp, 'ENGRAVED LABEL', 290, 60, { size: 12, ls: 24 });
   text(mp, 'cool light ink, sunk in', 290, 80, { font: F.m4, size: 10, color: '#7b848b' });
   readout(mp, 290, 110, 200, 52, 'Now', 'K1 LEVEL 84', { vsize: 13 });
-  const kb = frame(mp, 530, 30, 470, 170, { fill: [solid('#141615'), imgFill('metal-dark', 'FILL', 0.6)], r: 12, stroke: '#000000', fx: [inner('#000000', 0.9, 0, 3, 10)], clip: true, name: 'keys' });
+  const kb = frame(mp, 530, 30, 470, 170, { fill: [solid('#141615'), imgFill('plastic-dark', 'FILL', 0.6)], r: 12, stroke: '#000000', fx: [inner('#000000', 0.9, 0, 3, 10)], clip: true, name: 'keys' });
   [['C4', false], ['D4', true], ['E4', false]].forEach(([k, on], i) => {
     const key = frame(kb, 20 + i * 70, 86, 58, 72, { fill: lin([[0, on ? '#5a5547' : C.keyHi], [1, on ? '#3d392f' : C.key]]), r: 8, stroke: '#000000', sa: 0.8, fx: [inner('#ffffff', 0.14, 0, 1, 0), drop('#000000', 0.6, 0, 3, 4)].concat(on ? [glow(C.cream, 0.35, 12)] : []), name: `white ${on ? 'held' : 'idle'}` });
     rect(key, 28, 10, 2, 30, solid('#000000', 0.35), { r: 1, name: 'groove' }); ctext(key, k, 29, 52, { font: F.m5, size: 9, color: on ? C.cream : C.muted });

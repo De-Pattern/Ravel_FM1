@@ -6,9 +6,9 @@ const grainLayer = null;
 page.fills = [solid(C.room)]; page.clipsContent = true; figma.currentPage.appendChild(page); page.x = 0; page.y = 0;
 const GRAIN = rect(page, 0, 0, W, H, imgFill('grain', 'FILL', 0.05), { name: 'grain' });
 
-// ── Header: dark brushed-aluminium nameplate ──────────────────────────────────────────────
+// ── Header: speckled-plastic nameplate ──────────────────────────────────────────────
 {
-  const h = frame(page, 0, 0, W, 88, { fill: [solid(C.metal), imgFill('metal-header'), SHEEN], stroke: '#000000', fx: [inner('#cfe0ff', 0.14, 0, 1, 0), drop('#000000', 0.7, 0, 4, 14)], clip: true, name: 'Header · nameplate' });
+  const h = frame(page, 0, 0, W, 88, { fill: [solid(C.metal), imgFill('plastic-header'), SHEEN], stroke: '#000000', fx: [inner('#cfe0ff', 0.14, 0, 1, 0), drop('#000000', 0.7, 0, 4, 14)], clip: true, name: 'Header · nameplate' });
   rect(h, 0, 86, W, 2, solid('#000000', 0.55), { name: 'lower lip' });
   [[18, 18], [W - 18, 18], [18, 70], [W - 18, 70]].forEach(([x, y]) => screw(h, x, y, 11));
   const logo = rect(h, X0 - 6, 24, 189, 34.5, imgFill('ravel-logo-light', 'FIT', 0.92), { name: 'Ravel wordmark' });
@@ -102,7 +102,7 @@ let RY0 = TOP;
 // ── The device ───────────────────────────────────────────────────────────────
 const DX = X0 + RW + 16, DW = CW - RW - 16, DY = TOP, DH = 612;
 {
-  const dv = frame(page, DX, DY, DW, DH, { fill: [solid(C.metal), imgFill('metal-device'), SHEEN], r: 18, stroke: '#07080a', sw: 1.5, fx: [inner('#d6e6ff', 0.22, 0, 1, 0), inner('#d6e6ff', 0.05, 0, 0, 0, 1), inner('#000000', 0.5, 0, -2, 3), drop('#000000', 0.8, 0, 22, 44)], clip: true, name: 'Device · FM-1 running Ravel' });
+  const dv = frame(page, DX, DY, DW, DH, { fill: [solid(C.metal), imgFill('speckle-device'), SHEEN], r: 18, stroke: '#07080a', sw: 1.5, fx: [inner('#d6e6ff', 0.22, 0, 1, 0), inner('#d6e6ff', 0.05, 0, 0, 0, 1), inner('#000000', 0.5, 0, -2, 3), drop('#000000', 0.8, 0, 22, 44)], clip: true, name: 'Device · FM-1 running Ravel' });
   [[16, 16], [DW - 16, 16], [16, DH - 16], [DW - 16, DH - 16]].forEach(([x, y]) => screw(dv, x, y, 12));
   etched(dv, 'FM-1', 36, 22, { size: 12, ls: 30 });
   etched(dv, '·  RAVEL', 76, 22, { size: 12, ls: 30, font: F.d5 });
@@ -140,7 +140,7 @@ const DX = X0 + RW + 16, DW = CW - RW - 16, DY = TOP, DH = 612;
   readout(dv, KX, 340, 6 * 52 + 30, 56, 'Now', 'K1 LEVEL 84 · K2 PAN 0', { vsize: 13, vls: 3, right: 'T1', name: 'footer readout · what the knobs do' });
 
   // keybed
-  const kb = frame(dv, 30, 418, DW - 60, 170, { fill: [solid('#0e1012'), imgFill('metal-dark', 'FILL', 0.6)], r: 12, stroke: '#000000', fx: [inner('#000000', 0.9, 0, 3, 10), drop('#cfe0ff', 0.10, 0, 1, 0)], clip: true, name: 'Keybed · F3–G5' });
+  const kb = frame(dv, 30, 418, DW - 60, 170, { fill: [solid('#0e1012'), imgFill('plastic-dark', 'FILL', 0.6)], r: 12, stroke: '#000000', fx: [inner('#000000', 0.9, 0, 3, 10), drop('#cfe0ff', 0.10, 0, 1, 0)], clip: true, name: 'Keybed · F3–G5' });
   const whites = ['F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5'];
   const kbw = DW - 60, n = 16, gap = 6, kw = (kbw - 32 - gap * (n - 1)) / n;
   const held = new Set(['C4', 'E4', 'G4', 'D#4']);
@@ -251,7 +251,7 @@ const TY = RY0 + 72;
   const info = [['SYNTH', 'VA', 'GLASS PAD 03'], ['SYNTH', 'CZ', 'RESO STAB'], ['SYNTH', 'HYBRID', 'SLOW HAZE'], ['SYNTH', 'PHYS', 'BOWED TIN'], ['STRIKE', 'MODES', 'WOOD BLOCK'], ['STRIKE', 'STRING', 'PLUCK 2'], ['PERC', 'TRX', 'KIT 707'], ['PERC', 'EFM', 'METAL KIT']];
   info.forEach(([kind, eng, snd], i) => {
     const on = i === 0, x = X0 + i * (tw + 12);
-    const g = frame(page, x, TY, tw, 210, { fill: [solid(C.panel), imgFill('metal-dark', 'FILL', 0.5)], r: 10, stroke: on ? C.marHi : C.line, sw: on ? 1.5 : 1, fx: [drop('#000000', 0.6, 0, 6, 14)], clip: true, name: `strip T${i + 1}` });
+    const g = frame(page, x, TY, tw, 210, { fill: [solid(C.panel), imgFill('plastic-dark', 'FILL', 0.5)], r: 10, stroke: on ? C.marHi : C.line, sw: on ? 1.5 : 1, fx: [drop('#000000', 0.6, 0, 6, 14)], clip: true, name: `strip T${i + 1}` });
     if (on) rect(g, 0, 0, tw, 4, solid(C.marHi), { name: 'selected' });
     text(g, `T${i + 1}`, 12, 12, { font: F.d7, size: 22, color: '#ffffff' });
     text(g, `${kind} · ${eng}`, 52, 15, { font: F.d7, size: 11, ls: 8, color: kind === 'PERC' ? '#d0646a' : C.muted });

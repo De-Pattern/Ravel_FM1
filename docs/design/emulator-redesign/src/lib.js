@@ -206,7 +206,7 @@ function dbtn(parent, x, y, w, h, label, sub, o = {}) {
 
 // panel module card for the rack: header strip with label + lamp
 function module(parent, x, y, w, h, title, o = {}) {
-  const g = frame(parent, x, y, w, h, { fill: [solid(C.panel), imgFill('metal-dark', 'FILL', 0.55)], r: 10, stroke: C.line, fx: [inner('#ffffff', 0.04, 0, 1, 0), drop('#000000', 0.6, 0, 6, 16)], clip: true, name: `module ${title}` });
+  const g = frame(parent, x, y, w, h, { fill: [solid(C.panel), imgFill('plastic-dark', 'FILL', 0.55)], r: 10, stroke: C.line, fx: [inner('#ffffff', 0.04, 0, 1, 0), drop('#000000', 0.6, 0, 6, 16)], clip: true, name: `module ${title}` });
   rect(g, 0, 0, w, 30, lin([[0, '#1c1e1d'], [1, '#161817']]), { name: 'head' });
   rect(g, 0, 30, w, 1, solid('#000000', 0.6), { name: 'rule' });
   text(g, title, 14, 9, { font: F.d7, size: 11, ls: 18, color: C.muted, upper: true });

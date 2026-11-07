@@ -4,7 +4,7 @@ A new look for the browser emulator page, as an editable design file.
 
 ![Desktop](desktop-1440.png)
 
-**Direction:** a dark medical monitor in a cold, dark brushed-aluminium case. Phosphor-green traces for
+**Direction:** a dark medical monitor in a black, finely speckled matte-plastic case. Phosphor-green traces for
 anything live, sunken pale readouts for values, cream for held keys, maroon only for selection, recording
 and warnings. The FM-1's screen sits in a CRT bezel and shows the firmware's real render, untouched.
 
