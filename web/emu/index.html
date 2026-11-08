@@ -349,9 +349,23 @@ canvas#screen { position: absolute; inset: 6px; width: calc(100% - 12px); height
 .wfcord { fill: none; stroke-width: 2; }
 .wfhit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer; }
 .wfhit:hover + .wfcord, .wfcord.hot { stroke: var(--mar-hi) !important; }
-.wfins { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: block; columns: 3 200px; column-gap: 18px; }
-.wfins > * { break-inside: avoid; margin: 0 0 9px; }
-.wfins > h3 { column-span: all; }
+.wf { position: relative; }
+.wfins { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 18px; align-items: start; }
+.wfins > h3 { grid-column: 1 / -1; }
+.wfgrp { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.wfgrp .wfck { display: flex; gap: 8px; align-items: center; color: var(--ink); text-transform: none; letter-spacing: 0; font: 500 11px var(--mono); }
+.wfknob { cursor: ew-resize; }
+.wfknob:hover text.kl { fill: #c9cec6; }
+.wftype { cursor: pointer; }
+.wftype:hover text { fill: #6dffa6 !important; }
+.wfmenu { position: absolute; z-index: 20; width: min(560px, calc(100% - 16px)); max-height: 360px; overflow: auto; background: #0b100c; border: 1px solid var(--ph);
+  border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.6); display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 14px; }
+.wfmenu h4 { margin: 0 0 4px; font: 700 10px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.wfmenu .grp { display: flex; flex-wrap: wrap; gap: 4px; align-content: start; }
+.wfmenu button { font: 700 11px var(--display); letter-spacing: .06em; color: #c9cec6; background: #141815; border: 1px solid #2c3a31; border-radius: 4px; padding: 4px 7px; cursor: pointer; }
+.wfmenu button:hover, .wfmenu button:focus-visible { border-color: var(--ph); color: #6dffa6; outline: none; }
+.wfmenu button.cur { background: #1d3a29; border-color: var(--ph); color: #6dffa6; }
+.wfmenu .top { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; justify-content: space-between; color: var(--ph-mid); font: 400 11px var(--mono); }
 .wfins h3 { margin: 0; font: 700 14px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
 .wfins label { font: 700 10px var(--display); letter-spacing: .12em; color: var(--dim); display: grid; gap: 4px; text-transform: uppercase; }
 .wfins select { height: 30px; font-size: 12px; text-transform: none; letter-spacing: 0; }
@@ -699,7 +713,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
             <div class="wfins" id="wfins"></div>
           </div>
           <div class="wfmap" id="wfmap" style="margin-top:10px"></div>
-          <p class="note" style="margin-top:10px">Drag from a block's output (the dot on its right) to an input (A or B, on the left); a cord back to an earlier block is feedback, a sample late (dashed). Click a cord to take it out. The built-in sources (PITCH, GATE, NOISE, the LFOs…) are in the input menus. Edits play at once, here and on the FM-1's WEFT pages. To put a patch on your FM-1: save it as a sound or in the project, then <b>Send to FM-1</b>; <b>Export patch</b> keeps it as a file to share.</p>
+          <p class="note" style="margin-top:10px"><b>Click a block's name</b> (or an empty block) to choose its type. <b>Drag a setting sideways</b> on a block (or turn the wheel over it, shift for bigger steps) to change it; the panel under the canvas has the rest of the chosen block. Drag a block by its top to move it; its cords go with it. Drag from a block's output (the dot on its right) to an input (A or B, on the left); a cord back to an earlier block is feedback, a sample late (dashed). Click a cord to take it out. The built-in sources (PITCH, GATE, NOISE, the LFOs…) are in the input menus. Edits play at once, here and on the FM-1's WEFT pages. To put a patch on your FM-1: save it as a sound or in the project, then <b>Send to FM-1</b>; <b>Export patch</b> keeps it as a file to share.</p>
         </div>
       </div>
     </section>
@@ -1545,7 +1559,18 @@ function slowUpdate() {
 }
 
 /* ------------------------------------------------------------ WEFT: the patcher */
-const WF = { pos: null, drag: null, sig: "", ready: false, names: null, nodeW: 160, nodeH: 110, mode: "", W: 880, H: 540, pr: 8, nb: 12 };
+const WF = { pos: null, drag: null, sig: "", ready: false, names: null, nodeW: 160, nodeH: 132, mode: "", W: 880, H: 540, pr: 8, nb: 12 };
+/* the type menu's groups (any type not named here lands in MORE) */
+const WF_GROUPS = [
+  ["Oscillators & sources", ["PHASE", "WAVE", "CYCLE", "LISSA", "NOISE", "DUST", "CHAOS", "RUNGLER", "TICK", "AUDIO"]],
+  ["Envelopes & motion", ["SLOPE", "SLEW", "FOLLOW", "HOLD", "EDGE"]],
+  ["Filters", ["LP", "BP", "HP", "BANDS", "CHEBY", "FORMANT", "VOCODER"]],
+  ["Resonators", ["STRING", "RING", "SKIN", "BAR", "PLATE", "BELL", "HARMS", "FIXED"]],
+  ["Shaping", ["FOLD", "SAT", "SHAPE", "DIODE", "CRUSH", "SHIFT", "RINGMOD", "ABS"]],
+  ["Math & logic", ["ADD", "MULT", "MIX", "MIN", "MAX", "COMP", "AND", "OR", "XOR", "FLIP"]],
+  ["Time", ["DELAY", "DIFFUSE"]],
+  ["Switches & outputs", ["SW 1>4", "SW 4>1", "CLK OUT", "MOD OUT", "SEQ OUT"]],
+];
 /* a built-in source's colour, by name: the note bone, gate and trig red, the LFOs verdigris, the switch's outs white */
 const WF_SRC_COL = { PITCH: "#e9e2cc", GATE: "#c42a31", TRIG: "#c42a31", "LFO 1": "#3fbf78", "LFO 2": "#3fbf78" };
 const wfSrcCol = s => { const n = wfNames().src[s] || ""; return WF_SRC_COL[n] || (n.startsWith("SW") ? "#e2e5dd" : "#8a8f88"); };
@@ -1596,6 +1621,59 @@ function wfSetVal(p, b, k) {
   const l = N.lists[ty][k];
   return l.length ? l[Math.min(v, l.length - 1)] : String(v);
 }
+function wfMax(p, b, k) { const l = wfNames().lists[p.blocks[b].type][k]; return l.length ? l.length - 1 : 127; }
+function wfFrac(p, b, k) { const m = wfMax(p, b, k), v = k ? p.blocks[b].p2 : p.blocks[b].p1; return m ? Math.max(0, Math.min(1, v / m)) : 0; }
+/* a setting changed on a block: the voice at once, the block's text and bar in place (no redraw under the pointer) */
+function wfKnobSet(i, k, v) {
+  const t = rv.web_track(), p = wfRead(t), m = wfMax(p, i, k);
+  v = Math.max(0, Math.min(m, Math.round(v)));
+  rv.web_wf_set(t, 7, 2 * i + k, v);
+  if (k) p.blocks[i].p2 = v; else p.blocks[i].p1 = v;
+  const g = $("wfsvg").querySelector(`[data-knob="${i},${k}"]`);
+  if (g) { g.querySelector(".kv").textContent = wfSetVal(p, i, k); g.querySelector(".kb").setAttribute("width", ((WF.nodeW - 24) * wfFrac(p, i, k)).toFixed(1)); }
+  if (i === rv.web_wf_selected()) { const el = $("wfins").querySelector(`[data-set="${k}"]`); if (el) { el.value = String(v); if (el.nextElementSibling) el.nextElementSibling.textContent = v; } }
+  WF.sig = wfSig(t);                                   /* (so the next sync doesn't redraw it all) */
+}
+/* the cords of a block that is moving: redrawn as it goes, so they stay on its ports */
+function wfCordsFollow(i) {
+  $("wfsvg").querySelectorAll("path[data-s]").forEach(el => {
+    const s = +el.dataset.s, d = +el.dataset.d;
+    if (s === i || d === i) el.setAttribute("d", wfCordPath(s, d, +el.dataset.p));
+  });
+}
+/* the type menu: grouped, over the block it changes */
+function wfMenu(i) {
+  wfMenuClose();
+  const N = wfNames(), t = rv.web_track(), cur = wfRead(t).blocks[i].type, used = new Set();
+  const btn = k => `<button type="button" data-ty="${k}"${k === cur ? ' class="cur"' : ""} title="${wfEsc(N.desc[k])}">${wfEsc(N.types[k])}</button>`;
+  let h = `<div class="top"><span>Block ${i + 1}: choose its type</span><button type="button" data-ty="0"${cur ? "" : ' class="cur"'}>- empty it</button></div>`;
+  for (const [g, names] of WF_GROUPS) {
+    const ks = names.map(n => N.types.indexOf(n)).filter(k => k > 0);
+    ks.forEach(k => used.add(k));
+    if (ks.length) h += `<div><h4>${g}</h4><div class="grp">${ks.map(btn).join("")}</div></div>`;
+  }
+  const rest = N.types.map((_, k) => k).filter(k => k > 0 && !used.has(k));
+  if (rest.length) h += `<div><h4>More</h4><div class="grp">${rest.map(btn).join("")}</div></div>`;
+  const m = document.createElement("div");
+  m.className = "wfmenu"; m.id = "wfmenu"; m.setAttribute("role", "dialog"); m.setAttribute("aria-label", `Block ${i + 1}'s type`);
+  m.innerHTML = h;
+  const box = $("wfsvg").parentElement, bb = box.getBoundingClientRect(), ctm = $("wfsvg").getScreenCTM(), q = WF.pos[i];
+  const x = q.x * ctm.a + ctm.e - bb.left, y = (q.y + 30) * ctm.d + ctm.f - bb.top;
+  box.append(m);
+  m.style.left = Math.max(8, Math.min(x, box.clientWidth - m.offsetWidth - 8)) + "px";
+  m.style.top = Math.max(8, Math.min(y, $("wfsvg").clientHeight - Math.min(m.offsetHeight, 360) + 8)) + "px";
+  m.addEventListener("click", e => {
+    const b = e.target.closest("[data-ty]");
+    if (!b) return;
+    rv.web_wf_set(t, 0, i, +b.dataset.ty);
+    rv.web_wf_select(i);
+    wfMenuClose();
+    WF.sig = ""; wfSync();
+  });
+  const f = m.querySelector("button.cur") || m.querySelector("button");
+  if (f) f.focus();
+}
+function wfMenuClose() { const m = $("wfmenu"); if (m) m.remove(); }
 function wfPorts(i) { const q = WF.pos[i]; return { out: [q.x + WF.nodeW, q.y + 58], a: [q.x, q.y + 44], b: [q.x, q.y + 78] }; }
 function wfCordPath(s, d, port) {
   const o = wfPorts(s).out, n = wfPorts(d)[port ? "b" : "a"];
@@ -1620,8 +1698,9 @@ function wfRender() {
         const back = s - 1 >= i;
         if ((back ? 1 : 0) !== pass) return;
         const d = wfCordPath(s - 1, i, port), lit = i === sel || s - 1 === sel;
-        h += `<path class="wfhit" d="${d}" data-cut="${i},${port}"><title>Click to take this cord out</title></path>`;
-        h += `<path class="wfcord" d="${d}" stroke="${back ? "#3fbf78" : lit ? "#6dffa6" : "#2f8f5a"}" ${back ? 'stroke-dasharray="6 4"' : ""} pointer-events="none"/>`;
+        const j = `data-s="${s - 1}" data-d="${i}" data-p="${port}"`;
+        h += `<path class="wfhit" d="${d}" data-cut="${i},${port}" ${j}><title>Click to take this cord out</title></path>`;
+        h += `<path class="wfcord" d="${d}" ${j} stroke="${back ? "#3fbf78" : lit ? "#6dffa6" : "#2f8f5a"}" ${back ? 'stroke-dasharray="6 4"' : ""} pointer-events="none"/>`;
       });
     });
   const heard = rv.web_wf_outb ? rv.web_wf_outb(t) : p.out - 1;
@@ -1630,15 +1709,24 @@ function wfRender() {
     h += `<g class="${cls}" data-node="${i}" transform="translate(${q.x},${q.y})">`;
     if (!bk.type) {
       h += `<rect class="body" width="${WF.nodeW}" height="${WF.nodeH}" rx="6" stroke-dasharray="5 5" style="fill:#080c09;stroke:#1d5c3a"/>`;
-      h += `<text class="hd" x="12" y="24" font-size="15" fill="#565b57">${i + 1}</text><text x="${WF.nodeW / 2}" y="64" font-size="11" fill="#565b57" text-anchor="middle">+ empty: choose a type</text></g>`;
+      h += `<text class="hd" x="12" y="24" font-size="15" fill="#565b57">${i + 1}</text>`;
+      h += `<g class="wftype" data-type="${i}"><rect x="10" y="44" width="${WF.nodeW - 20}" height="44" rx="5" fill="transparent"/><text x="${WF.nodeW / 2}" y="70" font-size="11" fill="#7c827d" text-anchor="middle">+ choose a type</text></g></g>`;
       return;
     }
     h += `<rect class="body" width="${WF.nodeW}" height="${WF.nodeH}" rx="6"/>`;
     h += `<rect class="hd" width="${WF.nodeW}" height="30" rx="6" fill="transparent"/>`;
     h += `<text class="hd" x="12" y="22" font-size="13" fill="#565b57" pointer-events="none">${i + 1}</text>`;
-    h += `<text x="${i < 9 ? 30 : 38}" y="22" font-size="15" font-weight="700" fill="#e2e5dd" style="font-family:var(--display);letter-spacing:.08em" pointer-events="none">${wfEsc(N.types[bk.type])}</text>`;
+    h += `<g class="wftype" data-type="${i}"><title>${wfEsc(N.desc[bk.type])} (click to change the type)</title><rect x="${i < 9 ? 26 : 34}" y="5" width="${WF.nodeW - 40}" height="22" fill="transparent"/>`;
+    h += `<text x="${i < 9 ? 30 : 38}" y="22" font-size="15" font-weight="700" fill="#e2e5dd" style="font-family:var(--display);letter-spacing:.08em">${wfEsc(N.types[bk.type])} <tspan font-size="10" fill="#565b57">▾</tspan></text></g>`;
     h += `<polyline id="wfsc${i}" points="" fill="none" stroke="${i === sel ? "#6dffa6" : "#3fbf78"}" stroke-width="1.5" pointer-events="none"/>`;
-    h += `<text x="12" y="${WF.nodeH - 10}" font-size="11" fill="#3fbf78" pointer-events="none">${wfEsc(N.label[bk.type][0])} ${wfEsc(wfSetVal(p, i, 0))} · ${wfEsc(N.label[bk.type][1])} ${wfEsc(wfSetVal(p, i, 1))}</text>`;
+    [0, 1].forEach(k => {                                /* its two settings: drag across (or the wheel) */
+      const y = 98 + k * 22, w = WF.nodeW - 24, f = wfFrac(p, i, k);
+      h += `<g class="wfknob" data-knob="${i},${k}"><title>${wfEsc(N.label[bk.type][k])}: drag sideways, or the wheel</title>`;
+      h += `<rect x="6" y="${y - 13}" width="${WF.nodeW - 12}" height="21" fill="transparent"/>`;
+      h += `<text class="kl" x="12" y="${y}" font-size="10.5" fill="#8a8f88">${wfEsc(N.label[bk.type][k])}</text>`;
+      h += `<text class="kv" x="${WF.nodeW - 12}" y="${y}" font-size="10.5" fill="#6dffa6" text-anchor="end">${wfEsc(wfSetVal(p, i, k))}</text>`;
+      h += `<rect x="12" y="${y + 3}" width="${w}" height="2" rx="1" fill="#1d3a29"/><rect class="kb" x="12" y="${y + 3}" width="${(w * f).toFixed(1)}" height="2" rx="1" fill="#3fbf78"/></g>`;
+    });
     [["a", 44, bk.a, N.label[bk.type][2]], ["b", 78, bk.b, N.label[bk.type][3]]].forEach(([port, y, s, lab]) => {
       const col = s > WF.nb ? wfSrcCol(s) : s ? (port === "b" && bk.bMoves ? "#e9e2cc" : "#6dffa6") : "#050806";
       h += `<circle class="wfport" data-in="${i},${port === "b" ? 1 : 0}" cx="0" cy="${y}" r="${WF.pr}" fill="${col}" stroke="${s ? "#050806" : "#3fbf78"}" stroke-width="${s ? 2 : 1.5}"><title>Input ${port.toUpperCase()}: ${wfEsc(lab)}</title></circle>`;
@@ -1668,22 +1756,24 @@ function wfRender() {
 function wfInspector(t, p, sel) {
   const N = wfNames(), bk = p.blocks[sel], ins = $("wfins");
   const srcOpts = cur => [...Array(N.src.length)].map((_, s) => s >= 1 && s <= WF.nb && !p.blocks[s - 1].type ? "" : `<option value="${s}"${s === cur ? " selected" : ""}>${wfEsc(wfSrcName(p, s))}</option>`).join("");
-  let h = `<h3>Block ${sel + 1}</h3>`;
-  h += `<label>TYPE<select id="wfity">${N.types.map((n, k) => `<option value="${k}"${k === bk.type ? " selected" : ""}>${k ? wfEsc(n) : "- (empty)"}</option>`).join("")}</select></label>`;
-  h += `<p class="wfdesc">${wfEsc(N.desc[bk.type])}</p>`;
+  let h = `<h3>Block ${sel + 1}${bk.type ? " · " + wfEsc(N.types[bk.type]) : ""}</h3>`;
+  h += `<div class="wfgrp"><label>TYPE<select id="wfity">${N.types.map((n, k) => `<option value="${k}"${k === bk.type ? " selected" : ""}>${k ? wfEsc(n) : "- (empty)"}</option>`).join("")}</select></label>`;
+  h += `<p class="wfdesc">${wfEsc(N.desc[bk.type])}</p></div>`;
   if (bk.type) {
     [["A", "a", "amtA", 2], ["B", "b", "amtB", 3]].forEach(([L, f, af, li]) => {
-      h += `<label>INPUT ${L}: ${wfEsc(L === "B" && bk.bMoves ? "moves " + N.label[bk.type][1] : N.label[bk.type][li])}<select data-src="${f}">${srcOpts(bk[f])}</select></label>`;
-      h += `<div class="wfrow"><input type="range" min="-100" max="100" value="${bk[af]}" data-amt="${f}" aria-label="Amount ${L}"><output>${bk[af] > 0 ? "+" : ""}${bk[af]}</output></div>`;
+      h += `<div class="wfgrp"><label>INPUT ${L}: ${wfEsc(L === "B" && bk.bMoves ? "moves " + N.label[bk.type][1] : N.label[bk.type][li])}<select data-src="${f}">${srcOpts(bk[f])}</select></label>`;
+      h += `<div class="wfrow"><input type="range" min="-100" max="100" value="${bk[af]}" data-amt="${f}" aria-label="Amount ${L}"><output>${bk[af] > 0 ? "+" : ""}${bk[af]}</output></div></div>`;
     });
+    h += `<div class="wfgrp">`;
     [0, 1].forEach(k => {
       const v = k ? bk.p2 : bk.p1, l = N.lists[bk.type][k];
-      h += `<label>${wfEsc(N.label[bk.type][k])}</label>`;
-      h += l.length ? `<select data-set="${k}">${l.map((r, j) => `<option value="${j}"${j === v ? " selected" : ""}>${wfEsc(r)}</option>`).join("")}</select>`
-              : `<div class="wfrow"><input type="range" min="0" max="127" value="${v}" data-set="${k}" aria-label="${wfEsc(N.label[bk.type][k])}"><output>${v}</output></div>`;
+      h += `<label>${wfEsc(N.label[bk.type][k])}`;
+      h += l.length ? `<select data-set="${k}">${l.map((r, j) => `<option value="${j}"${j === v ? " selected" : ""}>${wfEsc(r)}</option>`).join("")}</select></label>`
+              : `</label><div class="wfrow"><input type="range" min="0" max="127" value="${v}" data-set="${k}" aria-label="${wfEsc(N.label[bk.type][k])}"><output>${v}</output></div>`;
     });
-    h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfbmove"${bk.bMoves ? " checked" : ""}> Input B moves ${wfEsc(N.label[bk.type][1])} (B MOVES)</label>`;
-    h += `<label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="wfisout"${p.out === sel + 1 ? " checked" : ""}> This block is the voice's output (off = AUTO)</label>`;
+    h += `</div><div class="wfgrp">`;
+    h += `<label class="wfck"><input type="checkbox" id="wfbmove"${bk.bMoves ? " checked" : ""}> Input B moves ${wfEsc(N.label[bk.type][1])} (B MOVES)</label>`;
+    h += `<label class="wfck"><input type="checkbox" id="wfisout"${p.out === sel + 1 ? " checked" : ""}> This block is the voice's output (off = AUTO)</label></div>`;
   }
   ins.innerHTML = h;
   const set = (f, i, v) => { rv.web_wf_set(t, f, i, v); WF.sig = ""; };
@@ -1722,7 +1812,7 @@ function wfScopes() {
     const el = document.getElementById("wfsc" + b);
     if (!el) continue;
     let pts = "";
-    for (let k = 0; k < 32; k++) pts += `${12 + k * (WF.nodeW - 24) / 31},${64 - rv.web_wf_scope(b, k) * 0.24} `;
+    for (let k = 0; k < 32; k++) pts += `${12 + k * (WF.nodeW - 24) / 31},${62 - rv.web_wf_scope(b, k) * 0.2} `;
     el.setAttribute("points", pts);
   }
 }
@@ -1734,8 +1824,26 @@ function wfPt(e) {
 function wfInit() {
   wfLoadPos();
   const svg = $("wfsvg");
+  svg.addEventListener("wheel", e => {                 /* the wheel on a block's setting: a step a notch */
+    const kn = e.target.closest && e.target.closest("[data-knob]");
+    if (!kn) return;
+    e.preventDefault();
+    const [i, k] = kn.dataset.knob.split(",").map(Number), p = wfRead(rv.web_track());
+    wfKnobSet(i, k, (k ? p.blocks[i].p2 : p.blocks[i].p1) + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 8 : 1));
+  }, { passive: false });
+  document.addEventListener("pointerdown", e => { const m = $("wfmenu"); if (m && !m.contains(e.target) && !(e.target.closest && e.target.closest("[data-type]"))) wfMenuClose(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") wfMenuClose(); });
   svg.addEventListener("pointerdown", e => {
     const t = rv.web_track(), el = e.target;
+    const kn = el.closest && el.closest("[data-knob]");
+    if (kn) {                                         /* a setting: dragged sideways */
+      const [i, k] = kn.dataset.knob.split(",").map(Number), p = wfRead(t);
+      if (i !== rv.web_wf_selected()) { rv.web_wf_select(i); wfInspector(t, p, i); }
+      WF.drag = { kind: "knob", node: i, k, x0: wfPt(e).x, v0: k ? p.blocks[i].p2 : p.blocks[i].p1, span: wfMax(p, i, k) };
+      svg.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
     if (el.dataset.out !== undefined) {               /* a cord from this output */
       WF.drag = { kind: "wire", from: +el.dataset.out };
       svg.setPointerCapture(e.pointerId);
@@ -1750,9 +1858,9 @@ function wfInit() {
     }
     const g = el.closest("[data-node]");
     if (g) {
-      const i = +g.dataset.node, p = wfPt(e);
+      const i = +g.dataset.node, p = wfPt(e), ty = el.closest("[data-type]");
       rv.web_wf_select(i);
-      WF.drag = { kind: "move", node: i, dx: p.x - WF.pos[i].x, dy: p.y - WF.pos[i].y, moved: false };
+      WF.drag = { kind: "move", node: i, dx: p.x - WF.pos[i].x, dy: p.y - WF.pos[i].y, moved: false, type: !!ty };
       svg.setPointerCapture(e.pointerId);
       WF.sig = "";
       wfRender();
@@ -1764,13 +1872,18 @@ function wfInit() {
     if (WF.drag.kind === "wire") {
       const o = wfPorts(WF.drag.from).out;
       $("wfwire").setAttribute("d", `M${o[0]},${o[1]} C${o[0] + 60},${o[1]} ${p.x - 60},${p.y} ${p.x},${p.y}`);
+    } else if (WF.drag.kind === "knob") {             /* the block's width covers the whole range (a list: a step each 14 px) */
+      const d = WF.drag, dx = p.x - d.x0;
+      wfKnobSet(d.node, d.k, d.v0 + (d.span > 24 ? dx * d.span / (WF.nodeW - 24) : dx / 14));
     } else {
       const q = WF.pos[WF.drag.node];
       q.x = Math.max(12, Math.min(WF.W - WF.nodeW - 12, p.x - WF.drag.dx));
       q.y = Math.max(6, Math.min(WF.H - WF.nodeH - 6, p.y - WF.drag.dy));
-      WF.drag.moved = true;
       const g = svg.querySelector(`[data-node="${WF.drag.node}"]`);
+      if (g && !WF.drag.moved) svg.insertBefore(g, $("wfwire"));   /* (the block carried over the others) */
+      WF.drag.moved = true;
       if (g) g.setAttribute("transform", `translate(${q.x},${q.y})`);
+      wfCordsFollow(WF.drag.node);                   /* (its cords go with it) */
     }
   });
   const end = e => {
@@ -1784,7 +1897,17 @@ function wfInit() {
         rv.web_wf_set(t, port ? 2 : 1, i, d.from + 1);
         if (!rv.web_wf_get(t, port ? 4 : 3, i)) rv.web_wf_set(t, port ? 4 : 3, i, 100);
       }
+    } else if (d.kind === "knob") {
+      WF.sig = "";                                    /* (drawn again now: the block chosen lit) */
+      wfSync();
+      return;
     } else if (d.moved) wfSavePos();
+    else if (d.type) {                                /* the type clicked (not dragged): its menu */
+      WF.sig = "";
+      wfSync();
+      wfMenu(d.node);
+      return;
+    }
     WF.sig = "";
     wfSync();
   };

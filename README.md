@@ -495,10 +495,12 @@ Under the instrument in the emulator, the **WEFT patcher** shows the current tra
 
 - **Make this track WEFT** turns the current track into one (or choose *Weft (patch)* under Sound).
 - **Drag from a block's output** (the dot on its right) **to an input** (A or B, on its left) to patch; a cord back to an earlier block is drawn dashed in green (feedback). **Click a cord** to take it out. **Drag a block by its title** to move it (the layout is only for you; it is kept in your browser).
-- **Click a block** to edit it on the right: its TYPE, each input's source (blocks and built-ins) and amount, its two settings, and whether it is the voice's output. Clicking also picks it on the FM-1's screen in the emulator.
+- **Click a block's name** (the ▾ beside it), or an empty block, to choose its type from a menu grouped as oscillators and sources, envelopes, filters, resonators, shaping, math and logic, time, and switches and outputs (**- empty it** clears the block).
+- **Each block's two settings are on it**, with their values and a bar: drag one sideways to change it (the block's width is the whole range), or turn the mouse wheel over it (shift for bigger steps).
+- **Click a block** to edit the rest of it in the panel under the canvas: its TYPE, each input's source (blocks and built-ins) and amount, its two settings, B MOVES and whether it is the voice's output. Clicking also picks it on the FM-1's screen in the emulator.
+- **While you drag a block, its cords follow it**, and it is carried over the others.
 - **Patch** loads a factory patch; **Output**, **Voices** and **KNOB 1–4 on WEFT PLAY** are the MAP page's settings.
 - Each block shows its output live while you play. Everything you change plays at once, and the emulator's own FM-1 screen follows (and the other way round).
-- **Input B moves …** (under the settings) is B MOVES.
 - On a phone the blocks stack two a row, larger to touch.
 
 **Getting a patch onto your FM-1.** A patch belongs to its track, so it travels with the project and in your sound banks: **SAVE** the project (or **Save sound…** in the emulator's Sound section), then **Send to FM-1** (Projects & sounds). On the FM-1 you can go on editing it on the WEFT pages. **Export patch** saves it as a small `.weft.json` file to keep or share; **Import patch** puts one onto the current track. The file is plain JSON, block types and sources by name:
