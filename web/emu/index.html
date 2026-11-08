@@ -1562,12 +1562,13 @@ function slowUpdate() {
 const WF = { pos: null, drag: null, sig: "", ready: false, names: null, nodeW: 160, nodeH: 132, mode: "", W: 880, H: 540, pr: 8, nb: 12 };
 /* the type menu's groups (any type not named here lands in MORE) */
 const WF_GROUPS = [
-  ["Oscillators & sources", ["PHASE", "WAVE", "CYCLE", "LISSA", "NOISE", "DUST", "CHAOS", "RUNGLER", "TICK", "AUDIO"]],
-  ["Envelopes & motion", ["SLOPE", "SLEW", "FOLLOW", "HOLD", "EDGE"]],
-  ["Filters", ["LP", "BP", "HP", "BANDS", "CHEBY", "FORMANT", "VOCODER"]],
+  ["Oscillators & sources", ["PHASE", "WAVE", "CYCLE", "LISSA", "NOISE", "DUST", "CHAOS", "RUNGLER", "AUDIO"]],
+  ["Envelopes & motion", ["SLOPE", "SLEW", "FOLLOW", "HOLD", "LPG"]],
+  ["Clocks", ["TICK", "CLK DIV", "EDGE", "FLIP"]],
+  ["Filters", ["LP", "BP", "HP", "BANDS", "CHEBY", "FORMANT", "VOCODER", "LPG"]],
   ["Resonators", ["STRING", "RING", "SKIN", "BAR", "PLATE", "BELL", "HARMS", "FIXED"]],
   ["Shaping", ["FOLD", "SAT", "SHAPE", "DIODE", "CRUSH", "SHIFT", "RINGMOD", "ABS"]],
-  ["Math & logic", ["ADD", "MULT", "MIX", "MIN", "MAX", "COMP", "AND", "OR", "XOR", "FLIP"]],
+  ["Math & logic", ["ADD", "MULT", "MIX", "MIN", "MAX", "COMP", "AND", "OR", "XOR"]],
   ["Time", ["DELAY", "DIFFUSE"]],
   ["Switches & outputs", ["SW 1>4", "SW 4>1", "CLK OUT", "MOD OUT", "SEQ OUT"]],
 ];

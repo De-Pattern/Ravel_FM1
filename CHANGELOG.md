@@ -3,6 +3,16 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.26.0
+
+New
+- WEFT: **CLK DIV**, a clock divider and multiplier: a pulse on the first of each RATIO of A's rises (/2 to /64), or that many evenly between two (x2 to x4); WIDTH from a one-sample click to a gate the length of the gap; B resets it.
+- WEFT: **LPG**, a low pass gate after the vactrol gates of Buchla's 292: B (or the note) opens it, it lets go over DECAY with a vactrol's long tail and darkens as it closes; a one-sample click opens it all the way, for struck, woody pings with no envelope. MODE: LPG, VCA or LP.
+- WEFT factory patch **GATED BONGO**: sixteenths divided by three and by four, pinging LPGs over a sine and a ring.
+- Emulator: the WEFT patcher's type menu has a CLOCKS group (TICK, CLK DIV, EDGE, FLIP); LPG is under envelopes and filters both.
+
+The existing factory patches sound the same, sample for sample; a patch without the new blocks costs the same.
+
 ## 1.25.0
 
 New

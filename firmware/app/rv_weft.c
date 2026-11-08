@@ -392,6 +392,8 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
         break;
     }
     case WO_DIODE: W->c1[i] = 1.0f + x1 * x1 * 30.0f; break;
+    case WO_CDIV: W->c1[i] = (float)wf_cdr_v[WN(x1, 16)]; break;
+    case WO_LPG: W->kr[i] = wk(wtime(x1)); W->c1[i] = wkh(W, 0.9f); W->c2[i] = (float)WN(x2, 3); break;   /* DECAY; open: ~15 kHz */
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
@@ -1507,6 +1509,83 @@ RV_HOT2 static void wk_diode(wk_t *K, int i, int j1, int j2)
     }
 }
 
+WK_FLASH static void wk_cdiv(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* a pulse on A's first rise of each RATIO (x: that many to each, spread over the last gap between two);
+                  * WIDTH: its length, a click at 0 up to the whole gap; B: back to the first */
+        int n = (int)W->c1[i];
+        for (j = j1; j < j2; j++) {
+            int fire = 0;
+            s->ph += 1.0f;                      /* (samples since A last rose) */
+            if (bc && wrise(WB, &s->prevb, 0.25f)) {
+                s->s1 = 0.0f;
+                s->z[0] = 64.0f;
+            }
+            if (ac && wrise(WA, &s->prev, 0.25f)) {
+                if (s->ph < 8.0f * W->fs)
+                    s->hold = s->ph;            /* (the gap: a clock slower than 8 s isn't one) */
+                s->ph = 0.0f;
+                if (n > 0) {
+                    fire = s->s1 < 0.5f;
+                    if ((s->s1 += 1.0f) >= (float)n)
+                        s->s1 = 0.0f;
+                } else {
+                    fire = 1;
+                    s->z[0] = 1.0f;             /* (the next of its pulses between this rise and the next) */
+                }
+            } else if (n < 0 && s->hold > 0.0f && s->z[0] < (float)-n && s->ph >= s->hold * s->z[0] / (float)-n) {
+                fire = 1;
+                s->z[0] += 1.0f;
+            }
+            if (fire) {
+                float P = n > 0 ? s->hold * (float)n : s->hold / (float)-n;
+                s->s2 = x2 * P > 1.0f ? x2 * P : 1.0f;
+            }
+            y = 0.0f;
+            if (s->s2 > 0.0f) {
+                y = 1.0f;
+                s->s2 -= 1.0f;
+            }
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+RV_HOT2 static void wk_lpg(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A through a vactrol's light: B opens it (none: the note, struck by each one), it lets go over DECAY,
+                  * quickly at first and then a long tail; it darkens as it closes (LPG), or only quietens (VCA), or
+                  * only darkens (LP) */
+        float l = s->s1, y1 = s->s2, y2 = s->y, kr = W->kr[i], top = W->c1[i];
+        int md = (int)W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float c = bc ? WB : (trg[j] > 0.0f ? 1.0f : K->gatev), x = WA, k;
+            c = clampf(c, 0.0f, 1.2f);
+            if (c > l)
+                l = c;                          /* (the lamp: on at once, so a one-sample strike opens it all the way) */
+            else
+                l -= (l - c) * clampf(kr * (0.3f + 1.4f * l), 0.0f, 1.0f);   /* (the cell: quick, then slow) */
+            if (md == WLPG_VCA) {
+                yo[j] = x * l * l;
+                continue;
+            }
+            k = top * l * (0.12f + 0.88f * l) + 0.0004f;   /* (two poles from about 3 Hz, closed, to ~15 kHz) */
+            y1 += (x - y1) * k;
+            y2 += (y1 - y2) * k;
+            if (!(y2 > -64.0f && y2 < 64.0f))
+                y1 = y2 = 0.0f;
+            yo[j] = md == WLPG_LP ? y2 : y2 * l;
+        }
+        s->s1 = l;
+        s->s2 = y1;
+        s->y = y2;
+        return;
+    }
+}
+
 RV_HOT2 static void wk_noise(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -1674,6 +1753,8 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_RMOD] = wk_rmod,
     [WO_SHIFT] = wk_shift,
     [WO_DIODE] = wk_diode,
+    [WO_CDIV] = wk_cdiv,
+    [WO_LPG] = wk_lpg,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,
@@ -2059,7 +2140,7 @@ static __attribute__((noinline)) void weft_scopes(const wplan_t *P, const wcx_t 
                 if (!wsc[i].wait) {
                     if (fm_fabsf(y) >= fm_fabsf(wsc[i].pk))
                         wsc[i].pk = y;
-                    if (++wsc[i].dec >= (ty == WO_SLOPE || ty == WO_SLEW || ty == WO_HOLD || ty == WO_DUST || ty == WO_TICK || ty == WO_OMOD ||
+                    if (++wsc[i].dec >= (ty == WO_SLOPE || ty == WO_SLEW || ty == WO_HOLD || ty == WO_DUST || ty == WO_TICK || ty == WO_CDIV || ty == WO_OMOD ||
                                          ty == WO_OCLK || ty == WO_EDGE || ty == WO_CHAOS || ty == WO_FOLLOW || ty == WO_RUNGLER || (ty == WO_CYCLE && W->c1[i] < 0.0005f) ? 96 : 3)) {
                         wsc[i].dec = 0;
                         wsc[i].buf[wsc[i].idx++] = (int8_t)clampf(wsc[i].pk * 100.0f, -127.0f, 127.0f);

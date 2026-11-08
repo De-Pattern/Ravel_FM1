@@ -24,6 +24,7 @@ enum {
     WO_VOCODER, WO_RMOD, WO_NOISE, WO_RUNGLER, WO_LISSA,   /* a vocoder; a ring modulator; coloured noise; a shift register; a 2-D LFO */
     WO_AOUT, WO_SEQ,                                    /* outputs: into the track's sound (mixed); a track's sequencer */
     WO_SHIFT, WO_DIODE,                                 /* a frequency shifter; a diode clipper */
+    WO_CDIV, WO_LPG,                                    /* a clock divider (and multiplier); a low pass gate */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -59,6 +60,11 @@ static const char *const wf_rlen[6] = {"3", "4", "5", "6", "7", "8"};
 static const char *const wf_trk[8] = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const wf_smode[5] = {"STEP", "JUMP", "RESTART", "GATE", "PATTERN"};
 enum { WSQ_STEP, WSQ_JUMP, WSQ_RESTART, WSQ_GATE, WSQ_PATTERN };
+/* CLK DIV's ratios: below 0, that many pulses to each of A's (spread over the last gap between two) */
+static const char *const wf_cdr[16] = {"x4", "x3", "x2", "1", "/2", "/3", "/4", "/5", "/6", "/7", "/8", "/12", "/16", "/24", "/32", "/64"};
+static const int8_t wf_cdr_v[16] = {-4, -3, -2, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24, 32, 64};
+static const char *const wf_lpgm[3] = {"LPG", "VCA", "LP"};
+enum { WLPG_BOTH, WLPG_VCA, WLPG_LP };
 static const char *const wf_lratio[9] = {"1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "3:5", "5:4"};
 static const uint8_t wf_lratio_v[9][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, {3, 4}, {4, 3}, {3, 5}, {5, 4}};   /* X turns, Y turns */
 enum { WSW_UP, WSW_DOWN, WSW_PING, WSW_RANDOM, WSW_SELECT };
@@ -120,6 +126,8 @@ static const wf_type_t wf_types[WO_N] = {
     {"SEQ OUT", "TRACK", "MODE", "TRIG", "WHERE", 1, 0, 8, 5, wf_trk, wf_smode},
     {"SHIFT", "SHIFT", "SIDE", "IN", "SHIFT", 70, 127, 0, 0, 0, 0},
     {"DIODE", "DRIVE", "PAIR", "IN", "DRIVE", 40, 0, 0, 0, 0, 0},
+    {"CLK DIV", "RATIO", "WIDTH", "CLOCK", "RESET", 4, 64, 16, 0, wf_cdr, 0},
+    {"LPG", "DECAY", "MODE", "IN", "OPEN", 80, 0, 0, 3, 0, wf_lpgm},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -180,6 +188,8 @@ static const char *const wf_desc[WO_N] = {
     "A'S RISES MOVE A TRACK'S STEPS",
     "EVERY PARTIAL MOVED BY SHIFT HZ",
     "A THROUGH A DIODE, OR A PAIR",
+    "A'S PULSES DIVIDED OR MULTIPLIED",
+    "A LOW PASS GATE: B OPENS IT",
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -333,6 +343,14 @@ static const wf_preset_t wf_presets[] = {
       {WO_DIODE, 6, 100, 0, 0, 20, 30}, {WO_DIFFUSE, 7, 100, 0, 0, 70, 90}, {WO_RMOD, 4, 100, 8, 100, 64, 127},
       {WO_CRUSH, 9, 100, 0, 0, 45, 15}, {WO_FOLLOW, 7, 100, 0, 0, 20, 80}, {WO_MIX, 10, 100, 4, 100, 70, 64}},
      12, 1, {WM(6, 0), WM(2, 0), WM(7, 0), WM(12, 0)}, 0},
+    {"GATED BONGO",   /* sixteenths divided by three and by four, each pinging a low pass gate (a sine, a ring), every
+                       * sixteenth a softer one an octave up: the threes against the fours, and the gates' tails are the
+                       * envelopes */
+     {{WO_TICK, WS_GATE, 100, 0, 0, 8, 127}, {WO_CDIV, 1, 100, 0, 0, 5, 0}, {WO_CDIV, 1, 100, 0, 0, 6, 0},
+      {WO_WAVE, 0, 0, 0, 0, 0, 64}, {WO_LPG, 4, 100, 2, 100, 78, WLPG_BOTH}, {WO_RING, 3, 100, 0, 0, 7, 50},
+      {WO_LPG, 6, 100, 3, 100, 70, WLPG_BOTH}, {WO_ADD, 5, 100, 7, 100, 64, 64}, {WO_PHASE, 0, 0, 0, 0, 4, 64},
+      {WO_WAVE, 9, 100, 0, 0, 20, 64}, {WO_LPG, 10, 100, 1, 55, 50, WLPG_BOTH}, {WO_MIX, 8, 100, 11, 100, 40, 110}},
+     12, 1, {WM(5, 0), WM(7, 0), WM(11, 0), WM(2, 0)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif
