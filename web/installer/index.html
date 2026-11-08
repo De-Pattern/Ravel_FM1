@@ -11,11 +11,7 @@
 <link rel="icon" type="image/png" href="__RAVEL_ICON__">
 <link rel="apple-touch-icon" href="__RAVEL_TOUCH__">
 <style>
-  :root { --bg: #fff; --fg: #000; --dim: #6b6b6b; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #000; --fg: #fff; --dim: #888; }
-  }
-  :root[data-theme="dark"] { --bg: #000; --fg: #fff; --dim: #888; }
+  :root { --bg: #0b0b0c; --fg: #ececea; --dim: #8a8a8e; color-scheme: dark; }   /* dark, always */
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 520px; margin: 0 auto; padding: 48px 16px; }
@@ -65,7 +61,7 @@
   .panes td.num, .panes th.num { text-align: right; white-space: nowrap; }
   .panes th.ck, .panes td.ck { width: 26px; padding-right: 0; }
   .panes tr.empty-slot td { color: var(--dim); }
-  .panes tr.sel td { background: color-mix(in srgb, #a3161c 12%, transparent); }
+  .panes tr.sel td { background: color-mix(in srgb, #a3161c 24%, transparent); }
   .panes tr[draggable=true] { cursor: grab; }
   .panes tr.dragging { opacity: .4; }
   .panes tr.target td { box-shadow: inset 0 2px 0 #a3161c, inset 0 -2px 0 #a3161c; }
@@ -76,7 +72,7 @@
   .mid .small { margin: 0; font-size: 12px; }
   button.ghost { background: none; color: var(--fg); border: 1px solid var(--dim); padding: 3px 9px; font-size: 13px; }
   .x { background: none; color: var(--dim); border: 0; padding: 0 4px; font-size: 15px; }
-  .x:hover { color: #a3161c; }
+  .x:hover { color: #e5604f; }
   #bklog { max-height: 140px; overflow-y: auto; border: 1px solid var(--dim); padding: 6px 8px; }
   #bklog:empty { display: none; }
   #bkalert { font-weight: 600; }
