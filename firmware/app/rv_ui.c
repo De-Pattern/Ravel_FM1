@@ -834,7 +834,7 @@ static int wl_free(void)
             return i;
     return -1;
 }
-#define WL_MAX 64                                     /* (every caller's list: 32 of yours, NEW, the factory's) */
+#define WL_MAX 72                                     /* (every caller's list: 32 of yours, NEW, the factory's) */
 _Static_assert(32 + 1 + WF_NPRESETS <= WL_MAX, "the WEFT LIBRARY list is too long for its buffers");
 static __attribute__((noinline)) int wl_list(uint8_t *out)
 {

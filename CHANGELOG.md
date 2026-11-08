@@ -3,6 +3,26 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.27.0
+
+New
+- WEFT, ten new blocks:
+  - **RIFT** passes or cuts A only at its zero crossings: click-free stutters, and SKIP's cycle-tearing (1 IN 2: an octave down).
+  - **DRIP** is a bouncing drop: clicks that come faster and softer until they run together, to strike rings and bodies or open an LPG.
+  - **CATCH** catches one, two or four cycles of A and loops them at the note: a waveform frozen.
+  - **BEND** reads A back from its own few milliseconds, the read moved by B and a slow wobble: tape and Doppler swoops that come back to pitch.
+  - **FLEXURE** folds A at each note's start and relaxes back to clean as the note goes on.
+  - **LAMINA** slides A's lows, mids and highs apart in time.
+  - **FASCIA** puts B's loudness and brightness on A, so one sound wears another's skin.
+  - **VISCERA** is a soft resonant body that gets duller, shorter and lower the harder it's hit.
+  - **SNAP** keeps a gesture (a knob's movement, a played rhythm) for 1/4 to 4 bars and loops it in time with the transport.
+  - **TRACK** reads another track's level, envelope, pitch, velocity or hits as a source inside the patch.
+- CATCH, BEND, LAMINA and SNAP each use one of a patch's two delay memories, as DELAY, DIFFUSE and STRING do.
+- WEFT factory patches **DRIP BODY**, **FROZEN TEAR** and **LAYERS**.
+- Emulator: the patcher's type menu has a CAPTURE & REFORM group; DRIP is under clocks, SNAP and TRACK under envelopes and motion, VISCERA under resonators.
+
+The existing factory patches sound the same, sample for sample. The new blocks run from the flash, so the RAM the existing ones run from is unchanged; a patch costs nothing more unless it uses them.
+
 ## 1.26.0
 
 New

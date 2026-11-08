@@ -238,6 +238,35 @@ expect meter_min 1 0.005
 key 12 up
 wait 900
 turn PRESET 1
+wait 50
+expect wtype 1 1 59
+expect wtype 1 2 65
+key 12 down
+wait 700
+expect meter_min 1 0.003
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+expect wtype 1 5 60
+expect wtype 1 6 58
+expect wtype 1 7 61
+key 12 down
+wait 700
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
+wait 50
+expect wtype 1 2 62
+expect wtype 1 3 63
+expect wtype 1 7 64
+key 12 down
+wait 700
+expect meter_min 1 0.005
+key 12 up
+wait 900
+turn PRESET 1
 wait 100
 expect wtype 1 1 2
 expect wtype 1 5 0

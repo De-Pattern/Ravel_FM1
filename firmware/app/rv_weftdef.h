@@ -25,6 +25,10 @@ enum {
     WO_AOUT, WO_SEQ,                                    /* outputs: into the track's sound (mixed); a track's sequencer */
     WO_SHIFT, WO_DIODE,                                 /* a frequency shifter; a diode clipper */
     WO_CDIV, WO_LPG,                                    /* a clock divider (and multiplier); a low pass gate */
+    WO_RIFT, WO_DRIP, WO_CATCH, WO_BEND, WO_FLEX,       /* cycles torn out; a bouncing drop; a cycle caught; time bent; a
+                                                         * curve that settles */
+    WO_LAMINA, WO_FASCIA, WO_VISCERA, WO_SNAP, WO_TREAD,   /* layers apart; one sound's skin on another; a body that gives;
+                                                         * a gesture kept; another track read */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -64,6 +68,12 @@ enum { WSQ_STEP, WSQ_JUMP, WSQ_RESTART, WSQ_GATE, WSQ_PATTERN };
 static const char *const wf_cdr[16] = {"x4", "x3", "x2", "1", "/2", "/3", "/4", "/5", "/6", "/7", "/8", "/12", "/16", "/24", "/32", "/64"};
 static const int8_t wf_cdr_v[16] = {-4, -3, -2, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24, 32, 64};
 static const char *const wf_lpgm[3] = {"LPG", "VCA", "LP"};
+static const char *const wf_skip[6] = {"ALL", "1 IN 2", "1 IN 3", "2 IN 3", "1 IN 4", "3 IN 4"};
+static const uint8_t wf_skip_v[6][2] = {{1, 1}, {1, 2}, {1, 3}, {2, 3}, {1, 4}, {3, 4}};   /* cycles passed, of how many */
+static const char *const wf_ncyc[3] = {"1", "2", "4"};
+static const char *const wf_lorder[3] = {"LOW 1ST", "HIGH 1ST", "MID 1ST"};
+static const char *const wf_snapl[5] = {"1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"};
+static const char *const wf_what[5] = {"LEVEL", "ENV", "PITCH", "VEL", "HIT"};
 enum { WLPG_BOTH, WLPG_VCA, WLPG_LP };
 static const char *const wf_lratio[9] = {"1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "3:5", "5:4"};
 static const uint8_t wf_lratio_v[9][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, {3, 4}, {4, 3}, {3, 5}, {5, 4}};   /* X turns, Y turns */
@@ -128,6 +138,16 @@ static const wf_type_t wf_types[WO_N] = {
     {"DIODE", "DRIVE", "PAIR", "IN", "DRIVE", 40, 0, 0, 0, 0, 0},
     {"CLK DIV", "RATIO", "WIDTH", "CLOCK", "RESET", 4, 64, 16, 0, wf_cdr, 0},
     {"LPG", "DECAY", "MODE", "IN", "OPEN", 80, 0, 0, 3, 0, wf_lpgm},
+    {"RIFT", "SKIP", "FADE", "IN", "OPEN", 0, 10, 6, 0, wf_skip, 0},
+    {"DRIP", "TIME", "BOUNCE", "TRIG", "SPEED", 70, 90, 0, 0, 0, 0},
+    {"CATCH", "RATIO", "CYCLES", "IN", "GRAB", 2, 0, 16, 3, wf_ratio, wf_ncyc},
+    {"BEND", "DEPTH", "WOW", "IN", "WARP", 40, 0, 0, 0, 0, 0},
+    {"FLEXURE", "DEPTH", "SETTLE", "IN", "CURVE", 80, 60, 0, 0, 0, 0},
+    {"LAMINA", "SPREAD", "ORDER", "IN", "SPREAD", 60, 0, 0, 3, 0, wf_lorder},
+    {"FASCIA", "SPEED", "TONE", "IN", "SKIN", 30, 100, 0, 0, 0, 0},
+    {"VISCERA", "SIZE", "FLESH", "STRIKE", "PITCH", 64, 80, 0, 0, 0, 0},
+    {"SNAP", "LENGTH", "SMOOTH", "IN", "REC", 2, 10, 5, 0, wf_snapl, 0},
+    {"TRACK", "TRACK", "WHAT", "SCALE", "ADD", 0, 0, 8, 5, wf_trk, wf_what},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -190,6 +210,16 @@ static const char *const wf_desc[WO_N] = {
     "A THROUGH A DIODE, OR A PAIR",
     "A'S PULSES DIVIDED OR MULTIPLIED",
     "A LOW PASS GATE: B OPENS IT",
+    "A'S CYCLES PASSED OR TORN OUT",
+    "DROPS THAT BOUNCE, FASTER",
+    "ONE CYCLE OF A CAUGHT, LOOPED",
+    "A, ITS TIME BENT BY B",
+    "A SHAPED, SETTLING AS IT GOES",
+    "A'S LOWS, MIDS, HIGHS APART",
+    "A WEARS B'S SKIN",
+    "A BODY THAT GIVES WHEN HIT",
+    "A GESTURE KEPT AND LOOPED",
+    "ANOTHER TRACK, READ"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -351,6 +381,22 @@ static const wf_preset_t wf_presets[] = {
       {WO_LPG, 6, 100, 3, 100, 70, WLPG_BOTH}, {WO_ADD, 5, 100, 7, 100, 64, 64}, {WO_PHASE, 0, 0, 0, 0, 4, 64},
       {WO_WAVE, 9, 100, 0, 0, 20, 64}, {WO_LPG, 10, 100, 1, 55, 50, WLPG_BOTH}, {WO_MIX, 8, 100, 11, 100, 40, 110}},
      12, 1, {WM(5, 0), WM(7, 0), WM(11, 0), WM(2, 0)}, 0},
+    {"DRIP BODY",     /* each note drops a bouncing ball onto a soft body and a ring: harder at first, so the body gives */
+     {{WO_DRIP, 0, 0, 0, 0, 70, 90}, {WO_VISCERA, 1, 100, 0, 0, 64, 80}, {WO_RING, 1, 100, 0, 0, 9, 55},
+      {WO_MIX, 2, 100, 3, 100, 50, 90}},
+     4, 1, {WM(1, 0), WM(1, 1), WM(2, 0), WM(2, 1)}, 0},
+    {"FROZEN TEAR",   /* an FM tone caught two cycles at a time at each note, torn two cycles in three, its time bent */
+     {{WO_PHASE, 0, 0, 0, 0, 4, 64}, {WO_WAVE, 1, 100, 0, 0, 40, 64}, {WO_PHASE, 2, 40, 0, 0, 2, 64}, {WO_WAVE, 3, 100, 0, 0, 0, 64},
+      {WO_CATCH, 4, 100, 0, 0, 2, 1}, {WO_RIFT, 5, 100, 0, 0, 3, 10}, {WO_BEND, 6, 100, 0, 0, 50, 30},
+      {WO_SLOPE, 0, 0, 0, 0, 4, 70}, {WO_MULT, 7, 100, 8, 100, 64, 64}},
+     9, 1, {WM(5, 1), WM(6, 0), WM(7, 0), WM(7, 1)}, 0},
+    {"LAYERS",        /* a saw folded at the start and settling, its lows, mids and highs slid apart; a burst of noise lends
+                       * it a struck skin, under the held tone */
+     {{WO_WAVE, 0, 0, 0, 0, 85, 64}, {WO_FLEX, 1, 100, 0, 0, 100, 70}, {WO_LAMINA, 2, 100, 0, 0, 90, 0},
+      {WO_NOISE, 0, 0, 0, 0, 90, 127}, {WO_SLOPE, WS_TRIG, 100, 0, 0, 0, 40}, {WO_MULT, 4, 100, 5, 100, 64, 64},
+      {WO_FASCIA, 3, 100, 6, 100, 30, 100}, {WO_SLOPE, 0, 0, 0, 0, 4, 70}, {WO_MULT, 3, 100, 8, 100, 64, 64},
+      {WO_MIX, 7, 100, 9, 100, 40, 64}},
+     10, 1, {WM(2, 0), WM(3, 0), WM(7, 1), WM(10, 0)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

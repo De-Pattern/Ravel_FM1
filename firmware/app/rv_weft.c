@@ -394,6 +394,27 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
     case WO_DIODE: W->c1[i] = 1.0f + x1 * x1 * 30.0f; break;
     case WO_CDIV: W->c1[i] = (float)wf_cdr_v[WN(x1, 16)]; break;
     case WO_LPG: W->kr[i] = wk(wtime(x1)); W->c1[i] = wkh(W, 0.9f); W->c2[i] = (float)WN(x2, 3); break;   /* DECAY; open: ~15 kHz */
+    case WO_RIFT: W->c1[i] = (float)WN(x1, 6); W->kf[i] = x2 > 0.0f ? wk(0.0002f + x2 * x2 * 0.02f) : 1.0f; break;   /* FADE: 0 .. 20 ms */
+    case WO_DRIP: W->c1[i] = 0.02f * wx_exp2(x1 * 6.2f) * W->fs; W->c2[i] = 0.45f + 0.5f * x2; break;   /* the first gap: 20 ms .. 1.5 s */
+    case WO_CATCH: W->c1[i] = hz * wf_ratio_v[WN(x1, 16)] * W->dt; W->c2[i] = (float)(1 << WN(x2, 3)); break;
+    case WO_BEND: W->c1[i] = x1 * 0.0105f * W->fs; W->c2[i] = x2 > 0.0f ? 0.1f * wx_exp2(x2 * 6.3f) * W->dt : 0.0f; break;   /* ±10 ms; WOW 0.1 .. 8 Hz */
+    case WO_FLEX: W->c1[i] = x1 * 8.0f; W->kf[i] = wk(0.005f * wx_exp2(x2 * 9.0f)); break;   /* SETTLE: 5 ms .. 2.5 s */
+    case WO_LAMINA:
+        W->c1[i] = x1 * 0.0115f * W->fs;        /* the spread: 0 .. 11.5 ms */
+        W->c2[i] = (float)WN(x2, 3);
+        W->kr[i] = wkh(W, 1.0f - wx_exp(-6.2832f * 250.0f / 44100.0f));   /* (the crossovers: 250 Hz, 2.5 kHz) */
+        W->kf[i] = wkh(W, 1.0f - wx_exp(-6.2832f * 2500.0f / 44100.0f));
+        break;
+    case WO_FASCIA: W->kr[i] = wk(0.001f * wx_exp2(x1 * 7.7f)); W->c2[i] = x2; W->kf[i] = wkh(W, 0.133f); break;   /* SPEED: 1 .. 200 ms; B's highs: ~1 kHz up */
+    case WO_VISCERA: {                          /* two bodies' modes, ±2 octaves of the note; FLESH: how much a hit softens it */
+        float f = clampf(hz * wx_exp2((x1 - 0.5f) * 4.0f), 20.0f, wf_top(W, 6000.0f));
+        W->c1[i] = clampf(2.0f * fm_sin_turns(0.5f * f * W->dt), 0.0f, 1.2f);
+        W->kr[i] = clampf(2.0f * fm_sin_turns(0.5f * f * 1.58f * W->dt), 0.0f, 1.2f);
+        W->c2[i] = x2;
+        break;
+    }
+    case WO_SNAP: { static const float L[5] = {4.0f, 8.0f, 16.0f, 32.0f, 64.0f}; W->c1[i] = L[WN(x1, 5)]; W->kf[i] = x2 > 0.0f ? wk(0.0005f + x2 * x2 * 0.3f) : 1.0f; break; }
+    case WO_TREAD: W->c1[i] = (float)WN(x1, 8); W->c2[i] = (float)WN(x2, 5); break;
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
@@ -1586,6 +1607,349 @@ RV_HOT2 static void wk_lpg(wk_t *K, int i, int j1, int j2)
     }
 }
 
+/* ------------------------------------------------- the newer blocks (1.27): all from the flash (the pool's code is full) */
+RV_INL float wm_read(const int16_t *m, int k, float d)      /* a memory read d samples behind k, between samples */
+{
+    float fr = (float)k - d, r0;
+    int i0;
+    while (fr < 0.0f)
+        fr += (float)WD_LEN;
+    i0 = (int)fr;
+    fr -= (float)i0;
+    i0 &= WD_LEN - 1;
+    r0 = (float)m[i0];
+    return (r0 + ((float)m[(i0 + 1) & (WD_LEN - 1)] - r0) * fr) * (1.0f / 16384.0f);
+}
+#define WM_PUT(x) (int16_t)(clampf(x, -1.99f, 1.99f) * 16384.0f)
+
+WK_FLASH static void wk_rift(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A passed or cut only as it rises through zero: whole cycles, so no clicks; SKIP: some cycles in each few
+                  * (1 IN 2: an octave down's tearing); B: open (none: always) */
+        int sk = (int)W->c1[i], np = wf_skip_v[sk][0], nd = wf_skip_v[sk][1];
+        float kf = W->kf[i];
+        for (j = j1; j < j2; j++) {
+            a = WA;
+            if (s->prev <= 0.0f && a > 0.0f) {  /* (a cycle starts) */
+                s->s1 += 1.0f;
+                if (s->s1 >= (float)nd)
+                    s->s1 = 0.0f;
+                s->s2 = (!bc || WB > 0.5f) && s->s1 < (float)np ? 1.0f : 0.0f;
+            }
+            s->prev = a;
+            s->y += (s->s2 - s->y) * kf;
+            yo[j] = a * s->y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_drip(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* a drop at each rise of A (none: each note), then more, each gap shorter by BOUNCE and each a little
+                  * softer, until they run together: a ball bouncing to rest. Clicks, to strike a ring or open an LPG;
+                  * B: faster or slower */
+        float r = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            y = 0.0f;
+            if (ac ? wrise(WA, &s->prev, 0.5f) : trg[j] > 0.0f) {
+                s->st = 1;
+                s->s1 = W->c1[i];
+                s->s2 = 1.0f;
+                s->ph = 0.0f;
+            }
+            if (s->st) {
+                s->ph -= bc ? fm_exp2f(WB * 2.0f) : 1.0f;
+                if (s->ph <= 0.0f) {
+                    y = s->s2;
+                    s->s1 *= r;
+                    s->s2 *= 0.6f + 0.4f * r;
+                    s->ph += s->s1;
+                    if (s->s1 < 0.003f * W->fs || s->s2 < 0.03f)
+                        s->st = 0;
+                }
+            }
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_catch(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* at B's rise (none: each note) it waits for A to rise through zero, keeps CYCLES of it, and loops them at
+                  * the note x RATIO: a waveform caught and frozen. Until then, A as it is */
+        int16_t *m;
+        int dn = W->dn[i];
+        float nc = W->c2[i];
+        if (dn < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = 0.0f;
+            return;
+        }
+        m = wdly[v - wv][dn];
+        for (j = j1; j < j2; j++) {
+            int up;
+            a = WA;
+            up = s->prev <= 0.0f && a > 0.0f;
+            s->prev = a;
+            if (bc ? wrise(WB, &s->prevb, 0.5f) : trg[j] > 0.0f)
+                s->st = 1;                      /* (armed: the next zero crossing starts it) */
+            if (s->st == 1 && up) {
+                s->st = 2;
+                s->ph = 0.0f;
+                s->s1 = 0.0f;
+            } else if (s->st == 2 && up && (s->s1 += 1.0f) >= nc) {
+                s->hold = s->ph;                /* (caught: its length) */
+                s->st = 3;
+                s->ph = 0.0f;
+            }
+            if (s->st == 2) {
+                m[(int)s->ph] = WM_PUT(a);
+                if ((s->ph += 1.0f) >= (float)(WD_LEN - 1)) {
+                    s->hold = s->ph;            /* (as much as there's room for) */
+                    s->st = 3;
+                    s->ph = 0.0f;
+                }
+            }
+            if (s->st == 3 && s->hold >= 2.0f) {
+                int i0 = (int)s->ph;
+                float fr = s->ph - (float)i0, r0 = (float)m[i0], r1 = (float)m[i0 + 1 < (int)s->hold ? i0 + 1 : 0];
+                y = (r0 + (r1 - r0) * fr) * (1.0f / 16384.0f);
+                s->ph += s->hold / nc * W->c1[i];
+                while (s->ph >= s->hold)
+                    s->ph -= s->hold;
+            } else
+                y = a;
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_bend(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A read back from its own few milliseconds, the read moved by B (and WOW, a slow wobble): the pitch
+                  * swoops while it moves and is back where it was when it stops */
+        int16_t *m;
+        int dn = W->dn[i], k;
+        float D = W->c1[i];
+        if (dn < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = WA;
+            return;
+        }
+        m = wdly[v - wv][dn];
+        k = v->dw[dn];
+        for (j = j1; j < j2; j++) {
+            float w = bc ? WB : 0.0f, d;
+            if (W->c2[i] > 0.0f) {
+                s->ph = wwrap(s->ph + W->c2[i]);
+                w += fm_sin_turns(s->ph);
+            }
+            s->s1 += (clampf(w, -1.0f, 1.0f) - s->s1) * 0.01f;   /* (smoothed: no zipper) */
+            m[k] = WM_PUT(WA);
+            d = D + 2.0f + D * s->s1;
+            yo[j] = wm_read(m, k, d);
+            k = (k + 1) & (WD_LEN - 1);
+        }
+        v->dw[dn] = (uint16_t)k;
+        return;
+    }
+}
+
+WK_FLASH static void wk_flex(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A folded hard at each note's start (DEPTH), the fold relaxing over SETTLE to A as it is; B: the curve's
+                  * own envelope instead (0 clean, 1 folded) */
+        float dp = W->c1[i], kf = W->kf[i];
+        for (j = j1; j < j2; j++) {
+            float e, f;
+            if (bc)
+                e = clampf(WB, 0.0f, 1.0f);
+            else {
+                if (trg[j] > 0.0f)
+                    s->y = 1.0f;
+                s->y -= s->y * kf;
+                e = s->y;
+            }
+            a = WA;
+            f = fm_sin_turns(clampf(a, -4.0f, 4.0f) * (1.0f + dp * e) * 0.25f);
+            yo[j] = a + e * (f - a);
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_lamina(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* A split at 250 Hz and 2.5 kHz, each of the three a little later than the one before (ORDER: which comes
+                  * first) over SPREAD: the layers of a sound slid apart; B: more or less spread */
+        int16_t *m;
+        int dn = W->dn[i], k, o = (int)W->c2[i];
+        float kl = W->kr[i], kh = W->kf[i];
+        if (dn < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = WA;
+            return;
+        }
+        m = wdly[v - wv][dn];
+        k = v->dw[dn];
+        for (j = j1; j < j2; j++) {
+            float S = clampf(W->c1[i] * (bc ? 1.0f + WB : 1.0f), 0.0f, (float)(WD_LEN - 4)), d[3], tl, tm, th, lo, mi, hi;
+            d[0] = o == 1 ? S : o == 2 ? S * 0.5f : 0.0f;       /* (lows, mids, highs: how late each) */
+            d[1] = o == 2 ? 0.0f : S * 0.5f;
+            d[2] = o == 1 ? 0.0f : o == 2 ? S : S;
+            m[k] = WM_PUT(WA);
+            tl = wm_read(m, k, d[0]);
+            tm = wm_read(m, k, d[1]);
+            th = wm_read(m, k, d[2]);
+            s->z[0] += (tl - s->z[0]) * kl;     /* lows */
+            s->z[1] += (tm - s->z[1]) * kh;     /* mids: under 2.5 k, less under 250 */
+            s->z[2] += (tm - s->z[2]) * kl;
+            s->z[3] += (th - s->z[3]) * kh;     /* highs: over 2.5 k */
+            lo = s->z[0];
+            mi = s->z[1] - s->z[2];
+            hi = th - s->z[3];
+            yo[j] = lo + mi + hi;
+            k = (k + 1) & (WD_LEN - 1);
+        }
+        v->dw[dn] = (uint16_t)k;
+        return;
+    }
+}
+
+WK_FLASH static void wk_fascia(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* B's loudness put on A, and as much of B's brightness as TONE says (a low pass on A opening as B's highs
+                  * rise): one sound wearing another's skin. With nothing on B, A as it is */
+        float kr = W->kr[i], tone = W->c2[i], kh = W->kf[i];
+        for (j = j1; j < j2; j++) {
+            float bb, br, kk;
+            a = WA;
+            if (!bc) {
+                yo[j] = a;
+                continue;
+            }
+            bb = WB;
+            s->s1 += (bb - s->s1) * kh;                         /* (B's lows) */
+            s->y += (fm_fabsf(bb) - s->y) * kr;                 /* its loudness */
+            s->s2 += (fm_fabsf(bb - s->s1) - s->s2) * kr;       /* its highs' */
+            br = clampf(s->s2 / (s->y + 1e-4f) * 2.0f, 0.0f, 1.0f);
+            kk = 1.0f - tone + tone * br;
+            kk = 0.01f + 0.99f * kk * kk;
+            s->z[0] += (a - s->z[0]) * kk;
+            s->z[1] += (s->z[0] - s->z[1]) * kk;
+            yo[j] = s->z[1] * s->y * 1.6f;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_viscera(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* two modes of a soft body, struck by A: the harder it is hit, the more it gives (FLESH): duller, shorter,
+                  * a little lower, and saturated; B: its pitch, octaves */
+        float f1 = W->c1[i], f2 = W->kr[i], fl = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float e = s->hold, q, sc = bc ? fm_exp2f(clampf(WB, -3.0f, 2.0f)) : 1.0f, g1, g2, in, lp, hp, y2;
+            a = WA;
+            g1 = clampf(f1 * sc * (1.0f - 0.15f * fl * e), 0.0f, 1.3f);
+            g2 = clampf(f2 * sc * (1.0f - 0.15f * fl * e), 0.0f, 1.3f);
+            q = 0.015f + fl * e * 0.6f;
+            in = sat(a * (1.0f + fl * 2.0f));
+            lp = s->z[0] + g1 * s->z[1];        /* (Chamberlin: z0 low, z1 band) */
+            hp = in - lp - q * s->z[1];
+            s->z[1] += g1 * hp;
+            s->z[0] = lp;
+            lp = s->z[2] + g2 * s->z[3];
+            hp = in - lp - (q * 1.5f) * s->z[3];
+            s->z[3] += g2 * hp;
+            s->z[2] = lp;
+            y = (s->z[1] + 0.6f * s->z[3]) * 3.0f;
+            if (!(y > -32.0f && y < 32.0f)) {
+                s->z[0] = s->z[1] = s->z[2] = s->z[3] = 0.0f;
+                y = 0.0f;
+            }
+            y2 = fm_fabsf(in);                  /* (how hard it is being hit: quick up, slow down) */
+            s->hold += (y2 - s->hold) * (y2 > s->hold ? 0.05f : 0.0005f);
+            yo[j] = sat(y * 0.8f);
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_snap(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* while B is up (none: while a key is held) it keeps A, LENGTH long on the tempo's grid; after, it plays
+                  * that back round and round in time with the transport, SMOOTH taking the edges off. Before anything is
+                  * kept, A as it is */
+        int16_t *m;
+        int dn = W->dn[i];
+        float L = W->c1[i];
+        if (dn < 0) {
+            for (j = j1; j < j2; j++)
+                yo[j] = WA;
+            return;
+        }
+        m = wdly[v - wv][dn];
+        for (j = j1; j < j2; j++) {
+            float pos = K->pos + K->pinc * (float)(K->j0 + j), ph = (pos - fm_floorf(pos / L) * L) / L * (float)(WD_LEN - 1), out;
+            int ix = (int)ph;
+            a = WA;
+            if (bc ? WB > 0.5f : K->gatev > 0.5f) {
+                int from = (int)s->hold, n = ix - from;
+                if (s->st && n > 0 && n < 16)   /* (fill the points passed since the last sample) */
+                    for (; from < ix; from++)
+                        m[from] = WM_PUT(a);
+                m[ix] = WM_PUT(a);
+                s->st = 1;
+                out = a;
+            } else if (s->st) {
+                float r0 = (float)m[ix], r1 = (float)m[ix + 1 < WD_LEN ? ix + 1 : 0];
+                out = (r0 + (r1 - r0) * (ph - (float)ix)) * (1.0f / 16384.0f);
+            } else
+                out = a;
+            s->hold = (float)ix;
+            s->y += (out - s->y) * W->kf[i];
+            yo[j] = s->y;
+        }
+        return;
+    }
+}
+
+WK_FLASH static void wk_tread(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* another track as a source: its LEVEL (peak), the ENV of its newest voice, the PITCH of its newest note
+                  * (as PITCH is), its VEL, or a click at each note it plays (HIT); A: times (none: 1), B: plus */
+        int t = (int)W->c1[i] & 7, w = (int)W->c2[i];
+        float x = w == 0 ? rv_live.meter[t] : w == 1 ? trk[t].lead_env : w == 2 ? trk[t].lead_key * (1.0f / 48.0f) : w == 3 ? trk[t].lead_vel : 0.0f;
+        for (j = j1; j < j2; j++) {
+            y = x;
+            if (w == 4) {
+                y = (uint8_t)s->hold != rv_live.hit[t] ? 1.0f : 0.0f;
+                s->hold = (float)rv_live.hit[t];
+            }
+            if (ac)
+                y *= WA;
+            if (bc)
+                y += WB;
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
 RV_HOT2 static void wk_noise(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -1755,6 +2119,16 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_DIODE] = wk_diode,
     [WO_CDIV] = wk_cdiv,
     [WO_LPG] = wk_lpg,
+    [WO_RIFT] = wk_rift,
+    [WO_DRIP] = wk_drip,
+    [WO_CATCH] = wk_catch,
+    [WO_BEND] = wk_bend,
+    [WO_FLEX] = wk_flex,
+    [WO_LAMINA] = wk_lamina,
+    [WO_FASCIA] = wk_fascia,
+    [WO_VISCERA] = wk_viscera,
+    [WO_SNAP] = wk_snap,
+    [WO_TREAD] = wk_tread,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,
@@ -1826,7 +2200,8 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
         kb[i] = (float)w->amtb[i] * 0.01f;
         if (ty == WO_SW14 && sw14 < 0)
             sw14 = i;                           /* (the first one feeds SW 1-4) */
-        if ((ty == WO_DELAY || ty == WO_DIFFUSE || ty == WO_STRING) && nd < WD_N)
+        if ((ty == WO_DELAY || ty == WO_DIFFUSE || ty == WO_STRING || ty == WO_CATCH || ty == WO_BEND || ty == WO_LAMINA ||
+             ty == WO_SNAP) && nd < WD_N)
             W->dn[i] = (int8_t)nd++;
         if (WO_SLOT(ty) && nm < WM_N)
             W->mn[i] = (int8_t)nm++;
@@ -2140,7 +2515,7 @@ static __attribute__((noinline)) void weft_scopes(const wplan_t *P, const wcx_t 
                 if (!wsc[i].wait) {
                     if (fm_fabsf(y) >= fm_fabsf(wsc[i].pk))
                         wsc[i].pk = y;
-                    if (++wsc[i].dec >= (ty == WO_SLOPE || ty == WO_SLEW || ty == WO_HOLD || ty == WO_DUST || ty == WO_TICK || ty == WO_CDIV || ty == WO_OMOD ||
+                    if (++wsc[i].dec >= (ty == WO_SLOPE || ty == WO_SLEW || ty == WO_HOLD || ty == WO_DUST || ty == WO_TICK || ty == WO_CDIV || ty == WO_SNAP || ty == WO_TREAD || ty == WO_OMOD ||
                                          ty == WO_OCLK || ty == WO_EDGE || ty == WO_CHAOS || ty == WO_FOLLOW || ty == WO_RUNGLER || (ty == WO_CYCLE && W->c1[i] < 0.0005f) ? 96 : 3)) {
                         wsc[i].dec = 0;
                         wsc[i].buf[wsc[i].idx++] = (int8_t)clampf(wsc[i].pk * 100.0f, -127.0f, 127.0f);
