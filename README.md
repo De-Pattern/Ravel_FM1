@@ -1451,7 +1451,7 @@ Everything you have saved, the projects in slots 1–32 and the sound banks A–
 | Button | What it does |
 | --- | --- |
 | **Export file** | Every saved project and sound bank, as one `.ravel` file to keep |
-| **Import file** | A `.ravel` file into the emulator's slots (it asks before replacing used ones) |
+| **Import file** | A `.ravel` file into the emulator's slots: each into its own slot if free, else the first free one of its kind, so nothing here is replaced (it asks only when every slot of that kind is in use) |
 | **Send to FM-1** | This page's saved projects and banks straight onto an FM-1 connected by USB with Ravel running (Chrome or Edge: allow MIDI when asked; it asks before replacing slots on the FM-1) |
 | **Get from FM-1** | The FM-1's saved projects and banks, read into a `.ravel` file (Import file then brings them into the emulator) |
 

@@ -1248,15 +1248,24 @@ $("xfile").addEventListener("change", async e => {
   if (!f) return;
   try {
     const es = RavelXfer.fileDecode(new Uint8Array(await f.arrayBuffer()));
-    const over = es.filter(x => rv.rv_store_len(x.slot) >= 0);
-    if (over.length && !confirm(`This replaces ${xlist(over)} here. Import?`)) return;
+    /* each into its own slot if free, else the first free one of its kind: nothing here is replaced
+     * (only when every slot of its kind is in use does it ask) */
+    const isBank = s => s >= 9 && s <= 12, order = [0, 1, 2, 3, 4, 5, 6, ...Array.from({ length: 25 }, (_, i) => 13 + i), 9, 10, 11, 12];
+    const taken = new Set(order.filter(s => rv.rv_store_len(s) >= 0)), moved = [];
     for (const x of es) {
-      new Uint8Array(rv.memory.buffer, rv.rv_store(x.slot), x.data.length).set(x.data);
-      rv.rv_store_set_len(x.slot, x.data.length);
-      rv.web_storage_changed(x.slot);
+      let to = x.slot;
+      if (taken.has(to)) { const free = order.find(s => isBank(s) === isBank(x.slot) && !taken.has(s)); if (free !== undefined) { to = free; moved.push(`${RavelXfer.slotName(x.slot)} → ${RavelXfer.slotName(to)}`); } }
+      x.to = to; taken.add(to);
+    }
+    const over = es.filter(x => x.to === x.slot && rv.rv_store_len(x.slot) >= 0);
+    if (over.length && !confirm(`Every slot is in use for ${xlist(over)}: this replaces them here. Import?`)) return;
+    for (const x of es) {
+      new Uint8Array(rv.memory.buffer, rv.rv_store(x.to), x.data.length).set(x.data);
+      rv.rv_store_set_len(x.to, x.data.length);
+      rv.web_storage_changed(x.to);
     }
     storeSave(); lastWrites = rv.rv_store_writes();
-    xstate(`Imported ${xlist(es)}. Load a project with SAVE › PROJECT › LOAD.`);
+    xstate(`Imported ${es.map(x => RavelXfer.slotName(x.to)).join(", ")}${moved.length ? ` (into free slots: ${moved.join(", ")})` : ""}. Load a project with SAVE › PROJECT › LOAD.`);
   } catch (err) { xstate("Import: " + err.message); }
 });
 async function xdevice() {

@@ -14,7 +14,7 @@
   :root { --bg: #0b0b0c; --fg: #ececea; --dim: #8a8a8e; color-scheme: dark; }   /* dark, always */
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
-  main { max-width: 520px; margin: 0 auto; padding: 48px 16px; }
+  main { max-width: 520px; margin: 0 auto; padding: 48px 24px; }
   h1 { font-size: 24px; font-weight: 600; margin: 0 0 24px; }
   .lang { float: right; font-size: 13px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none; padding: 0; color: var(--dim); }
   p { margin: 0 0 16px; }
@@ -24,7 +24,7 @@
   .small { color: var(--dim); font-size: 13px; }
   progress { width: 100%; height: 4px; margin-top: 16px; }
   pre { color: var(--dim); font-size: 12px; white-space: pre-wrap; margin-top: 16px; }
-  #log { max-height: 160px; overflow-y: auto; border: 1px solid var(--dim); padding: 6px 8px; }   /* the install's messages scroll in a box */
+  #log { height: 150px; overflow-y: auto; border: 1px solid var(--dim); padding: 10px 14px; }   /* the install's messages scroll in a fixed box */
   #log:empty { display: none; }
   h2 { font-size: 18px; font-weight: 600; margin: 40px 0 12px; }
   ol { margin: 0 0 16px; padding-left: 20px; }
@@ -41,7 +41,7 @@
   #pickwarn { font-weight: 600; }
   #pickwarn:empty { display: none; }
   /* projects and sounds: this computer on the left, the FM-1 on the right (wider than the page) */
-  .wide { width: min(1100px, calc(100vw - 48px)); margin-left: calc(50% - min(550px, 50vw - 24px)); }
+  .wide { width: min(1100px, calc(100vw - 64px)); margin-left: calc(50% - min(550px, 50vw - 32px)); }   /* (32 px from each edge at least) */
   .wide > h2, .wide > p { max-width: 520px; margin-left: auto; margin-right: auto; }
   .wide > p.full { max-width: none; }
   .panes { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; margin: 8px 0 0; align-items: stretch; }
@@ -75,13 +75,13 @@
   button.ghost { background: none; color: var(--fg); border: 1px solid var(--dim); padding: 3px 9px; font-size: 13px; }
   .x { background: none; color: var(--dim); border: 0; padding: 0 4px; font-size: 15px; }
   .x:hover { color: #e5604f; }
-  #bklog { max-height: 140px; overflow-y: auto; border: 1px solid var(--dim); padding: 10px 14px; }
+  #bklog { height: 150px; overflow-y: auto; border: 1px solid var(--dim); padding: 10px 14px; margin-top: 8px; }   /* (a fixed box that scrolls: the page never grows) */
+  #bklog:empty::before { content: attr(data-empty); color: var(--dim); }
+  #bklog .bad { color: #e5604f; font-weight: 600; }
   .snd { display: inline-flex; align-items: center; gap: 2px; margin: 2px 8px 0 0; color: var(--dim); font-size: 12px; white-space: nowrap; }
   .snd .x { font-size: 13px; padding: 0 2px; }
   .replaces { display: block; color: #e5604f; font-size: 12px; margin-top: 2px; }
-  #bklog:empty { display: none; }
-  #bkalert { font-weight: 600; }
-  #bkalert:empty, #bkstatus:empty { display: none; }
+
   .st-ok { color: #2f8a48; } .st-bad { color: #c23a2b; }
   @media (max-width: 860px) {
     .panes { grid-template-columns: minmax(0, 1fr); }
@@ -145,9 +145,9 @@
       </div>
     </div>
     <progress id="bkbar" max="100" value="0" data-t-label="bkprogress"></progress>
-    <p id="bkstatus" role="status"></p>
-    <p id="bkalert" role="alert"></p>
-    <pre id="bklog"></pre>
+    <p id="bkstatus" class="sr" role="status"></p>
+    <p id="bkalert" class="sr" role="alert"></p>
+    <pre id="bklog" data-t-empty="bklogempty"></pre>
     <p class="small" data-t="bkhow"></p>
   </section>
 
@@ -233,7 +233,7 @@ const TEXT = {
     bkdup: "同じ行き先が二つあります: ", bkkind: "プロジェクトはプロジェクトのスロットへ、バンクはバンクへ。",
     bkfile: "読めないファイル: ", bkadded: "追加しました: ", bkbusy: "ほかの転送が終わるまでお待ちください。",
     bksaved: "ファイルに保存しました: ", bkfail: "転送できませんでした: ", bkinstalling: "インストール中はお待ちください。",
-    bkhint: "選ぶか、ドラッグ",
+    bkhint: "選ぶか、ドラッグ", bklogempty: "転送の様子がここに出ます。", bkthere: "FM-1 にあります",
     bkreplaces: "置き換え: ", bkdelproj: "FM-1 から削除", bkdelsound: "このサウンドを削除",
     bkdelq: "FM-1 から削除します: ", bkdelq2: "。元に戻せません（先にバックアップできます）。削除しますか？",
     bkdeleted: "削除しました: ", bkolddel: "プロジェクトの削除には FM-1 の Ravel 1.25 以降が必要です。",
@@ -302,7 +302,7 @@ const TEXT = {
     bkdup: "Two things are going to the same slot: ", bkkind: "Projects go to project slots, banks to banks.",
     bkfile: "Couldn't read ", bkadded: "Added: ", bkbusy: "Wait until the transfer in progress is done.",
     bksaved: "Saved as a file: ", bkfail: "The transfer didn't finish: ", bkinstalling: "Wait until the install is done.",
-    bkhint: "Select, or drag",
+    bkhint: "Select, or drag", bklogempty: "What the transfers do shows here.", bkthere: "on the FM-1",
     bkreplaces: "replaces ", bkdelproj: "Delete from the FM-1", bkdelsound: "Delete this sound",
     bkdelq: "Delete from the FM-1: ", bkdelq2: ". This can't be undone (Back up first if you may want it). Delete?",
     bkdeleted: "Deleted: ", bkolddel: "Deleting projects needs Ravel 1.25 or later on the FM-1.",
@@ -315,6 +315,7 @@ function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((e) => { e.textContent = t(e.dataset.t); });
   document.querySelectorAll("[data-t-label]").forEach((e) => e.setAttribute("aria-label", t(e.dataset.tLabel)));
+  document.querySelectorAll("[data-t-empty]").forEach((e) => e.setAttribute("data-empty", t(e.dataset.tEmpty)));
   $("lang").textContent = t("other");
   try { bkDraw(); } catch (e) { /* (before the backup's part of the page is set up) */ }
   $("lang").lang = lang === "ja" ? "en" : "ja";
@@ -515,9 +516,16 @@ const pcSel = new Set(), fmSel = new Set();
 function bkShow(txt, fail) {
   $(fail ? "bkstatus" : "bkalert").textContent = "";
   $(fail ? "bkalert" : "bkstatus").textContent = txt;
-  bkLog(txt);
+  bkLog(txt, fail);
 }
-const bkLog = (txt) => { const el = $("bklog"); el.textContent += txt + "\n"; el.scrollTop = el.scrollHeight; };
+const bkLog = (txt, fail) => {                          /* (the box keeps the last 200 lines, the newest in view) */
+  const el = $("bklog"), ln = document.createElement("div");
+  ln.textContent = txt;
+  if (fail) ln.className = "bad";
+  el.append(ln);
+  while (el.childNodes.length > 200) el.firstChild.remove();
+  el.scrollTop = el.scrollHeight;
+};
 const bkBar = (v) => { $("bkbar").value = v; };
 
 /* where each item on the left goes: its own slot if that is free on the FM-1, else the first free one of
@@ -566,7 +574,12 @@ function bkDraw() {
     sel.value = String(it.to);
     sel.onchange = () => { it.to = +sel.value; it.manual = true; bkDraw(); };
     td3.append(sel);
-    if (dev && fm.has(it.to)) { const w = document.createElement("span"); w.className = "replaces"; w.textContent = t("bkreplaces") + (fm.get(it.to).head.name || "?"); td3.append(w); }
+    if (dev && fm.has(it.to)) {                           /* there already: this very data, or something it would replace */
+      const f = fm.get(it.to), same = f.len === it.data.length && f.crc === X.crc32(it.data), w = document.createElement("span");
+      w.className = same ? "sounds" : "replaces";
+      w.textContent = same ? t("bkthere") : t("bkreplaces") + (f.head.name || "?");
+      td3.append(w);
+    }
     const td4 = document.createElement("td"); td4.className = "num"; td4.textContent = kb(it.data.length);
     const td5 = document.createElement("td"), x = document.createElement("button");
     x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "×");
