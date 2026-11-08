@@ -178,10 +178,11 @@ int plat_load(int slot, void *dst, uint32_t max)
     if (st_read(base + 256u, dst, n))
         return -1;
     if (n == h.len && st_crc32(dst, n) != h.crc)
-        return -1;
+        return -3;                              /* (something there, damaged: not the same as empty) */
     return (int)h.len;
 }
 
+static int8_t xf_open = -1;                     /* the slot being written, or -1 */
 int plat_save(int slot, const void *src, uint32_t len)
 {
     slot_head h;
@@ -190,6 +191,9 @@ int plat_save(int slot, const void *src, uint32_t len)
         return ps_save(plat_proj_of(slot), src, len);   /* (-2: no room left) */
     if (!flash_ok || !slot_ok(slot) || slot == PLAT_BANK_OLD || len > slot_room(slot) - 256u)   /* (a bank stays in its 12 KB) */
         return -1;
+    if (slot == xf_open)
+        xf_open = -1;                           /* (a transfer into it ends: its next pieces are refused, not written
+                                                 * over this) */
     for (off = 0; off < len + 256u; off += 0x1000u)
         if (st_erase(base + off))
             return -1;
@@ -227,7 +231,6 @@ static uint32_t xf_crc_upd(uint32_t c, const uint8_t *b, uint32_t n)   /* zlib C
     }
     return c;
 }
-static int8_t xf_open = -1;                     /* the slot being written, or -1 */
 int plat_slot_begin(int slot, uint32_t len)
 {
     uint32_t base = slot_base(slot), off;

@@ -163,14 +163,14 @@ int rv_load(int slot)
         return -1;
     if (h.format == RV_FORMAT) {
         if (plat_load(slot, &rv, sizeof(rv)) != (int)sizeof(rv))
-            return -1;
+            return -2;
         unknown_kinds();
         return 0;
     }
     f = (int)h.format;
     n = old_size(f);
     if (plat_load(slot, &rv, (uint32_t)n) != n)
-        return -1;
+        return -2;
     if (f <= 14)                                       /* (fewer track parameters, or globals): spread out */
         upgrade_layout(f, n);
     if (f <= 16)                                       /* (steps without chords): spread out */

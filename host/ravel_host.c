@@ -37,6 +37,8 @@
  *   expect soundused N K          the bank's slot N holds a sound of kind K (-1: empty)
  *   expect gp NAME VALUE          a global parameter
  *   expect page TITLE             the page on screen
+ *   expect store SLOT FILE        the storage slot holds just that file
+ *   expect msg TEXT               the message on the top line now ("" when none)
  *   expect name NAME [SLOT]       the project's name (no spaces), or the one saved in SLOT (1..7)
  *   expect slotused N 0|1         project slot N (1..32) is empty or saved
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
@@ -58,6 +60,7 @@
 #include "host_core.c"
 #include "../firmware/app/rv.h"
 const char *ui_page_title(void);
+const char *ui_msg_text(void);
 int ui_step_cur(void);
 void ui_intro(void);
 int rv_bank_used(int i);
@@ -484,6 +487,30 @@ int main(int argc, char **argv)
                 }
                 got = rv.gp[g];
                 want = atoi(w2);
+            } else if (!strcmp(b, "store")) {                /* expect store SLOT FILE: the slot holds just that file */
+                int sl = -1;
+                long n;
+                char fn[256] = "";
+                static uint8_t fb[PLAT_SLOT_MAX];
+                FILE *fp;
+                sscanf(line, "%*s %*s %d %255s", &sl, fn);
+                fp = fopen(fn, "rb");
+                n = fp ? (long)fread(fb, 1, sizeof fb, fp) : -1;
+                if (fp)
+                    fclose(fp);
+                if (sl < 0 || sl >= PLAT_STORES || n != store_len[sl] || memcmp(fb, store[sl], (size_t)n)) {
+                    printf("FAIL line %d: slot %d doesn't hold %s\n", lineno, sl, fn);
+                    fails++;
+                }
+                continue;
+            } else if (!strcmp(b, "msg")) {                  /* the message on the top line now */
+                char want[64];
+                sscanf(line, "%*s %*s %63[^\n]", want);
+                if (strcmp(ui_msg_text(), want)) {
+                    printf("FAIL line %d: message is \"%s\", expected \"%s\"\n", lineno, ui_msg_text(), want);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "page")) {
                 char title[64];
                 sscanf(line, "%*s %*s %63[^\n]", title);

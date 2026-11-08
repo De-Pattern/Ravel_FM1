@@ -3,6 +3,28 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.24.1
+
+Fixed
+- Holding HOME for help on SOUNDS with an empty bank slot could crash: the help named a knob that has no name.
+- WEFT: a cord from a block with a long name ("10 VOCODER") overran its text and could overwrite other memory; the names ran together on WEFT PATCH and WEFT MAP.
+- Loading a project, a demo or a new project keeps the sound silent while it happens, so nothing half-loaded plays. A saved project found damaged as it is read starts a new project (DAMAGED: A NEW PROJECT) instead of leaving a mix of old and new that a later SAVE could keep.
+- A sound bank that can't be read (damaged, or saved by a newer Ravel) is never written over: it shows empty, and SAVE, CLEAR and the WEFT LIBRARY's SAVE and DELETE say BANK A UNREADABLE: KEPT. Before, storing one sound into it replaced all 32. A bank save during a computer transfer into the same bank ends the transfer instead of being written over by it.
+- A step key held while OCT or the track encoder turned toggled a step on another page or track when let go; OCT and the track now wait while a step is held, and a shorter track opens on a page it has.
+- MIDI learn no longer takes KIND or ENGINE (LEARN: NOT THAT KNOB); a control learned on one before does nothing now. Moving one skipped KIND's question, the clearing of steps and the one-GLITCH-track rule.
+- Changing a track's sequencer settings (LENGTH, RATE and the like) no longer counts as editing its sound, so KIND doesn't ask TURN AGAIN: NEW SOUND after them.
+- Moving a WEFT block past another SW 1>4 or LISSA now says which block SW 1-4 or LIS Y read from then on.
+- Stuck notes: a full note queue (chords and ratchets on many tracks at once) could keep a note-on and drop its note-off. The last places in the queue are kept for note-offs.
+- The sine and wavetable lookups could read one past their table at a phase a hair below a whole turn.
+- If the second core failed mid-step, the delay, feedback and space ran twice for that step (a jump in them).
+- A WEFT voice that went bad (NaN, or blown up) stays silent no more: it ends, and the next note starts it clean. A NaN can no longer reach a WEFT delay's or string's read position.
+- Two WEFT tracks with SEQ OUT blocks, each on its own core, could lose a step pulse or a gate between them.
+- A held note leads the track's envelope (the ENV source, the screen) again once a later note has ended.
+- Early micro timing (below −6 ticks, QUANT under 50 %) is worked out the same on the FM-1 as in the emulator.
+- A sound saved into an empty slot is named for what it is: TINE was named VA, and WEFT, GLITCH and COMP sounds PERC. Loading a project, a demo or a new project forgets the last one's patch names and presets, and a WEFT sound loaded from SOUNDS or PRESETS shows its name.
+- The start screen's melt draws in strips as meant, not whole letters at each strip's drop.
+- Text that ran off the screen or was cut short: long messages show whole, in the smaller letters when they need to, and stay up a little longer; long knob names stay in their cell; a few hints and messages are shorter.
+
 ## 1.24.0
 
 New

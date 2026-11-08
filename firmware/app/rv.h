@@ -497,7 +497,10 @@ uint32_t rv_rng(void);
 
 /* rv_project.c */
 int rv_save(int slot);
-int rv_load(int slot);
+int rv_load(int slot);                              /* 0; -1 nothing there (the project untouched); -2 a damaged save
+                                                     * (part of it read: start a new project) */
+extern volatile uint8_t rv_hush;                   /* set: the sound held silent, nothing playing on, while the UI
+                                                     * rewrites the whole project (a load, a demo, a new project) */
 int rv_slot_used(int slot, char name[13]);
 /* projects and sounds to and from a computer (rv_xfer.c) */
 void rv_xfer_msg(const uint8_t *m, uint32_t d);

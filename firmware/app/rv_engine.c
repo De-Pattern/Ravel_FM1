@@ -8,6 +8,7 @@
 
 rv_project rv;
 volatile rv_live_t rv_live;
+volatile uint8_t rv_hush;
 
 static voice_t vs[RV_SYNTH_VOICES];
 static strike_t ss[RV_STRIKE_VOICES];
@@ -1152,11 +1153,17 @@ static void c2_voices(void)
 static void voices_count(uint32_t *lead_age)
 {
     int e;
+    for (e = 0; e < RV_TRACKS; e++)
+        lead_age[e] = 0;                             /* (the newest of those sounding now: a held note leads again
+                                                      * once a later one has ended) */
     for (e = 0; e < vl_n; e++) {
         int k = vl_idx[e];
         float lv = vl_lv[e];
         switch (vl_kind[e]) {
         case VK_WEFT:                                /* (WEFT counts its own, weft_tidy) */
+            if (vl_bad[e])
+                wv[k].on = 0;                        /* (gone bad, NaN or blown up: ended, so the next note starts it
+                                                      * clean; a mono voice would carry the bad state on) */
             break;
         case VK_SYNTH: {
             voice_t *v = &vs[k];
@@ -2464,6 +2471,11 @@ void rv_render(int32_t *out, int frames)
     int done = 0, i;
     if (ct_req)
         ct_tick(rv_live.core_res);
+    if (rv_hush) {                                   /* (the project half written: play none of it) */
+        for (i = 0; i < 2 * frames; i++)
+            out[i] = 0;
+        return;
+    }
     while (done < frames) {
         int n = frames - done > RV_SUB ? RV_SUB : frames - done;
 #ifdef RAVEL_BENCH

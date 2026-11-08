@@ -57,3 +57,22 @@ wait 400
 turn K1 -1
 wait 400
 expect tp 1 KIND 5
+# the track's LENGTH (SEQ > TEMPO: a sequencer setting, not the sound's) isn't an edit of the sound: at once
+kind 1 0
+wait 3000
+tap SEQ
+wait 100
+turn SELECT -20
+turn SELECT 1
+wait 100
+expect page TEMPO
+turn K3 4
+wait 100
+tap EDIT
+wait 100
+turn SELECT -20
+wait 100
+expect page SOUND
+turn K1 1
+wait 400
+expect tp 1 KIND 1

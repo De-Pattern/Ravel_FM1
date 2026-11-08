@@ -185,7 +185,13 @@ EXPORT(web_all_off) void web_all_off(void) { rv_all_off(); }
 int rv_save(int slot);
 int rv_load(int slot);
 EXPORT(web_save) int web_save(int slot) { return rv_save(slot); }   /* (tests) */
-EXPORT(web_load) int web_load(int slot) { return rv_load(slot); }
+EXPORT(web_load) int web_load(int slot)
+{
+    int rc = rv_load(slot);
+    if (rc == -2)
+        rv_demo(2);                                    /* (a damaged save, part of it read: a new project, not half of it) */
+    return rc;
+}
 EXPORT(web_demo) void web_demo(int which)
 {
     rv_transport(0);

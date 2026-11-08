@@ -660,7 +660,7 @@ typedef struct {
     const int8_t *prod;                         /* the block that makes each source (-1: a value that holds) */
     const float *trg;                           /* TRIG over the run */
     float hz, gatev, pos, pinc;
-    int t, j0, lis, sw14, lead, ph;            /* ph: a loop breaker's phase (1 read, 2 write) */
+    int t, j0, lis, sw14, lead, ph, core;      /* ph: a loop breaker's phase (1 read, 2 write); core: whose */
     const float *PA[WF_BLOCKS], *PB[WF_BLOCKS]; /* where each block reads A and B (a sample late where so) */
     float ka[WF_BLOCKS], kb[WF_BLOCKS];
     uint8_t fl[WF_BLOCKS], ty[WF_BLOCKS], sa[WF_BLOCKS];
@@ -1582,14 +1582,14 @@ WK_FLASH static void wk_seq(wk_t *K, int i, int j1, int j2)
             b = WB;
             if (md == WSQ_GATE) {
                 if (a > 0.0f)
-                    weft_gate_open |= (uint8_t)(1u << tr);
+                    weft_gate_open_c[K->core] |= (uint8_t)(1u << tr);   /* (each core its own: no lost update) */
             } else if (wrise(a, &s->prev, 0.0f)) {
                 if (md == WSQ_STEP)
-                    wsq_steps[tr]++;
+                    wsq_steps_c[K->core][tr]++;
                 else if (md == WSQ_JUMP)
                     wsq_jump[tr] = (uint8_t)(1 + (int)(clampf(b, 0.0f, 1.0f) * 254.0f));
                 else if (md == WSQ_RESTART)
-                    wsq_restart |= (uint8_t)(1u << tr);
+                    wsq_restart_c[K->core] |= (uint8_t)(1u << tr);
                 else
                     wsq_pat[tr] = (int8_t)(bc ? b > 0.0f : 2);
             }
@@ -1887,6 +1887,7 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
         K->lis = lis;
         K->sw14 = sw14;
         K->lead = lead;
+        K->core = core & 1;
         /* the values that hold through the step (the built-ins, and what nothing here makes), where read */
         sv[WS_GATE] = gatev;
         for (si = 1; si < WS_N; si++)
@@ -2231,8 +2232,8 @@ static void weft_tidy(int n)
 {
     int i, t, c = 0;
     wf_clk_owner = wf_mod_owner = -1;
-    weft_gate_mute = (uint8_t)(weft_gatet & ~weft_gate_open);   /* (GATE: quiet unless A was up last step) */
-    weft_gate_open = weft_own = weft_gatet = 0;
+    weft_gate_mute = (uint8_t)(weft_gatet & ~(weft_gate_open_c[0] | weft_gate_open_c[1]));   /* (GATE: quiet unless A was up last step) */
+    weft_gate_open_c[0] = weft_gate_open_c[1] = weft_own = weft_gatet = 0;
     for (t = RV_TRACKS - 1; t >= 0; t--) {
         int oc = 0, om = 0, sq2 = 0;
         if (rv.tp[t][TP_KIND] == KIND_WEFT)

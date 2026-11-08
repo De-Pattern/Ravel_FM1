@@ -245,7 +245,7 @@ static struct {
     uint8_t cur_route, cur_mat, cur_macro, cur_arr, cur_arc, cur_scene, cur_slot, save_action, proj_cursor;
     uint16_t cur_lib;
     int16_t preset_idx[RV_TRACKS];
-    char msg[24];
+    char msg[48];
     uint32_t msg_until;
     uint32_t turned_ms[4];
     uint8_t armed;
@@ -308,10 +308,10 @@ static int black_index(int k)
 static void msg(const char *s)
 {
     int i;
-    for (i = 0; i < 23 && s[i]; i++)
+    for (i = 0; i < (int)sizeof ui.msg - 1 && s[i]; i++)
         ui.msg[i] = s[i];
     ui.msg[i] = 0;
-    ui.msg_until = plat_ms() + 1400;
+    ui.msg_until = plat_ms() + 1400 + (i > 20 ? (uint32_t)(i - 20) * 50u : 0u);   /* (a long one a little longer) */
 }
 
 int rv_preset_is_kit(int i);
@@ -399,6 +399,22 @@ static void wf_param_swap(int t, int pa, int pb)
             if (rv.scene[sc].infl[k][t].type == RT_MOD)
                 rv.scene[sc].infl[k][t].arg = (uint8_t)wf_swp(rv.scene[sc].infl[k][t].arg, pa, pb);
     }
+}
+static int wf_first(int t, int ty)                    /* the first block of a type (SW 1-4 and LIS Y read it), or -1 */
+{
+    int i;
+    for (i = 0; i < WF_BLOCKS; i++)
+        if (rv.weft[t].type[i] == ty)
+            return i;
+    return -1;
+}
+static int wf_reads(int t, int s0, int s1)            /* some input reads a source from s0 to s1 */
+{
+    int i;
+    for (i = 0; i < WF_BLOCKS; i++)
+        if (rv.weft[t].type[i] && ((rv.weft[t].a[i] >= s0 && rv.weft[t].a[i] <= s1) || (rv.weft[t].b[i] >= s0 && rv.weft[t].b[i] <= s1)))
+            return 1;
+    return 0;
 }
 static void wf_swap(int t, int i, int j)
 {
@@ -818,6 +834,8 @@ static int wl_free(void)
             return i;
     return -1;
 }
+#define WL_MAX 64                                     /* (every caller's list: 32 of yours, NEW, the factory's) */
+_Static_assert(32 + 1 + WF_NPRESETS <= WL_MAX, "the WEFT LIBRARY list is too long for its buffers");
 static __attribute__((noinline)) int wl_list(uint8_t *out)
 {
     int i, n = 0;
@@ -826,13 +844,13 @@ static __attribute__((noinline)) int wl_list(uint8_t *out)
             out[n++] = (uint8_t)(100 + i);
     if (wl_free() >= 0)
         out[n++] = WL_NEW;
-    for (i = 0; i < rv_weft_presets(); i++)
+    for (i = 0; i < rv_weft_presets() && n < WL_MAX; i++)
         out[n++] = (uint8_t)i;
     return n;
 }
 static void wl_point(int e)                          /* the cursor onto entry e */
 {
-    uint8_t l[64];
+    uint8_t l[WL_MAX];
     int n = wl_list(l), i;
     for (i = 0; i < n; i++)
         if (l[i] == e)
@@ -840,7 +858,7 @@ static void wl_point(int e)                          /* the cursor onto entry e 
 }
 static int wl_entry(void)
 {
-    uint8_t l[64];
+    uint8_t l[WL_MAX];
     int n = wl_list(l);
     return n ? l[ui.wl_sel % n] : 0;
 }
@@ -1070,7 +1088,7 @@ static kinfo_t kb_info(kb_t k)
                 setp[i + 1] = set[i + 1];
             }
             r.max = WF_SETS; r.fmt = PF_ENUM; r.names = setp; break;
-        case 16: { uint8_t l[64]; r.name = "PATCH"; r.max = wl_list(l) - 1; break; }
+        case 16: { uint8_t l[WL_MAX]; r.name = "PATCH"; r.max = wl_list(l) - 1; break; }
         case 17: { static const char *const bk[4] = {"A", "B", "C", "D"}; r.name = "BANK"; r.max = 3; r.fmt = PF_ENUM; r.names = bk; break; }
         case 18: r.name = "CURSOR"; r.min = 1; r.max = 11; break;
         case 20: { static const char *const rn[2] = {"KEYS", "ALWAYS"}; r.name = "RUN"; r.max = 1; r.fmt = PF_ENUM; r.names = rn; break; }
@@ -1332,7 +1350,7 @@ static int kb_get(kb_t k)
         case 8: return ui.wf_map & 3;
         case 9: return w->map[ui.wf_map & 3] % (WF_SETS + 1);
         case 14: return w->out % (WF_OUT_AUTO + 1);
-        case 16: { uint8_t l[64]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
+        case 16: { uint8_t l[WL_MAX]; int n = wl_list(l); return ui.wl_sel % (n ? n : 1); }
         case 17: return rv_bank_current();
         case 18: return ui.wl_cursor + 1;
         case 20: return w->run & 1;
@@ -1365,7 +1383,7 @@ static void kb_set(kb_t k, int v)
         v = in.min;
     if (v > in.max)
         v = in.max;
-    if (((k.kind == K_TP && k.id != TP_KIND) || k.kind == K_CZ || (k.kind == K_LANE && lane_field(k.id) > LF_SEL && lane_field(k.id) < LF_NONE) ||
+    if (((k.kind == K_TP && k.id != TP_KIND && bank_sound_param(k.id)) || k.kind == K_CZ || (k.kind == K_LANE && lane_field(k.id) > LF_SEL && lane_field(k.id) < LF_NONE) ||
          (k.kind == K_WF && k.id != 0 && k.id != 8 && k.id < 16)) && v != kb_get(k))
         ui.snd_edit |= (uint8_t)(1u << ui.track);    /* (the track's sound, changed by hand) */
     switch (k.kind) {
@@ -1597,7 +1615,7 @@ static void kb_set(kb_t k, int v)
         }
         if (k.id == 7) {                               /* BUFFER: SAFE (a block rendered ahead) or TIGHT */
             if (plat_audio_safe(v) < 0) {
-                msg("THE FM-1 BUFFERS; NOTHING TO SET HERE");
+                msg("THE FM-1 BUFFERS: NOTHING TO SET");
                 break;
             }
             rv_live.buf_safe = (uint8_t)v;
@@ -1607,20 +1625,20 @@ static void kb_set(kb_t k, int v)
         if (k.id == 8) {                               /* GUARD: the overload guard (off: a test; it can crackle) */
             rv_live.guard_off = (uint8_t)!v;
             if (!v)
-                msg("GUARD OFF: VOICES ARE NOT FADED, IT CAN CRACKLE");
+                msg("GUARD OFF: IT CAN CRACKLE");
             break;
         }
         if (k.id == 9) {                               /* SCREEN: 1 FPS, a test of what drawing costs the audio */
             rv_live.ui_freeze = (uint8_t)v;
             plat_ui_slow(v);
-            msg(v ? "SCREEN AT 1 FPS: WATCH RENDER AND XRUNS" : "SCREEN BACK TO NORMAL");
+            msg(v ? "1 FPS: WATCH RENDER, XRUNS" : "SCREEN BACK TO NORMAL");
             break;
         }
         if (k.id == 10) {                              /* CORE TEST: the same work timed on each core */
             ui.core_test = (uint8_t)v;
             if (v) {
                 if (rv_core_test(rv_live.core_res) < 0)
-                    msg("NOT MEASURED HERE: THE FM-1 TIMES IT");
+                    msg("THE FM-1 TIMES IT, NOT HERE");
                 else
                     msg(rv_live.cores2 ? "TESTING BOTH CORES" : "CORES IS 1: ONLY THE FIRST IS TIMED");
                 ui.core_test = 0;
@@ -1633,7 +1651,7 @@ static void kb_set(kb_t k, int v)
         }
         if (k.id == 4) {                               /* FLASH WAIT: count the code fetch's waits */
             if (plat_fetch_on(v) < 0) {
-                msg("NOT MEASURED HERE: THE FM-1 COUNTS IT");
+                msg("THE FM-1 COUNTS IT, NOT HERE");
                 break;
             }
             rv_live.fetch_on = (uint8_t)v;
@@ -1648,7 +1666,7 @@ static void kb_set(kb_t k, int v)
                 }
                 rv_live.c2_fail = 0;
                 rv_live.cores2 = 1;
-                msg("TWO CORES: HALF THE SYNTH VOICES ON CORE 2");
+                msg("TWO CORES: HALF THE VOICES ON 2");
             } else if (!v && rv_live.cores2) {
                 rv_live.cores2 = 0;
                 plat_par_on(0);
@@ -1656,7 +1674,7 @@ static void kb_set(kb_t k, int v)
             break;
         }
         if ((!ui.st_on || (ui.st_built == 0 && !stress_loaded())) && v > 0 && k.id != 1) {   /* starting: it replaces the project */
-            if (!confirmed(CONF_STRESS, "TURN AGAIN: STRESS REPLACES THE PROJECT"))
+            if (!confirmed(CONF_STRESS, "AGAIN: STRESS REPLACES PROJECT"))
                 break;
             ui.st_on = 1;
             __builtin_memset(ui.st_res, 0xFF, sizeof ui.st_res);
@@ -2081,6 +2099,7 @@ static void knob_turn(int i, int d)
     if ((btn & (1u << B_EDIT)) && i == 0 && pg->pic == PIC_WEFT) {   /* EDIT held on WEFT PATCH: BLOCK carries the block (v1.23.2) */
         int t = ui.track, n = d > 0 ? d : -d, b = ui.wf_blk % WF_BLOCKS, to;
         char m[32] = "BLOCK MOVED TO ";
+        int sw0 = wf_first(t, WO_SW14), ly0 = wf_first(t, WO_LISSA);
         ui.layer_used[B_EDIT] = 1;
         while (n--) {
             to = b + (d > 0 ? 1 : -1);
@@ -2090,10 +2109,20 @@ static void knob_turn(int i, int d)
             b = to;
         }
         if (b != ui.wf_blk % WF_BLOCKS) {
+            int sw1 = wf_first(t, WO_SW14), ly1 = wf_first(t, WO_LISSA);
             ui.wf_blk = (uint8_t)b;
             ui.wf_pre[t] = -1;
             ui.snd_edit |= (uint8_t)(1u << t);
             sx_int(m + sx_cat(m, ""), b + 1);
+            if (sw1 != sw0 && wf_reads(t, WS_SW1, WS_SW4)) {   /* (SW 1-4 read the first SW 1>4: another one now) */
+                m[0] = 0;
+                sx_int(m + sx_cat(m, "SW 1-4 READ BLOCK "), sw1 + 1);
+                sx_cat(m, " NOW");
+            } else if (ly1 != ly0 && wf_reads(t, WS_LISY, WS_LISY)) {
+                m[0] = 0;
+                sx_int(m + sx_cat(m, "LIS Y READS BLOCK "), ly1 + 1);
+                sx_cat(m, " NOW");
+            }
             msg(m);
         } else
             msg(d > 0 ? "THE LAST PLACE" : "THE FIRST PLACE");
@@ -2190,11 +2219,38 @@ static void wl_name_set(int t, const char *n)
         ui.wf_name[t & 7][i] = n[i];
     ui.wf_name[t & 7][i] = 0;
 }
+static void weft_named(int t, const char *n)          /* a sound of your own just loaded: a WEFT one's name is the patch's */
+{
+    if (rv.tp[t & 7][TP_KIND] == KIND_WEFT) {
+        wl_name_set(t, n);
+        ui.wf_pre[t & 7] = -1;
+    }
+}
+static void ui_project_new(void)                      /* a whole project loaded (or a demo, or a new one): none of the
+                                                       * last one's names, presets or edits */
+{
+    int t;
+    for (t = 0; t < RV_TRACKS; t++) {
+        ui.wf_name[t][0] = 0;
+        ui.wf_pre[t] = -1;
+        ui.preset_idx[t] = -1;
+    }
+    ui.snd_edit = 0;
+}
+static void bank_bad_msg(void)                        /* a bank that couldn't be read is kept as it is: never written */
+{
+    static const char *const m[4] = {"BANK A UNREADABLE: KEPT", "BANK B UNREADABLE: KEPT", "BANK C UNREADABLE: KEPT", "BANK D UNREADABLE: KEPT"};
+    msg(m[rv_bank_current() & 3]);
+}
 static __attribute__((noinline)) void wl_do(int act)
 {
     int t = ui.track, e = wl_entry(), slot = e >= 100 && e < WL_NEW ? e - 100 : -1, k;
     char b[32];
     bank_keep();
+    if ((act == 1 || act == 2) && rv_bank_bad()) {
+        bank_bad_msg();
+        return;
+    }
     if (act == 0) {                                   /* LOAD */
         if (e == WL_NEW) {
             msg("NEW: SAVE THIS TRACK'S PATCH HERE");
@@ -2221,7 +2277,7 @@ static __attribute__((noinline)) void wl_do(int act)
         if (fresh)
             slot = wl_free();
         if (slot < 0) {
-            msg("BANK FULL: DELETE ONE, OR KNOB 2: BANK");
+            msg("BANK FULL: DELETE ONE, OR KNOB 2");
             return;
         }
         if (!fresh && !confirmed(CONF_WSAVE, "AGAIN: OVERWRITE IT"))
@@ -2279,6 +2335,10 @@ static void bank_do(void)
     int t = ui.track, i = ui.cur_sound, used = rv_bank_used(i);
     char b[24];
     bank_keep();
+    if (ui.bank_action != 0 && rv_bank_bad()) {
+        bank_bad_msg();
+        return;
+    }
     switch (ui.bank_action) {
     case 0:
         if (!used) {
@@ -2290,19 +2350,24 @@ static void bank_do(void)
             msg("AGAIN: CLEARS STEPS");
             return;
         }
-        rv_bank_apply(t, i);
+        if (rv_bank_apply(t, i)) {
+            msg("NOT FOR THIS TRACK");
+            break;
+        }
+        weft_named(t, rv_bank_name(i));
         ui.preset_idx[t] = -1;
         ui.snd_edit &= (uint8_t)~(1u << t);   /* (loaded: nothing of yours to lose) */
         msg(rv_bank_name(i)[0] ? rv_bank_name(i) : "LOADED");
         break;
-    case 1:
+    case 1: {
+        int rc;
         if (used && !ui.save_confirm) {
             ui.save_confirm = 1;
             msg("AGAIN: REPLACE IT");
             return;
         }
         if (used)
-            rv_bank_store(t, i, 0);               /* (an overwritten slot keeps its name) */
+            rc = rv_bank_store(t, i, 0);          /* (an overwritten slot keeps its name) */
         else {
             int kind = rv.tp[t][TP_KIND], e = rv.tp[t][TP_ENGINE];
             b[0] = 0;
@@ -2315,11 +2380,12 @@ static void bank_do(void)
                 sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), i + 1);
             }
             b[RV_BANK_NAME - 1] = 0;
-            rv_bank_store(t, i, b);
+            rc = rv_bank_store(t, i, b);
             ui.bank_cursor = 0;
         }
-        msg("SOUND SAVED");
+        msg(rc ? "SAVE FAILED" : "SOUND SAVED");
         break;
+    }
     default:
         if (!used) {
             msg("SLOT EMPTY");
@@ -2401,6 +2467,7 @@ static void preset_turn(int d)
             char b[24];
             if (rv_bank_apply(t, cur - USND))
                 break;
+            weft_named(t, rv_bank_name(cur - USND));
             b[0] = 0;
             sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), cur - USND + 1);
             sx_cat(b, " ");
@@ -2415,7 +2482,7 @@ static void preset_turn(int d)
         break;
     }
     case PR_WLIB: {                                   /* WEFT LIBRARY: PRESETS walks the list */
-        uint8_t l[64];
+        uint8_t l[WL_MAX];
         int n = wl_list(l);
         ui.wl_sel = (uint8_t)clampi((int)(ui.wl_sel % (n ? n : 1)) + d, 0, n - 1);
         ui.wl_cursor = 0;
@@ -2507,22 +2574,36 @@ static void save_do(void)
             msg(rc == -2 ? "NO ROOM: SAVE OVER ANOTHER" : "SAVE FAILED");
         break;
     }
-    case 1:
+    case 1: {
+        int rc;
         rv_transport(0);
-        if (rv_load(PLAT_PROJ(ui.cur_slot)) == 0) {
-            ui.snd_edit = 0;
+        rv_all_off();
+        rv_hush = 1;
+        rc = rv_load(PLAT_PROJ(ui.cur_slot));
+        if (rc == -2)
+            rv_demo(2);                               /* (part of a damaged save read: not that, half old, half new) */
+        rv_hush = 0;
+        if (rc == 0) {
+            ui_project_new();
             sx_cat(b, "LOADED ");
             sx_int(b + 7, ui.cur_slot + 1);
             msg(b);
+        } else if (rc == -2) {
+            ui_project_new();
+            msg("DAMAGED: A NEW PROJECT");
         } else
             msg("SLOT EMPTY");
         break;
+    }
     case 2:
     case 3:
     case 4:
         rv_transport(0);
+        rv_all_off();
+        rv_hush = 1;
         rv_demo(ui.save_action == 4 ? 3 : ui.save_action - 2);
-        ui.snd_edit = 0;
+        rv_hush = 0;
+        ui_project_new();
         msg(ui.save_action == 2 ? "DEMO: RAVEL" : ui.save_action == 3 ? "DEMO: DUST" : "DEMO: GRAPH");
         break;
     case 6:                                           /* CLEAR: the slot emptied (the project you have is kept) */
@@ -2535,9 +2616,12 @@ static void save_do(void)
         break;
     default:
         rv_transport(0);
+        rv_all_off();
+        rv_hush = 1;
         rv_demo(2);
+        rv_hush = 0;
         msg("NEW PROJECT");
-        ui.snd_edit = 0;
+        ui_project_new();
         break;
     }
     slots_refresh();
@@ -3020,6 +3104,8 @@ static void buttons(uint32_t now_btn)
             rv_step_rec(up1 ? SREC_REST : SREC_BACK, ui.srec_t, 0);
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && held_step() >= 0)
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));   /* (a step held: its page stays, so its release is that step's) */
     if (down & (1u << B_OCTDN)) {
         if ((ui.sec == SEC_SEQ || (now_btn & (1u << B_SEQ))) && !seq_keys_play(ui.track)) {
             ui.step_page = (uint8_t)(ui.step_page ? ui.step_page - 1 : 0);
@@ -3219,6 +3305,8 @@ static void midi_cc_ui(void)
                 int pid = prefs.b[i].pid;
                 const rv_pinfo *pi = rv_pinfo_pid(pid);
                 int cur = rv_pid_get(pid), tgt = cc_scale(v, pi->min, pi->max), st = (pi->max - pi->min) / 127 + 1;
+                if (pid < RV_GPID && (pid % RV_TP == TP_KIND || pid % RV_TP == TP_ENGINE))
+                    break;                     /* (learned before: KIND and ENGINE change a whole sound; the knob only) */
                 if (pickup(&bind_pk[i], cur, tgt, st) && tgt != cur) {
                     rv_pid_set(pid, tgt);
                     if (pid >= RV_GPID)
@@ -3257,8 +3345,8 @@ static void learn_knob_any(int kind, int id)          /* learning, and a knob tu
     char b[40] = "NOW MOVE A CONTROL: ", d[24];
     if (learn != 1 && learn != 2)
         return;
-    if (kind != K_TP && kind != K_GP && kind != K_TLEVEL) {
-        msg("LEARN: NOT THAT KNOB");
+    if ((kind != K_TP && kind != K_GP && kind != K_TLEVEL) || (kind == K_TP && (id == TP_KIND || id == TP_ENGINE))) {
+        msg("LEARN: NOT THAT KNOB");                  /* (KIND and ENGINE: a whole new sound, the knob's own checks) */
         return;
     }
     learn_pid = (uint16_t)(kind == K_TP ? PID_T(ui.track, id) : kind == K_TLEVEL ? PID_T(id & 7, TP_LEVEL) : PID_G(id));
@@ -3386,6 +3474,8 @@ void ui_input_only(void)
             ui.page[ui.sec] = (uint8_t)clampi(ui.page[ui.sec] + d, 0, n - 1);
     }
     d = plat_enc(EN_ALGO);
+    if (d && held_step() >= 0)
+        d = 0;                                        /* (a step held: the track stays, so its release is that track's) */
     if (d) {
         int nt = clampi(ui.track + d, 0, RV_TRACKS - 1);
         if (nt != ui.track && ui.armed) {
@@ -3393,6 +3483,14 @@ void ui_input_only(void)
             rv_record_arm(nt, 1);
         }
         ui.track = (uint8_t)nt;
+        {
+            int pages_n = (clampi(rv.tp[nt][TP_LEN], 1, 64) + 15) / 16;   /* (a shorter track: a page it has) */
+            if (ui.step_page >= pages_n) {
+                ui.step_page = (uint8_t)(pages_n - 1);
+                if (ui.step_cur >= pages_n * 16)
+                    ui.step_cur = (int16_t)(ui.step_page * 16);
+            }
+        }
     }
     d = plat_enc(EN_PRESET);
     if (d) {
@@ -3463,7 +3561,10 @@ static void draw_top(void)
     b[2] = 0;
     g_text_c(14, 4, &FONT_B, b, g_mix(kind_dcol(t), C_INK, 0.6f));
     if (ui.msg_until && (int32_t)(ui.msg_until - plat_ms()) > 0) {
-        g_text(31, 4, &FONT_B, ui.msg, C_WHITE);
+        if (g_text_w(&FONT_B, ui.msg) <= 205)        /* (a long one smaller) */
+            g_text(31, 4, &FONT_B, ui.msg, C_WHITE);
+        else
+            g_text(31, 7, &FONT_T, ui.msg, C_WHITE);
         return;
     }
     x = g_text(31, 7, &FONT_T, rv_kind_names[clampi(rv.tp[t][TP_KIND], 0, KIND_N - 1)], C_MID);
@@ -3505,7 +3606,25 @@ static void knob_draw(int i, const char *name, const char *val, int v, int mn, i
     const rv_font_t *fv = &FONT_B;
     g_ring(x + 10.0f, 29.5f, 4.6f, 1.2f, ring);
     g_seg(x + 10.0f + fm_cosf(an) * 1.6f, 29.5f + fm_sinf(an) * 1.6f, x + 10.0f + fm_cosf(an) * 4.8f, 29.5f + fm_sinf(an) * 4.8f, 1.5f, kc);
-    g_text(x + 18, 25, &FONT_T, name, lc);
+    {                                                 /* the name beside the dial, inside its cell: a long one closer */
+        int nw = g_text_w(&FONT_T, name);
+        if (nw <= 41)
+            g_text(x + 18, 25, &FONT_T, name, lc);
+        else {
+            char c1[2] = {0, 0};
+            int n = 0, sq, cx;
+            while (name[n])
+                n++;
+            sq = n > 1 ? (nw - 41 + n - 2) / (n - 1) : 0;
+            sq = sq > 1 ? 1 : sq;                     /* (a pixel less between letters, at most) */
+            nw -= sq * (n - 1);
+            cx = x + 59 - nw < x + 15 ? x + 15 : x + 59 - nw;
+            for (; *name; name++) {
+                c1[0] = *name;
+                cx = g_text(cx, 25, &FONT_T, c1, lc) - sq;
+            }
+        }
+    }
     if (g_text_w(fv, val) > 54)
         fv = &FONT_XS;
     if (g_text_w(fv, val) > 56)
@@ -4169,7 +4288,7 @@ static void pic_skin(void)
 static void pic_insert(void)
 {
     int t = ui.track;
-    static const char *const d[INS_N] = {"NO INSERT", "COMB: TUNE IS ITS NOTE", "FREQUENCY SHIFT, -200..+200 HZ",
+    static const char *const d[INS_N] = {"NO INSERT", "COMB: TUNE IS ITS NOTE", "FREQ SHIFT, -200..+200 HZ",
                                          "CRUSH: RATE AND BITS", "SMEAR: FOUR ALLPASSES"};
     g_text(8, PIC_Y + 6, &FONT_B, d[clampi(rv.tp[t][TP_INS], 0, INS_N - 1)], C_INK);
     pic_scope(t, PIC_Y + 30, 100, C_TEAL);
@@ -4986,7 +5105,7 @@ static void pic_arp(void)
             return;
         }
         g_text_c(120, PIC_Y + 46, &FONT_B, "ARP OFF", C_DIM);
-        g_text_c(120, PIC_Y + 68, &FONT_T, "KNOB 1: UP, DOWN, UP-DN, DN-UP, PLAYED, RANDOM", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "K1: UP DOWN UP-DN DN-UP PLAYED RANDOM", C_DIM);
         g_text_c(120, PIC_Y + 82, &FONT_T, "KNOB 4, HOLD: THE KEYS' NOTES SOUND ON", C_DIM);
         return;
     }
@@ -5103,7 +5222,7 @@ static void pic_flash(void)
     g_text_r(234, PIC_Y + 124, &FONT_T, "RAVEL " RAVEL_BUILD, C_MID);   /* the version running */
     if (plat_flash_info(v) < 0) {
         g_text_c(120, PIC_Y + 46, &FONT_B, "NO FLASH HERE", C_DIM);
-        g_text_c(120, PIC_Y + 68, &FONT_T, "THE FM-1 SHOWS ITS FLASH'S SETUP ON THIS PAGE", C_DIM);
+        g_text_c(120, PIC_Y + 68, &FONT_T, "THE FM-1 SHOWS ITS FLASH SETUP HERE", C_DIM);
         return;
     }
     b[0] = 0;
@@ -5465,7 +5584,7 @@ static __attribute__((noinline)) void pic_weftrate(void)
             g_rbox(6, y, 228, 40, 5, C_WHITE, 0);
         g_text(14, y + 6, &FONT_B, i ? "HALF" : "FULL", on ? C_WHITE : C_MID);
         g_text(80, y + 6, &FONT_T, i ? "22 KHZ: ABOUT HALF THE TIME" : "44.1 KHZ: AS IT WAS MADE", on ? C_INK : C_DIM);
-        g_text(80, y + 22, &FONT_T, i ? "THE TOP OCTAVE GOES; A LITTLE GRIT" : "EVERY BLOCK, EVERY SAMPLE", on ? C_INK : C_DIM);
+        g_text(80, y + 22, &FONT_T, i ? "TOP OCTAVE GONE, SOME GRIT" : "EVERY BLOCK, EVERY SAMPLE", on ? C_INK : C_DIM);
     }
     b[0] = 0;
     sx_cat(b, "THIS TRACK NOW: ");
@@ -5481,7 +5600,7 @@ static __attribute__((noinline)) void pic_weftrate(void)
 /* WEFT LIBRARY: the list (factory patches, then your own and the empty slots of the bank), the chosen one lit */
 static __attribute__((noinline)) void pic_weftlib(void)
 {
-    uint8_t l[64];
+    uint8_t l[WL_MAX];
     int n = wl_list(l), sel = n ? ui.wl_sel % n : 0, top = sel - 3, i, own = 0, used = 0;
     char b[40];
     for (i = 0; i < 32; i++) {                        /* the bank: your WEFT patches, and the room left (any sound takes a slot) */
@@ -5755,7 +5874,7 @@ static void pic_scale(void)
         if (ivl > 1)
             g_fill(x + 4, PIC_Y + 86, 8, 8, pass ? C_AMBER : C_LINE);
     }
-    g_text(8, PIC_Y + 104, &FONT_T, ivl > 1 ? "AMBER: THE NOTES THIS TRACK'S INTERVAL PLAYS" : "SCL + KEY SETS THE ROOT", C_DIM);
+    g_text(8, PIC_Y + 104, &FONT_T, ivl > 1 ? "AMBER: NOTES THIS TRACK'S INTERVAL PLAYS" : "SCL + KEY SETS THE ROOT", C_DIM);
     if (sc)
         g_text(8, PIC_Y + 116, &FONT_T, "THE KEYS PLAY THE SCALE, FOLDED", C_TEAL);
 }
@@ -6564,6 +6683,7 @@ int ui_section(void) { return ui.sec; }
 int ui_step_cur(void) { return ui.step_cur; }   /* (the scenarios: the step on the knobs) */
 int ui_track(void) { return ui.track; }
 const char *ui_page_title(void) { return cur_page()->title; }
+const char *ui_msg_text(void) { return ui.msg_until && (int32_t)(ui.msg_until - plat_ms()) > 0 ? ui.msg : ""; }
 const char *ui_sound_name(int t) { return sound_name(t & 7); }
 /* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */
 void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b % WF_BLOCKS); }

@@ -1,0 +1,19 @@
+# A bank that can't be read (damaged, or kept by a newer firmware) is shown empty and never written over:
+# saving into it, from SOUNDS or the WEFT LIBRARY, says so, and the bank stays as it was
+wait 300
+storeput 9 tests/fixtures/garbage.bin
+bankreload
+expect soundused 1 -1
+bankstore 1 1 TEST
+expect soundused 1 -1
+kind 1 6
+tap EDIT
+turn SELECT -20
+wait 50
+turn SELECT 6
+wait 100
+expect page WEFT LIBRARY
+tap SAVE
+wait 100
+expect msg BANK A UNREADABLE: KEPT
+expect store 9 tests/fixtures/garbage.bin

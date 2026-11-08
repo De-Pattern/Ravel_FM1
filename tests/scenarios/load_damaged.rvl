@@ -1,0 +1,17 @@
+# A project save cut short (only part of it there): LOAD leaves the project as it was ("SLOT EMPTY").
+# (On the FM-1 a save whose check fails once read gives DAMAGED: A NEW PROJECT: a new project, not half of one.)
+wait 300
+demo 2
+expect name DUST
+storeput 0 tests/fixtures/cut-short.proj
+tap SAVE
+wait 150
+expect page PROJECT
+turn K1 1
+wait 100
+tap SAVE
+wait 100
+tap SAVE
+wait 100
+expect msg SLOT EMPTY
+expect name DUST

@@ -7,7 +7,7 @@
 #define RV_DT (1.0f / 44100.0f)
 #define RV_NYQ 22050.0f
 
-RV_INL float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+RV_INL float clampf(float x, float lo, float hi) { return x > lo ? (x < hi ? x : hi) : lo; }   /* (NaN: lo, never on into an index) */
 RV_INL float lerpf(float a, float b, float t) { return a + (b - a) * t; }
 RV_INL int clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 

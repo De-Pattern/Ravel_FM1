@@ -205,10 +205,10 @@ static void g_seg(float x0, float y0, float x1, float y1, float w, uint16_t c)
         ya = g_y0;
     if (yb > g_y1)
         yb = g_y1;
-    if (xa < 0)
-        xa = 0;
-    if (xb > PLAT_W)
-        xb = PLAT_W;
+    if (xa < g_cx0)                                  /* (the clip across: the melt's strips) */
+        xa = g_cx0;
+    if (xb > g_cx1)
+        xb = g_cx1;
     for (y = ya; y < yb; y++)
         for (x = xa; x < xb; x++) {
             float px = (float)x + 0.5f - x0, py = (float)y + 0.5f - y0, k = l2 > 1e-6f ? (px * dx + py * dy) / l2 : 0.0f, ex, ey, d2;
@@ -300,8 +300,32 @@ static uint32_t g_glyph(const rv_font_t *f, uint32_t ch)
     return ch - f->first;
 }
 
+#ifdef RAVEL_TEXTCHECK                                  /* (a host check: text that runs off the screen, named once) */
+#include <stdio.h>
+#include <string.h>
+static void g_text_check(int x, int y, const rv_font_t *f, const char *s)
+{
+    static char seen[512][48];
+    static int ns;
+    int w = 0, i;
+    const char *p;
+    for (p = s; *p; p++)
+        w += f->adv[g_glyph(f, (uint8_t)*p)];
+    if (x >= 0 && x + w <= PLAT_W + 1)
+        return;
+    for (i = 0; i < ns; i++)
+        if (!strncmp(seen[i], s, 47))
+            return;
+    if (ns < 512)
+        snprintf(seen[ns++], 48, "%s", s);
+    fprintf(stderr, "TEXTCHECK off-screen x=%d..%d y=%d h=%d: \"%s\"\n", x, x + w, y, f->h, s);
+}
+#endif
 static int g_text(int x, int y, const rv_font_t *f, const char *s, uint16_t c)
 {
+#ifdef RAVEL_TEXTCHECK
+    g_text_check(x, y, f, s);
+#endif
     if (y + f->h < g_y0 || y >= g_y1) {
         for (; *s; s++)
             x += f->adv[g_glyph(f, (uint8_t)*s)];
@@ -319,7 +343,7 @@ static int g_text(int x, int y, const rv_font_t *f, const char *s, uint16_t c)
             for (gx = 0; gx < w; gx++) {
                 uint32_t a = (gd[gy * bpr + gx / 2u] >> ((gx & 1u) ? 0u : 4u)) & 15u;
                 int px = x + f->bx[gi] + (int)gx;
-                if (!a || (unsigned)px >= PLAT_W)
+                if (!a || px < g_cx0 || px >= g_cx1)
                     continue;
                 row[px] = a == 15u ? c : g_blend(row[px], c, a);
             }

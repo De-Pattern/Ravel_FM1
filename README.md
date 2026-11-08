@@ -1145,7 +1145,7 @@ While you are on any SEQ page, or while you **hold SEQ** on any other page, the 
 | Hold a key, turn a knob on a **non-SEQ page** (with SEQ held) | A **parameter lock**: that step plays with that value (cutoff, drive, a source value…). Up to two locks per step. |
 | **OCT− / OCT+** | Step page 1–16, 17–32, 33–48, 49–64 |
 
-Editing a held empty step switches it on.
+Editing a held empty step switches it on. While a step key is held, OCT− / OCT+ and ALGORITHM (the track) wait, so letting the key go acts on the step you pressed, on its track; a track shorter than the page you were on opens on its last page.
 
 <p align="center"><img src="docs/manual/seq-steps.png" alt="STEPS" width="240"> <img src="docs/manual/seq-tempo.png" alt="TEMPO" width="240"> <img src="docs/manual/seq-timing.png" alt="STEP TIMING" width="240"> <img src="docs/manual/seq-track.png" alt="TRACK" width="240"></p>
 
@@ -1308,7 +1308,7 @@ Grains already playing finish as they were, and sounding WEFT voices play on: no
 **MIDI control of the knobs.** Two ways, and both follow MIDI IN's channel:
 
 - **CC 70–73: the knobs on screen.** On any page, CC 70 turns KNOB 1, 71 KNOB 2, 72 KNOB 3 and 73 KNOB 4, whatever they are on that page (a sound's knobs on EDIT, a step's while one is held, the mixer on GLO). Any controller with four knobs set to send 70–73 plays the whole instrument, page by page.
-- **MIDI LEARN: one control, one parameter.** On GLO › MIDI LEARN, turn **KNOB 1 (LEARN)** right; the footer says LEARN: TURN A KNOB. Go to any page and turn the knob you want (a track's or a global one, such as T3's CUTOFF or the delay's FEEDBACK); the footer says LEARN: MOVE A CONTROL. Move the control on your controller: it's tied ("CC 21 CH1 > T3 CUTOFF") and moves that parameter from then on, wherever you are. Up to 16; the page lists them. **PRESETS** picks one, **KNOB 2 (DELETE)** turned twice deletes it, **KNOB 3 (CLEAR ALL)** turned twice clears them all. Learning a control that's tied already moves it to the new parameter; a learned control wins over 70–73.
+- **MIDI LEARN: one control, one parameter.** On GLO › MIDI LEARN, turn **KNOB 1 (LEARN)** right; the footer says LEARN: TURN A KNOB. Go to any page and turn the knob you want (a track's or a global one, such as T3's CUTOFF or the delay's FEEDBACK); the footer says LEARN: MOVE A CONTROL. Move the control on your controller: it's tied ("CC 21 CH1 > T3 CUTOFF") and moves that parameter from then on, wherever you are. Up to 16; the page lists them. **PRESETS** picks one, **KNOB 2 (DELETE)** turned twice deletes it, **KNOB 3 (CLEAR ALL)** turned twice clears them all. Learning a control that's tied already moves it to the new parameter; a learned control wins over 70–73. KIND and ENGINE can't be learned (LEARN: NOT THAT KNOB): each changes the whole sound, so they stay on their knob, where KIND asks first and steps are cleared when they must be.
 - **Pickup.** A control only takes hold once it reaches the value the parameter already has (or passes it), so changing page, project or sound never makes a value jump. Turn it through the value shown and it follows.
 - The learned controls, like MIDI IN's settings and the backlight, belong to the FM-1, not to a project: they stay through power-off and whatever you load.
 
@@ -1408,6 +1408,8 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 
 Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
 
+A load is silent while it happens, so nothing half-loaded plays. If a saved project turns out to be damaged as it is read (its check fails), LOAD says **DAMAGED: A NEW PROJECT** and starts a blank one, rather than leaving a mix of the old project and part of the saved one; the damaged slot stays as it was.
+
 There are 32 project slots. On the FM-1 a project is kept compressed (most fit in one 4 KB block of the flash, a very busy one in a few), so they share the room: **ROOM** on the page says how much is left, and if a save doesn't fit, it says **NO ROOM: SAVE OVER ANOTHER** and nothing is lost. Projects saved in slots 1–7 by an earlier version are still there; the first save after updating compresses them too, which takes a second or two once.
 
 A project holds everything: all eight tracks and their patterns, influence, modulation, buses, scenes, the arrangement, arcs and the LIBRARY of step envelopes. A project saved before the tape was removed still loads: its tape tracks come back as blank VA synths with empty patterns, and influence TAPE routes are switched off.
@@ -1433,6 +1435,8 @@ A sound is the track's voice: its kind and engine, every sound setting (source, 
 4. **Name it:** on a used slot, **KNOB 2 (CURSOR)** picks a letter position (1–11) and **KNOB 3 (LETTER)** changes the letter (A–Z, 0–9, space and `- + # & ' .`). The cursor is the amber line under the name. The name is kept a moment after you stop turning.
 
 Loading a sound that changes a track between a kit and notes (lanes and notes don't read each other's steps) clears that track's steps, so it asks first: press **SAVE** again.
+
+**A bank that can't be read** (damaged, or saved by a newer Ravel after you went back to an older one) shows empty and is never written over: SAVE, CLEAR and WEFT LIBRARY's SAVE and DELETE say **BANK A UNREADABLE: KEPT** (B, C, D) and change nothing. Choose another bank to keep sounds, and bring the bank back from a backup (below) or with a newer Ravel.
 
 **From PRESETS:** on any EDIT page, turning **PRESETS** walks the factory sounds of the track's kind and then your own of that kind, from the bank chosen here (knob 4): the footer and the top bar name each one (A3 MY BASS). So a sound you keep is a turn of PRESETS away on any track.
 

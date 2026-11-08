@@ -367,7 +367,7 @@ static void kit_fire(int t, int si, uint32_t when)
         if (density < 100 && (float)step_rank(li) >= density * 0.16f)
             continue;
         sw = (kk & 1u) ? rv.gp[GP_SWING] - 50 : 0;    /* the offbeat in time, not the step's number */
-        e.when = when + (uint32_t)((lofs + ((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick) * RV_FS + (float)sw * 0.02f * sd * RV_FS);
+        e.when = when + (uint32_t)(int32_t)((lofs + ((float)LATENCY_TICKS + (float)s->micro * (1.0f - quant)) * tick) * RV_FS + (float)sw * 0.02f * sd * RV_FS);   /* (through int32: early micro can be before when) */
         e.track = (uint8_t)t;
         e.chain = (uint16_t)(1u << t);
         e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);   /* the pattern and step its locks are found under */
@@ -441,7 +441,7 @@ static void step_fire(int t, int h, int si, uint32_t when)
     micro = (float)s->micro * (1.0f - quant);
     sw = ((sq[t].travelled[h] - 1u) & 1u) ? rv.gp[GP_SWING] - 50 : 0;   /* SWING: every second step in time sits at SWING% of the pair
                                                                         (50 even, 66 a triplet feel), whatever the direction or LENGTH */
-    e.when = when + (uint32_t)(((float)LATENCY_TICKS + micro) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);
+    e.when = when + (uint32_t)(int32_t)(((float)LATENCY_TICKS + micro) * tick * RV_FS + (float)sw * 0.02f * sd * RV_FS);   /* (the same) */
     e.track = (uint8_t)tt;
     e.chain = (uint16_t)(1u << tt);
     e.env = s->env;
@@ -1066,9 +1066,9 @@ static void seq_other_clocks(void)
             if (wsq_pat[t] >= 0)
                 rv.pat_cur[t] = (uint8_t)(wsq_pat[t] == 2 ? !rv.pat_cur[t] : wsq_pat[t]);
             wsq_pat[t] = -1;
-            wsq_steps[t] = wsq_jump[t] = 0;
+            wsq_steps_c[0][t] = wsq_steps_c[1][t] = wsq_jump[t] = 0;
         }
-        wsq_restart = 0;
+        wsq_restart_c[0] = wsq_restart_c[1] = 0;
         return;
     }
     for (t = 0; t < RV_TRACKS; t++) {               /* WEFT's SEQ OUTs: a pattern, back to step 1, a jump, steps */
@@ -1077,7 +1077,7 @@ static void seq_other_clocks(void)
             rv.pat_cur[t] = (uint8_t)(wsq_pat[t] == 2 ? !rv.pat_cur[t] : wsq_pat[t]);
             wsq_pat[t] = -1;
         }
-        if ((wsq_restart >> t) & 1u) {
+        if (((wsq_restart_c[0] | wsq_restart_c[1]) >> t) & 1u) {
             sq[t].step[0] = sq[t].step[1] = -1;
             sq[t].dir[0] = sq[t].dir[1] = 1;
         }
@@ -1086,11 +1086,11 @@ static void seq_other_clocks(void)
             sq[t].dir[0] = 1;
         }
         wsq_jump[t] = 0;
-        for (k = 0; k < wsq_steps[t] && k < 4; k++)
+        for (k = 0; k < wsq_steps_c[0][t] + wsq_steps_c[1][t] && k < 4; k++)
             track_advance(t, now_s);
-        wsq_steps[t] = 0;
+        wsq_steps_c[0][t] = wsq_steps_c[1][t] = 0;
     }
-    wsq_restart = 0;
+    wsq_restart_c[0] = wsq_restart_c[1] = 0;
     for (t = 0; t < RV_TRACKS; t++) {
         int src = rv.tp[t][TP_CLKSRC];
         if ((weft_own >> t) & 1u)

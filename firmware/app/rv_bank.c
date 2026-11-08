@@ -43,6 +43,8 @@ typedef struct { uint32_t magic, version; rv_sound_96 s[RV_BANK_N]; } rv_bank_96
 static union { rv_bank_t b; rv_bank_v1 old; rv_bank_96 b96; } bankmem RV_RAMBSS;
 #define bank bankmem.b
 static uint8_t bank_cur, bank_dirty;               /* the bank in RAM; a name edited and not yet kept */
+static uint8_t bank_bad;                           /* the bank in RAM could not be read (damaged, or from a newer
+                                                     * firmware): shown empty, and never written, so it is not lost */
 
 typedef char rv_weft_fits[sizeof(rv_weft) <= sizeof(rv_cz) ? 1 : -1];   /* (a WEFT patch shares the CZ's room in a sound) */
 static int bank_is_kit(int kind, int engine) { return kind == KIND_PERC && engine == 1; }
@@ -153,10 +155,14 @@ static void bank_from_v1(void)
     bank_upgrade();
 }
 
-static int bank_read(int b)
+static int bank_read(int b)                            /* 1 read; 0 not (bank_bad set if something was there) */
 {
     int n = plat_load(PLAT_BANK0 + b, &bankmem, sizeof bankmem);
-    if (bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 10)
+    bank_bad = 0;
+    if (n < 0 && n != -3)
+        return 0;                                      /* (nothing there: an empty bank, free to write) */
+    bank_bad = 1;
+    if (n < 0 || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 10)
         return 0;
     if (bank.version < 6) {                            /* 96 track parameters a sound: spread out */
         if (n != (int)sizeof(rv_bank_96))
@@ -164,6 +170,7 @@ static int bank_read(int b)
         bank_from_96();
     } else if (n != (int)sizeof bank)
         return 0;
+    bank_bad = 0;
     __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
     if (bank.version < 10)                             /* (kept as version 10 the next time it is written) */
         bank_upgrade();
@@ -173,8 +180,11 @@ static int bank_read(int b)
 int rv_bank_flush(void)
 {
     bank_dirty = 0;
+    if (bank_bad)
+        return -1;                                     /* (never over a bank that couldn't be read) */
     return plat_save(PLAT_BANK0 + bank_cur, &bank, sizeof bank);
 }
+int rv_bank_bad(void) { return bank_bad; }
 
 /* bring bank b (0..3 = A..D) into RAM (a name edited in the one leaving is kept first) */
 void rv_bank_select(int b)
@@ -208,6 +218,10 @@ void rv_bank_init(void)
     bank_cur = 0;
     if (bank_read(0))
         return;
+    if (bank_bad) {                                    /* (A is there but unreadable: kept, not replaced) */
+        bank_blank();
+        return;
+    }
     if (plat_load(PLAT_BANK_OLD, &bankmem.old, sizeof bankmem.old) == (int)sizeof bankmem.old &&
         bankmem.old.magic == RV_BANK_MAGIC && bankmem.old.version == 1) {
         bank_from_v1();                                /* the first bank moves to A */
@@ -239,7 +253,7 @@ int rv_bank_store(int t, int i, const char *name)
 {
     rv_sound *s;
     int k;
-    if (i < 0 || i >= RV_BANK_N)
+    if (i < 0 || i >= RV_BANK_N || bank_bad)
         return -1;
     s = &bank.s[i];
     __builtin_memcpy(s->tp, rv.tp[t & 7], sizeof s->tp);
@@ -298,7 +312,7 @@ int rv_bank_apply(int t, int i)
 
 int rv_bank_clear(int i)
 {
-    if (i < 0 || i >= RV_BANK_N)
+    if (i < 0 || i >= RV_BANK_N || bank_bad)
         return -1;
     __builtin_memset(&bank.s[i], 0, sizeof bank.s[i]);
     return rv_bank_flush();

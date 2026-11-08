@@ -1,0 +1,27 @@
+# A step key held: OCT and the track encoder wait, so letting it go toggles that step, on that track
+wait 300
+settp 1 LENGTH 64
+tap SEQ
+wait 100
+key 4 down
+wait 100
+tap OCT+
+turn ALGO 1
+wait 100
+key 4 up
+wait 100
+expect steps 1 1
+expect stepnote 1 3 60
+expect stepnote 1 19 -1
+expect steps 2 0
+# and with no step held, OCT+ goes on to the next page, and a 16-step track brings it back to its one
+tap OCT+
+wait 50
+tapkey 4
+wait 50
+expect stepnote 1 19 60
+turn ALGO 1
+wait 50
+tapkey 4
+wait 50
+expect stepnote 2 3 60
