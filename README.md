@@ -1455,6 +1455,12 @@ Everything you have saved, the projects in slots 1–32 and the sound banks A–
 | **Send to FM-1** | This page's saved projects and banks straight onto an FM-1 connected by USB with Ravel running (Chrome or Edge: allow MIDI when asked; it asks before replacing slots on the FM-1) |
 | **Get from FM-1** | The FM-1's saved projects and banks, read into a `.ravel` file (Import file then brings them into the emulator) |
 
+**On the install page** ([de-pattern.github.io/Ravel_FM1/install](https://de-pattern.github.io/Ravel_FM1/install/), Chrome or Edge), under *Projects and sounds: back up and restore*: press **Connect to the FM-1** (Ravel running, connected by USB) and the right side lists its 32 project slots by name and its four banks with their sounds. The left side is this computer: drop `.ravel` files on it (or **Add files…**), the emulator's exports included.
+
+- **Back up:** select rows on the right and press **← Back up**, or drag them to the left. They are read, checked and saved as a `.ravel` file (to your downloads), and listed on the left. With nothing selected, it backs up everything.
+- **Restore:** select rows on the left and press **Send to FM-1 →**, or drag them to the right. **To the FM-1** chooses each one's slot (a project into any project slot, a bank into any bank); dropping a row on a slot's row puts it there. It asks before replacing a slot that is in use, and the list on the right is read again afterwards.
+- **Save selected as a file** puts the chosen rows on the left into one `.ravel` file, with the slots you chose.
+
 **From the command line** (`pip3 install mido python-rtmidi`), with the FM-1 connected and Ravel running:
 
     python3 tools/fm1_data.py info                      # what the FM-1 holds

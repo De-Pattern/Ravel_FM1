@@ -44,6 +44,49 @@
   select { font: inherit; font-size: 15px; background: var(--bg); color: var(--fg); border: 1px solid var(--dim); padding: 6px 8px; max-width: 100%; margin-top: 4px; }
   #pickwarn { font-weight: 600; }
   #pickwarn:empty { display: none; }
+  /* projects and sounds: this computer on the left, the FM-1 on the right (wider than the page) */
+  .wide { width: min(1100px, calc(100vw - 32px)); margin-left: calc(50% - min(550px, 50vw - 16px)); }
+  .wide > h2, .wide > p { max-width: 520px; margin-left: auto; margin-right: auto; }
+  .wide > p.full { max-width: none; }
+  .panes { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; margin: 8px 0 0; align-items: stretch; }
+  .pane { display: flex; flex-direction: column; border: 1px solid var(--dim); min-width: 0; transition: border-color .15s, background .15s; }
+  .pane.over { border-color: #a3161c; background: color-mix(in srgb, #a3161c 8%, var(--bg)); }
+  .pane-head, .pane-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; font-size: 13px; }
+  .pane-head { border-bottom: 1px solid var(--dim); }
+  .pane-foot { border-top: 1px solid var(--dim); min-height: 38px; color: var(--dim); }
+  .pane-head b { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .spacer { flex: 1; }
+  .pane-body { overflow: auto; height: 380px; min-height: 160px; resize: vertical; }
+  .pane-body .empty { color: var(--dim); text-align: center; padding: 56px 16px; font-size: 14px; }
+  #pcPane .pane-body:has(#pcEmpty:not([hidden])) { border: 2px dashed var(--dim); margin: 8px; }
+  .panes table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .panes th, .panes td { text-align: left; padding: 5px 6px; border-bottom: 1px solid color-mix(in srgb, var(--dim) 35%, transparent); vertical-align: top; }
+  .panes th { color: var(--dim); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--bg); z-index: 1; }
+  .panes td.num, .panes th.num { text-align: right; white-space: nowrap; }
+  .panes th.ck, .panes td.ck { width: 26px; padding-right: 0; }
+  .panes tr.empty-slot td { color: var(--dim); }
+  .panes tr.sel td { background: color-mix(in srgb, #a3161c 12%, transparent); }
+  .panes tr[draggable=true] { cursor: grab; }
+  .panes tr.dragging { opacity: .4; }
+  .panes tr.target td { box-shadow: inset 0 2px 0 #a3161c, inset 0 -2px 0 #a3161c; }
+  .slot { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  .sounds { color: var(--dim); font-size: 12px; display: block; overflow-wrap: anywhere; }
+  .panes select { font-size: 13px; padding: 2px 4px; margin: 0; }
+  .mid { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; width: 132px; text-align: center; }
+  .mid .small { margin: 0; font-size: 12px; }
+  button.ghost { background: none; color: var(--fg); border: 1px solid var(--dim); padding: 3px 9px; font-size: 13px; }
+  .x { background: none; color: var(--dim); border: 0; padding: 0 4px; font-size: 15px; }
+  .x:hover { color: #a3161c; }
+  #bklog { max-height: 140px; overflow-y: auto; border: 1px solid var(--dim); padding: 6px 8px; }
+  #bklog:empty { display: none; }
+  #bkalert { font-weight: 600; }
+  #bkalert:empty, #bkstatus:empty { display: none; }
+  .st-ok { color: #2f8a48; } .st-bad { color: #c23a2b; }
+  @media (max-width: 860px) {
+    .panes { grid-template-columns: minmax(0, 1fr); }
+    .mid { flex-direction: row; width: auto; justify-content: flex-start; flex-wrap: wrap; }
+    .pane-body { height: 280px; }
+  }
 </style>
 </head>
 <body>
@@ -68,6 +111,45 @@
   <p id="status" role="status"></p>
   <p id="alert" role="alert"></p>
   <pre id="log"></pre>
+
+  <section class="wide" id="bk">
+    <h2 data-t="bkh"></h2>
+    <p class="small" data-t="bkwhy"></p>
+    <p><button id="bkconnect" data-t="bkconnect"></button> <span id="bkstate" class="small"></span></p>
+    <div class="panes">
+      <div class="pane" id="pcPane">
+        <div class="pane-head"><b data-t="pc"></b><span class="spacer"></span>
+          <button id="pcadd" class="ghost" data-t="pcadd"></button>
+          <input id="pcfile" type="file" accept=".ravel" multiple hidden>
+        </div>
+        <div class="pane-body">
+          <table id="pcT"><thead><tr><th class="ck"><input type="checkbox" id="pcAll" data-t-label="selall"></th><th data-t="colwhat"></th><th data-t="colname"></th><th data-t="colto"></th><th class="num" data-t="colsize"></th><th></th></tr></thead><tbody></tbody></table>
+          <div class="empty" id="pcEmpty"><span data-t="pcdrop"></span><br><span class="small" data-t="pcdrop2"></span></div>
+        </div>
+        <div class="pane-foot"><span id="pcNote"></span><span class="spacer"></span>
+          <button id="pcsave" class="ghost" disabled data-t="pcsave"></button> <button id="pcclear" class="ghost" disabled data-t="pcclear"></button></div>
+      </div>
+      <div class="mid">
+        <button id="bksend" disabled data-t="bksend"></button>
+        <button id="bkget" disabled data-t="bkget"></button>
+        <p id="midNote" class="small"></p>
+      </div>
+      <div class="pane" id="fmPane">
+        <div class="pane-head"><b>FM-1</b><span class="spacer"></span><button id="fmreload" class="ghost" disabled data-t-label="reload">↻</button></div>
+        <div class="pane-body">
+          <table id="fmT" hidden><thead><tr><th class="ck"><input type="checkbox" id="fmAll" data-t-label="selall"></th><th data-t="colslot"></th><th data-t="colname"></th><th class="num" data-t="colsize"></th></tr></thead><tbody></tbody></table>
+          <div class="empty" id="fmEmpty" data-t="fmempty"></div>
+        </div>
+        <div class="pane-foot"><span id="fmNote"></span></div>
+      </div>
+    </div>
+    <progress id="bkbar" max="100" value="0" data-t-label="bkprogress"></progress>
+    <p id="bkstatus" role="status"></p>
+    <p id="bkalert" role="alert"></p>
+    <pre id="bklog"></pre>
+    <p class="small" data-t="bkhow"></p>
+  </section>
+
   <h2 data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
@@ -126,6 +208,31 @@ const TEXT = {
     leave: "書き込み中です。ページを閉じないでください。",
     license: "GPL-3.0、無保証。ソース:",
     newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合", percent: "%",
+    bkh: "プロジェクトとサウンド: バックアップと復元",
+    bkwhy: "FM-1 の Ravel に保存したプロジェクト（1〜32）とサウンドバンク（A〜D）を、このパソコンに .ravel ファイルとして保存し、また FM-1 に戻せます。ファームウェアを入れ替える前や、別の版を試す前にどうぞ。エミュレーターの「Export file」のファイルもそのまま使えます。",
+    bkconnect: "FM-1 に接続", bkreconnect: "読み直す", bkconnected: "接続しました: FM-1 の Ravel",
+    pc: "このパソコン", pcadd: "ファイルを追加…", selall: "すべて選ぶ", reload: "FM-1 を読み直す",
+    colwhat: "種類", colname: "名前", colto: "FM-1 の行き先", colsize: "サイズ", colslot: "スロット",
+    pcdrop: ".ravel ファイルをここにドロップ", pcdrop2: "または右の FM-1 の行をここへドラッグしてバックアップ",
+    pcsave: "選んだものをファイルに保存", pcclear: "リストを空にする",
+    bksend: "FM-1 へ送る →", bkget: "← バックアップ",
+    fmempty: "「FM-1 に接続」を押すと、保存されているものが表示されます。",
+    bkprogress: "転送の進み具合",
+    bkhow: "左で選んで「FM-1 へ送る」、または左の行を右へドラッグします（右の行の上に落とすとそのスロットへ）。右で選んで「バックアップ」を押すか、右の行を左へドラッグすると、ファイル（ダウンロード）に保存され、左のリストにも入ります。何も選ばずに「バックアップ」を押すと全部です。使用中のスロットに書く前には確認します。転送中は音が途切れることがあります。プロジェクトは SAVE › PROJECT › LOAD で開きます。",
+    proj: "プロジェクト", bank: "バンク", sound: "サウンド", sounds: "サウンド", empty: "空き", noname: "（名前なし）",
+    notravel: "Ravel のデータではありません", older: "古い Ravel で保存", kb: " KB",
+    nomore: "FM-1 には何も保存されていません", fmhas: "使用中: ", proj1: "プロジェクト", projN: "プロジェクト", bank1: "バンク", bankN: "バンク",
+    bknofm: "FM-1 が見つかりません。Ravel を起動した FM-1 を USB で接続し、MIDI を使う他のアプリを閉じてから、もう一度押してください。",
+    bknotravel: "FM-1 は応答しましたが、Ravel ではないようです（Ravel を入れてから使ってください）。",
+    bklost: "FM-1 との接続が切れました。挿し直して「FM-1 に接続」を押してください。",
+    bkreading: "FM-1 を読み込み中", bkwriting: "書き込み中: ", bkbacking: "読み込み中: ",
+    bkread: "FM-1 を読み込みました。", bksent: "送りました: ", bkbacked: "バックアップしました（ファイルをダウンロード）: ",
+    bkover: "FM-1 のこれを置き換えます: ", bkovq: "。送りますか？",
+    bknone: "送るものを左で選ぶか、.ravel ファイルを追加してください。", bknofmsel: "FM-1 に保存されているものがありません。",
+    bkdup: "同じ行き先が二つあります: ", bkkind: "プロジェクトはプロジェクトのスロットへ、バンクはバンクへ。",
+    bkfile: "読めないファイル: ", bkadded: "追加しました: ", bkbusy: "ほかの転送が終わるまでお待ちください。",
+    bksaved: "ファイルに保存しました: ", bkfail: "転送できませんでした: ", bkinstalling: "インストール中はお待ちください。",
+    bkhint: "選ぶか、ドラッグ",
   },
   en: {
     latest: "Latest release: ", ready: "Ready to install Ravel ", norel: "No release yet",
@@ -167,6 +274,31 @@ const TEXT = {
     leave: "Writing. Do not close the page.",
     license: "GPL-3.0, no warranty. Source:",
     newtab: " (opens in a new tab)", progress: "Install progress", percent: " percent",
+    bkh: "Projects and sounds: back up and restore",
+    bkwhy: "Keep the projects (1–32) and sound banks (A–D) saved in Ravel on your FM-1 as .ravel files on this computer, and put them back. Do it before installing another version. Files from the emulator's Export file work here too.",
+    bkconnect: "Connect to the FM-1", bkreconnect: "Read again", bkconnected: "Connected: Ravel on the FM-1",
+    pc: "This computer", pcadd: "Add files…", selall: "Select all", reload: "Read the FM-1 again",
+    colwhat: "What", colname: "Name", colto: "To the FM-1", colsize: "Size", colslot: "Slot",
+    pcdrop: "Drop .ravel files here", pcdrop2: "or drag rows from the FM-1 here to back them up",
+    pcsave: "Save selected as a file", pcclear: "Clear the list",
+    bksend: "Send to FM-1 →", bkget: "← Back up",
+    fmempty: "Press Connect to the FM-1 to see what it holds.",
+    bkprogress: "Transfer progress",
+    bkhow: "Select on the left and press Send, or drag rows onto the right (onto a slot's row to put it there). Select on the right and press Back up, or drag rows to the left: they are saved as a file (to your downloads) and listed on the left. Back up with nothing selected takes everything. Ravel asks before replacing a slot that is in use. The sound may pause while the flash is written. Open a project on the FM-1 with SAVE › PROJECT › LOAD.",
+    proj: "Project", bank: "Bank", sound: "sound", sounds: "sounds", empty: "empty", noname: "(no name)",
+    notravel: "not Ravel's data", older: "saved by an older Ravel", kb: " KB",
+    nomore: "Nothing saved on the FM-1", fmhas: "In use: ", proj1: "project", projN: "projects", bank1: "bank", bankN: "banks",
+    bknofm: "No FM-1 found. Connect it by USB with Ravel running, close other apps that use MIDI, and press again.",
+    bknotravel: "The FM-1 answered, but not as Ravel (install Ravel first).",
+    bklost: "The FM-1 was disconnected. Plug it back in and press Connect to the FM-1.",
+    bkreading: "Reading the FM-1", bkwriting: "Writing ", bkbacking: "Reading ",
+    bkread: "Read the FM-1.", bksent: "Sent: ", bkbacked: "Backed up into a file (downloaded): ",
+    bkover: "This replaces on the FM-1: ", bkovq: ". Send?",
+    bknone: "Select what to send on the left, or add .ravel files first.", bknofmsel: "The FM-1 has nothing saved.",
+    bkdup: "Two things are going to the same slot: ", bkkind: "Projects go to project slots, banks to banks.",
+    bkfile: "Couldn't read ", bkadded: "Added: ", bkbusy: "Wait until the transfer in progress is done.",
+    bksaved: "Saved as a file: ", bkfail: "The transfer didn't finish: ", bkinstalling: "Wait until the install is done.",
+    bkhint: "Select, or drag",
   },
 };
 let lang = "en";                                 /* English first (the manual is English); 日本語 is a click away */
@@ -177,6 +309,7 @@ function applyLang() {
   document.querySelectorAll("[data-t]").forEach((e) => { e.textContent = t(e.dataset.t); });
   document.querySelectorAll("[data-t-label]").forEach((e) => e.setAttribute("aria-label", t(e.dataset.tLabel)));
   $("lang").textContent = t("other");
+  try { bkDraw(); } catch (e) { /* (before the backup's part of the page is set up) */ }
   $("lang").lang = lang === "ja" ? "en" : "ja";
   if (lastKey) show(t(lastKey) + lastArg, FAILS.has(lastKey));
   showVer();
@@ -299,6 +432,7 @@ $("stockfile").addEventListener("change", async (e) => {
 
 async function run(img, product, isStock) {
   let midi;
+  try { if (bkBusy) { sayK("error", t("bkbusy")); return; } } catch (e) { /* (the backup's part not set up) */ }
   try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
   catch (e) { sayK("denied"); return; }
   writing = true;
@@ -336,6 +470,340 @@ async function run(img, product, isStock) {
 
 $("go").addEventListener("click", () => { if (chosen) run(image, chosen.product, false); });
 $("stockgo").addEventListener("click", () => { if (stock) run(stock.image, stock.product, true); });
+/* ------------------------------------------- projects and sounds: back up and restore, over USB-MIDI
+ * (web/emu/xfer.js speaks to Ravel's rv_xfer.c). This computer on the left, the FM-1 on the right. */
+const X = globalThis.RavelXfer;
+const P_MAGIC = 0x4A505652, B_MAGIC = 0x4B4E4252, KINDS = ["SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"];
+const isBank = (s) => s >= 9 && s <= 12;
+const projNo = (s) => (s < 7 ? s + 1 : s - 13 + 8);
+const projSlot = (n) => (n <= 7 ? n - 1 : 13 + n - 8);
+const FM_ROWS = [...Array.from({ length: 32 }, (_, i) => projSlot(i + 1)), 9, 10, 11, 12];   /* projects 1-32, banks A-D */
+const slotLabel = (s) => (isBank(s) ? `${t("bank")} ${"ABCD"[s - 9]}` : `${t("proj")} ${projNo(s)}`);
+const b32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+const w32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+const cstr = (b, o, n) => { let r = ""; for (let i = 0; i < n && o + i < b.length && b[o + i]; i++) r += String.fromCharCode(b[o + i]); return r.trim(); };
+const kb = (n) => (n / 1024).toFixed(n < 10240 ? 1 : 0) + t("kb");
+/* what a slot's bytes hold: a project's name (its first 20 bytes are enough), a bank's sounds (all of it) */
+function describe(slot, data) {
+  if (!data || data.length < 20) return { name: "" };
+  if (!isBank(slot)) {
+    if (b32(data, 0) !== P_MAGIC) return { name: t("notravel"), bad: true };
+    return { name: cstr(data, 8, 12) || t("noname"), format: b32(data, 4) };
+  }
+  if (b32(data, 0) !== B_MAGIC) return { name: t("notravel"), bad: true };
+  const sz = (data.length - 8) / 32, sounds = [];
+  if (Number.isInteger(sz) && sz >= 16)
+    for (let i = 0; i < 32; i++) {
+      const o = 8 + i * sz;
+      if (data[o + 12]) sounds.push({ i, name: cstr(data, o, 12), kind: data[o + 13] === 3 && data[o + 14] === 1 ? "KIT" : KINDS[data[o + 13]] || "?" });
+    }
+  return { name: `${sounds.length} ${t(sounds.length === 1 ? "sound" : "sounds")}`, sounds };
+}
+const soundList = (d) => (d && d.sounds ? d.sounds.map((x) => `${x.i + 1} ${x.name || "-"} (${x.kind})`).join(", ") : "");
+
+let dev = null, fm = new Map(), pc = [], nextId = 1, bkBusy = false;   /* fm: slot -> {len, crc, head, data} */
+const pcSel = new Set(), fmSel = new Set();
+
+/* the status line (polite) and failures (an alert), a log, a bar */
+function bkShow(txt, fail) {
+  $(fail ? "bkstatus" : "bkalert").textContent = "";
+  $(fail ? "bkalert" : "bkstatus").textContent = txt;
+  bkLog(txt);
+}
+const bkLog = (txt) => { const el = $("bklog"); el.textContent += txt + "\n"; el.scrollTop = el.scrollHeight; };
+const bkBar = (v) => { $("bkbar").value = v; };
+
+function bkDraw() {
+  /* this computer */
+  const pt = $("pcT").tBodies[0];
+  pt.textContent = "";
+  for (const it of pc) {
+    const tr = document.createElement("tr");
+    tr.draggable = true;
+    if (pcSel.has(it.id)) tr.className = "sel";
+    const ck = document.createElement("input");
+    ck.type = "checkbox"; ck.checked = pcSel.has(it.id); ck.setAttribute("aria-label", it.info.name);
+    ck.onchange = () => { ck.checked ? pcSel.add(it.id) : pcSel.delete(it.id); bkDraw(); };
+    const td0 = document.createElement("td"); td0.className = "ck"; td0.append(ck);
+    const td1 = document.createElement("td"); td1.textContent = t(isBank(it.slot) ? "bank" : "proj");
+    const td2 = document.createElement("td"); td2.textContent = it.info.name;
+    if (it.info.sounds && it.info.sounds.length) { const sp = document.createElement("span"); sp.className = "sounds"; sp.textContent = soundList(it.info); td2.append(sp); }
+    if (it.src) { const sp = document.createElement("span"); sp.className = "sounds"; sp.textContent = it.src; td2.append(sp); }
+    const td3 = document.createElement("td"), sel = document.createElement("select");
+    sel.setAttribute("aria-label", t("colto"));
+    for (const s of FM_ROWS) {
+      if (isBank(s) !== isBank(it.slot)) continue;
+      const o = document.createElement("option"), f = fm.get(s);
+      o.value = String(s);
+      o.textContent = isBank(s) ? "ABCD"[s - 9] : String(projNo(s));
+      if (f) o.textContent += ` · ${f.head.name || "?"}`;
+      sel.append(o);
+    }
+    sel.value = String(it.to);
+    sel.onchange = () => { it.to = +sel.value; };
+    td3.append(sel);
+    const td4 = document.createElement("td"); td4.className = "num"; td4.textContent = kb(it.data.length);
+    const td5 = document.createElement("td"), x = document.createElement("button");
+    x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "×");
+    x.onclick = () => { pc = pc.filter((p) => p !== it); pcSel.delete(it.id); bkDraw(); };
+    td5.append(x);
+    tr.append(td0, td1, td2, td3, td4, td5);
+    tr.ondragstart = (e) => {
+      const ids = pcSel.has(it.id) ? [...pcSel] : [it.id];
+      e.dataTransfer.setData("application/x-ravel-pc", JSON.stringify(ids));
+      e.dataTransfer.effectAllowed = "copy";
+      tr.classList.add("dragging");
+    };
+    tr.ondragend = () => tr.classList.remove("dragging");
+    pt.append(tr);
+  }
+  $("pcEmpty").hidden = pc.length > 0;
+  $("pcT").hidden = pc.length === 0;
+  $("pcAll").checked = pc.length > 0 && pc.every((p) => pcSel.has(p.id));
+  $("pcsave").disabled = !pc.length || bkBusy;
+  $("pcclear").disabled = !pc.length || bkBusy;
+  $("pcNote").textContent = pc.length ? `${pcSel.size || pc.length} / ${pc.length}` : "";
+  /* the FM-1 */
+  const ft = $("fmT").tBodies[0];
+  ft.textContent = "";
+  if (dev) {
+    for (const s of FM_ROWS) {
+      const f = fm.get(s), tr = document.createElement("tr");
+      tr.dataset.slot = String(s);
+      if (!f) tr.className = "empty-slot";
+      else { tr.draggable = true; if (fmSel.has(s)) tr.className = "sel"; }
+      const td0 = document.createElement("td"); td0.className = "ck";
+      if (f) {
+        const ck = document.createElement("input");
+        ck.type = "checkbox"; ck.checked = fmSel.has(s); ck.setAttribute("aria-label", slotLabel(s));
+        ck.onchange = () => { ck.checked ? fmSel.add(s) : fmSel.delete(s); bkDraw(); };
+        td0.append(ck);
+      }
+      const td1 = document.createElement("td"); td1.className = "slot"; td1.textContent = slotLabel(s);
+      const td2 = document.createElement("td");
+      td2.textContent = f ? f.head.name || "…" : t("empty");
+      if (f && f.head.sounds && f.head.sounds.length) { const sp = document.createElement("span"); sp.className = "sounds"; sp.textContent = soundList(f.head); td2.append(sp); }
+      const td3 = document.createElement("td"); td3.className = "num"; td3.textContent = f ? kb(f.len) : "";
+      tr.append(td0, td1, td2, td3);
+      if (f) {
+        tr.ondragstart = (e) => {
+          const ss = fmSel.has(s) ? [...fmSel] : [s];
+          e.dataTransfer.setData("application/x-ravel-fm", JSON.stringify(ss));
+          e.dataTransfer.effectAllowed = "copy";
+          tr.classList.add("dragging");
+        };
+        tr.ondragend = () => tr.classList.remove("dragging");
+      }
+      /* a row from the left dropped on this one: it goes into this slot */
+      tr.ondragover = (e) => { if (e.dataTransfer.types.includes("application/x-ravel-pc")) { e.preventDefault(); tr.classList.add("target"); } };
+      tr.ondragleave = () => tr.classList.remove("target");
+      tr.ondrop = (e) => {
+        tr.classList.remove("target");
+        const raw = e.dataTransfer.getData("application/x-ravel-pc");
+        if (!raw) return;
+        e.preventDefault(); e.stopPropagation();
+        $("fmPane").classList.remove("over");
+        const items = JSON.parse(raw).map((id) => pc.find((p) => p.id === id)).filter(Boolean);
+        if (items.length === 1) {
+          if (isBank(items[0].slot) !== isBank(s)) { bkShow(t("bkkind"), true); return; }
+          items[0].to = s;
+        }
+        bkSend(items);
+      };
+      ft.append(tr);
+    }
+  }
+  $("fmT").hidden = !dev;
+  $("fmEmpty").hidden = !!dev;
+  $("fmAll").checked = fm.size > 0 && [...fm.keys()].every((s) => fmSel.has(s));
+  const nb = [...fm.keys()].filter(isBank).length, np = fm.size - nb;
+  $("fmNote").textContent = dev ? (fm.size ? `${t("fmhas")}${np} ${t(np === 1 ? "proj1" : "projN")}, ${nb} ${t(nb === 1 ? "bank1" : "bankN")}` : t("nomore")) : "";
+  $("bksend").disabled = !dev || !pc.length || bkBusy;
+  $("bkget").disabled = !dev || !fm.size || bkBusy;
+  $("fmreload").disabled = !dev || bkBusy;
+  $("bkconnect").disabled = bkBusy;
+  $("bkconnect").textContent = t(dev ? "bkreconnect" : "bkconnect");
+  $("midNote").textContent = dev ? t("bkhint") : "";
+}
+
+async function bkOp(fn) {                                /* one transfer at a time, never while installing */
+  if (writing) { bkShow(t("bkinstalling"), true); return; }
+  if (bkBusy) { bkShow(t("bkbusy"), true); return; }
+  bkBusy = true; bkDraw();
+  try { await fn(); }
+  catch (e) { bkShow(t("bkfail") + (e && e.message), true); }
+  finally { bkBusy = false; bkBar(0); bkDraw(); }
+}
+
+/* the FM-1's ports: its name as the system gives it */
+async function bkOpen() {
+  if (!navigator.requestMIDIAccess) throw new Error(t("nomidi"));
+  let m;
+  try { m = await navigator.requestMIDIAccess({ sysex: true }); } catch (e) { throw new Error(t("denied")); }
+  const pick = (ports) => [...ports.values()].find((p) => /fm-1|felucca|ravel|usb-midi|composite|sinco/i.test(p.name || ""));
+  const out = pick(m.outputs), inp = pick(m.inputs);
+  if (!out || !inp) throw new Error(t("bknofm"));
+  if (dev) dev.inp.onmidimessage = null;
+  const sess = new X.Session((w) => out.send(Array.from(w)), { timeout: 2500 });
+  inp.onmidimessage = (ev) => { if (ev.data[0] === 0xF0) sess.receive(ev.data); };
+  m.onstatechange = (e) => {
+    if (dev && (e.port.id === dev.inp.id || e.port.id === dev.out.id) && e.port.state === "disconnected") {
+      dev.inp.onmidimessage = null; dev = null; fm = new Map(); fmSel.clear();
+      bkShow(t("bklost"), true); bkDraw();
+    }
+  };
+  dev = { sess, inp, out };
+}
+
+async function bkPart(slot, off, n) {                    /* n bytes of a slot (n <= 256) */
+  const r = await dev.sess.ask(0x61, [slot, ...w32(off), n & 255, n >> 8]);
+  if (r[5] !== 0 || r.length !== 6 + n) throw new Error(`${slotLabel(slot)}: ${t("bkfail")}`);
+  return r.subarray(6);
+}
+
+/* what the FM-1 holds: each slot's length and check, a project's name, a bank's sounds */
+async function bkRead() {
+  let list;
+  try { list = await dev.sess.info(); }
+  catch (e) { throw new Error(/not as Ravel/.test(e.message) ? t("bknotravel") : t("bknofm")); }
+  const old = fm;
+  fm = new Map();
+  let done = 0;
+  for (const e of list) {
+    const was = old.get(e.slot);
+    if (was && was.crc === e.crc && was.len === e.len) { fm.set(e.slot, was); continue; }   /* (unchanged: as read before) */
+    bkShow(`${t("bkreading")}: ${slotLabel(e.slot)}`);
+    const f = { len: e.len, crc: e.crc, head: { name: "" }, data: null };
+    if (isBank(e.slot)) {
+      f.data = await dev.sess.readSlot(e.slot, e.len);
+      f.head = describe(e.slot, f.data);
+    } else
+      f.head = describe(e.slot, await bkPart(e.slot, 0, Math.min(32, e.len)));
+    fm.set(e.slot, f);
+    bkBar((++done / list.length) * 100);
+    bkDraw();
+  }
+  for (const s of [...fmSel]) if (!fm.has(s)) fmSel.delete(s);
+  bkShow(t("bkread"));
+}
+
+function bkAdd(entries, src) {                          /* entries [{slot, data}] onto the left */
+  for (const e of entries) {
+    if (!X.SLOTS.includes(e.slot)) continue;
+    const dup = pc.find((p) => p.slot === e.slot && p.data.length === e.data.length && X.crc32(p.data) === X.crc32(e.data));
+    if (dup) { dup.src = src; continue; }
+    pc.push({ id: nextId++, slot: e.slot, to: e.slot, data: e.data, info: describe(e.slot, e.data), src });
+  }
+}
+
+async function bkFiles(files) {
+  const ok = [];
+  for (const f of files) {
+    try { bkAdd(X.fileDecode(new Uint8Array(await f.arrayBuffer())), f.name); ok.push(f.name); }
+    catch (e) { bkShow(`${t("bkfile")}${f.name}: ${e.message}`, true); }
+  }
+  if (ok.length) bkShow(t("bkadded") + ok.join(", "));
+  bkDraw();
+}
+
+function bkDownload(entries, name) {
+  const url = URL.createObjectURL(new Blob([X.fileEncode(entries)], { type: "application/octet-stream" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+const fileName = (entries, pre) => {                   /* one project: its name in the file's */
+  const one = entries.length === 1 && !isBank(entries[0].slot) ? describe(entries[0].slot, entries[0].data).name : "";
+  const nm = one.replace(/[^A-Za-z0-9#&+.'-]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${pre}${nm ? "-" + nm : ""}-${stamp()}.ravel`;
+};
+
+/* this computer -> the FM-1: each to its slot, asked first if that replaces something */
+function bkSend(items) {
+  return bkOp(async () => {
+    if (!items || !items.length) items = pcSel.size ? pc.filter((p) => pcSel.has(p.id)) : pc.slice();
+    if (!items.length) { bkShow(t("bknone"), true); return; }
+    const tos = items.map((p) => p.to), dup = tos.filter((s, i) => tos.indexOf(s) !== i);
+    if (dup.length) { bkShow(t("bkdup") + [...new Set(dup)].map(slotLabel).join(", "), true); return; }
+    if (items.some((p) => isBank(p.to) !== isBank(p.slot))) { bkShow(t("bkkind"), true); return; }
+    await bkRead();                                      /* (what is there now) */
+    const over = items.filter((p) => fm.has(p.to));
+    if (over.length && !confirm(t("bkover") + over.map((p) => `${slotLabel(p.to)} (${fm.get(p.to).head.name || "?"})`).join(", ") + t("bkovq"))) return;
+    const total = items.reduce((n, p) => n + p.data.length, 0);
+    let sent = 0;
+    for (const p of items) {
+      bkShow(t("bkwriting") + slotLabel(p.to));
+      await dev.sess.writeSlot(p.to, p.data, (a) => bkBar(((sent + a) / total) * 100));
+      sent += p.data.length;
+      bkLog(`  ${slotLabel(p.to)} ✓`);
+    }
+    await bkRead();
+    bkShow(t("bksent") + items.map((p) => slotLabel(p.to)).join(", "));
+  });
+}
+
+/* the FM-1 -> this computer: read whole, checked, into a file and onto the left */
+function bkBackup(slots) {
+  return bkOp(async () => {
+    await bkRead();
+    if (!slots || !slots.length) slots = fmSel.size ? [...fmSel] : [...fm.keys()];
+    slots = slots.filter((s) => fm.has(s));
+    if (!slots.length) { bkShow(t("bknofmsel"), true); return; }
+    const total = slots.reduce((n, s) => n + fm.get(s).len, 0), out = [];
+    let got = 0;
+    for (const s of FM_ROWS.filter((x) => slots.includes(x))) {
+      const f = fm.get(s);
+      bkShow(t("bkbacking") + slotLabel(s));
+      const data = f.data && f.data.length === f.len ? f.data : await dev.sess.readSlot(s, f.len, (a) => bkBar(((got + a) / total) * 100));
+      if (X.crc32(data) !== f.crc) throw new Error(`${slotLabel(s)}: ${t("bkfail")}`);
+      got += f.len;
+      out.push({ slot: s, data });
+    }
+    const name = fileName(out, "ravel-fm1");
+    bkDownload(out, name);
+    bkAdd(out, name);
+    bkShow(`${t("bkbacked")}${out.map((e) => slotLabel(e.slot)).join(", ")} → ${name}`);
+  });
+}
+
+$("bkconnect").addEventListener("click", () => bkOp(async () => { await bkOpen(); bkShow(t("bkconnected")); await bkRead(); }));
+$("fmreload").addEventListener("click", () => bkOp(bkRead));
+$("bksend").addEventListener("click", () => bkSend(null));
+$("bkget").addEventListener("click", () => bkBackup(null));
+$("pcadd").addEventListener("click", () => $("pcfile").click());
+$("pcfile").addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; bkFiles(fs); });
+$("pcsave").addEventListener("click", () => {
+  const items = pcSel.size ? pc.filter((p) => pcSel.has(p.id)) : pc.slice();
+  if (!items.length) return;
+  const tos = items.map((p) => p.to);
+  if (tos.some((s, i) => tos.indexOf(s) !== i)) { bkShow(t("bkdup") + "…", true); return; }
+  const es = items.map((p) => ({ slot: p.to, data: p.data })), name = fileName(es, "ravel");
+  bkDownload(es, name);
+  bkShow(t("bksaved") + name);
+});
+$("pcclear").addEventListener("click", () => { pc = []; pcSel.clear(); bkDraw(); });
+$("pcAll").addEventListener("change", (e) => { pcSel.clear(); if (e.target.checked) pc.forEach((p) => pcSel.add(p.id)); bkDraw(); });
+$("fmAll").addEventListener("change", (e) => { fmSel.clear(); if (e.target.checked) fm.forEach((_, s) => fmSel.add(s)); bkDraw(); });
+/* drops: files or FM-1 rows onto the left, rows from the left onto the FM-1 */
+function dropZone(el, accept, drop) {
+  el.addEventListener("dragover", (e) => { if (accept(e.dataTransfer.types)) { e.preventDefault(); el.classList.add("over"); } });
+  el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove("over"); });
+  el.addEventListener("drop", (e) => { el.classList.remove("over"); if (!accept(e.dataTransfer.types)) return; e.preventDefault(); drop(e.dataTransfer); });
+}
+dropZone($("pcPane"), (ty) => ty.includes("Files") || ty.includes("application/x-ravel-fm"), (dt) => {
+  const raw = dt.getData("application/x-ravel-fm");
+  if (raw) bkBackup(JSON.parse(raw));
+  else bkFiles([...dt.files]);
+});
+dropZone($("fmPane"), (ty) => ty.includes("application/x-ravel-pc"), (dt) => {
+  const ids = JSON.parse(dt.getData("application/x-ravel-pc") || "[]");
+  bkSend(ids.map((id) => pc.find((p) => p.id === id)).filter(Boolean));
+});
+/* a file dropped anywhere else on the page goes to the list, not into the browser's tab */
+window.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); });
+window.addEventListener("drop", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); bkFiles([...e.dataTransfer.files]); } });
+bkDraw();
 </script>
 </body>
 </html>

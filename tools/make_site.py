@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Assemble the GitHub Pages site: the emulator as the front page, the manual (web page and PDF), the web
-installer (web/installer, with fm1pkg.js, fm1ota.js and the package's metadata inlined) and the
+installer (web/installer, with fm1pkg.js, fm1ota.js, web/emu/xfer.js and the package's metadata inlined) and the
 firmware itself.
 
   tools/make_site.py OUT_DIR EMULATOR.html [PACKAGE.fwsc VERSION [RELEASES_DIR]]
@@ -59,6 +59,7 @@ def main(argv):
         lib = "\n".join((SRC / "web" / "installer" / n).read_text(encoding="utf-8") for n in ("fm1pkg.js", "fm1ota.js"))
         lib = "\n".join(ln for ln in lib.splitlines() if not ln.startswith("import ") and not ln.startswith("export {"))
         lib = lib.replace("export function", "function").replace("export class", "class").replace("export const", "const")
+        lib += "\n" + (SRC / "web" / "emu" / "xfer.js").read_text(encoding="utf-8")   # projects and sounds over USB-MIDI
         page = (SRC / "web" / "installer" / "index.html").read_text(encoding="utf-8")
         try:                                                # the commit's date, shown with the version
             import subprocess
