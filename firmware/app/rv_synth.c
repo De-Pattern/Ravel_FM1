@@ -264,6 +264,7 @@ RV_INL float sin_lut(float ph)              /* ph in turns, any range */
     x *= 1024.0f;
     i = (int)x;
     f = x - (float)i;
+    i &= 1023;                                  /* (a phase a hair below a whole turn: x - floor(x) rounds to 1) */
     return sine_tab[i] + (sine_tab[i + 1] - sine_tab[i]) * f;
 }
 
@@ -274,6 +275,7 @@ static inline float wt_read(const int16_t *w, float ph)
     x *= WT_LEN;
     i = (int)x;
     f = x - (float)i;
+    i &= WT_LEN - 1;                            /* (the same) */
     return ((float)w[i] + (float)(w[i + 1] - w[i]) * f) * (1.0f / 16384.0f);
 }
 

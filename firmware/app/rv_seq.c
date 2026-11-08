@@ -110,9 +110,10 @@ static void all_off_now(void);
 static void hs_move(int rmv, int kit);              /* (rv_engine.c) a ratchet repeat's R MOVE, for the next note */
 static uint8_t spark_pend;
 
-static void ev_push(const event_t *e)
+static void ev_push(const event_t *e)               /* (the last 16 places: note-offs only, so a queue
+                                                     * that fills up never keeps a note that has sounded) */
 {
-    if (evn < RV_EVQ)
+    if (evn < (e->type == EV_OFF || e->type == EV_AOFF ? RV_EVQ : RV_EVQ - 16))
         evq[evn++] = *e;
 }
 

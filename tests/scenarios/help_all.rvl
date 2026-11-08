@@ -1,0 +1,824 @@
+# Hold HOME for help on every page of every section, on an empty project and on the demo with each kind of track:
+# the help screen names every knob, whatever it is (an empty SOUNDS slot's name knobs have no name)
+wait 300
+tap HOME
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap FX
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SCL
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap ENV
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap LFO
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap EDIT
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap GLO
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap ARP
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SEQ
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SAVE
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+demo 1
+tap HOME
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap FX
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SCL
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap ENV
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap LFO
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap EDIT
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap GLO
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap ARP
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SEQ
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+tap SAVE
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1
+press HOME
+wait 900
+release HOME
+wait 40
+turn SELECT 1

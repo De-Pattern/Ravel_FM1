@@ -1941,7 +1941,7 @@ static void render_sub(float *outl, float *outr, int n)
     int nin;
     (void)solo_on;
 
-    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0, a_early = 0, b_early = 0, t_aend;
+    uint32_t cyc0, vcyc0, vcyc, fw0 = rv_live.fetch_on ? plat_fetch_wait() : 0, a_early = 0, b_early = 0, t_aend, bu_ran = 0;
     uint8_t a_done = 0;                             /* the tracks whose chain_a is done (here early, or by the second core) */
     prof_t = cyc0 = plat_cycles();
     loop_mem_check();                               /* (a LOOP track takes the buses' memory, or gives it back) */
@@ -2126,6 +2126,7 @@ static void render_sub(float *outl, float *outr, int n)
         if (par_job && bu_c1) {                      /* the bus jobs this core has: now, while the second core works */
             uint32_t bc[4] = {0, 0, 0, 0};
             b_early = bus_jobs(bu_c1, plat_cycles, bc);
+            bu_ran = bu_c1;                          /* (not again below, if the second core fails now) */
             prof_acc[PF_BED] += bc[0];
             prof_acc[PF_FB] += bc[1];
             prof_acc[PF_DLY] += bc[2];
@@ -2286,7 +2287,7 @@ static void render_sub(float *outl, float *outr, int n)
      * have, or all of them with one core), or was made here already, while it worked; then summed, in order */
     {
         float act = 0.0f;
-        uint32_t here = 7u;                          /* (the jobs still to run here) */
+        uint32_t here = 7u & ~bu_ran;                /* (the jobs still to run here) */
         act = RV_FAR(rv_abs_sum)(outl, outr, n);
         if (par_job) {
             uint32_t w0 = plat_par_cycles(), we;

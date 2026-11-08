@@ -1033,7 +1033,7 @@ static kinfo_t kb_info(kb_t k)
     }
     case K_WF: {                                      /* WEFT: the patch's routing (the settings are TP, page_knob) */
         static const char *const nm[16] = {"BLOCK", "TYPE", "IN A", "AMT A", "IN B", "AMT B", "", "", "KNOB", "SETTING", "", "", "", "", "OUT", ""};
-        static char src[WS_N][10], set[WF_SETS + 1][14], outn[WF_BLOCKS + 2][10];
+        static char src[WS_N][12], set[WF_SETS + 1][14], outn[WF_BLOCKS + 2][12];   /* ("12 VOCODER") */
         static const char *srcp[WS_N], *setp[WF_SETS + 1], *outp[WF_BLOCKS + 2];
         static const char *const blk[WF_BLOCKS] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}, *const kn[4] = {"1", "2", "3", "4"};
         static const char *typ[WO_N];
@@ -2309,8 +2309,8 @@ static void bank_do(void)
             if (ui.preset_idx[t] >= 0 && ui.preset_idx[t] < USND)
                 sx_cat(b, rv_preset_name(ui.preset_idx[t]));
             else {
-                sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[e % 12] : kind == KIND_STRIKE ? "STRIKE"
-                          : e == 1 ? "KIT" : "PERC");
+                sx_cat(b, kind == KIND_SYNTH ? rv_engine_names[clampi(e, 0, ENG_N - 1)] : kind == KIND_PERC ? (e == 1 ? "KIT" : "PERC")
+                          : rv_kind_names[clampi(kind, 0, KIND_N - 1)]);
                 sx_cat(b, " ");
                 sx_int(b + sx_cat(b, bank_letters[rv_bank_current()]), i + 1);
             }
@@ -6263,7 +6263,7 @@ static void pic_bank(void)
                 g_fill(x, y + 11, 7, 2, C_AMBER);
             }
             if (kind == KIND_SYNTH)
-                g_text(138, y + 2, &FONT_T, rv_engine_names[rv_bank_engine(i) % 12], C_DIM);
+                g_text(138, y + 2, &FONT_T, rv_engine_names[rv_bank_engine(i) % ENG_N], C_DIM);
             g_text_r(234, y, &FONT_XS, rv_bank_kind_label(i), kc);
         }
     }
@@ -6409,7 +6409,7 @@ static void draw_help(void)
         b[0] = 0;
         sx_int(b + sx_cat(b, "KNOB "), i + 1);
         g_text(6, y, &FONT_T, b, i == 0 ? C_K1 : i == 1 ? C_K2 : i == 2 ? C_K3 : C_K4);
-        g_text(56, y, &FONT_T, k.kind == K_NONE ? "-" : kb_info(k).name, k.kind == K_NONE ? C_DIM : C_INK);
+        g_text(56, y, &FONT_T, k.kind == K_NONE || !kb_info(k).name ? "-" : kb_info(k).name, k.kind == K_NONE ? C_DIM : C_INK);
         y += 12;
     }
     switch (pg->pr) {                                 /* PRESETS */
