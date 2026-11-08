@@ -1458,7 +1458,9 @@ Everything you have saved, the projects in slots 1–32 and the sound banks A–
 **On the install page** ([de-pattern.github.io/Ravel_FM1/install](https://de-pattern.github.io/Ravel_FM1/install/), Chrome or Edge), under *Projects and sounds: back up and restore*: press **Connect to the FM-1** (Ravel running, connected by USB) and the right side lists its 32 project slots by name and its four banks with their sounds. The left side is this computer: drop `.ravel` files on it (or **Add files…**), the emulator's exports included.
 
 - **Back up:** select rows on the right and press **← Back up**, or drag them to the left. They are read, checked and saved as a `.ravel` file (to your downloads), and listed on the left. With nothing selected, it backs up everything.
-- **Restore:** select rows on the left and press **Send to FM-1 →**, or drag them to the right. **To the FM-1** chooses each one's slot (a project into any project slot, a bank into any bank); dropping a row on a slot's row puts it there. It asks before replacing a slot that is in use, and the list on the right is read again afterwards.
+- **Restore:** select rows on the left and press **Send to FM-1 →**, or drag them to the right. **To the FM-1** shows each one's slot (a project into any project slot, a bank into any bank); dropping a row on a slot's row puts it there. The list on the right is read again afterwards.
+- **Where things go:** each project or bank from a file goes into its own slot if that is free on the FM-1, otherwise into the first free one, so importing never replaces what is there. Choose a slot in use in **To the FM-1** to replace it on purpose (the row says *replaces …*, and it asks before sending).
+- **Delete:** × beside a project on the FM-1 empties its slot (Ravel 1.25 or later), and × beside a sound in a bank deletes just that sound. Both ask first and can't be undone, so back up anything you may want.
 - **Save selected as a file** puts the chosen rows on the left into one `.ravel` file, with the slots you chose.
 
 **From the command line** (`pip3 install mido python-rtmidi`), with the FM-1 connected and Ravel running:

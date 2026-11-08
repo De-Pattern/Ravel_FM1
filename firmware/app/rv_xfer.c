@@ -9,13 +9,16 @@
  *   0x62 BEGIN slot len32             -> slot status                      (the slot is erased: empty until END)
  *   0x63 WRITE slot off32 data        -> slot off32 status                (256 bytes at 256-byte offsets)
  *   0x64 END   slot len32 crc32       -> slot status                      (checked; then the slot is valid)
+ *   0x65 DELETE slot                  -> slot status                      (a project slot emptied; banks: 1, not done)
+ * INFO's list is followed by one byte of what this Ravel can do (bit 0: DELETE; v1.25), which an older
+ * computer side never reads.
  * Stores are the platform's slots: projects 1-7 in 0-6, the sound banks in 9-12, projects 8-32 in 13-37 (plat.h). Everything is
  * little-endian; status 0 is ok. The data is what plat_save stores, so a project or a bank moves
  * between the emulator and an FM-1 unchanged, and is checked again when it is loaded. */
 #include "rv.h"
 
 #define XF_MAX 256u
-#define XF_BODY (5u + PLAT_STORES * 8u > XF_MAX + 8u ? 5u + PLAT_STORES * 8u : XF_MAX + 8u)   /* (INFO's list is the longest) */
+#define XF_BODY (6u + PLAT_STORES * 8u > XF_MAX + 8u ? 6u + PLAT_STORES * 8u : XF_MAX + 8u)   /* (INFO's list is the longest) */
 static uint8_t xf_msg[8 + XF_BODY] RV_RAMBSS, xf_wire[2 + ((8 + XF_BODY) * 8 + 6) / 7] RV_RAMBSS;   /* (in RAM, outside the pool) */
 
 static int xf_slot_ok(int s) { return plat_proj_of(s) >= 0 || plat_is_bank(s); }
@@ -64,7 +67,8 @@ void rv_xfer_msg(const uint8_t *m, uint32_t d)
             xf_wr32(r + 5 + i * 8, len);
             xf_wr32(r + 9 + i * 8, crc);
         }
-        xf_send(cmd, 5 + PLAT_STORES * 8);
+        r[5 + PLAT_STORES * 8] = 1;                     /* (what it can do: DELETE) */
+        xf_send(cmd, 6 + PLAT_STORES * 8);
         break;
     case 0x61: {
         uint32_t off = n >= 7 ? xf_rd32(b + 1) : 0, k = n >= 7 ? (uint32_t)b[5] | (uint32_t)b[6] << 8 : 0;
@@ -98,6 +102,14 @@ void rv_xfer_msg(const uint8_t *m, uint32_t d)
         if (!st)
             ui_storage_changed(slot);                   /* the bank in RAM, the slot list, a message */
         break;
+    case 0x65:                                          /* a project slot emptied, as SAVE > PROJECT > CLEAR does (the
+                                                         * project open stays as it is) */
+        st = n < 1 || plat_proj_of(slot) < 0 ? 1 : plat_proj_clear(slot) ? 2 : 0;
+        r[0] = (uint8_t)slot, r[1] = (uint8_t)st;
+        xf_send(cmd, 2);
+        if (!st)
+            ui_storage_deleted(slot);
+        break;
     default:
         break;
     }
@@ -125,7 +137,7 @@ int rv_xfer_wire(const uint8_t *p, uint32_t n)
         return 0;
     for (i = 6; i + 1u < d; i++)
         s += xf_dec[i];
-    if ((uint8_t)~s != xf_dec[d - 1u] || xf_dec[2] < 0x60 || xf_dec[2] > 0x64)
+    if ((uint8_t)~s != xf_dec[d - 1u] || xf_dec[2] < 0x60 || xf_dec[2] > 0x65)
         return 0;
     rv_xfer_msg(xf_dec, d);
     return 1;

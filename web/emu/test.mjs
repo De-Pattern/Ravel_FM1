@@ -162,6 +162,11 @@ check(new Set(fb).size > 8, 'the screen is drawn');
   check(again.length === entries.length && again.every(e => X.crc32(e.data) === X.crc32(entries.find(f => f.slot === e.slot).data)), 'and gives it all back, unchanged');
   let refused = 0; try { await sess.writeSlot(0, new Uint8Array(40000)); } catch (e) { refused = 1; }
   check(refused, 'a project too big for its slot is refused');
+  check(sess.caps === 1, 'its INFO says it can delete');
+  await sess.deleteSlot(2);
+  check(!(await sess.info()).some(e => e.slot === 2) && B.web_load(2) !== 0, 'DELETE empties a project slot');
+  let nob = 0; try { await sess.deleteSlot(10); } catch (e) { nob = 1; }
+  check(nob && (await sess.info()).some(e => e.slot === 10), 'and leaves a bank alone (a bank\'s sounds are deleted one by one, the bank written back)');
 }
 function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; while (m[n]) n++; return new TextDecoder().decode(m.subarray(0, n)); }
 {                                                           // a project and a bank kept by v0.6 (96 track parameters) load as they were

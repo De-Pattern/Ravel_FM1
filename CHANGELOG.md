@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.25.0
+
+New
+- Projects can be deleted from a computer: the install page's backup and restore (below) shows × beside each project on the FM-1, and Ravel empties the slot as SAVE › PROJECT › CLEAR does (DELETED PROJECT n on the top line; the project open stays as it is). Older computer tools are unaffected.
+
+Changed
+- The install page (not the firmware): a dark theme; more room around its lists; files' projects and banks go into free slots on the FM-1 (their own when free), so importing never replaces what is there unless you choose a slot in use (it says "replaces", and asks); × deletes a project (with this version) or a single sound from a bank (with any).
+
 ## 1.24.1
 
 Fixed

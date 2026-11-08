@@ -506,6 +506,7 @@ int rv_slot_used(int slot, char name[13]);
 void rv_xfer_msg(const uint8_t *m, uint32_t d);
 int rv_xfer_wire(const uint8_t *p, uint32_t n);
 void ui_storage_changed(int slot);
+void ui_storage_deleted(int slot);                  /* a project slot emptied from a computer */
 void rv_bank_settle(void);
 void rv_bank_reload(int slot);
 void rv_demo(int which);

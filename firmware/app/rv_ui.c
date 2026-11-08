@@ -6709,6 +6709,13 @@ int ui_octave(void) { return ui.octave; }
 int ui_armed(void) { return ui.armed; }
 
 /* a slot written from a computer: the lists follow, and the screen says what came */
+void ui_storage_deleted(int slot)
+{
+    char b[24] = "DELETED PROJECT ";
+    slots_refresh();
+    sx_int(b + 16, plat_proj_of(slot) + 1);
+    msg(b);
+}
 void ui_storage_changed(int slot)
 {
     char b[24] = "RECEIVED ";

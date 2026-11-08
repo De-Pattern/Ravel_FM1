@@ -41,18 +41,20 @@
   #pickwarn { font-weight: 600; }
   #pickwarn:empty { display: none; }
   /* projects and sounds: this computer on the left, the FM-1 on the right (wider than the page) */
-  .wide { width: min(1100px, calc(100vw - 32px)); margin-left: calc(50% - min(550px, 50vw - 16px)); }
+  .wide { width: min(1100px, calc(100vw - 48px)); margin-left: calc(50% - min(550px, 50vw - 24px)); }
   .wide > h2, .wide > p { max-width: 520px; margin-left: auto; margin-right: auto; }
   .wide > p.full { max-width: none; }
   .panes { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; margin: 8px 0 0; align-items: stretch; }
   .pane { display: flex; flex-direction: column; border: 1px solid var(--dim); min-width: 0; transition: border-color .15s, background .15s; }
   .pane.over { border-color: #a3161c; background: color-mix(in srgb, #a3161c 8%, var(--bg)); }
-  .pane-head, .pane-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; font-size: 13px; }
+  .pane-head, .pane-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 14px; font-size: 13px; }
   .pane-head { border-bottom: 1px solid var(--dim); }
   .pane-foot { border-top: 1px solid var(--dim); min-height: 38px; color: var(--dim); }
   .pane-head b { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
   .spacer { flex: 1; }
-  .pane-body { overflow: auto; height: 380px; min-height: 160px; resize: vertical; }
+  .pane-body { overflow: auto; height: 380px; min-height: 160px; resize: vertical; padding: 0 4px 8px; }
+  .panes th:first-child, .panes td:first-child { padding-left: 10px; }
+  .panes th:last-child, .panes td:last-child { padding-right: 10px; }
   .pane-body .empty { color: var(--dim); text-align: center; padding: 56px 16px; font-size: 14px; }
   #pcPane .pane-body:has(#pcEmpty:not([hidden])) { border: 2px dashed var(--dim); margin: 8px; }
   .panes table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -73,7 +75,10 @@
   button.ghost { background: none; color: var(--fg); border: 1px solid var(--dim); padding: 3px 9px; font-size: 13px; }
   .x { background: none; color: var(--dim); border: 0; padding: 0 4px; font-size: 15px; }
   .x:hover { color: #e5604f; }
-  #bklog { max-height: 140px; overflow-y: auto; border: 1px solid var(--dim); padding: 6px 8px; }
+  #bklog { max-height: 140px; overflow-y: auto; border: 1px solid var(--dim); padding: 10px 14px; }
+  .snd { display: inline-flex; align-items: center; gap: 2px; margin: 2px 8px 0 0; color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .snd .x { font-size: 13px; padding: 0 2px; }
+  .replaces { display: block; color: #e5604f; font-size: 12px; margin-top: 2px; }
   #bklog:empty { display: none; }
   #bkalert { font-weight: 600; }
   #bkalert:empty, #bkstatus:empty { display: none; }
@@ -214,7 +219,7 @@ const TEXT = {
     bksend: "FM-1 へ送る →", bkget: "← バックアップ",
     fmempty: "「FM-1 に接続」を押すと、保存されているものが表示されます。",
     bkprogress: "転送の進み具合",
-    bkhow: "左で選んで「FM-1 へ送る」、または左の行を右へドラッグします（右の行の上に落とすとそのスロットへ）。右で選んで「バックアップ」を押すか、右の行を左へドラッグすると、ファイル（ダウンロード）に保存され、左のリストにも入ります。何も選ばずに「バックアップ」を押すと全部です。使用中のスロットに書く前には確認します。転送中は音が途切れることがあります。プロジェクトは SAVE › PROJECT › LOAD で開きます。",
+    bkhow: "左で選んで「FM-1 へ送る」、または左の行を右へドラッグします（右の行の上に落とすとそのスロットへ）。右で選んで「バックアップ」を押すか、右の行を左へドラッグすると、ファイル（ダウンロード）に保存され、左のリストにも入ります。何も選ばずに「バックアップ」を押すと全部です。ファイルのプロジェクトとバンクは空いているスロット（自分のスロットが空いていればそこ）に入るので、使用中のスロットを選ばない限り FM-1 のものは置き換わりません。選んだ場合は先に確認します。× で FM-1 のプロジェクトやサウンドを一つずつ削除できます。転送中は音が途切れることがあります。プロジェクトは SAVE › PROJECT › LOAD で開きます。",
     proj: "プロジェクト", bank: "バンク", sound: "サウンド", sounds: "サウンド", empty: "空き", noname: "（名前なし）",
     notravel: "Ravel のデータではありません", older: "古い Ravel で保存", kb: " KB",
     nomore: "FM-1 には何も保存されていません", fmhas: "使用中: ", proj1: "プロジェクト", projN: "プロジェクト", bank1: "バンク", bankN: "バンク",
@@ -229,6 +234,9 @@ const TEXT = {
     bkfile: "読めないファイル: ", bkadded: "追加しました: ", bkbusy: "ほかの転送が終わるまでお待ちください。",
     bksaved: "ファイルに保存しました: ", bkfail: "転送できませんでした: ", bkinstalling: "インストール中はお待ちください。",
     bkhint: "選ぶか、ドラッグ",
+    bkreplaces: "置き換え: ", bkdelproj: "FM-1 から削除", bkdelsound: "このサウンドを削除",
+    bkdelq: "FM-1 から削除します: ", bkdelq2: "。元に戻せません（先にバックアップできます）。削除しますか？",
+    bkdeleted: "削除しました: ", bkolddel: "プロジェクトの削除には FM-1 の Ravel 1.25 以降が必要です。",
   },
   en: {
     latest: "Latest release: ", ready: "Ready to install Ravel ", norel: "No release yet",
@@ -280,7 +288,7 @@ const TEXT = {
     bksend: "Send to FM-1 →", bkget: "← Back up",
     fmempty: "Press Connect to the FM-1 to see what it holds.",
     bkprogress: "Transfer progress",
-    bkhow: "Select on the left and press Send, or drag rows onto the right (onto a slot's row to put it there). Select on the right and press Back up, or drag rows to the left: they are saved as a file (to your downloads) and listed on the left. Back up with nothing selected takes everything. Ravel asks before replacing a slot that is in use. The sound may pause while the flash is written. Open a project on the FM-1 with SAVE › PROJECT › LOAD.",
+    bkhow: "Select on the left and press Send, or drag rows onto the right (onto a slot's row to put it there). Select on the right and press Back up, or drag rows to the left: they are saved as a file (to your downloads) and listed on the left. Back up with nothing selected takes everything. A file's projects and banks go into free slots (their own if free), so nothing on the FM-1 is replaced unless you choose a slot in use, and Ravel asks first. × deletes a project or a single sound on the FM-1. The sound may pause while the flash is written. Open a project on the FM-1 with SAVE › PROJECT › LOAD.",
     proj: "Project", bank: "Bank", sound: "sound", sounds: "sounds", empty: "empty", noname: "(no name)",
     notravel: "not Ravel's data", older: "saved by an older Ravel", kb: " KB",
     nomore: "Nothing saved on the FM-1", fmhas: "In use: ", proj1: "project", projN: "projects", bank1: "bank", bankN: "banks",
@@ -295,6 +303,9 @@ const TEXT = {
     bkfile: "Couldn't read ", bkadded: "Added: ", bkbusy: "Wait until the transfer in progress is done.",
     bksaved: "Saved as a file: ", bkfail: "The transfer didn't finish: ", bkinstalling: "Wait until the install is done.",
     bkhint: "Select, or drag",
+    bkreplaces: "replaces ", bkdelproj: "Delete from the FM-1", bkdelsound: "Delete this sound",
+    bkdelq: "Delete from the FM-1: ", bkdelq2: ". This can't be undone (Back up first if you may want it). Delete?",
+    bkdeleted: "Deleted: ", bkolddel: "Deleting projects needs Ravel 1.25 or later on the FM-1.",
   },
 };
 let lang = "en";                                 /* English first (the manual is English); 日本語 is a click away */
@@ -509,7 +520,24 @@ function bkShow(txt, fail) {
 const bkLog = (txt) => { const el = $("bklog"); el.textContent += txt + "\n"; el.scrollTop = el.scrollHeight; };
 const bkBar = (v) => { $("bkbar").value = v; };
 
+/* where each item on the left goes: its own slot if that is free on the FM-1, else the first free one of
+ * its kind (nothing already there replaced unless you choose that slot); a slot chosen by hand stays */
+function bkTargets() {
+  const taken = new Set(dev ? fm.keys() : []);
+  for (const it of pc) if (it.manual) taken.add(it.to);
+  for (const it of pc) {
+    if (it.manual) continue;
+    let to = it.slot;
+    if (dev && taken.has(to)) {
+      const free = FM_ROWS.find((s) => isBank(s) === isBank(it.slot) && !taken.has(s));
+      if (free !== undefined) to = free;
+    }
+    it.to = to;
+    taken.add(to);
+  }
+}
 function bkDraw() {
+  bkTargets();
   /* this computer */
   const pt = $("pcT").tBodies[0];
   pt.textContent = "";
@@ -536,8 +564,9 @@ function bkDraw() {
       sel.append(o);
     }
     sel.value = String(it.to);
-    sel.onchange = () => { it.to = +sel.value; };
+    sel.onchange = () => { it.to = +sel.value; it.manual = true; bkDraw(); };
     td3.append(sel);
+    if (dev && fm.has(it.to)) { const w = document.createElement("span"); w.className = "replaces"; w.textContent = t("bkreplaces") + (fm.get(it.to).head.name || "?"); td3.append(w); }
     const td4 = document.createElement("td"); td4.className = "num"; td4.textContent = kb(it.data.length);
     const td5 = document.createElement("td"), x = document.createElement("button");
     x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "×");
@@ -578,8 +607,24 @@ function bkDraw() {
       const td1 = document.createElement("td"); td1.className = "slot"; td1.textContent = slotLabel(s);
       const td2 = document.createElement("td");
       td2.textContent = f ? f.head.name || "…" : t("empty");
-      if (f && f.head.sounds && f.head.sounds.length) { const sp = document.createElement("span"); sp.className = "sounds"; sp.textContent = soundList(f.head); td2.append(sp); }
+      if (f && f.head.sounds && f.head.sounds.length) {      /* a bank's sounds, each with its delete */
+        const box = document.createElement("span"); box.className = "sounds";
+        for (const x of f.head.sounds) {
+          const c = document.createElement("span"), d = document.createElement("button");
+          c.className = "snd"; c.textContent = `${x.i + 1} ${x.name || "-"} (${x.kind})`;
+          d.className = "x"; d.textContent = "×"; d.title = t("bkdelsound"); d.setAttribute("aria-label", `${t("bkdelsound")} ${x.i + 1}`);
+          d.onclick = () => bkDelSound(s, x.i);
+          c.append(d); box.append(c);
+        }
+        td2.append(box);
+      }
       const td3 = document.createElement("td"); td3.className = "num"; td3.textContent = f ? kb(f.len) : "";
+      if (f && !isBank(s) && dev.sess.caps & 1) {           /* a project: delete (Ravel 1.25 and later) */
+        const d = document.createElement("button");
+        d.className = "x"; d.textContent = "×"; d.title = t("bkdelproj"); d.setAttribute("aria-label", `${t("bkdelproj")} ${projNo(s)}`);
+        d.onclick = () => bkDelProj(s);
+        td3.append(" ", d);
+      }
       tr.append(td0, td1, td2, td3);
       if (f) {
         tr.ondragstart = (e) => {
@@ -733,6 +778,7 @@ function bkSend(items) {
       await dev.sess.writeSlot(p.to, p.data, (a) => bkBar(((sent + a) / total) * 100));
       sent += p.data.length;
       bkLog(`  ${slotLabel(p.to)} ✓`);
+      p.manual = true;                                   /* (sent: it stays where it went) */
     }
     await bkRead();
     bkShow(t("bksent") + items.map((p) => slotLabel(p.to)).join(", "));
@@ -760,6 +806,36 @@ function bkBackup(slots) {
     bkDownload(out, name);
     bkAdd(out, name);
     bkShow(`${t("bkbacked")}${out.map((e) => slotLabel(e.slot)).join(", ")} → ${name}`);
+  });
+}
+
+/* deleting on the FM-1: a project slot emptied (Ravel 1.25 and later), or one sound of a bank (the bank
+ * read, that sound cleared as SAVE > SOUNDS > CLEAR does, the bank written back) */
+function bkDelProj(slot) {
+  return bkOp(async () => {
+    await bkRead();
+    const f = fm.get(slot);
+    if (!f) return;
+    if (!(dev.sess.caps & 1)) { bkShow(t("bkolddel"), true); return; }
+    if (!confirm(`${t("bkdelq")}${slotLabel(slot)} (${f.head.name || "?"})${t("bkdelq2")}`)) return;
+    await dev.sess.deleteSlot(slot);
+    fmSel.delete(slot);
+    await bkRead();
+    bkShow(t("bkdeleted") + slotLabel(slot));
+  });
+}
+function bkDelSound(slot, i) {
+  return bkOp(async () => {
+    await bkRead();
+    const f = fm.get(slot), x = f && f.head.sounds && f.head.sounds.find((y) => y.i === i);
+    if (!x || !f.data) return;
+    const label = `${"ABCD"[slot - 9]}${i + 1} ${x.name || "-"}`;
+    if (!confirm(`${t("bkdelq")}${label}${t("bkdelq2")}`)) return;
+    const data = f.data.slice(), sz = (data.length - 8) / 32;
+    data.fill(0, 8 + i * sz, 8 + (i + 1) * sz);
+    await dev.sess.writeSlot(slot, data, (a) => bkBar((a / data.length) * 100));
+    await bkRead();
+    bkShow(t("bkdeleted") + label);
   });
 }
 
