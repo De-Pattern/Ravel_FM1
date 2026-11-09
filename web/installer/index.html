@@ -158,9 +158,10 @@
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
     <li data-t="stock1"></li>
-    <li><label for="stockfile" data-t="stock2"></label><br><input type="file" id="stockfile" accept=".fwsc"></li>
     <li data-t="stock3"></li>
   </ol>
+  <p class="small" id="stockready" hidden data-t="stockready"></p>
+  <details class="small"><summary data-t="stock2"></summary><input type="file" id="stockfile" accept=".fwsc"></details>
   <p id="stockline"><button id="stockgo" disabled data-t="stockinstall"></button></p>
   <p><a id="manuallink" href="../" style="color:inherit" data-t="manual"></a></p>
   <p class="small">Ravel runs on the open FM-1 platform of Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments<span class="sr" data-t="newtab"></span></a>,
@@ -191,12 +192,13 @@ const TEXT = {
     back: "公式ファームウェアに戻すには、このページ下の「純正ファームウェアに戻す」を使います（V15 のファイルが必要です）。M-VAVE の M-UPGRADE など、M-VAVE のローダーを使うアップデーターは、Ravel からだと今も FM-1 の電源が切れてしまいます（電源を入れ直せば Ravel のままで、問題はありません）。ほかのファームウェアは、純正に戻してからそのページでインストールしてください。",
     stockh: "純正ファームウェアに戻す",
     stockwhy: "M-VAVE の FM-1 V15 を、Ravel（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Ravel のプロジェクトとサウンドは消えます（純正の設定も工場出荷時に戻ります）。先に上の「バックアップ」で保存してください。純正に戻ったら、System → Reset Patches でバンクを読み込み直してください。",
-    stock1: "M-VAVE の FM-1 V15 のファイル（FM-1.fwsc、FM-1_015）を用意します。M-VAVE のダウンロードは今は V16 で、このページでは書き込めません。",
-    stock2: "ダウンロードしたファイルを選ぶ:",
+    stock1: "上の「バックアップ」でプロジェクトとサウンドを保存します。",
+    stock2: "（または、自分の V15 のファイルを選ぶ）",
+    stockready: "M-VAVE の FM-1 V15 はこのページにあります（M-VAVE の FM1 Open SDK の復旧イメージ、Apache-2.0）。",
     stock3: "FM-1 を USB で接続し、下のボタンを押す。",
     stockinstall: "純正ファームウェアを書き込む",
     stockok: "M-VAVE の FM-1 V15 です。ボタンを押してください。",
-    stockrefused: "FM-1 のインストーラーが V15 を受け付けませんでした。起動領域が V15 のものではありません（別のファームウェアが書き換えた）。何も書き込まれていません。電源を入れ直すと前のファームウェアに戻ります。M-VAVE の M-UPGRADE かレスキューツールで V15 に戻してください。",
+    stockrefused: "FM-1 のインストーラーが V15 を受け付けませんでした（フラッシュが書き込み保護されているか、このチップ用ではありません）。何も書き込まれていません。電源を入れ直すと前のファームウェアに戻ります。レスキューツールで V15 に戻してください。",
     stockbad: "これは M-VAVE の FM-1 V15 のファイルではありません（V16 はこのページでは書き込めません）。",
     stockdone: "完了。FM-1 は純正ファームウェアで起動しました。",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。", loadfail: "読み込めませんでした: ",
@@ -262,12 +264,13 @@ const TEXT = {
     back: "To go back to the official firmware, use \"Back to the stock firmware\" below (it needs the V15 file). Updaters that use M-VAVE's own loader, such as M-UPGRADE, still switch the FM-1 off from Ravel (switched on, it is still Ravel, unharmed). For another firmware, go back to stock first, then install it from its own page.",
     stockh: "Back to the stock firmware",
     stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Ravel (or its safe mode, or Felucca) over the same USB cable. Ravel's projects and sounds are erased, and the stock settings start as on a new unit: save them first with Back up above. Back on stock, reload the banks with System → Reset Patches.",
-    stock1: "Have M-VAVE's FM-1 V15 file (FM-1.fwsc, identity FM-1_015). M-VAVE's download now gives V16, which this page can't install.",
-    stock2: "Choose the file you downloaded:",
+    stock1: "Save your projects and sounds first, with Back up above.",
+    stock2: "(Or choose your own copy of the V15 file)",
+    stockready: "M-VAVE's FM-1 V15 comes with this page (the recovery image of M-VAVE's FM1 Open SDK, Apache-2.0).",
     stock3: "Connect the FM-1 by USB and press the button below.",
     stockinstall: "Install the stock firmware",
     stockok: "That is M-VAVE's FM-1 V15. Press the button to install it.",
-    stockrefused: "The FM-1's installer refused V15: its boot area is not V15's (another firmware rewrote it). Nothing was written; switched off and on it goes back to what it had. Put V15 back with M-VAVE's M-UPGRADE or a rescue tool.",
+    stockrefused: "The FM-1's installer refused V15 (its flash is write-protected, or the package isn't for this chip). Nothing was written; switched off and on it goes back to what it had. Put V15 back with a rescue tool.",
     stockbad: "That is not M-VAVE's FM-1 V15 file (V16 can't be installed from this page).",
     stockdone: "Done. The FM-1 has restarted with its original firmware.",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
@@ -433,19 +436,16 @@ async function load() {
 $("pick").addEventListener("change", () => { if (!writing) load(); });
 load();
 
-/* stock firmware: M-VAVE's FM-1 V15, chosen by the user (M-VAVE's server allows no cross-site
-   download) and checked against its SHA-256 before anything is written */
+/* stock firmware: M-VAVE's FM-1 V15, the recovery image of M-VAVE's FM1 Open SDK (Apache-2.0), served
+   beside this page (third_party/m-vave), or a copy the user chooses; checked against its SHA-256 */
 const STOCK_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a";
 let stock = null;
-$("stockfile").addEventListener("change", async (e) => {
+async function stockFrom(raw, quiet) {
   stock = null;
   $("stockgo").disabled = true;
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
   try {
-    const raw = new Uint8Array(await f.arrayBuffer());
     const hex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))].map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (hex !== STOCK_SHA256) { sayK("stockbad"); return; }
+    if (hex !== STOCK_SHA256) { if (!quiet) sayK("stockbad"); return false; }
     /* M-VAVE's own loader can't be handed over to from Ravel (the FM-1 switches off), so the package
        sent is V15's firmware with Ravel's loader for going back to stock (fm1pkg.js stockBack) */
     const r = await fetch("../firmware/ota-stock.bin", { cache: "no-store" });
@@ -454,9 +454,20 @@ $("stockfile").addEventListener("change", async (e) => {
     const back = stockBack(raw, ldr);
     stock = { image: logicalImage(back), product: productOf(back), ldr: ldr.length, plain: logicalImage(raw) };
     $("stockgo").disabled = writing;
-    sayK("stockok");
-  } catch (err) { sayK("error", err && err.message); }
+    if (!quiet) sayK("stockok");
+    return true;
+  } catch (err) { if (!quiet) sayK("error", err && err.message); return false; }
+}
+$("stockfile").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) await stockFrom(new Uint8Array(await f.arrayBuffer()), false);
 });
+(async () => {                                         /* the bundled V15: ready without choosing a file */
+  try {
+    const r = await fetch("../firmware/stock/FM-1_015.fwsc");
+    if (r.ok && await stockFrom(new Uint8Array(await r.arrayBuffer()), true)) $("stockready").hidden = false;
+  } catch (err) { /* (then a file can still be chosen) */ }
+})();
 
 async function run(img, product, isStock) {
   let midi;

@@ -5,7 +5,9 @@
  * Ravel's data in flash; the host serves STOCK's flash.bin with this loader.
  * The result must be what restoring STOCK with a rescue tool and putting the settings
  * areas back to factory state gives (MvaveFM1Unbricker's restore + repair-settings).
- *   ldr_stock_test RAVEL.fwsc STOCK.fwsc [OTHER_STOCK.fwsc] */
+ *   ldr_stock_test RAVEL.fwsc STOCK.fwsc [OTHER_STOCK.fwsc]
+ * Units are tried with STOCK's head (installed some other way) and with Ravel's (Ravel installed from stock
+ * through M-VAVE's loader writes its own head): the head is then written too, last, as M-VAVE's loader does. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +20,7 @@
 static uint8_t nor[0x100000], *logical;
 static size_t logical_len;
 static uint8_t rx[1024];
-static uint32_t rx_len, rx_full, now_ms, requests, erases, bad_range, record_cleared, f0_asked, cut_after = 0xFFFFFFFFu;
+static uint32_t rx_len, rx_full, now_ms, requests, erases, bad_range, record_cleared, f0_asked, cut_after = 0xFFFFFFFFu, flash_sr, head_first = 0xFFFFFFFFu;
 
 static uint32_t pack7(const uint8_t *in, uint32_t n, uint8_t *out)
 {
@@ -85,12 +87,13 @@ static int in(uint32_t a, uint32_t lo, uint32_t hi) { return a >= lo && a < hi; 
 static int ldr_erase(uint32_t off)
 {
     if (off & 0xFFFu) bad_range++;
-    if (!in(off, 0x4000u, 0x93000u) && !in(off, 0x94000u, 0xE9000u) && !in(off, 0xFC000u, 0xFF000u)) {
+    if (!in(off, 0x0u, 0x93000u) && !in(off, 0x94000u, 0xE9000u) && !in(off, 0xFC000u, 0xFF000u)) {
         printf("ERASE OUTSIDE THE WINDOWS %#x\n", off);
         bad_range++;
         return -1;
     }
     if (erases == cut_after) return -1;          /* "power loss": the session stops here */
+    if (off < 0x4000u && head_first == 0xFFFFFFFFu) head_first = erases;   /* (the first head erase) */
     erases++;
     memset(nor + off, 0xFF, 0x1000);
     return 0;
@@ -99,11 +102,12 @@ static int ldr_prog(uint32_t off, const void *p, uint32_t n)
 {
     const uint8_t *s = p;
     uint32_t i;
-    if (off < 0x4000u || off + n > 0x93000u || ((off & 0xFFu) + n) > 256u) bad_range++;
+    if (off + n > 0x93000u || ((off & 0xFFu) + n) > 256u) bad_range++;
     for (i = 0; i < n; i++) nor[off + i] &= s[i];
     return 0;
 }
 static void ldr_record_clear(void) { record_cleared++; }
+static uint32_t ldr_flash_sr(void) { return flash_sr; }
 static void ldr_progress(uint32_t done, uint32_t total) { (void)done; (void)total; }
 #include "../../firmware/fm1/loader/ldr_core.c"
 
@@ -144,10 +148,10 @@ static void fill(uint32_t lo, uint32_t hi, uint32_t seed)       /* data that isn
     uint32_t a;
     for (a = lo; a < hi; a++) start[a] = (uint8_t)((a * 2654435761u + seed) >> 13);
 }
-static void device(const uint8_t *ravel, uint32_t rfo, const uint8_t *stock, uint32_t sfo)
+static void device_h(const uint8_t *ravel, uint32_t rfo, const uint8_t *stock, uint32_t sfo, int ravel_head)
 {
     memset(start, 0xFF, sizeof start);
-    memcpy(start, stock + sfo, 0x4000);                  /* the unit's head: stock's */
+    memcpy(start, (ravel_head ? ravel + rfo : stock + sfo), 0x4000);   /* the unit's head: stock's or Ravel's */
     memcpy(start + 0x4000, ravel + rfo + 0x4000, 0x93000 - 0x4000);   /* Ravel installed */
     fill(0x93000, 0x94000, 1); memcpy(start + 0x93000, "\x55\xAA\xAA\x55", 4);  /* factory sector */
     fill(0x94000, 0x97000, 2);                           /* stock's own settings from before */
@@ -167,9 +171,14 @@ static void device(const uint8_t *ravel, uint32_t rfo, const uint8_t *stock, uin
     memcpy(nor, start, sizeof nor);
     /* what a rescue tool + repair-settings leaves: stock's app area, the settings windows blank */
     memcpy(want, start, sizeof want);
-    memcpy(want + 0x4000, stock + sfo + 0x4000, 0x93000 - 0x4000);
+    memcpy(want, stock + sfo, 0x93000);                  /* (the head too: stock's) */
     memset(want + 0x94000, 0xFF, 0xE9000 - 0x94000);
     memset(want + 0xFC000, 0xFF, 0xFF000 - 0xFC000);
+}
+
+static void device(const uint8_t *ravel, uint32_t rfo, const uint8_t *stock, uint32_t sfo)
+{
+    device_h(ravel, rfo, stock, sfo, 0);
 }
 
 int main(int argc, char **argv)
@@ -221,14 +230,70 @@ int main(int argc, char **argv)
         }
     }
 
-    /* a unit whose head is not this stock's: refused before anything is erased */
+    /* Ravel installed from stock: Ravel's head. The head is written too, last; the result is the same.
+       (CI's stand-in for V15 is a Felucca package with Ravel's head: one byte of its head past the key
+       blob is changed so the head still has to be written) */
+    if (!memcmp(ravel + rfo, logical + sfo, 0x4000)) {
+        logical[sfo + 0x3FF0] ^= 0x01;
+        printf("  (the stand-in's head equals Ravel's: changed one byte at 0x3FF0)\n");
+    }
     {
-        device(ravel, rfo, logical, sfo);
-        nor[0x1234] ^= 0x01;
-        start[0x1234] ^= 0x01;
+        uint32_t total, cuts[3], c, h0;
+        device_h(ravel, rfo, logical, sfo, 1);
+        erases = 0; f0_asked = 0; record_cleared = 0; bad_range = 0; head_first = 0xFFFFFFFFu;
+        rc = ldr_session();
+        total = erases;
+        h0 = head_first;
+        printf("  Ravel's head: rc %d, %u sector erases, the head's from erase %u\n", rc, total, h0);
+        bad += check("Ravel's head: install completes, head written", rc == 0 && f0_asked >= 1 && !memcmp(nor, logical + sfo, 0x4000));
+        bad += check("Ravel's head: whole flash == stock's head + rescue + repair-settings", !memcmp(nor, want, sizeof nor));
+        bad += check("Ravel's head: no write outside the allowed windows", bad_range == 0);
+        /* power lost in the app area, in the settings, and in the head itself (the resume after a cut in the
+           head assumes the part-written head still boots; at least the loader leaves it for last) */
+        {
+            uint32_t nd = 0, k;
+            for (k = 0; k < 0x4000u; k += 0x1000u) nd += memcmp(ravel + rfo + k, logical + sfo + k, 0x1000) != 0;
+            cuts[0] = total / 4; cuts[1] = h0 - 3; cuts[2] = nd >= 2 ? h0 + 1 : h0;   /* (mid-head: if 2+ sectors) */
+        }
+        for (c = 0; c < 3; c++) {
+            char what[100];
+            int stopped;
+            device_h(ravel, rfo, logical, sfo, 1);
+            erases = 0; cut_after = cuts[c]; f0_asked = 0;
+            rc = ldr_session();
+            stopped = rc != 0 && f0_asked == 0 && nor[0xE4F06] == 0x41;
+            cut_after = 0xFFFFFFFFu; erases = 0;
+            rc = ldr_session();
+            snprintf(what, sizeof what, "Ravel's head, power lost after %u of %u erases: record kept, resumes", cuts[c], total);
+            bad += check(what, stopped && rc == 0 && !memcmp(nor, want, sizeof nor));
+        }
+        /* the head isn't touched before everything else is written */
+        device_h(ravel, rfo, logical, sfo, 1);
+        erases = 0; cut_after = h0;
+        rc = ldr_session();
+        cut_after = 0xFFFFFFFFu;
+        bad += check("Ravel's head: written after the app area and settings are done",
+                     rc != 0 && !memcmp(nor, ravel + rfo, 0x4000) && !memcmp(nor + 0x4000, want + 0x4000, 0x93000 - 0x4000) &&
+                     !memcmp(nor + 0x94000, want + 0x94000, 0xE0000 - 0x94000) && h0 > total - 12);
+        /* write protection set: refused, nothing written but the record */
+        device_h(ravel, rfo, logical, sfo, 1);
+        flash_sr = 0x0Cu;
         erases = 0; f0_asked = 0;
         rc = ldr_session();
-        bad += check("head from another version: refused, nothing written, record gone", rc == LDR_REFUSED && f0_asked == 0 && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF && !memcmp(nor + 0xE5000, start + 0xE5000, 0x100000 - 0xE5000));
+        flash_sr = 0;
+        bad += check("flash write protection set: refused, only the record erased", rc == LDR_REFUSED && f0_asked == 0 && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF);
+        /* a package head without this chip's key: refused */
+        {
+            uint32_t i;
+            uint8_t save[0x400];
+            device_h(ravel, rfo, logical, sfo, 1);
+            memcpy(save, logical + sfo, sizeof save);
+            for (i = 0x20; i < 0x400; i++) logical[sfo + i] ^= 0x5A;    /* its JLFS entries unreadable */
+            erases = 0; f0_asked = 0;
+            rc = ldr_session();
+            memcpy(logical + sfo, save, sizeof save);
+            bad += check("package head without this chip's key: refused, only the record erased", rc == LDR_REFUSED && f0_asked == 0 && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF);
+        }
     }
     if (argc > 3) {                                      /* e.g. V16 offered to a V15-head unit */
         size_t olen;

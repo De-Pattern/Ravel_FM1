@@ -60,6 +60,10 @@ def main(argv):
         if not ldr_stock.exists():
             raise SystemExit(f"{ldr_stock}: missing (tools/build_fm1.py makes it)")
         shutil.copy(ldr_stock, out / "firmware" / "ota-stock.bin")
+        # M-VAVE's V15 (the FM1 Open SDK's recovery image, Apache-2.0), with its licence and notice
+        (out / "firmware" / "stock").mkdir()
+        for n in ("FM-1_015.fwsc", "LICENSE-Apache-2.0.txt", "README.md"):
+            shutil.copy(SRC / "third_party" / "m-vave" / n, out / "firmware" / "stock" / n)
         lib = "\n".join((SRC / "web" / "installer" / n).read_text(encoding="utf-8") for n in ("fm1pkg.js", "fm1ota.js"))
         lib = "\n".join(ln for ln in lib.splitlines() if not ln.startswith("import ") and not ln.startswith("export {"))
         lib = lib.replace("export function", "function").replace("export class", "class").replace("export const", "const")

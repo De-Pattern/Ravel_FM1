@@ -25,8 +25,12 @@
  *
  * LDR_TO_STOCK (ota-stock.bin, used only by the install page's "Back to the stock
  * firmware"): the package is M-VAVE's own flash.bin with this loader in place of
- * M-VAVE's. Before anything is erased, the device's flash head must equal the
- * package's (a unit whose head came from that stock version); after the app area,
+ * M-VAVE's. If the unit's flash head (boot area, 16 KB) isn't the package's (Ravel
+ * installed from stock brings its own), it is written too, as M-VAVE's loader does
+ * on every update, but only if the package's head carries this chip's key and the
+ * flash has no write protection set, and last: after the app area and the settings,
+ * so a power loss before it still resumes from the record (the old head boots this
+ * loader again). After the app area,
  * the settings areas stock keeps its VM in are put back to how a factory unit has
  * them: [0x94000, 0xE9000) and Felucca's globals [0xFC000, 0xFF000) erased, the
  * factory sector 0x93000, the Bluetooth data 0xE9000 and the factory voices
@@ -41,6 +45,22 @@
 #define LDR_STAGE_HI 0xE5000u
 static int ldr_wipe(uint32_t lo, uint32_t hi);
 static void ldr_records_erase(void);
+static uint32_t ldr_flash_sr(void);             /* SR1 | SR2 << 8 (loader.c) */
+#define LDR_HEAD 0x4000u
+#define LDR_SR_PROTECT 0x407Cu                  /* BP0-BP4 (SR1 bits 2-6), CMP (SR2 bit 6) */
+static uint8_t ldr_head[LDR_HEAD];              /* the package's head, when it is to be written */
+static int ldr_head_rd(uint32_t off, void *p, uint32_t n)
+{
+    if (off > LDR_HEAD || n > LDR_HEAD - off)
+        return -1;
+    {
+        uint8_t *d = p;
+        uint32_t i;
+        for (i = 0; i < n; i++)
+            d[i] = ldr_head[off + i];
+    }
+    return 0;
+}
 #define LDR_REFUSED 1                           /* ldr_session: refused before anything was written */
 #endif
 
@@ -64,8 +84,14 @@ static void ldr_sfc(uint8_t *p, uint32_t n, uint32_t base_off, uint32_t key)
 }
 
 /* chip key from the device's flash head: JLFS top entries (ENC 0xFFFF) -> isd_config.ini blob */
+#ifndef LDR_TO_STOCK
 static int ldr_chip_key(uint32_t *key)
 {
+#else
+#define ldr_chip_key(key) ldr_key_of(ldr_fread, key)
+static int ldr_key_of(int (*ldr_fread)(uint32_t, void *, uint32_t), uint32_t *key)   /* (a head's reader) */
+{
+#endif
     uint8_t e[32], blob[34];
     uint32_t off, i, sum, k;
     for (off = 32; off < 0x400u; off += 32u) {
@@ -104,9 +130,31 @@ static int ldr_session(void)
         return rc;
     if (!fl_off || fl_size < LDR_APP_HI)
         return -3;
+#ifdef LDR_TO_STOCK
+    if (fl_size != LDR_APP_HI) {                         /* V15's flash.bin is exactly the app area's end */
+        ldr_records_erase();                             /* (V16's is longer: not something to cut short) */
+        return LDR_REFUSED;
+    }
+#endif
     /* 2. the package's app area must decrypt with this chip's key */
+#ifndef LDR_TO_STOCK
     if ((rc = ldr_chip_key(&key)) != 0)
         return -40 + rc;
+#else
+    for (k = 0; k < LDR_HEAD; k += 512u)                 /* the package's head (2b, 3c) */
+        if (ota_read(fl_off + k, ldr_head + k, 512))
+            return -12;
+    if ((rc = ldr_chip_key(&key)) != 0) {
+        /* a head this loader was writing when the power went (3c): part the package's, so the key is
+         * the package head's (checked against the app area below, as always) */
+        uint32_t part = 0;
+        for (s = 0; s < LDR_HEAD; s += 0x1000u)
+            if (!ldr_fread(s, cur, 0x1000u) && ota_memeq(ldr_head + s, cur, 0x1000u))
+                part = 1;
+        if (!part || ldr_key_of(ldr_head_rd, &key))
+            return -40 + rc;
+    }
+#endif
     if (ota_read(fl_off + LDR_APP_LO, sec, 32))
         return -5;
     ldr_sfc(sec, 32, 0, key);
@@ -118,15 +166,21 @@ static int ldr_session(void)
         return -6;                                       /* package for another chip key */
     }
 #ifdef LDR_TO_STOCK
-    /* 2b. stock rewrites nothing below 0x4000, so the head must already be that stock's. If not (another
-     *     firmware wrote its own head), nothing is written and the record goes, so the unit doesn't come
-     *     back into this loader on every power-on: loader.c restarts it into whatever it had */
-    for (k = 0; k < 0x4000u; k += 512u) {
-        if (ota_read(fl_off + k, sec, 512) || ldr_fread(k, cur, 512))
-            return -12;
-        if (!ota_memeq(sec, cur, 512)) {
+    /* 2b. the package's head: if the unit's differs, it is written last (3c), and only if it carries
+     *     this chip's key and nothing protects the flash; if not, nothing is written and the record
+     *     goes, so the unit doesn't come back into this loader: loader.c restarts it into what it had */
+    {
+        int head_new = 0;
+        uint32_t hkey;
+        for (k = 0; k < LDR_HEAD; k += 512u) {
+            if (ldr_fread(k, cur, 512))
+                return -12;
+            if (!ota_memeq(ldr_head + k, cur, 512))
+                head_new = 1;
+        }
+        if (head_new && (ldr_key_of(ldr_head_rd, &hkey) || hkey != key || (ldr_flash_sr() & LDR_SR_PROTECT))) {
             ldr_records_erase();
-            return LDR_REFUSED;                          /* a head from another version */
+            return LDR_REFUSED;                          /* a head for another chip, or protected flash */
         }
     }
 #endif
@@ -161,6 +215,26 @@ static int ldr_session(void)
     if (ldr_wipe(LDR_APP_HI + 0x1000u, LDR_STAGE_LO) || ldr_wipe(LDR_STAGE_HI, 0xE9000u) ||
         ldr_wipe(0xFC000u, 0xFF000u))
         return -14;
+    /* 3c. the head, last (see 2b), sector by sector, verified; a sector that already matches is left */
+    for (s = 0; s < LDR_HEAD; s += 0x1000u) {
+        uint32_t tries;
+        if (ldr_fread(s, cur, 0x1000u))
+            return -8;
+        if (ota_memeq(ldr_head + s, cur, 0x1000u))
+            continue;
+        for (tries = 0; tries < 3u; tries++) {
+            if (ldr_erase(s))
+                continue;
+            for (k = 0; k < 0x1000u; k += 256u)
+                if (ldr_prog(s + k, ldr_head + s + k, 256))
+                    break;
+            if (!ldr_fread(s, cur, 0x1000u) && ota_memeq(ldr_head + s, cur, 0x1000u))
+                break;
+        }
+        if (tries == 3u)
+            return -15;                                  /* (the record stays: power on resumes this) */
+        ldr_progress(0, 0);
+    }
 #endif
     /* 4. finish: the host confirms, the record goes, the SPL boots the app */
     for (i = 0; i < 4u; i++)

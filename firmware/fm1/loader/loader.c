@@ -22,8 +22,8 @@
 #else
 /* ota-stock.bin (ldr_core.c): also stock's settings and Felucca's globals; never the factory
  * sector 0x93000, the Bluetooth data 0xE9000 or the factory voices 0xEA000..0xFBFFF */
-#define FL_RANGE_OK(off, n) (FL_IN(off, n, 0x4000u, 0x93000u) || FL_IN(off, n, 0x94000u, 0xE9000u) || \
-                             FL_IN(off, n, 0xFC000u, 0xFF000u))
+#define FL_RANGE_OK(off, n) (FL_IN(off, n, 0x0u, 0x93000u) || FL_IN(off, n, 0x94000u, 0xE9000u) || \
+                             FL_IN(off, n, 0xFC000u, 0xFF000u))     /* (the head [0, 0x4000): ldr_core.c 3c) */
 #endif
 #include "fm1_flash.h"
 #include "../src/libc.c"
@@ -74,6 +74,9 @@ static int ldr_prog(uint32_t off, const void *p, uint32_t n)
     uint32_t took;
     return fl_prog_ram(off, p, n, &took);
 }
+#ifdef LDR_TO_STOCK
+static uint32_t ldr_flash_sr(void) { return fl_status_ram(); }
+#endif
 static void ldr_record_clear(void)
 {
     fm1_updata_parm_clear();                        /* CRC 0: the SPL ignores it on a warm reset */
