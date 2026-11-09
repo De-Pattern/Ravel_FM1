@@ -3,6 +3,12 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.27.1
+
+Fixed
+- Newer FM-1s save, load and update. Later units have a different flash chip (a UC25HQ80, ID B36014; the first ones have Puya's P25Q80, 856014), and Ravel trusted only the first: on a newer unit it ran but kept nothing (projects, sounds, settings) and refused updates from the installer. Both chips take the same plain flash commands Ravel uses, and every write is still read back. To install this on a newer unit running an older Ravel, hold OCT− and OCT+ for 5 seconds (its update mode), then install from the page.
+- GLO › FLASH names the newer chip (UC25HQ80 1 MB). The rescue tool (tools/fm1_rescue.py) accepts it too.
+
 ## 1.27.0
 
 New

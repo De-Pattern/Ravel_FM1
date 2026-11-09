@@ -252,7 +252,7 @@ static void fm1_main(void)
         fm1_vdc14_raise(7);                         /* M-VAVE's own supplies before anything loads them */
         fm1_sysvdd_raise(15);
         flash_jedec = FL_FAR(fl_jedec_ram)();
-        flash_ok = flash_jedec == 0x856014u;           /* the expected 1 MiB part, else RAM only */
+        flash_ok = FL_JEDEC_OK(flash_jedec);           /* one of the FM-1's 1 MiB parts (the first units' or the newer), else RAM only */
         flash_sr = FL_FAR(fl_status_ram)();            /* (read only: what the FLASH page shows) */
         flash_con = fl_sfc_con();
         flash_baud = fl_sfc_baud();

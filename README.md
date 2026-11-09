@@ -1706,7 +1706,9 @@ The installer page shows the latest release at the top and installs it unless yo
 
 From the command line instead (`pip3 install mido python-rtmidi`): `python3 tools/fm1_install.py Ravel-FM1.fwsc`. The `.fwsc` is on the site (`firmware/Ravel-FM1.fwsc`) and on the repository's releases.
 
-The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.
+The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares.
+
+**Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer; to move it on, **hold OCT− and OCT+ for 5 seconds** to put the FM-1 in its update mode, then install from the page as usual. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.
 
 ### If the FM-1 will not start
 

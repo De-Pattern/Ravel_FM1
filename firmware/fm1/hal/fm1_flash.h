@@ -148,7 +148,14 @@ static inline uint32_t fl_sfc_baud(void) { return REG32(0x40204u); }
 
 /* ---- entry points: IRQs OFF, args/buffers in RAM ---- */
 
-static RAMFN uint32_t fl_jedec_ram(void)                 /* expect 0x856014 */
+/* the FM-1's flash, 1 MiB: Puya's P25Q80 (0x856014) in the first units, a UC25HQ80 (0xB36014) in newer ones.
+ * Both take the plain SPI NOR commands used here (9F 05 35 06 20 02 0B), and every write is read back. Anything else:
+ * RAM only, nothing written */
+#define FL_JEDEC_PUYA 0x856014u
+#define FL_JEDEC_UC   0xB36014u
+#define FL_JEDEC_OK(id) ((id) == FL_JEDEC_PUYA || (id) == FL_JEDEC_UC)
+
+static RAMFN uint32_t fl_jedec_ram(void)                 /* FL_JEDEC_OK */
 {
     fl_saved_t s; uint32_t id;
     if (fl_enter(&s)) return 0;

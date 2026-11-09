@@ -5228,7 +5228,7 @@ static void pic_flash(void)
     b[0] = 0;
     sx_cat(b, "CHIP ");
     sx_hex(b + 5, v[0], 6);
-    sx_cat(b, v[0] == 0x856014u ? "  PUYA 1 MB" : "  (NOT THE USUAL)");
+    sx_cat(b, v[0] == 0x856014u ? "  PUYA 1 MB" : v[0] == 0xB36014u ? "  UC25HQ80 1 MB" : "  (NOT THE USUAL)");
     g_text(8, y, &FONT_T, b, C_INK);
     b[0] = 0;
     sx_cat(b, "STATUS ");
