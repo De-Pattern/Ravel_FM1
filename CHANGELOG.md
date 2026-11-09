@@ -11,7 +11,7 @@ New
 
 Changed
 - The footer while the keys play on SEQ reads KEYS PLAY  HOLD SEQ: STEPS (it ran off the screen on a kit).
-- Install page: "Back to the stock firmware" sends V15's firmware with Ravel's own loader instead of M-VAVE's (which switches the FM-1 off when Ravel hands over to it), resets the stock settings to a new unit's, and shows its progress beside its button. Still being confirmed on hardware.
+- Install page: "Back to the stock firmware" sends V15's firmware with Ravel's own loader instead of M-VAVE's (which switches the FM-1 off when Ravel hands over to it), resets the stock settings to a new unit's, and shows its progress beside its button. Confirmed on hardware (a unit on Ravel 1.28.0 back to stock V15).
 
 ## 1.27.1
 

@@ -67,7 +67,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 18. [Quick reference](#18-quick-reference)
 19. [Questions people ask](#19-questions-people-ask)
 
-**On the FM-1:** [Installing](#installing-on-the-fm-1) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
+**On the FM-1:** [Installing](#installing-on-the-fm-1) · [Back to the stock firmware](#back-to-the-stock-firmware) · [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
 
 **For developers:** [What's here](#whats-here) · [Building](#building) · [The FM-1 build](#the-fm-1-build) · [Licence](#licence)
 
@@ -1706,18 +1706,36 @@ The installer page shows the latest release at the top and installs it unless yo
 
 From the command line instead (`pip3 install mido python-rtmidi`): `python3 tools/fm1_install.py Ravel-FM1.fwsc`. The `.fwsc` is on the site (`firmware/Ravel-FM1.fwsc`) and on the repository's releases.
 
-The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.
+The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares.
 
-**Known problem, going back:** on a real FM-1, handing over from Ravel to M-VAVE's own update loader (going back to stock from this page, M-UPGRADE, or another firmware's installer that uses M-VAVE's loader) switches the FM-1 off instead of starting the loader. Switched on again it is still Ravel, unharmed: the half-done update is cleared. Updating Ravel to a newer Ravel is not affected (it uses Ravel's own loader). Until this is fixed, the way back to stock is the rescue tool below.
+### Back to the stock firmware
 
-**Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer. To move it on: hold **OCT− and OCT+ for 5 seconds** (the chip's own update mode), put M-VAVE's firmware back with the rescue tool (below; this repository's knows the newer chip), then install Ravel from the page as usual.
+The same install page puts M-VAVE's own firmware (V15) back, from Ravel, over the same USB cable.
+
+1. **Back up first.** Going back erases Ravel's projects and sounds. On the install page, under **Projects and sounds**, connect and press **Back up** with nothing selected: everything is saved as a file you can restore later if you come back to Ravel.
+2. **Have the V15 file.** It is M-VAVE's `FM-1.fwsc` with the identity `FM-1_015` (its SHA-256 starts `db1642b2`). M-VAVE's download now gives **V16**, which this page can't install; use a V15 copy. The page checks the file and refuses anything else, before anything is sent.
+3. Under **Back to the stock firmware**, choose the file and press **Install the stock firmware**. The progress shows beside the button.
+4. Ravel shows its install screen, the FM-1 restarts into the installer, the bar fills, and the FM-1 restarts on M-VAVE's firmware. Don't unplug part way; if the power goes, switch it on and press the button again, and it carries on.
+5. On the stock firmware, reload its sounds with **System › Reset Patches**.
+
+How it works: M-VAVE's own update loader switches the FM-1 off when Ravel hands over to it, so the page sends V15 with Ravel's own loader instead. That loader checks that the start of the flash (the boot area, never written) is V15's, so a unit with anything else there is refused with nothing changed; writes the firmware area, checking each part; then sets the stock settings back to how a new unit has them (Ravel's projects and settings are cleared; the unit's factory data, Bluetooth data and factory sounds are not touched).
+
+### Updating to another firmware from Ravel
+
+- **Felucca-based firmwares** (X0X, SLOOP, Clipper and the others built the same way as Ravel): install them straight from their own install page, as you would a Ravel update.
+- **Anything else** (M-VAVE's own updater M-UPGRADE, and firmwares built on M-VAVE's SDK): go **back to the stock firmware** first (above), then install from their page or updater as from a new unit. Run from Ravel directly, they hand over to M-VAVE's loader, which switches the FM-1 off; switched on again it is still Ravel, unharmed (the half-done update is cleared).
+- **Back to Ravel** from anything: install from this page as usual, then restore your backup.
+
+**Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer. To move it on: hold **OCT− and OCT+ for 5 seconds** (the chip's own update mode), put M-VAVE's firmware back with a rescue tool (below; this repository's knows the newer chip), then install Ravel from the page as usual.
 
 ### If the FM-1 will not start
 
 - **Hold OCT− and OCT+ for 5 seconds** while Ravel runs: the FM-1 goes into the chip's own update mode. It shows up on USB as `WL80UBOOT`, not as MIDI, so the web installer can't reach it; the rescue tool below can (switch the FM-1 off and on to leave it).
 - **Safe mode:** if Ravel crashes twice while starting, it starts in a safe mode instead: no sound, USB on, so the web installer can reach it. PLAY tries Ravel again.
 - **Calibration:** hold OCT− and OCT+ while switching on to teach Ravel which button and knob is which, if the panel seems mixed up.
-- **Rescue tool:** in the chip's update mode, `tools/fm1_rescue.sh` (from X0X, fetching this repository's `fm1_rescue.py`) puts M-VAVE's firmware back from a Mac; it backs up the whole flash first and knows both flash chips. Then install Ravel (or anything else) from the page. Beyond that, recovery needs the [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+- **Rescue tools:** in the chip's update mode, these put M-VAVE's V15 back (both back up the whole flash first). Then install Ravel (or anything else) from the page. They need the **V15** file (see above): M-VAVE's download is now V16, and V16 lays out the flash differently, so don't use it with them.
+  - **Mac:** `tools/fm1_rescue.sh` (from X0X, fetching this repository's `fm1_rescue.py`, which knows both flash chips).
+  - **Windows or Linux:** [MvaveFM1Unbricker](https://github.com/Quixotic7/MvaveFM1Unbricker), from an administrator PowerShell on Windows 10/11 (no extra drivers). On a newer unit (flash `B36014`) it asks for `--i-know`. Beyond that, recovery needs the [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
 
 ## What's here
 
