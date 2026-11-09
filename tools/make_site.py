@@ -95,7 +95,11 @@ def main(argv):
             builds.insert(0, {"version": version, "product": product, "built": built, "release": False,
                            "pkg": "../firmware/Ravel-FM1.fwsc"})
         builds = builds[:11]
-        meta = json.dumps({"builds": builds})
+        try:                                                # which build of the page (shown on it, and in the log)
+            page_rev = subprocess.run(["git", "log", "-1", "--format=%h"], capture_output=True, text=True, cwd=SRC).stdout.strip()
+        except OSError:
+            page_rev = ""
+        meta = json.dumps({"builds": builds, "page": page_rev})
         for mark in ("/*LIB*/", "/*META*/"):
             if page.count(mark) != 1:
                 raise SystemExit(f"web/installer/index.html must contain {mark} once")

@@ -108,11 +108,13 @@
     <a id="bricklink" href="../#install" style="color:inherit" data-t="bricklink"></a></p>
   <p class="small" data-t="back"></p>
   <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener" style="color:inherit">www.m-vave.com/download<span class="sr" data-t="newtab"></span></a></p>
-  <p><button id="go" disabled data-t="install"></button></p>
+  <p id="goline"><button id="go" disabled data-t="install"></button></p>
+  <div id="runbox">   <!-- the install's progress and messages: moved beside the button that started it -->
   <progress id="bar" max="100" value="0" data-t-label="progress"></progress>
   <p id="status" role="status"></p>
   <p id="alert" role="alert"></p>
   <pre id="log"></pre>
+  </div>
 
   <section class="wide" id="bk">
     <h2 data-t="bkh"></h2>
@@ -159,7 +161,7 @@
     <li><label for="stockfile" data-t="stock2"></label><br><input type="file" id="stockfile" accept=".fwsc"></li>
     <li data-t="stock3"></li>
   </ol>
-  <p><button id="stockgo" disabled data-t="stockinstall"></button></p>
+  <p id="stockline"><button id="stockgo" disabled data-t="stockinstall"></button></p>
   <p><a id="manuallink" href="../" style="color:inherit" data-t="manual"></a></p>
   <p class="small">Ravel runs on the open FM-1 platform of Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener" style="color:inherit">Hügelton Instruments<span class="sr" data-t="newtab"></span></a>,
     by way of <a href="https://github.com/charlesvestal/fm1-x0x" target="_blank" rel="noopener" style="color:inherit">X0X<span class="sr" data-t="newtab"></span></a>; this installer is theirs. The delay's grains follow Mutable Instruments' Beads.<br>
@@ -337,6 +339,12 @@ function showVer() {
     sp.textContent = ` · ${rel.built}`;
     $("latest").append(sp);
   }
+  if (meta.page) {
+    const sp = document.createElement("span");
+    sp.className = "small";
+    sp.textContent = ` · page ${meta.page}`;
+    $("latest").append(sp);
+  }
   const pick = $("pick"), cur = pick.value;
   pick.textContent = "";
   meta.builds.forEach((b, i) => {
@@ -383,6 +391,7 @@ const log = (t) => {                                  /* (in its box, following 
 };
 let image = null;
 const meta = /*META*/;
+const PAGE_BUILD = meta.page || "(local)";            /* which build of this page is open (an old tab keeps old code) */
 showVer();
 {   /* on a github.io site the repository is owner/first path part: the source and the recovery notes */
   const h = location.hostname, parts = location.pathname.split("/").filter(Boolean);
@@ -437,10 +446,11 @@ $("stockfile").addEventListener("change", async (e) => {
     if (hex !== STOCK_SHA256) { sayK("stockbad"); return; }
     /* M-VAVE's own loader can't be handed over to from Ravel (the FM-1 switches off), so the package
        sent is V15's firmware with Ravel's loader for going back to stock (fm1pkg.js stockBack) */
-    const r = await fetch("../firmware/ota-stock.bin");
+    const r = await fetch("../firmware/ota-stock.bin", { cache: "no-store" });
     if (!r.ok) throw new Error(`ota-stock.bin: HTTP ${r.status}`);
-    const back = stockBack(raw, new Uint8Array(await r.arrayBuffer()));
-    stock = { image: logicalImage(back), product: productOf(back) };
+    const ldr = new Uint8Array(await r.arrayBuffer());
+    const back = stockBack(raw, ldr);
+    stock = { image: logicalImage(back), product: productOf(back), ldr: ldr.length };
     $("stockgo").disabled = writing;
     sayK("stockok");
   } catch (err) { sayK("error", err && err.message); }
@@ -453,6 +463,11 @@ async function run(img, product, isStock) {
   catch (e) { sayK("denied"); return; }
   writing = true;
   $("go").disabled = $("stockgo").disabled = $("pick").disabled = true;
+  $(isStock ? "stockline" : "goline").after($("runbox"));
+  $("log").textContent = "";
+  $("bar").value = 0;
+  log(`page ${PAGE_BUILD}`);
+  if (isStock) log(`sending ${product}: V15's firmware with Ravel's loader for going back to stock (ota-stock.bin, ${stock.ldr} bytes), not M-VAVE's loader`);
   try {
     const up = new Updater(midi, log);
     const total = 74 + 1167;
