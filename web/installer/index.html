@@ -196,6 +196,7 @@ const TEXT = {
     stock3: "FM-1 を USB で接続し、下のボタンを押す。",
     stockinstall: "純正ファームウェアを書き込む",
     stockok: "M-VAVE の FM-1 V15 です。ボタンを押してください。",
+    stockrefused: "FM-1 のインストーラーが V15 を受け付けませんでした。起動領域が V15 のものではありません（別のファームウェアが書き換えた）。何も書き込まれていません。電源を入れ直すと前のファームウェアに戻ります。M-VAVE の M-UPGRADE かレスキューツールで V15 に戻してください。",
     stockbad: "これは M-VAVE の FM-1 V15 のファイルではありません（V16 はこのページでは書き込めません）。",
     stockdone: "完了。FM-1 は純正ファームウェアで起動しました。",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。", loadfail: "読み込めませんでした: ",
@@ -266,6 +267,7 @@ const TEXT = {
     stock3: "Connect the FM-1 by USB and press the button below.",
     stockinstall: "Install the stock firmware",
     stockok: "That is M-VAVE's FM-1 V15. Press the button to install it.",
+    stockrefused: "The FM-1's installer refused V15: its boot area is not V15's (another firmware rewrote it). Nothing was written; switched off and on it goes back to what it had. Put V15 back with M-VAVE's M-UPGRADE or a rescue tool.",
     stockbad: "That is not M-VAVE's FM-1 V15 file (V16 can't be installed from this page).",
     stockdone: "Done. The FM-1 has restarted with its original firmware.",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
@@ -369,7 +371,7 @@ $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; 
 applyLang();
 /* the step in words in a status region (polite), a failure in an alert; progress at most every 2 s or 10 percent */
 const FAILS = new Set(["nomidi", "loadfail", "stopped", "error", "denied", "notfound", "model", "lost", "noloader", "noreturn",
-                       "mismatch", "badpkg", "stockbad"]);
+                       "mismatch", "badpkg", "stockbad", "stockrefused"]);
 function show(txt, fail) {
   $(fail ? "status" : "alert").textContent = "";
   $(fail ? "alert" : "status").textContent = txt;
@@ -450,7 +452,7 @@ $("stockfile").addEventListener("change", async (e) => {
     if (!r.ok) throw new Error(`ota-stock.bin: HTTP ${r.status}`);
     const ldr = new Uint8Array(await r.arrayBuffer());
     const back = stockBack(raw, ldr);
-    stock = { image: logicalImage(back), product: productOf(back), ldr: ldr.length };
+    stock = { image: logicalImage(back), product: productOf(back), ldr: ldr.length, plain: logicalImage(raw) };
     $("stockgo").disabled = writing;
     sayK("stockok");
   } catch (err) { sayK("error", err && err.message); }
@@ -467,9 +469,20 @@ async function run(img, product, isStock) {
   $("log").textContent = "";
   $("bar").value = 0;
   log(`page ${PAGE_BUILD}`);
-  if (isStock) log(`sending ${product}: V15's firmware with Ravel's loader for going back to stock (ota-stock.bin, ${stock.ldr} bytes), not M-VAVE's loader`);
   try {
     const up = new Updater(midi, log);
+    if (isStock) {
+      /* from Ravel (or Ravel's loader, left waiting): V15 with Ravel's loader, since M-VAVE's switches the FM-1
+         off when Ravel hands over to it. From anything else (stock, M-VAVE's loader, a firmware on M-VAVE's
+         SDK): V15 as M-VAVE made it, whose loader writes the whole firmware, the boot area too */
+      const dev = await up.find(() => true);
+      if (dev) dev.link.close();
+      const ravel = dev && (/^FM-1_82/.test(dev.id.text) || dev.id.text === "ota-FM-1_900");
+      log(`the FM-1 runs ${dev ? dev.id.text : "(not found yet)"}`);
+      if (dev && !ravel) img = stock.plain;
+      log(img === stock.plain ? `sending ${product} as M-VAVE made it (its own loader)`
+        : `sending ${product}: V15's firmware with Ravel's loader for going back to stock (ota-stock.bin, ${stock.ldr} bytes), not M-VAVE's loader`);
+    }
     const total = 74 + 1167;
     const step = (k, a) => {
       log(`${k} ${a ?? ""}`);
@@ -489,6 +502,7 @@ async function run(img, product, isStock) {
     }
   } catch (e) {
     if (isStock && e && e.code === "mismatch") { $("bar").value = 100; sayK("stockdone"); }   /* stock names itself its own way */
+    else if (isStock && e && (e.code === "stopped" || e.code === "lost") && /^the loader .* after ([0-9]|[1-3][0-9]) requests/.test(e.message)) sayK("stockrefused");
     else if (e && e.code && TEXT[lang][e.code]) sayK(e.code, e.detail || "");
     else sayK("error", e && e.message);
     log(String(e && e.stack || e));

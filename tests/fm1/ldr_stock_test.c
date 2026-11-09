@@ -225,9 +225,10 @@ int main(int argc, char **argv)
     {
         device(ravel, rfo, logical, sfo);
         nor[0x1234] ^= 0x01;
+        start[0x1234] ^= 0x01;
         erases = 0; f0_asked = 0;
         rc = ldr_session();
-        bad += check("head from another version: refused (-13), nothing erased", rc == -13 && erases == 0 && f0_asked == 0);
+        bad += check("head from another version: refused, nothing written, record gone", rc == LDR_REFUSED && f0_asked == 0 && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF && !memcmp(nor + 0xE5000, start + 0xE5000, 0x100000 - 0xE5000));
     }
     if (argc > 3) {                                      /* e.g. V16 offered to a V15-head unit */
         size_t olen;
@@ -237,7 +238,7 @@ int main(int argc, char **argv)
         logical = other; logical_len = olen;
         erases = 0; f0_asked = 0;
         rc = ldr_session();
-        bad += check("another stock version's package: refused, nothing erased", rc < 0 && erases == 0 && !memcmp(nor, start, sizeof nor));
+        bad += check("another stock version's package: refused, only the record erased", rc == LDR_REFUSED && f0_asked == 0 && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF);
         logical = keep; logical_len = keep_len;
     }
     /* a package for another chip key */
@@ -247,7 +248,7 @@ int main(int argc, char **argv)
         logical[sfo + 0x4000 + 5] ^= 0x5A;
         erases = 0;
         rc = ldr_session();
-        bad += check("foreign key / damaged app head refused, nothing erased", rc == -6 && erases == 0);
+        bad += check("foreign key / damaged app head refused, only the record erased", rc == LDR_REFUSED && !memcmp(nor, start, 0xE4000) && nor[0xE4F06] == 0xFF);
         logical[sfo + 0x4000 + 5] = save;
     }
     printf("%s\n", bad ? "STOCK LOADER TEST FAILED" : "stock loader test passed");

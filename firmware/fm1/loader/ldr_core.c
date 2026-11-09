@@ -40,6 +40,8 @@
 #define LDR_STAGE_LO 0xE0000u                   /* the staged loader and its record */
 #define LDR_STAGE_HI 0xE5000u
 static int ldr_wipe(uint32_t lo, uint32_t hi);
+static void ldr_records_erase(void);
+#define LDR_REFUSED 1                           /* ldr_session: refused before anything was written */
 #endif
 
 static int ldr_fread(uint32_t off, void *p, uint32_t n);
@@ -108,15 +110,24 @@ static int ldr_session(void)
     if (ota_read(fl_off + LDR_APP_LO, sec, 32))
         return -5;
     ldr_sfc(sec, 32, 0, key);
-    if (ota_crc16(sec + 2, 30, 0) != ota_rd16(sec))
-        return -6;                                       /* package for another chip key */
+    if (ota_crc16(sec + 2, 30, 0) != ota_rd16(sec)) {
 #ifdef LDR_TO_STOCK
-    /* 2b. stock rewrites nothing below 0x4000, so the head must already be that stock's */
+        ldr_records_erase();                             /* (refused: the next power-on runs the app, not this) */
+        return LDR_REFUSED;
+#endif
+        return -6;                                       /* package for another chip key */
+    }
+#ifdef LDR_TO_STOCK
+    /* 2b. stock rewrites nothing below 0x4000, so the head must already be that stock's. If not (another
+     *     firmware wrote its own head), nothing is written and the record goes, so the unit doesn't come
+     *     back into this loader on every power-on: loader.c restarts it into whatever it had */
     for (k = 0; k < 0x4000u; k += 512u) {
         if (ota_read(fl_off + k, sec, 512) || ldr_fread(k, cur, 512))
             return -12;
-        if (!ota_memeq(sec, cur, 512))
-            return -13;                                  /* a head from another version */
+        if (!ota_memeq(sec, cur, 512)) {
+            ldr_records_erase();
+            return LDR_REFUSED;                          /* a head from another version */
+        }
     }
 #endif
     /* 3. app area, sector by sector */
@@ -170,6 +181,19 @@ static int ldr_session(void)
 }
 
 #ifdef LDR_TO_STOCK
+static void ldr_records_erase(void)                      /* the update record, RAM and flash */
+{
+    uint32_t s;
+    ldr_record_clear();
+    for (s = LDR_REC_HI; s > LDR_REC_LO; s -= 0x1000u) {
+        uint8_t r[80];
+        if (ldr_fread(s - 0x100u, r, 80))
+            break;
+        if (ota_rd16(r + 6) == 0x5441u && ota_rd16(r) && ota_rd16(r) == ota_crc16(r + 2, 78, 0))
+            ldr_erase(s - 0x1000u);
+    }
+}
+
 static int ldr_wipe(uint32_t lo, uint32_t hi)            /* erase the sectors in [lo, hi) not yet blank */
 {
     static uint8_t b[0x1000];

@@ -1719,7 +1719,7 @@ The same install page puts M-VAVE's own firmware (V15) back, from Ravel, over th
 4. Ravel shows its install screen, the FM-1 restarts into the installer, the bar fills, and the FM-1 restarts on M-VAVE's firmware. Don't unplug part way; if the power goes, switch it on and press the button again, and it carries on.
 5. On the stock firmware, reload its sounds with **System › Reset Patches**.
 
-How it works: M-VAVE's own update loader switches the FM-1 off when Ravel hands over to it, so the page sends V15 with Ravel's own loader instead. That loader checks that the start of the flash (the boot area, never written) is V15's, so a unit with anything else there is refused with nothing changed; writes the firmware area, checking each part; then sets the stock settings back to how a new unit has them (Ravel's projects and settings are cleared; the unit's factory data, Bluetooth data and factory sounds are not touched).
+How it works: M-VAVE's own update loader switches the FM-1 off when Ravel hands over to it, so from Ravel the page sends V15 with Ravel's own loader instead (from anything else, such as a firmware built on M-VAVE's SDK, it sends V15 as M-VAVE made it, whose loader rewrites everything, the boot area too). Ravel's loader checks that the start of the flash (the boot area, which it never writes) is V15's; if another firmware rewrote it, the loader refuses with nothing written and restarts the FM-1 into what it had, and the page says so; writes the firmware area, checking each part; then sets the stock settings back to how a new unit has them (Ravel's projects and settings are cleared; the unit's factory data, Bluetooth data and factory sounds are not touched).
 
 ### Updating to another firmware from Ravel
 

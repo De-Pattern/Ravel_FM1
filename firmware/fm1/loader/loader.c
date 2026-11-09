@@ -99,7 +99,11 @@ void ldr_main(void)
         ota_service();                              /* handshake */
         if (usb.ota_req) {
             usb.ota_req = 0;
+#ifndef LDR_TO_STOCK
             if (ldr_session() == 0) {
+#else
+            if (ldr_session() >= 0) {               /* (LDR_REFUSED too: the record is gone, the app it had runs) */
+#endif
                 fm1_delay_ms(200);                  /* the "success" reply leaves */
                 usb_detach();
                 fm1_delay_ms(30);
