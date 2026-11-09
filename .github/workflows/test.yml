@@ -46,6 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4          # (the install page's package code: an ES module in a .js file)
+        with:
+          node-version: 22
       - name: Python packages (font generator)
         run: pip install pillow markdown
       - name: JieLi toolchain
@@ -66,6 +69,10 @@ jobs:
           head -c 200000 build/fm1/ravel.bin > build/fm1test/old_app.bin
           AC79_SDK="$HOME/ac79" python3 tools/fm1pkg_make.py build/fm1test/old_app.bin build/fm1/loader/ota.bin build/fm1test/old.fwsc
           cc -o build/fm1test/ldr_test tests/fm1/ldr_test.c && build/fm1test/ldr_test build/fm1test/old.fwsc build/fm1/Ravel-FM1.fwsc
+          # the way back to stock (ota-stock.bin): M-VAVE's package isn't in the repository, so a Felucca
+          # package stands in for it (the unit's head is the stand-in's); with V15: tests/fm1/ldr_stock_test.c
+          cc -o build/fm1test/ldr_stock_test tests/fm1/ldr_stock_test.c && build/fm1test/ldr_stock_test build/fm1/Ravel-FM1.fwsc build/fm1test/old.fwsc
+          node tests/fm1/pkg_test.mjs build/fm1/Ravel-FM1.fwsc build/fm1/loader/ota-stock.bin
           python3 tests/fm1/install_test.py
           cc -O2 -o build/fm1test/projstore_test tests/fm1/projstore_test.c && build/fm1test/projstore_test
       - uses: actions/upload-artifact@v4

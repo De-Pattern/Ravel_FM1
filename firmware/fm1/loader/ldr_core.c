@@ -21,11 +21,26 @@
  *   ldr_fread(off, p, n)  ldr_erase(off)  ldr_prog(off, p, n)   flash, 0 = ok
  *   ldr_record_clear()    forget the RAM update record
  *   ldr_progress(done, total)
- * plus the ota.c hooks (frames, time, idle). */
+ * plus the ota.c hooks (frames, time, idle).
+ *
+ * LDR_TO_STOCK (ota-stock.bin, used only by the install page's "Back to the stock
+ * firmware"): the package is M-VAVE's own flash.bin with this loader in place of
+ * M-VAVE's. Before anything is erased, the device's flash head must equal the
+ * package's (a unit whose head came from that stock version); after the app area,
+ * the settings areas stock keeps its VM in are put back to how a factory unit has
+ * them: [0x94000, 0xE9000) and Felucca's globals [0xFC000, 0xFF000) erased, the
+ * factory sector 0x93000, the Bluetooth data 0xE9000 and the factory voices
+ * 0xEA000..0xFBFFF never touched. The staged loader [0xE0000, 0xE5000) goes last,
+ * after the record, so a power loss before that still resumes. */
 #define LDR_APP_LO 0x4000u
 #define LDR_APP_HI 0x93000u
 #define LDR_REC_LO 0x93000u                     /* update records live above the app ... */
 #define LDR_REC_HI 0xFC000u                     /* ... and below Felucca's globals */
+#ifdef LDR_TO_STOCK
+#define LDR_STAGE_LO 0xE0000u                   /* the staged loader and its record */
+#define LDR_STAGE_HI 0xE5000u
+static int ldr_wipe(uint32_t lo, uint32_t hi);
+#endif
 
 static int ldr_fread(uint32_t off, void *p, uint32_t n);
 static int ldr_erase(uint32_t off);
@@ -95,6 +110,15 @@ static int ldr_session(void)
     ldr_sfc(sec, 32, 0, key);
     if (ota_crc16(sec + 2, 30, 0) != ota_rd16(sec))
         return -6;                                       /* package for another chip key */
+#ifdef LDR_TO_STOCK
+    /* 2b. stock rewrites nothing below 0x4000, so the head must already be that stock's */
+    for (k = 0; k < 0x4000u; k += 512u) {
+        if (ota_read(fl_off + k, sec, 512) || ldr_fread(k, cur, 512))
+            return -12;
+        if (!ota_memeq(sec, cur, 512))
+            return -13;                                  /* a head from another version */
+    }
+#endif
     /* 3. app area, sector by sector */
     for (s = LDR_APP_LO; s < LDR_APP_HI; s += 0x1000u) {
         for (k = 0; k < 0x1000u; k += 512u)
@@ -121,6 +145,12 @@ static int ldr_session(void)
         done += 0x1000u;
         ldr_progress(done, LDR_APP_HI - LDR_APP_LO);
     }
+#ifdef LDR_TO_STOCK
+    /* 3b. stock's settings areas as on a factory unit (the record's sector stays for now) */
+    if (ldr_wipe(LDR_APP_HI + 0x1000u, LDR_STAGE_LO) || ldr_wipe(LDR_STAGE_HI, 0xE9000u) ||
+        ldr_wipe(0xFC000u, 0xFF000u))
+        return -14;
+#endif
     /* 4. finish: the host confirms, the record goes, the SPL boots the app */
     for (i = 0; i < 4u; i++)
         if (!ota_read(0xF0000000u, sec, 8))
@@ -133,5 +163,26 @@ static int ldr_session(void)
         if (ota_rd16(r + 6) == 0x5441u && ota_rd16(r) && ota_rd16(r) == ota_crc16(r + 2, 78, 0))
             ldr_erase(s - 0x1000u);
     }
+#ifdef LDR_TO_STOCK
+    ldr_wipe(LDR_STAGE_LO, LDR_STAGE_HI);                /* the staged loader: nothing to resume now */
+#endif
     return 0;
 }
+
+#ifdef LDR_TO_STOCK
+static int ldr_wipe(uint32_t lo, uint32_t hi)            /* erase the sectors in [lo, hi) not yet blank */
+{
+    static uint8_t b[0x1000];
+    uint32_t s, i, used;
+    for (s = lo; s < hi; s += 0x1000u) {
+        if (ldr_fread(s, b, 0x1000u))
+            return -1;
+        for (i = 0, used = 0; i < 0x1000u && !used; i++)
+            used = b[i] != 0xFFu;
+        if (used && ldr_erase(s))
+            return -1;
+        ldr_progress(0, 0);
+    }
+    return 0;
+}
+#endif

@@ -56,6 +56,10 @@ def main(argv):
             raise SystemExit(f"{pkg_path}: no FM-1 identity in the package ({product!r})")
         (out / "firmware").mkdir()
         shutil.copy(pkg_path, out / "firmware" / "Ravel-FM1.fwsc")
+        ldr_stock = pkg_path.parent / "loader" / "ota-stock.bin"     # "Back to the stock firmware" (fm1pkg.js stockBack)
+        if not ldr_stock.exists():
+            raise SystemExit(f"{ldr_stock}: missing (tools/build_fm1.py makes it)")
+        shutil.copy(ldr_stock, out / "firmware" / "ota-stock.bin")
         lib = "\n".join((SRC / "web" / "installer" / n).read_text(encoding="utf-8") for n in ("fm1pkg.js", "fm1ota.js"))
         lib = "\n".join(ln for ln in lib.splitlines() if not ln.startswith("import ") and not ln.startswith("export {"))
         lib = lib.replace("export function", "function").replace("export class", "class").replace("export const", "const")

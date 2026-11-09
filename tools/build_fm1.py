@@ -181,32 +181,34 @@ def ldr_wrap(image):
     return ldr_head(crc16(body), 0x20, len(body), 0x41, LOADER_NAME) + body
 
 
-def build_loader():
+def build_loader(stock=False):
+    """the update loader; stock=True: ota-stock.bin, the install page's way back to stock (ldr_core.c)"""
     LDR.mkdir(parents=True, exist_ok=True)
     src = FW / "loader"
-    flags = [*CFLAGS, "-Ifirmware/fm1/hal", "-Ifirmware/fm1/src"]
+    flags = [*CFLAGS, "-Ifirmware/fm1/hal", "-Ifirmware/fm1/src", *(["-DLDR_TO_STOCK"] if stock else [])]
+    sfx = "-stock" if stock else ""
     tc_all(("cc", "-c", src / "crt0_ldr.S", "-o", LDR / "crt0_ldr.o"),
-           ("cc", *flags, "-c", src / "loader.c", "-o", LDR / "loader.o"))
-    elf = LDR / "loader.elf"
+           ("cc", *flags, "-c", src / "loader.c", "-o", LDR / f"loader{sfx}.o"))
+    elf = LDR / f"loader{sfx}.elf"
     tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", src / "loader.ld",
-       LDR / "crt0_ldr.o", LDR / "loader.o", "-o", elf)
-    _, dis, hdr, syms = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, LDR / "loader.bin"),
+       LDR / "crt0_ldr.o", LDR / f"loader{sfx}.o", "-o", elf)
+    _, dis, hdr, syms = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, LDR / f"loader{sfx}.bin"),
                                ("common/bin/objdump", "-d", elf),
                                ("common/bin/objdump", "-h", elf),
                                ("common/bin/objdump", "-t", elf))
-    (LDR / "loader.dis").write_text(dis)
+    (LDR / f"loader{sfx}.dis").write_text(dis)
     for ln in hdr.splitlines():     # the loader rewrites the flash: nothing may run from XIP
         p = ln.split()
         if len(p) > 4 and p[1].startswith(".") and int(p[3], 16) >= 0x02000000 and int(p[2], 16):
             raise SystemExit(f"loader: section {p[1]} at {p[3]} is outside RAM")
-    image = (LDR / "loader.bin").read_bytes()
+    image = (LDR / f"loader{sfx}.bin").read_bytes()
     if not image or len(image) > 0x14000:
         raise SystemExit("loader: image empty or too big")
     ota = ldr_wrap(image)
-    (LDR / "ota.bin").write_bytes(ota)
+    (LDR / f"ota{sfx}.bin").write_bytes(ota)
     bss = [int(ln.split()[0], 16) for ln in syms.splitlines() if ln.rstrip().endswith("_bss_end")]
-    print(f"loader: image {len(image)} B at {LOADER_LOAD:#x}" + (f", bss end {bss[0]:#x}" if bss else ""))
-    print(f"loader: ota.bin {len(ota)} B")
+    print(f"loader{sfx}: image {len(image)} B at {LOADER_LOAD:#x}" + (f", bss end {bss[0]:#x}" if bss else ""))
+    print(f"loader{sfx}: ota{sfx}.bin {len(ota)} B")
     return ota
 
 
@@ -396,6 +398,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     generate()
     ota = build_loader()
+    build_loader(stock=True)
     img, syms, dis, rt = build_app()
     errors, notes = check(img, syms, dis, rt)
     hal_err = mmio_check()

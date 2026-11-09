@@ -155,7 +155,7 @@
   <h2 data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
-    <li><span data-t="stock1"></span> <a id="stocklink" href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" style="color:inherit">FM-1.fwsc</a></li>
+    <li data-t="stock1"></li>
     <li><label for="stockfile" data-t="stock2"></label><br><input type="file" id="stockfile" accept=".fwsc"></li>
     <li data-t="stock3"></li>
   </ol>
@@ -186,15 +186,15 @@ const TEXT = {
     brick: "万一 FM-1 が起動しなくなった場合は、Mac から標準ファームウェアに戻せます:",
     bricklink: "起動しない FM-1 の復旧",
     beta: "これはベータ版で、不安定な場合があります。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
-    back: "公式ファームウェアに戻すには、このページ下の「純正ファームウェアに戻す」か、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）を使います。既知の問題：今は Ravel からこれを行うと FM-1 の電源が切れてしまいます（電源を入れ直せば Ravel のままで、問題はありません）。直るまでは説明書のレスキューツールで戻してください。",
+    back: "公式ファームウェアに戻すには、このページ下の「純正ファームウェアに戻す」を使います（V15 のファイルが必要です。新しい方法で、実機での確認中です）。M-VAVE の M-UPGRADE など、M-VAVE のローダーを使うアップデーターは、Ravel からだと今も FM-1 の電源が切れてしまいます（電源を入れ直せば Ravel のままで、問題はありません）。ほかのファームウェアは、純正に戻してからそのページでインストールしてください。",
     stockh: "純正ファームウェアに戻す",
-    stockwhy: "M-VAVE の FM-1 V15 を、Ravel（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Ravel で保存したパターンは消えることがあります。",
-    stock1: "M-VAVE の FM-1 V15 をダウンロード:",
+    stockwhy: "M-VAVE の FM-1 V15 を、Ravel（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Ravel のプロジェクトとサウンドは消えます（純正の設定も工場出荷時に戻ります）。先に上の「バックアップ」で保存してください。純正に戻ったら、System → Reset Patches でバンクを読み込み直してください。",
+    stock1: "M-VAVE の FM-1 V15 のファイル（FM-1.fwsc、FM-1_015）を用意します。M-VAVE のダウンロードは今は V16 で、このページでは書き込めません。",
     stock2: "ダウンロードしたファイルを選ぶ:",
     stock3: "FM-1 を USB で接続し、下のボタンを押す。",
     stockinstall: "純正ファームウェアを書き込む",
     stockok: "M-VAVE の FM-1 V15 です。ボタンを押してください。",
-    stockbad: "これは M-VAVE の FM-1 V15 のファイルではありません。上のリンクのファイルを選んでください。",
+    stockbad: "これは M-VAVE の FM-1 V15 のファイルではありません（V16 はこのページでは書き込めません）。",
     stockdone: "完了。FM-1 は純正ファームウェアで起動しました。",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。", loadfail: "読み込めませんでした: ",
     start: "開始します", verify: "確認中", loader: "書き込みモードに切り替え中", write: "書き込み中",
@@ -256,15 +256,15 @@ const TEXT = {
     brick: "If the FM-1 no longer starts, a Mac can put the stock firmware back:",
     bricklink: "recovering an FM-1 that won't start",
     beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
-    back: "To go back to the official firmware, use \"Back to the stock firmware\" below, or M-VAVE's own updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE). Known problem: from Ravel this currently switches the FM-1 off instead (switched on, it is still Ravel, unharmed); until it is fixed, the way back is the rescue tool in the manual.",
+    back: "To go back to the official firmware, use \"Back to the stock firmware\" below (it needs the V15 file; new, being confirmed on hardware). Updaters that use M-VAVE's own loader, such as M-UPGRADE, still switch the FM-1 off from Ravel (switched on, it is still Ravel, unharmed). For another firmware, go back to stock first, then install it from its own page.",
     stockh: "Back to the stock firmware",
-    stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Ravel (or its safe mode, or Felucca) over the same USB cable. Patterns saved in Ravel may be lost.",
-    stock1: "Download M-VAVE's FM-1 V15:",
+    stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Ravel (or its safe mode, or Felucca) over the same USB cable. Ravel's projects and sounds are erased, and the stock settings start as on a new unit: save them first with Back up above. Back on stock, reload the banks with System → Reset Patches.",
+    stock1: "Have M-VAVE's FM-1 V15 file (FM-1.fwsc, identity FM-1_015). M-VAVE's download now gives V16, which this page can't install.",
     stock2: "Choose the file you downloaded:",
     stock3: "Connect the FM-1 by USB and press the button below.",
     stockinstall: "Install the stock firmware",
     stockok: "That is M-VAVE's FM-1 V15. Press the button to install it.",
-    stockbad: "That is not M-VAVE's FM-1 V15 file. Choose the file from the link above.",
+    stockbad: "That is not M-VAVE's FM-1 V15 file (V16 can't be installed from this page).",
     stockdone: "Done. The FM-1 has restarted with its original firmware.",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
     start: "Starting", verify: "Verifying", loader: "Switching to update mode", write: "Writing",
@@ -435,7 +435,12 @@ $("stockfile").addEventListener("change", async (e) => {
     const raw = new Uint8Array(await f.arrayBuffer());
     const hex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))].map((b) => b.toString(16).padStart(2, "0")).join("");
     if (hex !== STOCK_SHA256) { sayK("stockbad"); return; }
-    stock = { image: logicalImage(raw), product: productOf(raw) };
+    /* M-VAVE's own loader can't be handed over to from Ravel (the FM-1 switches off), so the package
+       sent is V15's firmware with Ravel's loader for going back to stock (fm1pkg.js stockBack) */
+    const r = await fetch("../firmware/ota-stock.bin");
+    if (!r.ok) throw new Error(`ota-stock.bin: HTTP ${r.status}`);
+    const back = stockBack(raw, new Uint8Array(await r.arrayBuffer()));
+    stock = { image: logicalImage(back), product: productOf(back) };
     $("stockgo").disabled = writing;
     sayK("stockok");
   } catch (err) { sayK("error", err && err.message); }

@@ -17,7 +17,14 @@
 #include "fm1_time.h"
 #include "fm1_sys.h"
 /* the loader may write the app area and erase update records; never the head */
+#ifndef LDR_TO_STOCK
 #define FL_RANGE_OK(off, n) (FL_IN(off, n, 0x4000u, 0x93000u) || FL_IN(off, n, 0x93000u, 0xFC000u))
+#else
+/* ota-stock.bin (ldr_core.c): also stock's settings and Felucca's globals; never the factory
+ * sector 0x93000, the Bluetooth data 0xE9000 or the factory voices 0xEA000..0xFBFFF */
+#define FL_RANGE_OK(off, n) (FL_IN(off, n, 0x4000u, 0x93000u) || FL_IN(off, n, 0x94000u, 0xE9000u) || \
+                             FL_IN(off, n, 0xFC000u, 0xFF000u))
+#endif
 #include "fm1_flash.h"
 #include "../src/libc.c"
 #include "../src/usb.c"
