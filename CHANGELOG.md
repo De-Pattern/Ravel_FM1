@@ -6,7 +6,7 @@ GitHub release; a version with no section here gets its commits listed instead. 
 ## 1.27.1
 
 Fixed
-- Newer FM-1s save, load and update. Later units have a different flash chip (a UC25HQ80, ID B36014; the first ones have Puya's P25Q80, 856014), and Ravel trusted only the first: on a newer unit it ran but kept nothing (projects, sounds, settings) and refused updates from the installer. Both chips take the same plain flash commands Ravel uses, and every write is still read back. To install this on a newer unit running an older Ravel, hold OCT− and OCT+ for 5 seconds (its update mode), then install from the page.
+- Newer FM-1s save, load and update. Later units have a different flash chip (a UC25HQ80, ID B36014; the first ones have Puya's P25Q80, 856014), and Ravel trusted only the first: on a newer unit it ran but kept nothing (projects, sounds, settings) and refused updates from the installer. Both chips take the same plain flash commands Ravel uses, and every write is still read back. A newer unit running an older Ravel can't take this from the page: hold OCT− and OCT+ for 5 seconds (the chip's update mode), put M-VAVE's firmware back with the rescue tool (tools/fm1_rescue.sh), then install. (Corrected: the first notes said to install from the page in that mode, which the page can't reach.)
 - GLO › FLASH names the newer chip (UC25HQ80 1 MB). The rescue tool (tools/fm1_rescue.py) accepts it too.
 
 ## 1.27.0

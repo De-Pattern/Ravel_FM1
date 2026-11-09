@@ -1706,16 +1706,18 @@ The installer page shows the latest release at the top and installs it unless yo
 
 From the command line instead (`pip3 install mido python-rtmidi`): `python3 tools/fm1_install.py Ravel-FM1.fwsc`. The `.fwsc` is on the site (`firmware/Ravel-FM1.fwsc`) and on the repository's releases.
 
-The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares.
+The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.
 
-**Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer; to move it on, **hold OCT− and OCT+ for 5 seconds** to put the FM-1 in its update mode, then install from the page as usual. **To go back**, the same page writes M-VAVE's own FM-1 firmware (which you download from M-VAVE) back over the same cable; M-VAVE's own updater, M-UPGRADE, works too.
+**Known problem, going back:** on a real FM-1, handing over from Ravel to M-VAVE's own update loader (going back to stock from this page, M-UPGRADE, or another firmware's installer that uses M-VAVE's loader) switches the FM-1 off instead of starting the loader. Switched on again it is still Ravel, unharmed: the half-done update is cleared. Updating Ravel to a newer Ravel is not affected (it uses Ravel's own loader). Until this is fixed, the way back to stock is the rescue tool below.
+
+**Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer. To move it on: hold **OCT− and OCT+ for 5 seconds** (the chip's own update mode), put M-VAVE's firmware back with the rescue tool (below; this repository's knows the newer chip), then install Ravel from the page as usual.
 
 ### If the FM-1 will not start
 
-- **Hold OCT− and OCT+ for 5 seconds** while Ravel runs: the FM-1 goes into its update mode, and the installer can write any firmware.
+- **Hold OCT− and OCT+ for 5 seconds** while Ravel runs: the FM-1 goes into the chip's own update mode. It shows up on USB as `WL80UBOOT`, not as MIDI, so the web installer can't reach it; the rescue tool below can (switch the FM-1 off and on to leave it).
 - **Safe mode:** if Ravel crashes twice while starting, it starts in a safe mode instead: no sound, USB on, so the web installer can reach it. PLAY tries Ravel again.
 - **Calibration:** hold OCT− and OCT+ while switching on to teach Ravel which button and knob is which, if the panel seems mixed up.
-- **Last resort:** if nothing shows on the screen but the FM-1 appears on USB in the chip's update mode, `tools/fm1_rescue.sh` (from X0X) puts M-VAVE's firmware back from a Mac. Beyond that, recovery needs the [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+- **Rescue tool:** in the chip's update mode, `tools/fm1_rescue.sh` (from X0X, fetching this repository's `fm1_rescue.py`) puts M-VAVE's firmware back from a Mac; it backs up the whole flash first and knows both flash chips. Then install Ravel (or anything else) from the page. Beyond that, recovery needs the [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
 
 ## What's here
 
