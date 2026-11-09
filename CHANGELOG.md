@@ -3,6 +3,16 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.28.0
+
+New
+- Play a kit in live from SEQ. With REC lit on a PERC kit, the white keys on the SEQ pages play the lanes (1–6 and again) instead of entering steps, and while the transport runs they are recorded into the lanes as played. With REC unlit the keys put trigs on the steps as before; holding SEQ makes them steps for a moment either way.
+- QUANTZE on the SEQ pages: SEQ › TRACK on a kit, SEQ › DIRECTION on a note track. It is the same setting as SONG › CLOCK FEEL: 0 % plays recorded notes and hits as played, 100 % snaps them to the grid. It changes playback only, so the timing as played is kept.
+
+Changed
+- The footer while the keys play on SEQ reads KEYS PLAY  HOLD SEQ: STEPS (it ran off the screen on a kit).
+- Install page: "Back to the stock firmware" sends V15's firmware with Ravel's own loader instead of M-VAVE's (which switches the FM-1 off when Ravel hands over to it), resets the stock settings to a new unit's, and shows its progress beside its button. Still being confirmed on hardware.
+
 ## 1.27.1
 
 Fixed

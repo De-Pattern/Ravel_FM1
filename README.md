@@ -889,7 +889,7 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 - **RATE** is the lane's own speed against the track's: X1/4, X1/3, X1/2, X2/3, TRK (the track's), X3/2, X2, X3 or X4. A hat at X2 runs through its steps twice as fast as the kick (sixteenths over eighths, or 32nds as rolls); a lane at X2/3 or X3/2 plays triplets against straight steps; X1/2 stretches a lane's pattern over twice the time. Each lane keeps its own place, wrapping at its own LENGTH, and its hits fall between the track's steps where the rate puts them. Lanes at a rate of their own play forward. The DRUM page marks a lane's rate under its name when it isn't TRK.
 - **Shared by the whole kit:** EDIT › **KIT FX** (AMD, AMF, EQF, EQG) and **KIT FILTER** (FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, MIX and SENDS. A kit has no PITCH or synth FILTER page: each machine has its own pitch and tone.
 
-**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps LENGTH, RATE and CLOCK. A kit's ratchets are set per lane on DRUM STEP only.
+**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps LENGTH, RATE and CLOCK, with QUANTZE. A kit's ratchets are set per lane on DRUM STEP only.
 
 - **In SEQ, black keys 3–8 choose the lane** you are sequencing, and **the white keys are its sixteen steps**: one tap puts a hit there, the next tap clears it (and its locks). OCT- and OCT+ page through longer patterns.
 - **The DRUM pages:**
@@ -900,7 +900,7 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 | **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step (1 = no roll; lanes rolling on one step share the count) |
 
 - **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
-- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). With REC armed, what you play is recorded into the lanes.
+- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). On SEQ they do too while REC is lit (unlit, they are the steps). With REC armed, what you play is recorded into the lanes with its timing kept; QUANTZE (SEQ › TRACK) sets how close to the grid it plays back.
 - A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
 - **SWING** is on GLO › CLOCK (it was DRUM's fourth knob before lanes had their own RATE).
 - **EUCLID** (the last SEQ page) writes evenly spread hits into the chosen lane; **R CURVE** and **R MOVE** (STEP TIMING) shape its rolls.
@@ -1171,7 +1171,7 @@ Editing a held empty step switches it on. While a step key is held, OCT− / OCT
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
 | **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST, WEFT (a WEFT patch's CLK OUT) |
-| **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | STEP REC: NEXT (step recording moves on after each note) or STAY (it stays on the step: note input, see Recording). Kept through power-off | – | – |
+| **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | STEP REC: NEXT (step recording moves on after each note) or STAY (it stays on the step: note input, see Recording). Kept through power-off | QUANTZE: how close recorded notes play to the grid, 0–100 % (the same as SONG › CLOCK FEEL) | – |
 | **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
 
 **STEP: PRESETS picks the step.** On the step pages (STEPS, STEP TIMING, STEP SHAPE, STEP CUT; DRUM STEP on a kit), turn **PRESETS** to move through the steps, 1 to LENGTH: the knobs edit that step (ringed on screen, STEP 23 at the bottom right), and the keys jump to its 16. Holding a step key still works as before, and the black keys 1 and 2 still switch patterns A and B.
@@ -1533,7 +1533,7 @@ Step recording is for the tracks whose keys play notes: SYNTH, STRIKE, WEFT, and
 
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
-**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a track whose keys play notes (SYNTH, STRIKE, WEFT, or a PERC track with one machine) they play notes instead, so you can watch the steps fill in as you play (the footer says REC: KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A kit keeps its keys as steps on SEQ pages; play its lanes from any other page.
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a track whose keys play notes (SYNTH, STRIKE, WEFT, or a PERC track with one machine) they play notes instead, so you can watch the steps fill in as you play (the footer says KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A **kit** works the same way: REC unlit, the keys put trigs on the chosen lane's steps; REC lit, the white keys play the lanes (1–6 and again) and, while it plays, record them into the lanes as you play them. How close to the grid they sound is **QUANTZE** (0 %: as played, 100 %: on the grid; on SEQ › TRACK for a kit, SEQ › DIRECTION for a note track, and SONG › CLOCK FEEL), which changes playback only, so it can be turned back.
 
 ## 17. Recipes, step by step
 
@@ -1635,7 +1635,7 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 | Launch a scene | GLO › SCENES, white key |
 | Play macros | Hold LFO, turn KNOB 1–4 |
 | Punch-in effects | Hold FX + white 1–8 |
-| Record | Tap REC, then PLAY (on SEQ pages the keys then play notes; hold SEQ for steps) |
+| Record | Tap REC, then PLAY (on SEQ pages the keys then play notes, or a kit's lanes; hold SEQ for steps) |
 | Name a project | SAVE › PROJECT, KNOB 2 cursor, KNOB 3 letter |
 | Save | SAVE, choose slot and action, SAVE twice |
 | Keep or load a sound | SAVE › SOUNDS (SELECT), KNOB 4 bank, PRESETS slot, KNOB 1 = SAVE or LOAD, SAVE |

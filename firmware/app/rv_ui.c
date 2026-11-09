@@ -189,8 +189,8 @@ static const page_t pages[] = {
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
-    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), NO}},
-    {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), {K_LRN, 4}, NO, NO}},   /* STEP REC: NEXT or STAY (a device setting) */
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), GP(GP_QUANT)}},   /* (QUANTZE: as SONG > CLOCK FEEL) */
+    {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), {K_LRN, 4}, GP(GP_QUANT), NO}},   /* STEP REC: NEXT or STAY (a device setting); QUANTZE as SONG > CLOCK FEEL */
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "GRAPH", {SF(SF_CORDA), SF(SF_CORDB), TP(TP_BRANCH), TP(TP_H2ROLE)}},
     {SEC_SEQ, V_GRAPH, PIC_GRAPH, PR_STEPCUR, "HEAD 1", {TP(TP_H1TRANS), NO, NO, NO}},
     {SEC_SEQ, V_GRAPH, PIC_MOTION, PR_NONE, "HEAD 1 MOTION", {TP(TP_H1SHAPE), TP(TP_H1DEPTH), TP(TP_H1CYCLE), TP(TP_H1COMB)}},
@@ -2686,11 +2686,11 @@ static int note_track_ui(int t)
     int kind = rv.tp[t][TP_KIND];
     return kind == KIND_SYNTH || kind == KIND_STRIKE || kind == KIND_WEFT || (kind == KIND_PERC && !is_kit_ui(t));
 }
-/* on a SEQ page the keys are the steps, except while recording on a note track:
- * then they play (and record) notes, and holding SEQ makes them steps again */
+/* on a SEQ page the keys are the steps, except while recording (REC lit) on a note track or a kit:
+ * then they play (and, playing, record) notes or the kit's lanes, and holding SEQ makes them steps again */
 static int seq_keys_play(int t)
 {
-    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && note_track_ui(t);
+    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (note_track_ui(t) || is_kit_ui(t));
 }
 
 /* MUTE / SOLO: a track's mute or solo, turned over, and said */
@@ -3727,7 +3727,7 @@ static void draw_footer(void)
         }
         hint = ui.srec_t >= 0 ? (prefs_stay() ? "STAY: PRESETS PICKS THE STEP" : "OCT+ REST  OCT- BACK")
                : pg->pr == PR_STEP && !seq_keys_play(ui.track) && !is_kit_ui(ui.track) ? "PRESETS: STEP  KEYS: STEPS"
-               : seq_keys_play(ui.track) ? "REC: KEYS PLAY  HOLD SEQ: STEPS"
+               : seq_keys_play(ui.track) ? "KEYS PLAY  HOLD SEQ: STEPS"
                : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
                : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
                : "BLACK 3-8: LANE  KEYS: STEPS ON/OFF";
