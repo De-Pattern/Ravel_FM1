@@ -40,7 +40,7 @@ static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_S
 /* knob bindings: what a knob in the row stands for */
 enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN, K_LP, K_WF };   /* K_WF: WEFT (rv_weft.c): the patch, a block, the map */   /* K_LP: LOOP TRIGS (LANE, TRIG, RANGE) */   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
-enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_NONE, LF_SLOT0 };   /* LF_SLOT0-3: a LANE page's knobs, by row */
+enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_QUANT, LF_NONE, LF_SLOT0 };   /* LF_QUANT: rv.kit_quant */   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
 enum { CZF_WAVE1, CZF_WAVE2, CZF_KFA, CZF_KFW, CZF_RATE, CZF_LEVEL, CZF_SUS, CZF_END, CZF_SLOT0 };   /* CZF_SLOT0-3: an envelope page's knobs, by OCT row; RATE/LEVEL carry their stage in bits 9-11 */
 enum { SF_NOTE, SF_VEL, SF_LEN, SF_CHANCE, SF_MICRO, SF_RATCHET, SF_RCURVE, SF_COND, SF_ENV, SF_CUT, SF_TIE, SF_CORDA, SF_CORDB, SF_ACC, SF_RMOVE, SF_CSHAPE, SF_CSIZE };
@@ -181,6 +181,7 @@ static const page_t pages[] = {
     {SEC_SEQ, V_LOOP, PIC_CLOCK, PR_NONE, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
+    {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM FEEL", {LF(LF_SEL), LF(LF_QUANT), NO, NO}},   /* a lane's QUANTZE (SONG: the song's) */
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},   /* (the same TEMPO and SWING as GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
@@ -1164,6 +1165,7 @@ static kinfo_t kb_info(kb_t k)
         }
         case LF_CHANCE: r.name = "CHANCE"; r.max = 100; break;
         case LF_RATE: r.name = "RATE"; r.max = 8; r.fmt = PF_ENUM; r.names = rv_lrate_names; break;
+        case LF_QUANT: r.name = "QUANTZE"; r.max = 101; break;   /* 0: SONG, 1..101: 0..100 % (knob_text) */
         default: {
             const rv_pinfo *pi = lane_pinfo(ui.track, l, lane_field(k.id) - LF_P0);
             r.name = pi->name;
@@ -1332,6 +1334,7 @@ static int kb_get(kb_t k)
         case LF_LEN: return kt->len[l];
         case LF_CHANCE: return kt->chance[l];
         case LF_RATE: return RV_LRATE_KNOB(rv.kit_rate[ui.track][l] % 9);
+        case LF_QUANT: return rv.kit_quant[ui.track][l];
         default: return kt->p[l][(f - LF_P0) & 7];
         }
     }
@@ -1383,7 +1386,7 @@ static void kb_set(kb_t k, int v)
         v = in.min;
     if (v > in.max)
         v = in.max;
-    if (((k.kind == K_TP && k.id != TP_KIND && bank_sound_param(k.id)) || k.kind == K_CZ || (k.kind == K_LANE && lane_field(k.id) > LF_SEL && lane_field(k.id) < LF_NONE) ||
+    if (((k.kind == K_TP && k.id != TP_KIND && bank_sound_param(k.id)) || k.kind == K_CZ || (k.kind == K_LANE && lane_field(k.id) > LF_SEL && lane_field(k.id) < LF_QUANT) ||
          (k.kind == K_WF && k.id != 0 && k.id != 8 && k.id < 16)) && v != kb_get(k))
         ui.snd_edit |= (uint8_t)(1u << ui.track);    /* (the track's sound, changed by hand) */
     switch (k.kind) {
@@ -1765,6 +1768,7 @@ static void kb_set(kb_t k, int v)
         case LF_LEN: kt->len[l] = (uint8_t)v; break;
         case LF_CHANCE: kt->chance[l] = (uint8_t)v; break;
         case LF_RATE: rv.kit_rate[ui.track][l] = (uint8_t)RV_LRATE_STORE(v); break;
+        case LF_QUANT: rv.kit_quant[ui.track][l] = (uint8_t)v; break;
         default: kt->p[l][(f - LF_P0) & 7] = (uint8_t)v; break;
         }
         break;
@@ -2009,6 +2013,15 @@ static void kb_format(kb_t k, int v, char *o)
             for (i = 0; b[i] && i < 11; i++)
                 o[i] = b[i];
             o[i] = 0;
+        }
+        return;
+    }
+    if (k.kind == K_LANE && lane_field(k.id) == LF_QUANT) {   /* a lane's QUANTZE: SONG, or 0..100 % */
+        if (v <= 0)
+            sx_cat(o, "SONG");
+        else {
+            sx_int(o, v - 1);
+            sx_cat(o, "%");
         }
         return;
     }

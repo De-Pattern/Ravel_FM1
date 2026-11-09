@@ -898,9 +898,10 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 | --- | --- | --- | --- | --- |
 | **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | RATE of the lane, against the track's (as on its LANE page) | CHANCE |
 | **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step (1 = no roll; lanes rolling on one step share the count) |
+| **DRUM FEEL** | LANE | QUANTZE of the lane: **SONG** (the song's QUANTZE, SEQ › TRACK or SONG › CLOCK FEEL) or its own 0–100 % (0: as played, 100: on the grid), so a kick can sit tight while the hats keep their swing | – | – |
 
 - **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
-- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). On SEQ they do too while REC is lit (unlit, they are the steps). With REC armed, what you play is recorded into the lanes with its timing kept; QUANTZE (SEQ › TRACK) sets how close to the grid it plays back.
+- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). On SEQ they do too while REC is lit (unlit, they are the steps). With REC armed, what you play is recorded into the lanes with its timing kept; QUANTZE sets how close to the grid it plays back, the song's (SEQ › TRACK) or each lane's own (SEQ › DRUM FEEL).
 - A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
 - **SWING** is on GLO › CLOCK (it was DRUM's fourth knob before lanes had their own RATE).
 - **EUCLID** (the last SEQ page) writes evenly spread hits into the chosen lane; **R CURVE** and **R MOVE** (STEP TIMING) shape its rolls.

@@ -44,6 +44,7 @@
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
+ *   expect kitq T L N             kit track T's lane L (1..6): its QUANTZE as stored (0 SONG, 1..101 = 0..100 %)
  *   expect msrc NAME LO HI        the matrix source NAME (WHEEL, TOUCH, BEND...) is between LO and HI now
  *   expect stepcur S              the step the knobs edit is S (1..64)
  *   expect steplen T S CODE       track T's step S has LENGTH CODE (8 a step)
@@ -553,6 +554,9 @@ int main(int argc, char **argv)
                 int tt = atoi(w1) - 1;
                 const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
                 got = (ss->flags & ST_ON) ? ss->note : -1;
+                want = atoi(w3);
+            } else if (!strcmp(b, "kitq")) {                 /* kit track T's lane L: its stored QUANTZE */
+                got = rv.kit_quant[(atoi(w1) - 1) & 7][(atoi(w2) - 1) % RV_LANES];
                 want = atoi(w3);
             } else if (!strcmp(b, "stepchord")) {            /* track T's step S: how many notes */
                 int tt = atoi(w1) - 1;

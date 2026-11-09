@@ -20,6 +20,8 @@ static int old_gp(int f) { return f >= 5 ? 128 : 96; }
 static int old_size(int f)
 {
     int n = (int)sizeof(rv) - (RV_TP - old_tp(f)) * RV_TRACKS * 2 - (RV_GP - old_gp(f)) * 2;
+    if (f < 27)
+        n -= (int)sizeof(rv.kit_quant);               /* no lane QUANTZE before format 27 (it is last) */
     if (f < 24)
         n -= (int)sizeof(rv.weft);                    /* no WEFT patches before format 24 */
     else if (f == 24)
@@ -175,6 +177,8 @@ int rv_load(int slot)
         upgrade_layout(f, n);
     if (f <= 16)                                       /* (steps without chords): spread out */
         upgrade_steps(n + (RV_TP - old_tp(f)) * RV_TRACKS * 2 + (RV_GP - old_gp(f)) * 2);
+    if (f <= 26)                                       /* (format 27) every kit lane at the song's QUANTZE */
+        __builtin_memset(rv.kit_quant, 0, sizeof(rv.kit_quant));
     if (f <= 15)                                       /* (format 16) every kit lane at the track's rate */
         __builtin_memset(rv.kit_rate, 0, sizeof(rv.kit_rate));
     if (f <= 8) {

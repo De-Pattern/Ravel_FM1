@@ -334,9 +334,12 @@ static void kit_fire(int t, int si, uint32_t when)
     const rv_kit *k = &rv.kit[t];
     rv_pattern *pt = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
     int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), l, r;
-    float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant = rv.gp[GP_QUANT] * 0.01f;
+    float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant;
     float density = rv.arcs[t][(song_bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15];
     for (l = 0; l < RV_LANES; l++) {
+        /* the lane's QUANTZE, or the song's */
+        int lq = rv.kit_quant[t][l];
+        quant = (float)(lq ? clampi(lq - 1, 0, 100) : rv.gp[GP_QUANT]) * 0.01f;
         /* the lane's rate against the track's (num / den): in this track step it plays the lane steps
          * that fall in it, each at its own time; at the track's rate, just this step */
         static const uint8_t num[9] = {1, 1, 1, 2, 1, 3, 2, 3, 4}, den[9] = {4, 3, 2, 3, 1, 2, 1, 1, 1};

@@ -1000,6 +1000,7 @@ void rv_kit_init(int t)
             k->p[l][i] = (uint8_t)(perc_pi[m[l]][i].name ? perc_pi[m[l]][i].def : 0);
         k->level[l] = 100;
         rv.kit_rate[t & 7][l] = 0;
+        rv.kit_quant[t & 7][l] = 0;                   /* (the song's QUANTZE) */
         k->len[l] = 0;
         k->chance[l] = 100;
     }

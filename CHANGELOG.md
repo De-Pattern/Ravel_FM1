@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.29.0
+
+New
+- A QUANTZE for each drum lane: SEQ › DRUM FEEL on a kit. SONG (the default) follows the song's QUANTZE as before; 0–100 % gives the lane its own, so a kick can play on the grid while the hats keep the timing they were played with. It changes playback only. Kept in the project (format 27; older projects load with every lane on SONG, so they play as they did).
+
 ## 1.28.0
 
 New
