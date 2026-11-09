@@ -502,7 +502,7 @@ async function run(img, product, isStock) {
     }
   } catch (e) {
     if (isStock && e && e.code === "mismatch") { $("bar").value = 100; sayK("stockdone"); }   /* stock names itself its own way */
-    else if (isStock && e && (e.code === "stopped" || e.code === "lost") && /^the loader .* after ([0-9]|[1-3][0-9]) requests/.test(e.message)) sayK("stockrefused");
+    else if (isStock && img !== stock.plain && e && (e.code === "stopped" || e.code === "lost") && /^the loader .* after ([0-9]|[1-3][0-9]) requests/.test(e.message)) sayK("stockrefused");
     else if (e && e.code && TEXT[lang][e.code]) sayK(e.code, e.detail || "");
     else sayK("error", e && e.message);
     log(String(e && e.stack || e));
