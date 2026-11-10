@@ -142,7 +142,7 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_LOOP, KIND_WEFT, KIND_N };   /* WEFT: a voice patched from blocks (rv_weft.c) */   /* LOOP: four lanes of recorded audio (rv_loop.c; one track at most) */   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
                                                                               * COMP (T8 only): the bus compressor on the main mix, not a voice */
-enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_GUITAR, ENG_N };   /* ENG_CZ: was PD */
+enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_GUITAR, ENG_HARM, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
 enum { PM_TRX_BD, PM_TRX_B2, PM_TRX_SD, PM_TRX_XT, PM_TRX_CP, PM_TRX_RS, PM_TRX_CB, PM_TRX_CH, PM_TRX_OH, PM_TRX_CY,

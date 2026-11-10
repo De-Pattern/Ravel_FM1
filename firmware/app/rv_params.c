@@ -8,7 +8,7 @@
 
 /* ------------------------------------------------------------------ names --- */
 const char *const rv_kind_names[] = {"SYNTH", "STRIKE", "TAPE", "PERC", "COMP", "GLITCH", "WEFT"};
-const char *const rv_engine_names[] = {"VA", "CZ", "HYBRID FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE", "GUITAR"};
+const char *const rv_engine_names[] = {"VA", "CZ", "HYBRID FM", "PHYS", "FORMANT", "PARTICLE", "CHIP", "WAVE", "LOGIC", "ORGAN", "MONO", "RESIN", "TINE", "GUITAR", "HARMONIC"};
 const char *const rv_route_names[] = {"-", "MOD", "TRIG", "EXCITE", "TAPE", "CLOCK", "RING", "SPARK"};
 const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO", "WHEEL", "MACRO1", "MACRO2", "MACRO3", "MACRO4", "CLOCK", "KEY", "TOUCH", "BEND", "WEFT"};
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
@@ -173,6 +173,15 @@ static const rv_pinfo SRC_TINE_EP[16] = {
     {"TONE", 0, 127, 55, PF_NUM, 0}, {"BELL", 0, 127, 50, PF_NUM, 0}, {"BARK", 0, 127, 45, PF_NUM, 0},
     {"PICKUP", 0, 127, 55, PF_NUM, 0}, {"TONEBAR", 0, 127, 60, PF_NUM, 0}, {"TREM", 0, 127, 0, PF_NUM, 0},
     {"TREM RT", 0, 127, 50, PF_NUM, 0}, {"DRIVE", 0, 127, 15, PF_NUM, 0}, {"THUMP", 0, 127, 30, PF_NUM, 0}, TN_TAIL(5, "KEY OFF")};
+/* HARMONIC, after Make Noise's Telharmonic: H (additive), P (phase modulation) and N (noise) at their own levels,
+ * CENTROID and FLUX shaping all three, up to three voices an INTERVAL apart */
+static const char *const harm_ivs[] = {"UNISON", "OCTAVES", "FIFTHS", "FOURTHS", "MAJOR", "MINOR", "SUS", "SEVENTH"};
+static const char *const harm_nv[] = {"1", "2", "3"};
+static const rv_pinfo SRC_HARM[16] = {
+    {"CENTRD", 0, 127, 30, PF_NUM, 0}, {"FLUX", 0, 127, 50, PF_NUM, 0}, {"INTRVL", 0, N(harm_ivs), 0, E(harm_ivs)},
+    {"STACK", 0, N(harm_nv), 0, E(harm_nv)}, {"H LVL", 0, 127, 100, PF_NUM, 0}, {"P LVL", 0, 127, 0, PF_NUM, 0},
+    {"N LVL", 0, 127, 0, PF_NUM, 0}, {"LOCK", 0, 24, 0, PF_NUM, 0}, {"EVEN", 0, 127, 64, PF_NUM, 0},
+    {"DETUNE", 0, 127, 8, PF_NUM, 0}};
 /* GUITAR: a plucked string (PICK, POSITN, DECAY, MUTE, the PICKUP, STRUM), then on the track a drive pedal,
  * an amp with its tone stack and a cabinet (the pedal and amp after M-PYRE's, by History Of Sky) */
 static const char *const gtr_pedals[] = {"OFF", "BOOST", "OD", "DIST", "FUZZ"};
@@ -247,7 +256,7 @@ static const rv_pinfo SRC_MONO[16] = {
     {"VIBRATO", 0, 127, 10, PF_NUM, 0}, {"VIB RATE", 0, 127, 70, PF_NUM, 0}, {"VIB DLY", 0, 127, 50, PF_NUM, 0},
     {"VEL>CUT", 0, 127, 40, PF_NUM, 0}, {"DRIFT", 0, 127, 20, PF_NUM, 0}, {"RETRIG", 0, 1, 0, E(mono_trig)},
     {"DRIVE", 0, 127, 30, PF_NUM, 0}};
-static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO, SRC_RESIN, SRC_TINE, SRC_GTR};
+static const rv_pinfo *const SRC_SYNTH[ENG_N] = {SRC_VA, SRC_CZ, SRC_FM, SRC_PHYS, SRC_FORM, SRC_PART, SRC_CHIP, SRC_WAVE, SRC_LOGIC, SRC_ORGAN, SRC_MONO, SRC_RESIN, SRC_TINE, SRC_GTR, SRC_HARM};
 
 /* PERC (rv_perc.c): the machine list and each machine's eight parameters (0 = unused), with their defaults */
 static const rv_pinfo perc_pi[PM_N][8] = {
@@ -984,6 +993,16 @@ void rv_engine_track_defaults(int t, int engine)
         tp[TP_SUS] = 127;
         tp[TP_REL] = 90;
         tp[TP_VELO] = 100;
+    } else if (engine == ENG_HARM) {                 /* held tones: open, at full sustain */
+        tp[TP_POLY] = 3;
+        tp[TP_FTYPE] = FT_LP;
+        tp[TP_CUT] = 127;
+        tp[TP_RES] = 0;
+        tp[TP_EFILT] = 0;
+        tp[TP_KTRK] = 0;
+        tp[TP_ATK] = 10;
+        tp[TP_SUS] = 127;
+        tp[TP_REL] = 60;
     } else if (engine == ENG_GUITAR) {               /* plucked: open, the string's own decay, four strings */
         tp[TP_POLY] = 3;
         tp[TP_FTYPE] = FT_LP;
@@ -1052,7 +1071,7 @@ void rv_track_defaults(int t, int kind, int engine)
     track_src_defaults(t);
     if (kind == KIND_SYNTH && engine == ENG_CZ)
         rv_cz_init(t);
-    if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO || engine == ENG_TINE || engine == ENG_GUITAR))
+    if (kind == KIND_SYNTH && (engine == ENG_ORGAN || engine == ENG_MONO || engine == ENG_TINE || engine == ENG_GUITAR || engine == ENG_HARM))
         rv_engine_track_defaults(t, engine);
     if (kind == KIND_PERC) {
         rv_kit_init(t);

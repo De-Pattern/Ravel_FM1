@@ -16,7 +16,7 @@
 Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket groovebox for sound design. It has 8 tracks that synthesize, strike and drum, and that play, excite, and reshape one another
 
 <p align="center">
-  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fourteen engines), strike and perc tracks feed the mixer and buses (feedback, the tape echo and grains, the space: a 12-bit reverb, the bed) and the master; an influence band connects every track to every other" width="760">
+  <img src="docs/signal-flow.svg" alt="Signal flow: synth (fifteen engines), strike and perc tracks feed the mixer and buses (feedback, the tape echo and grains, the space: a 12-bit reverb, the bed) and the master; an influence band connects every track to every other" width="760">
 </p>
 
 **Status: runs on the FM-1 and in the browser emulator.** The whole instrument runs in the browser emulator and the desktop simulator, from the same C sources the firmware is built from. The FM-1 firmware is bare metal (no vendor SDK) on the open hardware layer of the Felucca family of community firmwares, and installs from a web installer over USB. It is young: copy your projects to a computer now and then (the emulator's **Get from FM-1**), and report anything odd on the repository's issues.
@@ -26,7 +26,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 
 ## What it is
 
-- **Synth tracks** (T1 to T4), fourteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **HYBRID FM** (4 operators, 12 algorithms, a wave per operator and an envelope on the modulators, run through moving formants after the Yamaha FS1R: eight spectral states to morph between, breath through noise bands, and formant sequences that move the timbre on their own clock), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes), **GUITAR** (a plucked string through a drive pedal, an amp and a cabinet: palm mute, pick position, strummed chords, clean to high gain).
+- **Synth tracks** (T1 to T4), fifteen engines: **VA** (saw to pulse, supersaw, sync, sub, noise, through-zero FM), **CZ** (a full Casio CZ: two lines, the eight CZ waves, 8-step DCO, DCW and DCA envelopes, ring and noise modulation, vibrato and a Juno-60 style chorus), **HYBRID FM** (4 operators, 12 algorithms, a wave per operator and an envelope on the modulators, run through moving formants after the Yamaha FS1R: eight spectral states to morph between, breath through noise bands, and formant sequences that move the timbre on their own clock), **PHYS** (string, bowed, blown, membrane), **FORMANT** (vowel filter bank or FOF grains), **PARTICLE** (pulsar emitters that pull into sync), **CHIP** (SID-style waves arpeggiating through offsets, then a decompose stage that crushes and breaks the sound apart), **WAVE** (after the PPG Wave and Waldorf Microwave: two wavetable oscillators, sync, ring and FM, phase warps, a looping wave envelope), **LOGIC** (oscillators built from function blocks: arithmetic, bit logic and comparators between three sources, then pitch-synchronous grains), **ORGAN** (a pipe organ played like a synthesizer: ranks by footage, pipes that speak in their own time, chiff, air and wind), **MONO** (an SH-101-style voice played like a horn: legato, scoops, delayed vibrato), **RESIN** (a bowed string or a reed, pushed toward breaking down: scrape, flageolet, growl, multiphonics and a QUAKE knob that makes the player's hand shake), **TINE** (struck and plucked bars and tines: a rusty kalimba with buzzing rings, a marimba or balafon, and an electric piano after the Rhodes), **GUITAR** (a plucked string through a drive pedal, an amp and a cabinet: palm mute, pick position, strummed chords, clean to high gain), **HARMONIC** (after Make Noise's Telharmonic: additive harmonics around a moving centroid, locked phase modulation and noise sidebands, stacked in chords).
 - **Strike tracks** (T5, T6), with GRAIN, a small difference in every hit (as on perc tracks): an exciter (click, noise, metal, FM burst, dust, rain, bow, breath, or EXT: another track's sound) strikes a body (ping filters, modal bars, a struck disc or coupled strings), with a transient layer, ring mod and a pitch drop.
 - **Perc tracks** (any track, KIND PERC): 33 drum machines after the Elektron Machinedrum's synthesis families: TRX (analog-style), EFM (FM), P-I (physical models) and GND, each with the Machinedrum's track effects.
 - **Arpeggiator** on any note track (ARP): up, down, up-down, down-up, as played or random, 1/4 to 1/32 of the clock, over up to four octaves, with gate, hold, repeats and chance; it plays held keys, the track's own steps and influence triggers alike.
@@ -199,7 +199,7 @@ Ravel has **8 tracks**. Each track is one of three kinds, and any track can be a
 
 | Kind | What it is | Default tracks |
 | --- | --- | --- |
-| **SYNTH** | An oscillator voice with fourteen engines: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE, GUITAR. Up to 4 voices. | T1–T4 |
+| **SYNTH** | An oscillator voice with fifteen engines: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE, GUITAR, HARMONIC. Up to 4 voices. | T1–T4 |
 | **STRIKE** | An exciter hitting a resonant body: drums, metal, wood, rain on glass | T5–T6 |
 | **PERC** | A drum machine: 33 machines after the Elektron Machinedrum (TRX, EFM, P-I, GND). It starts as a KIT, six machines in lanes sequenced together on one track; MODE SINGLE is one machine played by notes. | T7 (a kit), T8 (one drum); any track can be PERC |
 | **COMP** | T8 only, and only when you choose it: not a voice, but a bus compressor on the main mix (see [T8 as COMP](#t8-as-comp-the-bus-compressor)) | – |
@@ -234,7 +234,7 @@ The current track is highlighted.
 | 1 **LEVEL** | Track volume, 0–127 |
 | 2 **PAN** | −64 left to +63 right |
 | 3 **KIND** | SYNTH, STRIKE or PERC (on T8 also COMP), GLITCH (the GLITCH LOOPER) or WEFT (a voice you patch). **Changing it resets the track to that kind's defaults.** If you have changed the track's sound by hand since it was loaded or made, the first turn only asks (TURN AGAIN: NEW SOUND) and a second turn switches; a fresh sound, or one just loaded from PRESETS, a bank or a project, switches at once. Save a sound you want to keep (SAVE › SOUNDS, or WEFT LIBRARY) before you change KIND. |
-| 4 **ENGINE** | For synth tracks: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE, GUITAR |
+| 4 **ENGINE** | For synth tracks: VA, CZ, HYBRID FM, PHYS, FORMANT, PARTICLE, CHIP, WAVE, LOGIC, ORGAN, MONO, RESIN, TINE, GUITAR, HARMONIC |
 
 **ALGORITHM** picks the track; **PRESETS** loads a sound of the track's kind.
 
@@ -601,7 +601,7 @@ Changing **ENGINE** resets the SOURCE values to that engine's defaults. Use PRES
 
 **GRAIN** (EDIT › SKIN 2, on strike and perc tracks) makes each hit slightly different from the last: a little sharper or flatter (up to half a semitone), a little louder or softer, now and then darker or shorter. Most hits move a little and a few a lot, the way a hand never strikes twice the same. It changes nothing about which steps play or when: it is texture, so sixteen hats sound like sixteen hits instead of one copied. On a kit it acts on every lane.
 
-### The fourteen synth engines (SOURCE pages)
+### The fifteen synth engines (SOURCE pages)
 
 **VA (virtual analog):** the familiar subtractive oscillator, and more.
 
@@ -823,6 +823,19 @@ BOWED and BLOWN keep sounding for as long as the key is held, like a violin or a
 - **Playing it:** a note released stops ringing, as a fretting hand lets go; RELEASE sets how much of it is heard after. With one voice and GLIDE, held notes slide on the same string instead of being picked again. Velocity is how hard the string is picked. PITCH −12 plays it an octave down, toward a baritone or bass.
 - **CPU:** a four-note chord costs a little under twice what a PHYS string playing it does (in fm1-emu's model of the FM-1: about 13 % of a core against 7 %); the amp runs once for the track, so a single note costs relatively more and a chord relatively less. Like every engine, it costs nothing when it isn't playing.
 - **Presets:** CLEAN CHIME (clean, bright, a little strummed), CRUNCH RIFF (an OD into a crunchy amp), PALM CHUG (palm-muted high gain, an octave down), SINGING LEAD (one voice that slides, into the LEAD amp, with delay) and FUZZ WALL (fuzz, an octave down).
+
+**HARMONIC:** after Make Noise's Telharmonic: three ways of making a tone, each at its own level, shaped by the same two knobs, and stacked into a chord. **H** is additive: 24 harmonics, the loudest at CENTRD (the 1st to the 24th) with its neighbours falling away the more FLUX there is (none: all of them equal). **P** is phase modulation: a carrier bent by two sines locked to it, at the harmonics either side of CENTRD (1 to 8): FLUX takes the modulation away, to a pure sine at full. **N** is noise in two sidebands around the note: a thin whistle with little FLUX, a wide hiss with a lot. Choosing HARMONIC opens the track up for it: four voices, the filter open, the envelope held.
+
+| SOURCE 1 | SOURCE 2 | SOURCE 3 |
+| --- | --- | --- |
+| CENTRD: the centroid, the loudest harmonic (P: the modulators' ratio) | H LVL: the additive harmonics | EVEN: the odd harmonics against the even (64: both) |
+| FLUX: how much the harmonics fall away around it (P: less modulation; N: wider) | P LVL: the phase modulation | DETUNE: the stacked voices a little apart |
+| INTRVL: what the stacked voices play: UNISON, OCTAVES, FIFTHS, FOURTHS, MAJOR, MINOR, SUS, SEVENTH | N LVL: the noise | |
+| STACK: one, two or three voices of the chord for every note | LOCK: a harmonic (1 to 24) held at full whatever CENTRD does (0: none) | |
+
+- **Playing it:** put CENTRD on an LFO, the matrix or a step envelope (STEP ENV) for the sweep through the harmonics this kind of instrument is played with; LOCK keeps one harmonic ringing through it. Each stacked voice costs about as much as another note, so STACK 3 with four-note chords is the heaviest way to play it.
+- **CPU:** H costs a table read a voice (the table is worked out again only when CENTRD, FLUX, LOCK or EVEN move); P and N a little more each. Only the parts turned up are worked out.
+- **Presets:** TONEWHEELS, SPECTRAL TRIAD, PM MINOR and NOISE CHOIR.
 
 ### Strike tracks (SOURCE pages)
 
@@ -1838,6 +1851,7 @@ GPL-3.0 only (see `LICENSE`). The FM-1 platform layer, loader, installer and too
 - Elektron's Machinedrum, whose synthesis machines and their documented parameters the PERC tracks are built from (Ravel's own designs; no Elektron code or data).
 - Kurzweil's VAST and E-mu's patch-cord functions, whose idea of building sound from function blocks the LOGIC engine follows.
 - Wolfgang Palm's PPG Wave and Waldorf's Microwave, whose wavetables, stepping and wave envelope the WAVE engine follows, and Xfer's Serum, whose phase warps it borrows the idea of (the tables are Ravel's own).
+- Make Noise's Telharmonic, whose three voices (harmonic, phase modulation, noise), CENTROID, FLUX and H-LOCK the HARMONIC engine follows (Ravel's own synthesis).
 - Mannequins (Trent Gill, whimsicalraps) and their [technical maps](https://github.com/whimsicalraps/Mannequins-Technical-Maps): Mangrove's impulse and Cold Mac's CREASE and LOCATION, which the WEFT blocks IMPULSE, CREASE and LOCATE follow (Ravel's own code).
 - [M-PYRE](https://github.com/HistoryOfSky/m-pyre) by History Of Sky (GPL-3.0), whose drive pedals, amp stages and tone stack the GUITAR engine's rig follows (Ravel's own code; none of M-PYRE's recordings or impulse responses).
 - Devin Acker and MAME, whose uPD933 emulation shows how the Casio CZ's sound chip works (the CZ engine follows it; BSD-3-Clause, see `THIRD_PARTY.md`).

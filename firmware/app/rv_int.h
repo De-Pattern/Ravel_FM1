@@ -113,6 +113,16 @@ typedef struct {
     uint32_t ns;
     uint8_t plucked;
 } gtr_t;
+/* HARMONIC (after Make Noise's Telharmonic): H, a spectrum of 24 harmonics made into a one-cycle table when it
+ * changes; P, a carrier phase-modulated by two locked sines; N, noise in two sidebands around the note. Up to
+ * three voices a chord apart, each its own phase */
+#define HM_TAB 128
+typedef struct {
+    float tab[HM_TAB + 1];
+    float ph[3], nz[3][2];                  /* each voice: its phase, its noise's two low passes */
+    float key[4];                           /* the spectrum the table holds (centroid, flux, lock, even + top) */
+    uint32_t ns;
+} harm_t;
 /* GUITAR's pedal, amp and cabinet: one per track, in the INSERT's memory (a guitar track has no INSERT) */
 typedef struct {
     float hp, lp, lp2, tl, tl2;             /* the pedal: its high pass, low passes, TONE; (tl2: the tone stack's) */
@@ -155,9 +165,9 @@ typedef struct {
     float last;
     uint32_t rng;
     hitshade_t hs;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; gtr_t gt; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; gtr_t gt; harm_t hm; } e;
 } voice_t;
-_Static_assert(sizeof(gtr_t) <= sizeof(resin_t), "GUITAR fits in the voice's memory as it is");
+_Static_assert(sizeof(gtr_t) <= sizeof(resin_t) && sizeof(harm_t) <= sizeof(resin_t), "GUITAR and HARMONIC fit in the voice's memory as it is");
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */
 typedef struct {

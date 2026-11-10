@@ -1436,7 +1436,7 @@ static void kb_set(kb_t k, int v)
             rv_hfm_defaults(rv.tp[ui.track]);           /* (HYBRID FM's further pages) */
             if (v == ENG_CZ)
                 rv_cz_init(ui.track);
-            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE || v == ENG_GUITAR)
+            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE || v == ENG_GUITAR || v == ENG_HARM)
                 rv_engine_track_defaults(ui.track, v);
             return;
         }
@@ -4186,7 +4186,7 @@ static void pic_source(void)
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
                                                 "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN",
                                                 "BOWED STRING OR REED, AND QUAKE", "KALIMBA, MARIMBA, ELECTRIC PIANO",
-                                                "STRING, PEDAL, AMP, CABINET"};
+                                                "STRING, PEDAL, AMP, CABINET", "HARMONICS, PHASE MOD, NOISE"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
             const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);

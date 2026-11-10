@@ -1,0 +1,53 @@
+# HARMONIC: choosing it opens the track; H, P and N each sound, alone and together, with three voices a chord
+# apart; CENTROID and FLUX turned while it plays stay in bounds
+wait 300
+tap EDIT
+wait 200
+expect page SOUND
+turn K2 20
+wait 200
+expect tp 1 ENGINE 14
+expect tp 1 VOICES 3
+expect tp 1 H_LVL 100
+wav harm_h.wav
+key 7 down
+wait 600
+expect meter_min 1 0.005
+settp 1 CENTRD 100
+settp 1 FLUX 120
+wait 300
+settp 1 LOCK 3
+wait 300
+key 7 up
+wait 300
+wavstop
+expect meter_max 1 1.0
+settp 1 H_LVL 0
+settp 1 P_LVL 110
+settp 1 INTRVL 4
+settp 1 STACK 2
+wav harm_p.wav
+key 7 down
+wait 600
+expect meter_min 1 0.005
+settp 1 FLUX 0
+wait 300
+key 7 up
+wait 300
+wavstop
+expect meter_max 1 1.0
+settp 1 P_LVL 0
+settp 1 N_LVL 110
+settp 1 FLUX 10
+wav harm_n.wav
+key 7 down
+wait 600
+expect meter_min 1 0.002
+settp 1 FLUX 127
+settp 1 H_LVL 80
+settp 1 P_LVL 80
+wait 400
+key 7 up
+wait 300
+wavstop
+expect meter_max 1 1.0

@@ -198,6 +198,9 @@ RV_INL void synth_flush(voice_t *v)
     case ENG_GUITAR:
         fm_flush_n(&v->e.gt.lp, 4);
         break;
+    case ENG_HARM:
+        fm_flush_n(&v->e.hm.nz[0][0], 6);
+        break;
     case ENG_PHYS:
         fm_flush_n(&v->e.ph.mode_s[0][0], 12);
         fm_flush_n(&v->e.ph.lp, 6);

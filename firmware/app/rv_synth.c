@@ -1873,6 +1873,7 @@ RV_INL void voice_engine_reset(voice_t *v, int eng)
     case ENG_RESIN: v->e.rs.ns = v->rng | 1u; break;
     case ENG_TINE: v->e.tn.ns = v->rng | 1u; break;
     case ENG_GUITAR: v->e.gt.ns = v->rng | 1u; break;
+    case ENG_HARM: v->e.hm.ns = v->rng | 1u; v->e.hm.key[0] = -1.0f; break;
     default: break;
     }
     v->e_eng = (uint8_t)(eng + 1);
@@ -2423,11 +2424,90 @@ static __attribute__((noinline)) void gtr_render(voice_t *v, const float *eff, f
     }
 }
 
+/* ---------------------------------------------------------- HARMONIC --- */
+/* After Make Noise's Telharmonic. H: 24 harmonics, the loudest at CENTROID, its neighbours falling away the more
+ * FLUX, LOCK one held at full, EVEN the odd ones against the even; worked into a one-cycle table only when that
+ * changes (or the top voice's pitch drops harmonics past the top), so it costs a table read a voice. P: a carrier
+ * phase-modulated by two sines locked to it, at the two harmonics either side of CENTROID (1 to 8), FLUX taking
+ * the modulation away (a sine at full). N: noise, FLUX wide, in two sidebands around the note. Up to three voices
+ * an INTERVAL apart (a chord), DETUNE between them */
+static const int8_t harm_iv[8][2] = {{0, 0}, {12, -12}, {7, 12}, {5, 12}, {4, 7}, {3, 7}, {5, 7}, {4, 10}};
+static __attribute__((noinline)) RV_SMALL void harm_table(harm_t *s, float c, float fl, int lock, float ev, int top)
+{
+    float a[24], sum = 0.0f;
+    int k, i;
+    for (k = 0; k < 24; k++) {
+        float d = fm_fabsf((float)(k + 1) - c);
+        a[k] = k < top ? fm_exp2f(-d * fl * fl * 2.5f) * ((k & 1) ? ev : 2.0f - ev) : 0.0f;
+        if (k + 1 == lock && k < top)
+            a[k] = 1.0f;
+        sum += a[k];
+    }
+    sum = 0.9f / fm_maxf(sum, 1.0f) * fm_minf(4.0f, 1.0f + sum * 0.15f);   /* (about as loud, few harmonics or many) */
+    for (i = 0; i < HM_TAB; i++) {
+        float y = 0.0f;
+        for (k = 0; k < 24; k++)
+            if (a[k] > 0.0f)
+                y += a[k] * sine_tab[((k + 1) * i * (1024 / HM_TAB)) & 1023];
+        s->tab[i] = y * sum;
+    }
+    s->tab[HM_TAB] = s->tab[0];
+}
+static __attribute__((noinline)) void harm_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    harm_t *s = &v->e.hm;
+    int iv = clampi((int)(eff[TP_S2] + 0.5f), 0, 7), nv = clampi((int)(eff[TP_S3] + 0.5f), 0, 2) + 1, lock = (int)(eff[TP_S7] + 0.5f), i, j, top;
+    float c = 1.0f + eff[TP_S0] * (23.0f / 127.0f), fl = eff[TP_S1] * (1.0f / 127.0f), ev = eff[TP_S8] * (1.0f / 64.0f);
+    float lh = eff[TP_S4] * (1.0f / 127.0f), lp = eff[TP_S5] * (1.0f / 127.0f), ln = eff[TP_S6] * (1.0f / 127.0f);
+    float inc[3], hi = f, pr = 1.0f + eff[TP_S0] * (7.0f / 127.0f), pf = pr - fm_floorf(pr), idx = (1.0f - fl) * 0.7f;
+    float nc = op_coef(10.0f * fm_exp2f(fl * 11.0f)), ng = 1.6f / fm_sqrtf(fm_maxf(fl, 0.02f)), g = 1.0f / fm_sqrtf((float)nv);
+    int pk = (int)pr;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    for (j = 0; j < 3; j++) {
+        float fj = f * (j ? fm_exp2f(((float)harm_iv[iv][j - 1] + (j == 1 ? 1.0f : -1.0f) * eff[TP_S9] * (0.3f / 127.0f)) * (1.0f / 12.0f)) : 1.0f);
+        inc[j] = fj * RV_DT;
+        if (j < nv && fj > hi)
+            hi = fj;
+        if (!(s->ph[j] == s->ph[j]) || fm_fabsf(s->ph[j]) > 2.0f)
+            s->ph[j] = 0.0f;
+    }
+    top = clampi((int)(18000.0f / fm_maxf(hi, 20.0f)), 1, 24);
+    if (lh > 0.0f && (s->key[0] != c || s->key[1] != fl || s->key[2] != (float)lock || s->key[3] != ev + (float)top * 4.0f)) {
+        harm_table(s, c, fl, lock, ev, top);
+        s->key[0] = c, s->key[1] = fl, s->key[2] = (float)lock, s->key[3] = ev + (float)top * 4.0f;
+    }
+    for (i = 0; i < n; i++) {
+        float y = 0.0f;
+        for (j = 0; j < nv; j++) {
+            float ph = s->ph[j] + inc[j];
+            ph -= fm_floorf(ph);
+            s->ph[j] = ph;
+            if (lh > 0.0f) {
+                float x = ph * (float)HM_TAB, fr;
+                int q = (int)x;
+                fr = x - (float)q;
+                y += lh * (s->tab[q] + (s->tab[q + 1] - s->tab[q]) * fr);
+            }
+            if (lp > 0.0f) {                          /* the two modulators, locked to the carrier: harmonics pk, pk + 1 */
+                float m = sin_lut(ph * (float)pk) * (1.0f - pf) + sin_lut(ph * (float)(pk + 1)) * pf;
+                y += lp * 0.8f * sin_lut(ph + idx * m);
+            }
+            if (ln > 0.0f) {                          /* low-passed noise times the note: two sidebands, FLUX wide */
+                s->nz[j][0] += (xs_bi(&s->ns) - s->nz[j][0]) * nc;
+                s->nz[j][1] += (s->nz[j][0] - s->nz[j][1]) * nc;
+                y += ln * ng * s->nz[j][1] * sin_lut(ph);
+            }
+        }
+        out[i] = y * g;
+    }
+}
+
 #include "rv_zplane.h"
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f, 1.000f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 /* the voice after its source, a sample at a time: the envelope, the filter, the level (RAM code on the
@@ -2526,6 +2606,7 @@ RV_HOT2 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int
     case ENG_RESIN: resin_render(v, eff, f, buf, n); break;
     case ENG_TINE: tine_render(v, eff, f, buf, n); break;
     case ENG_GUITAR: RV_FAR(gtr_render)(v, eff, f, buf, n); break;
+    case ENG_HARM: RV_FAR(harm_render)(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the FILTER ENV, the key */
