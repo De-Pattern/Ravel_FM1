@@ -416,6 +416,11 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
     case WO_SNAP: { static const float L[5] = {4.0f, 8.0f, 16.0f, 32.0f, 64.0f}; W->c1[i] = L[WN(x1, 5)]; W->kf[i] = x2 > 0.0f ? wk(0.0005f + x2 * x2 * 0.3f) : 1.0f; break; }
     case WO_TREAD: W->c1[i] = (float)WN(x1, 8); W->c2[i] = (float)WN(x2, 5); break;
     case WO_TRKIN: W->c2[i] = x2 * 1.27f; break;   /* (the track: wf_tap_src, worked out in rv_engine.c) */
+    case WO_IMPULSE:                            /* FORMANT: the rise and fall together, 20 ms to 0.04 ms; BARREL: how much is rise */
+        W->c1[i] = 0.02f * wx_exp2(-x1 * 9.0f) / W->dt;
+        W->c2[i] = clampf(1.0f - x2, 0.01f, 1.0f);
+        break;
+    case WO_LOCATE: W->c1[i] = 0.1f * wx_exp2(x1 * 13.0f) * W->dt; W->c2[i] = x2 * x2 * 0.02f; break;   /* RATE: 0.1 to 800 a second; LEAK */
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
@@ -1977,6 +1982,88 @@ WK_FLASH static void wk_trkin(wk_t *K, int i, int j1, int j2)
     }
 }
 
+/* IMPULSE, after Mannequins' Mangrove: each cycle (its own at the note, or A's rising edges) starts a rise and a
+ * fall, FORMANT long, BARREL of it rising, then rest. While it rises it hears no cycle; a cycle while it falls turns
+ * it back up (the split, multiphonic tones); longer than a cycle, it skips some (the pitch divides). B: FORMANT,
+ * three octaves each way. Into SHAPE or FOLD for Mangrove's AIR */
+WK_FLASH static void wk_impulse(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float ph = s->ph, lv = s->y, inc = K->hz * W->dt, r = W->c2[i], up, dn, d = W->c1[i];
+        int st = s->st;
+        if (bc)                                     /* (B: once a block, from its first sample) */
+            d *= fm_exp2f(-clampf(pb[j1] * kb_, -1.0f, 1.0f) * 3.0f);
+        d = fm_maxf(d, 2.0f);
+        up = 2.0f / fm_maxf(r * d, 1.0f);
+        dn = r >= 1.0f ? 2.0f : 2.0f / fm_maxf((1.0f - r) * d, 1.0f);
+        if (st > 2 || !(lv == lv) || fm_fabsf(lv) > 1.0f)
+            st = 0, lv = -1.0f;
+        for (j = j1; j < j2; j++) {
+            int t;
+            if (ac)
+                t = wrise(WA, &s->prev, 0.0f);
+            else {
+                ph += inc;
+                t = ph >= 1.0f;
+                if (t)
+                    ph -= fm_floorf(ph);
+            }
+            if (t && st != 1)                       /* at rest: a new one; falling: back up */
+                st = 1;
+            if (st == 1) {
+                lv += up;
+                if (lv >= 1.0f)
+                    lv = 1.0f, st = 2;
+            } else if (st == 2) {
+                lv -= dn;
+                if (lv <= -1.0f)
+                    lv = -1.0f, st = 0;
+            }
+            yo[j] = lv;
+        }
+        s->ph = ph;
+        s->y = lv;
+        s->st = (uint8_t)st;
+        return;
+    }
+}
+
+/* CREASE, after Cold Mac's: A (plus BIAS and B) cut at zero, the half below moved up by SHIFT and the half above
+ * down by it: a ramp comes out half a cycle on, with a jump in the middle */
+WK_FLASH static void wk_crease(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float sh = WG(x1), o = WC(x2);
+        for (j = j1; j < j2; j++) {
+            y = (ac ? WA : 0.0f) + (bc ? WB : 0.0f) + o;
+            yo[j] = y < 0.0f ? y + sh : y - sh;
+        }
+        return;
+    }
+}
+
+/* LOCATE, after Cold Mac's LOCATION: A added up at RATE, held at -1 and +1 (A at 0 holds it where it is); LEAK
+ * lets it drift back to 0; B rising: back to 0 */
+WK_FLASH static void wk_locate(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float yv = s->y, k = W->c1[i], lk = 1.0f - W->c2[i];
+        if (!(yv == yv))
+            yv = 0.0f;
+        for (j = j1; j < j2; j++) {
+            yv = clampf((yv + (ac ? WA : 0.0f) * k) * lk, -1.0f, 1.0f);
+            if (bc && wrise(WB, &s->prevb, 0.0f))
+                yv = 0.0f;
+            yo[j] = yv;
+        }
+        s->y = yv;
+        return;
+    }
+}
+
 WK_FLASH static void wk_tread(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -2180,6 +2267,9 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_SNAP] = wk_snap,
     [WO_TREAD] = wk_tread,
     [WO_TRKIN] = wk_trkin,
+    [WO_IMPULSE] = wk_impulse,
+    [WO_CREASE] = wk_crease,
+    [WO_LOCATE] = wk_locate,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,

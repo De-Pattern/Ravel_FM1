@@ -30,6 +30,8 @@ enum {
     WO_LAMINA, WO_FASCIA, WO_VISCERA, WO_SNAP, WO_TREAD,   /* layers apart; one sound's skin on another; a body that gives;
                                                          * a gesture kept; another track read */
     WO_TRKIN,                                           /* another track's sound, into the patch (send only: rv_engine.c) */
+    WO_IMPULSE, WO_CREASE, WO_LOCATE,                  /* a rise and fall on each cycle (after Mangrove); a cut at zero, a
+                                                         * clipped integrator (after Cold Mac) */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -150,6 +152,9 @@ static const wf_type_t wf_types[WO_N] = {
     {"SNAP", "LENGTH", "SMOOTH", "IN", "REC", 2, 10, 5, 0, wf_snapl, 0},
     {"TRACK", "TRACK", "WHAT", "SCALE", "ADD", 0, 0, 8, 5, wf_trk, wf_what},
     {"TRK IN", "TRACK", "LEVEL", "LEVEL", "ADD", 0, 100, 8, 0, wf_trk, 0},
+    {"IMPULSE", "FORMANT", "BARREL", "SYNC", "FORMANT", 50, 64, 0, 0, 0, 0},
+    {"CREASE", "SHIFT", "BIAS", "IN", "ADD", 64, 64, 0, 0, 0, 0},
+    {"LOCATE", "RATE", "LEAK", "IN", "RESET", 60, 0, 0, 0, 0, 0},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -222,7 +227,10 @@ static const char *const wf_desc[WO_N] = {
     "A BODY THAT GIVES WHEN HIT",
     "A GESTURE KEPT AND LOOPED",
     "ANOTHER TRACK, READ",
-    "ANOTHER TRACK'S SOUND IN"
+    "ANOTHER TRACK'S SOUND IN",
+    "A RISE AND FALL EACH CYCLE",
+    "A CUT AT ZERO, HALVES SWAPPED",
+    "A ADDED UP, HELD AT ITS EDGES"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -400,6 +408,18 @@ static const wf_preset_t wf_presets[] = {
       {WO_FASCIA, 3, 100, 6, 100, 30, 100}, {WO_SLOPE, 0, 0, 0, 0, 4, 70}, {WO_MULT, 3, 100, 8, 100, 64, 64},
       {WO_MIX, 7, 100, 9, 100, 40, 64}},
      10, 1, {WM(2, 0), WM(3, 0), WM(7, 1), WM(10, 0)}, 0},
+    {"MANGROVE",      /* an impulse each cycle (FORMANT, BARREL) into a sine fold for AIR, after Mannequins' Mangrove */
+     {{WO_IMPULSE, 0, 0, 0, 0, 50, 64}, {WO_FOLD, 1, 100, 0, 0, 40, 64}, {WO_SLOPE, 0, 0, 0, 0, 2, 70},
+      {WO_MULT, 2, 100, 3, 100, 64, 64}},
+     4, 2, {WM(1, 0), WM(1, 1), WM(2, 0), WM(3, 1)}, 0},
+    {"SPLIT TONE",    /* the impulse longer than a cycle, LFO 1 moving it across: the pitch divides, the tone splits */
+     {{WO_IMPULSE, 0, 0, WS_LFO1, 40, 26, 40}, {WO_FOLD, 1, 100, 0, 0, 25, 64}, {WO_SLOPE, 0, 0, 0, 0, 3, 80},
+      {WO_MULT, 2, 100, 3, 100, 64, 64}},
+     4, 2, {WM(1, 0), WM(1, 1), WM(2, 0), WM(3, 1)}, 0},
+    {"CREASED RAMP",  /* a ramp cut at zero, a slow cycle moving where (after Cold Mac's CREASE), through a low pass */
+     {{WO_PHASE, 0, 0, 0, 0, 2, 64}, {WO_CREASE, 1, 100, 5, 60, 64, 64}, {WO_LP, 2, 100, 0, 0, 70, 30},
+      {WO_SLOPE, 0, 0, 0, 0, 3, 70}, {WO_CYCLE, 0, 0, 0, 0, 20, 64}, {WO_MULT, 3, 100, 4, 100, 64, 64}},
+     6, 2, {WM(2, 0), WM(2, 1), WM(3, 0), WM(5, 0)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif
