@@ -1872,6 +1872,7 @@ RV_INL void voice_engine_reset(voice_t *v, int eng)
     case ENG_PARTICLE: v->e.pa.ns = v->rng | 1u; break;
     case ENG_RESIN: v->e.rs.ns = v->rng | 1u; break;
     case ENG_TINE: v->e.tn.ns = v->rng | 1u; break;
+    case ENG_GUITAR: v->e.gt.ns = v->rng | 1u; break;
     default: break;
     }
     v->e_eng = (uint8_t)(eng + 1);
@@ -2333,11 +2334,100 @@ RV_INL void tine_render(voice_t *v, const float *eff, float f, float *out, int n
     }
 }
 
+/* ------------------------------------------------------------ GUITAR --- */
+/* A plucked string (an extended Karplus-Strong): a burst into a delay tuned to the note, a low pass in its loop.
+ * PICK is the burst's brightness, POSITN where it is plucked (a comb on the burst), DECAY how long it rings, MUTE a
+ * palm on the bridge (darker, shorter), PICKUP where it is heard (another comb, bridge to neck), STRUM how far
+ * apart the notes of a chord start. The pedal, amp and cabinet are the track's (rv_engine.c gtr_amp). */
+static __attribute__((noinline)) RV_SMALL void gtr_pluck(gtr_t *s, const float *eff, float per, float vel)
+{
+    float pick = eff[TP_S0] * (1.0f / 127.0f), mute = eff[TP_S3] * (1.0f / 127.0f), lp = 0.0f, lp2 = 0.0f;
+    float c = clampf((0.08f + 0.9f * pick) * (0.6f + 0.4f * vel) * (1.0f - 0.5f * mute), 0.02f, 0.99f), scr = pick * pick * 0.25f;
+    float pos = 0.04f + eff[TP_S1] * (0.42f / 127.0f), amp = vel * 22000.0f, ip, ip2;
+    int len = clampi((int)per, 4, GT_LEN - 2), i, k, r0 = s->w - len;
+    if (r0 < 0)
+        r0 += GT_LEN;
+    ip = 1.0f / ((float)len * pos);
+    ip2 = 1.0f / ((float)len * (1.0f - pos));
+    for (i = 0; i < len; i++) {                       /* the string's shape as the pick lets go: a triangle with its
+                                                     * corner at POSITN (its harmonics fall as 1/n^2, those at the
+                                                     * position missing), rounded by the pick (PICK: soft to hard),
+                                                     * a little scrape with a hard one; laid on what still rings */
+        float x = (float)i < (float)len * pos ? (float)i * ip : (float)(len - i) * ip2;
+        x = x - 0.5f + scr * xs_bi(&s->ns);
+        lp += (x - lp) * c;
+        lp2 += (lp - lp2) * c;
+        k = r0 + i < GT_LEN ? r0 + i : r0 + i - GT_LEN;
+        s->line[k] = (int16_t)clampf((float)s->line[k] * 0.25f + lp2 * amp, -32000.0f, 32000.0f);
+    }
+    s->plucked = 1;
+}
+
+/* (in the flash: the voices' code in RAM has no room for it; the loop is short and stays in the cache) */
+static __attribute__((noinline)) void gtr_render(voice_t *v, const float *eff, float f, float *out, int n)
+{
+    gtr_t *s = &v->e.gt;
+    float decay = eff[TP_S2] * (1.0f / 127.0f), mute = eff[TP_S3] * (1.0f / 127.0f), pkup = eff[TP_S4] * (1.0f / 127.0f);
+    float per = 44100.0f / (f > 25.0f ? f : 25.0f), t60, g, lpc, lpd, d, pud, puc, tm;
+    int i, len;
+    if ((uint32_t)s->w >= GT_LEN)                     /* (the voice's memory may hold another engine's bytes) */
+        s->w = 0;
+    if (!(s->lp == s->lp) || fm_fabsf(s->lp) > 4.0f || !(s->dcy == s->dcy) || !(s->pu == s->pu))
+        s->lp = s->dcx = s->dcy = s->pu = 0.0f;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    s->held += (float)n * RV_DT;
+    if (!s->plucked) {
+        if (s->wait > (float)n)
+            s->wait -= (float)n;
+        else
+            gtr_pluck(s, eff, per, v->vel);
+    }
+    t60 = 0.35f + decay * decay * 13.0f;
+    t60 *= clampf(fm_sqrtf(196.0f / (f > 20.0f ? f : 20.0f)), 0.35f, 1.6f);   /* the low strings ring longer */
+    tm = 0.05f + 0.3f * (1.0f - mute);                /* MUTE: the palm shortens it, */
+    t60 += (tm - t60) * fm_minf(1.0f, mute * 1.6f);
+    if (!v->a.gate)                                   /* the fretting hand lets go */
+        t60 = fm_minf(t60, 0.09f);
+    lpc = clampf(0.5f + 0.47f * (1.0f - mute) - 0.3f * mute, 0.12f, 0.97f);   /* and darkens it */
+    g = fm_exp2f(-per / (t60 * 44100.0f) * 9.97f);
+    lpd = (1.0f - lpc) / lpc;                         /* the loss filter's delay, tuned out */
+    d = clampf(per - lpd, 2.0f, (float)(GT_LEN - 3));
+    len = (int)d;
+    pud = clampf((float)len * (0.05f + 0.22f * (1.0f - pkup)), 1.0f, (float)(GT_LEN - 3));   /* PICKUP: bridge (bright) to neck */
+    puc = 0.3f + 0.65f * pkup;
+    for (i = 0; i < n; i++) {
+        float fr = d - (float)len, a0, a1, y, pu;
+        int r0 = s->w - len, r1, rp;
+        if (r0 < 0)
+            r0 += GT_LEN;
+        r1 = r0 - 1;
+        if (r1 < 0)
+            r1 += GT_LEN;
+        a0 = ((float)s->line[r0] + (float)(s->line[r1] - s->line[r0]) * fr) * (1.0f / 16000.0f);
+        s->lp += (a0 - s->lp) * lpc;
+        y = s->lp * g;
+        s->line[s->w] = (int16_t)clampf(y * 16000.0f, -32000.0f, 32000.0f);
+        rp = s->w - (int)pud;
+        if (rp < 0)
+            rp += GT_LEN;
+        if (++s->w >= GT_LEN)
+            s->w = 0;
+        a1 = (float)s->line[rp] * (1.0f / 16000.0f);
+        pu = y - a1 * 0.6f;                           /* the pickup hears the string less where it sits */
+        s->pu += (pu - s->pu) * puc;
+        pu = s->pu - s->dcx + 0.995f * s->dcy;        /* (no DC) */
+        s->dcx = s->pu;
+        s->dcy = pu;
+        out[i] = pu * 0.9f;
+    }
+}
+
 #include "rv_zplane.h"
 
 /* each engine's output trim, so a default patch of any engine plays at about the same loudness
  * (measured: the loudest 50 ms of a held C3 at default settings) */
-static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f};
+static const float eng_trim[ENG_N] = {1.000f, 2.018f, 0.822f, 2.042f, 0.620f, 1.380f, 0.617f, 1.000f, 1.000f, 0.519f, 0.646f, 1.000f, 1.000f, 1.000f};
 
 /* renders n samples of a synth voice, filtered and enveloped, added to out; returns its level */
 /* the voice after its source, a sample at a time: the envelope, the filter, the level (RAM code on the
@@ -2435,6 +2525,7 @@ RV_HOT2 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int
     case ENG_MONO: mono_render(v, eff, f, buf, n); break;
     case ENG_RESIN: resin_render(v, eff, f, buf, n); break;
     case ENG_TINE: tine_render(v, eff, f, buf, n); break;
+    case ENG_GUITAR: RV_FAR(gtr_render)(v, eff, f, buf, n); break;
     default: part_render(v, eff, f, buf, n); break;
     }
     /* the filter: cutoff from its knob, the FILTER ENV, the key */

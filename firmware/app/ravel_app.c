@@ -16,8 +16,9 @@
 #include "rv_bank.c"
 #include "rv_xfer.c"
 #include "rv_stress.c"
-/* the interface and the start screen run beside the sound, not in it: on the FM-1 they are built for size (the
- * flash is nearly full), the drawing primitives (rv_gfx.c) excepted */
+/* the interface and the start screen run beside the sound, not in it: on the FM-1 they are meant to be built for
+ * size (the flash is nearly full), the drawing primitives (rv_gfx.c) excepted. (The FM-1's clang 4 ignores this
+ * pragma; its largest functions are marked RV_SMALL by hand: draw_picture, ui_frame, ui_input_only, knob_turn) */
 #if defined(RV_FM1) && defined(__clang__)
 #pragma clang attribute push(__attribute__((minsize)), apply_to = function)
 #define RV_UI_MINSIZE 1

@@ -10,6 +10,11 @@
  * sin 4e-7 and cos 4e-6 absolute on [-100, 100], sin of turns 2e-7.
  * NaN in, anything out; denormals are not produced for in-range arguments. */
 #pragma once
+#ifdef __clang__
+#define RV_SMALL __attribute__((minsize))   /* code that runs now and then: built for size */
+#else
+#define RV_SMALL
+#endif
 #include <stdint.h>
 
 #define FM_PI 3.14159265358979f

@@ -103,6 +103,23 @@ typedef struct {
     svf_t thr;                              /* HORN's throat */
     uint32_t ns;
 } resin_t;
+/* GUITAR: one string, plucked (PICK, POSITN) when its STRUM wait is over, read at the PICKUP. Its line is long
+ * enough for an octave below a guitar's low E (the voice's memory: no bigger than RESIN's) */
+#define GT_LEN 1500                         /* about 29.4 Hz lowest */
+typedef struct {
+    int16_t line[GT_LEN];
+    int32_t w;
+    float lp, dcx, dcy, pu, wait, held;     /* the loop's loss, the pickup's DC block, its tone; samples to the pluck, time held */
+    uint32_t ns;
+    uint8_t plucked;
+} gtr_t;
+/* GUITAR's pedal, amp and cabinet: one per track, in the INSERT's memory (a guitar track has no INSERT) */
+typedef struct {
+    float hp, lp, lp2, tl, tl2;             /* the pedal: its high pass, low passes, TONE; (tl2: the tone stack's) */
+    float tight, aa, s1hp, s1lp, s2lp, prs; /* the amp: tightening, before the stages, between them, PRESENCE */
+    svf_t cb[2];                            /* the cabinet */
+} gtr_amp_t;
+
 /* LOGIC: three sources, the smoothing, and the grains' memory (the voice's own last 23 ms) */
 #define RV_LOGIC_BUF 1024
 typedef struct {
@@ -138,8 +155,9 @@ typedef struct {
     float last;
     uint32_t rng;
     hitshade_t hs;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; } e;
+    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; gtr_t gt; } e;
 } voice_t;
+_Static_assert(sizeof(gtr_t) <= sizeof(resin_t), "GUITAR fits in the voice's memory as it is");
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */
 typedef struct {
@@ -200,6 +218,7 @@ typedef struct {
     float prev[RV_SUB];             /* the last one: influence audio reads it */
     float exc[RV_SUB];              /* excitation coming in (influence, feedback return) */
     uint8_t exc_on;                 /* any this step */
+    uint8_t ins_own;                /* whose the insert's memory is: 0 none yet, 1 the INSERT, 2 GUITAR's amp */
     float ring_amt;                 /* the RING routes into it, all told (their carrier: summed in the chain) */
     float lead_env, lead_vel;       /* newest voice's articulation level, velocity */
     float lead_key;                 /* newest note, semitones from C4 (the KEY source) */
@@ -207,15 +226,20 @@ typedef struct {
     /* skin */
     float derez_hold, derez_ph;
     dcb_t dc;
-    /* insert */
-    int16_t comb[256];
-    int32_t comb_w;
-    float comb_lp;
-    int16_t smear[300];
-    int32_t sm_i[4];
-    float sh_ph, sh_z, hilb_i[16], hilb_q[16];
-    float crush_hold;
-    int32_t crush_n;
+    /* insert (or a GUITAR track's amp, in the same memory: ins_own says whose it is) */
+    union {
+        struct {
+            int16_t comb[256];
+            int32_t comb_w;
+            float comb_lp;
+            int16_t smear[300];
+            int32_t sm_i[4];
+            float sh_ph, sh_z, hilb_i[16], hilb_q[16];
+            float crush_hold;
+            int32_t crush_n;
+        };
+        gtr_amp_t amp;
+    };
     /* pan */
     float pan_l, pan_r;
     float scope_acc;
@@ -225,6 +249,7 @@ typedef struct {
     int32_t ch_w;
     float ch_ph, ch_lp;
 } track_t;
+_Static_assert(sizeof(gtr_amp_t) <= 512, "GUITAR's amp fits in the INSERT's memory");
 
 /* ---------------------------------------------------------- sequencer --- */
 enum { EV_ON, EV_OFF, EV_ADV, EV_ARP, EV_CUT, EV_AOFF, EV_TRIG, EV_SPARK };   /* EV_ARP, EV_AOFF: an arpeggiator's step, and its note's end */

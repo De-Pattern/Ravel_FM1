@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.32.0
+
+New
+- GUITAR, a fourteenth synth engine: an electric guitar and its rig on one track. A plucked string per voice (PICK, POSITN, DECAY, MUTE for palm mutes, the PICKUP from bridge to neck, STRUM to spread a chord), then for the whole track a drive pedal (BOOST, OD, DIST, FUZZ, with DRIVE and TONE), an amp (CLEAN, CRUNCH, HIGH, LEAD, with GAIN, BASS, MID, TREBLE, PRESENCE) and a cabinet (1X12, 2X12, 4X12). The pedal and amp follow M-PYRE's (History Of Sky); synthesized, no samples. The amp takes the INSERT's place on a GUITAR track. One voice with GLIDE slides. Presets: CLEAN CHIME, CRUNCH RIFF, PALM CHUG, SINGING LEAD, FUZZ WALL.
+
+Changed
+- The interface's four largest functions are built for size on the FM-1, as the interface was meant to be (the toolchain had been ignoring the setting): room in the flash for GUITAR.
+
 ## 1.31.0
 
 New

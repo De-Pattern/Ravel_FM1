@@ -1436,7 +1436,7 @@ static void kb_set(kb_t k, int v)
             rv_hfm_defaults(rv.tp[ui.track]);           /* (HYBRID FM's further pages) */
             if (v == ENG_CZ)
                 rv_cz_init(ui.track);
-            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE)
+            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE || v == ENG_GUITAR)
                 rv_engine_track_defaults(ui.track, v);
             return;
         }
@@ -2097,7 +2097,7 @@ static int accel(int d, int i)
     return d;
 }
 
-static void knob_turn(int i, int d)
+static RV_SMALL void knob_turn(int i, int d)
 {
     const page_t *pg = cur_page();
     kb_t k = page_knob(pg, i);
@@ -3447,7 +3447,7 @@ static void vio_keys(uint32_t struck, uint32_t held)
     rv_live.vheld += (fm_minf(1.0f, (float)n * (1.0f / 6.0f)) - rv_live.vheld) * fm_minf(1.0f, dt * 25.0f);
 }
 
-void ui_input_only(void)
+RV_SMALL void ui_input_only(void)
 {
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
     int i, d;
@@ -4174,7 +4174,8 @@ static void pic_source(void)
                                                 "VOWELS: FILTER BANK OR FOF", "PULSAR EMITTERS, COUPLED",
                                                 "SID WAVES, ARP OFFSETS, DECOMPOSE", "WAVETABLES: 2 OSCS, WARPS, WAVE ENV", "LOGIC: 3 SOURCES, 2 FUNCTIONS, GRAINS",
                                                 "PIPE ORGAN: RANKS, SPEECH, AIR, WIND", "SH-101 STYLE, PLAYED LIKE A HORN",
-                                                "BOWED STRING OR REED, AND QUAKE", "KALIMBA, MARIMBA, ELECTRIC PIANO"};
+                                                "BOWED STRING OR REED, AND QUAKE", "KALIMBA, MARIMBA, ELECTRIC PIANO",
+                                                "STRING, PEDAL, AMP, CABINET"};
         int e = clampi(rv.tp[t][TP_ENGINE], 0, ENG_N - 1);
         if (e == ENG_WAVE) {                          /* the wavetable: its waves stacked back to front, the one playing lit */
             const rv_pinfo *tn = rv_pinfo_track(t, TP_S0);
@@ -6406,7 +6407,7 @@ static void pic_bank(void)
     }
 }
 
-static void draw_picture(void)
+static RV_SMALL void draw_picture(void)
 {
     g_fill(0, PIC_Y - 2, 240, PIC_H + 2, C_BG);
     switch (cur_page()->pic) {
@@ -6600,7 +6601,7 @@ static void draw_help(void)
     }
 }
 
-void ui_frame(void)
+RV_SMALL void ui_frame(void)
 {
     int b, i, j;
     if (ui_intro_on()) {                              /* the start screen has the screen until it ends or is skipped */

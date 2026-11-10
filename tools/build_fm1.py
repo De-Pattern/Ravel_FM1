@@ -223,6 +223,8 @@ def build_app():
     b = os.environ.get("RAVEL_BENCH")       # a bench build for the emulator (DEMO 1, a WEFT patch on T1, playing)
     if b is not None and b.lstrip("-").isdigit():
         flags.append(f"-DRAVEL_BENCH={int(b)}")
+        if os.environ.get("RAVEL_BENCH_ENG", "").isdigit():   # (and T1 a synth on that engine, its defaults)
+            flags.append(f"-DRAVEL_BENCH_ENG={int(os.environ['RAVEL_BENCH_ENG'])}")
         if os.environ.get("RAVEL_BENCH_SLOWUI") == "1":
             flags.append("-DRAVEL_BENCH_SLOWUI")
     if os.environ.get("RAVEL_DEBUG") == "1":    # line numbers in the ELF (tools/emu_prof.py --lines); the code is the same

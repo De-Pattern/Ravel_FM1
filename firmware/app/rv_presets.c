@@ -100,6 +100,12 @@ static const int8_t p_throatsax[] = {TP_S0, 1, TP_PITCH, -12, TP_S1, 90, TP_S2, 
                                      TP_ATK, 30, TP_SUS, 127, TP_REL, 60, TP_REVS, 30, TP_LEVEL, 100, END};
 /* TINE: thumb pianos, bars and tines; the track open and held, the engine's own decay */
 #define TN_OPEN TP_POLY, 3, TP_FTYPE, FT_LP, TP_CUT, 127, TP_RES, 0, TP_EFILT, 0, TP_KTRK, 0, TP_ATK, 0, TP_SUS, 127, TP_REL, 90, TP_VELO, 100, TP_LEVEL, 100
+/* GUITAR (its track defaults from rv_engine_track_defaults: open, four strings; the knobs from their defaults) */
+static const int8_t g_clean[] = {TP_S0, 55, TP_S1, 25, TP_S2, 100, TP_S4, 20, TP_S5, 22, TP_S6, 0, TP_S9, 0, TP_S11, 58, TP_S13, 80, TP_S14, 72, TP_S15, 1, TP_REVS, 35, END};
+static const int8_t g_crunch[] = {TP_S0, 75, TP_S2, 85, TP_S5, 12, TP_S7, 45, TP_S10, 72, TP_S15, 2, TP_REVS, 15, END};
+static const int8_t g_chug[] = {TP_S0, 95, TP_S2, 70, TP_S3, 95, TP_S4, 10, TP_S7, 75, TP_S8, 72, TP_S9, 2, TP_S10, 82, TP_S11, 76, TP_S12, 48, TP_S13, 72, TP_POLY, 1, TP_PITCH, -12, END};
+static const int8_t g_lead[] = {TP_S0, 70, TP_S2, 125, TP_S4, 100, TP_S7, 78, TP_S9, 3, TP_S10, 88, TP_S12, 76, TP_POLY, 0, TP_GLIDE, 8, TP_DLYS, 40, TP_REVS, 25, END};
+static const int8_t g_fuzz[] = {TP_S0, 80, TP_S2, 110, TP_S5, 30, TP_S6, 4, TP_S7, 92, TP_S8, 52, TP_S10, 55, TP_PITCH, -12, TP_REVS, 20, END};
 static const int8_t p_thumbpiano[] = {TP_S0, 0, TP_S1, 75, TP_S2, 75, TP_S3, 60, TP_S4, 55, TP_S5, 50, TP_S6, 60, TP_S7, 60, TP_S8, 60, TP_S9, 64, TP_S10, 0, TP_S11, 45, TP_S12, 25, TP_S13, 30, TP_S14, 50, TP_S15, 15, TN_OPEN, TP_REVS, 30, END};
 static const int8_t p_nailkalimba[] = {TP_S0, 0, TP_S1, 80, TP_S2, 80, TP_S3, 45, TP_S4, 110, TP_S5, 95, TP_S6, 95, TP_S7, 105, TP_S8, 85, TP_S9, 50, TP_S10, 0, TP_S11, 60, TP_S12, 55, TP_S13, 55, TP_S14, 45, TP_S15, 25, TN_OPEN, TP_PITCH, -12, TP_REVS, 25, TP_LEVEL, 88, END};
 static const int8_t p_handwah[] = {TP_S0, 0, TP_S1, 70, TP_S2, 80, TP_S3, 65, TP_S4, 45, TP_S5, 40, TP_S6, 55, TP_S7, 55, TP_S8, 90, TP_S9, 70, TP_S10, 45, TP_S11, 35, TP_S12, 20, TP_S13, 20, TP_S14, 50, TP_S15, 15, TN_OPEN, TP_REVS, 35, END};
@@ -320,6 +326,9 @@ static const rv_preset presets[] = {
     {"ORGANIC SAW", KIND_SYNTH, ENG_MONO, m_organic, 0}, {"WOODWIND", KIND_SYNTH, ENG_MONO, m_woodwind, 0},
     {"CELLO LINE", KIND_SYNTH, ENG_MONO, m_cello, 0}, {"RUBBER BASS", KIND_SYNTH, ENG_MONO, m_rubber, 0},
     {"SCOOP LEAD", KIND_SYNTH, ENG_MONO, m_scoop, 0},
+    {"CLEAN CHIME", KIND_SYNTH, ENG_GUITAR, g_clean, 0}, {"CRUNCH RIFF", KIND_SYNTH, ENG_GUITAR, g_crunch, 0},
+    {"PALM CHUG", KIND_SYNTH, ENG_GUITAR, g_chug, 0}, {"SINGING LEAD", KIND_SYNTH, ENG_GUITAR, g_lead, 0},
+    {"FUZZ WALL", KIND_SYNTH, ENG_GUITAR, g_fuzz, 0},
     {"WOOD", KIND_STRIKE, 0, s_wood, 0}, {"METAL", KIND_STRIKE, 0, s_metal, 0}, {"KICK BODY", KIND_STRIKE, 0, s_kick, 0},
     {"SNARE AIR", KIND_STRIKE, 0, s_snare, 0}, {"HAT", KIND_STRIKE, 0, s_hat, 0}, {"DUST BELL", KIND_STRIKE, 0, s_dustbell, 0},
     {"RAIN GLASS", KIND_STRIKE, 0, s_rain, 0}, {"BOWED BAR", KIND_STRIKE, 0, s_bowbar, 0}, {"STRINGS", KIND_STRIKE, 0, s_strings, 0},

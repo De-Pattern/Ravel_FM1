@@ -1,0 +1,90 @@
+# GUITAR: each factory guitar plays (a chord, a riff), stays in bounds; the amp's memory is the INSERT's, so a
+# GUITAR track turned back into a VA with a COMB insert starts that insert clean (no burst), and back again.
+wait 300
+tap EDIT
+wait 200
+expect page SOUND
+turn K2 20
+wait 200
+expect tp 1 ENGINE 13
+expect tp 1 VOICES 3
+expect tp 1 CUTOFF 127
+expect tp 1 PEDAL 2
+expect tp 1 AMP 1
+expect tp 1 CAB 3
+key 7 down
+wait 300
+key 7 up
+wait 100
+tap HOME
+preset 1 77
+expect tp 1 ENGINE 13
+expect tp 1 VOICES 3
+wav guitar_clean.wav
+key 7 down
+key 11 down
+key 14 down
+wait 700
+key 7 up
+key 11 up
+key 14 up
+wait 200
+wavstop
+expect peak_db_min -30
+expect meter_max 1 1.0
+preset 1 78
+wait 50
+key 2 down
+key 9 down
+key 14 down
+wait 600
+key 2 up
+key 9 up
+key 14 up
+preset 1 79
+wait 50
+key 2 down
+wait 120
+key 2 up
+key 2 down
+wait 120
+key 2 up
+preset 1 80
+expect tp 1 VOICES 0
+wait 50
+key 14 down
+wait 200
+key 16 down
+key 14 up
+wait 600
+key 16 up
+preset 1 81
+wait 50
+wav guitar_fuzz.wav
+key 7 down
+key 14 down
+key 19 down
+wait 900
+key 7 up
+key 14 up
+key 19 up
+wait 200
+wavstop
+expect peak_db_min -30
+expect meter_max 1 1.0
+settp 1 ENGINE 0
+settp 1 INSERT 1
+settp 1 MIX 90
+wait 50
+key 7 down
+wait 400
+key 7 up
+wait 200
+expect meter_max 1 1.0
+preset 1 78
+wait 50
+key 7 down
+wait 400
+key 7 up
+wait 300
+expect meter_max 1 1.0

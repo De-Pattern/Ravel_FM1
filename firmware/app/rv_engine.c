@@ -195,6 +195,9 @@ RV_INL void synth_flush(voice_t *v)
         fm_flush_n(&v->e.tn.blp, 1);
         fm_flush_n(&v->e.tn.thlp, 1);
         break;
+    case ENG_GUITAR:
+        fm_flush_n(&v->e.gt.lp, 4);
+        break;
     case ENG_PHYS:
         fm_flush_n(&v->e.ph.mode_s[0][0], 12);
         fm_flush_n(&v->e.ph.lp, 6);
@@ -261,6 +264,19 @@ static int synth_free_or_steal(void)
     return pick < 0 ? 0 : pick;
 }
 
+/* GUITAR: a note starts its string; STRUM holds it back by the strings of the chord just struck before it */
+static __attribute__((noinline)) RV_SMALL void gtr_note(voice_t *v, const float *eff, int t, int legato)
+{
+    gtr_t *s = &v->e.gt;
+    int i, idx = 0;
+    if (legato)                                       /* a slide: the string rings on, the pitch glides */
+        return;
+    for (i = 0; i < RV_SYNTH_VOICES; i++)
+        idx += &vs[i] != v && vs[i].on && vs[i].track == t && vs[i].e_eng == ENG_GUITAR + 1 && vs[i].e.gt.held < 0.03f;
+    s->plucked = 0;
+    s->held = 0.0f;
+    s->wait = (float)idx * eff[TP_S5] * (0.045f * 44100.0f / 127.0f);   /* up to 45 ms a string */
+}
 static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
 {
     track_t *tr = &trk[t];
@@ -349,6 +365,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             tine_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_MONO)
             mono_note(vo, tr->eff, legato);
+        else if (rv.tp[t][TP_ENGINE] == ENG_GUITAR)
+            gtr_note(vo, tr->eff, t, legato);
     } else if (kind == KIND_STRIKE) {
         int poly = clampi(rv.tp[t][TP_POLY], 0, 1) + 1, count = 0, pick = -1;
         uint32_t oldest = 0xFFFFFFFFu;
@@ -1803,12 +1821,92 @@ RV_HOT static int chain_plain(const float *src, float *buf, int n, dcb_t *dc, fl
     *pk = peak;
     return bad;
 }
+/* GUITAR's pedal, amp and cabinet, on the track's voices together (a chord distorts as one): after M-PYRE's
+ * (History Of Sky, GPL-3.0): the pedals' shapes (OD: the mids clipped onto the clean note; FUZZ: two stages, then
+ * the scooped tone), the amp's tightening high pass, biased stages (even harmonics), tone stack and cabinet. Here
+ * at the sample rate and in float, the cabinet two filters instead of an impulse response: it costs about as much
+ * as an INSERT, in the INSERT's memory */
+typedef struct { float tight, aa, ts, g1, g2, bias, mid, out; } gtr_model_t;
+static const gtr_model_t gtr_models[4] = {
+    {45.0f, 9000.0f, 450.0f, 1.6f, 0.0f, 0.08f, 1.0f, 1.3f},          /* CLEAN: one stage, barely pushed */
+    {75.0f, 7000.0f, 550.0f, 4.0f, 2.2f, 0.18f, 0.95f, 0.55f},       /* CRUNCH */
+    {130.0f, 6000.0f, 650.0f, 11.0f, 6.0f, 0.22f, 0.7f, 0.42f},      /* HIGH: tight, scooped */
+    {95.0f, 5200.0f, 800.0f, 8.0f, 9.0f, 0.12f, 1.25f, 0.42f}};      /* LEAD: singing mids */
+/* the cabinets: the low corner, its Q, its bump; the high corner, its Q (1X12, 2X12, 4X12) */
+static const float gtr_cabs_f[3][5] = {{100.0f, 1.0f, 0.35f, 4800.0f, 1.1f}, {85.0f, 1.2f, 0.55f, 4200.0f, 1.3f},
+                                      {75.0f, 1.4f, 0.8f, 3600.0f, 1.6f}};
+static const float gtr_ped_g[5] = {0.0f, 1.0f, 6.0f, 20.0f, 12.0f}, gtr_ped_l[5] = {1.0f, 1.0f, 0.8f, 0.45f, 0.35f};
+static __attribute__((noinline)) void gtr_amp(track_t *tr, const float *src, float *dst, int n)
+{
+    gtr_amp_t *a = &tr->amp;
+    const float *eff = tr->eff;
+    int ped = clampi((int)(eff[TP_S6] + 0.5f), 0, 4), cab = clampi((int)(eff[TP_S15] + 0.5f), 0, 3), i;
+    const gtr_model_t *m = &gtr_models[clampi((int)(eff[TP_S9] + 0.5f), 0, 3)];
+    const float *cf = gtr_cabs_f[cab ? cab - 1 : 0];
+    float drv = eff[TP_S7] * (1.0f / 127.0f), tk = eff[TP_S8] * (2.0f / 127.0f), gk = fm_exp2f((eff[TP_S10] - 64.0f) * (2.5f / 64.0f));
+    float bass = eff[TP_S11] * (1.0f / 64.0f), mid = eff[TP_S12] * (1.0f / 64.0f) * m->mid, treb = eff[TP_S13] * (1.0f / 64.0f);
+    float prs = eff[TP_S14] * (1.0f / 64.0f) - 1.0f, pg = fm_exp2f((drv - 0.5f) * 6.0f), pl = gtr_ped_l[ped];
+    float g1 = m->g1 * gk, g2 = m->g2 * gk, b0 = sat(m->bias), out = m->out, bump = cf[2], c[11];
+    const float hz[11] = {ped == 3 ? 300.0f : 720.0f, ped == 4 ? 700.0f : 5000.0f, 1500.0f, 1000.0f, m->tight, m->aa,
+                          25.0f, m->aa * 1.3f, 3000.0f, m->ts * 0.5f, m->ts * 2.0f};
+    for (i = 0; i < 11; i++)                          /* (the one-poles: one place in the code) */
+        c[i] = op_coef(hz[i]);
+    for (i = 0; i < 2; i++)
+        svf_set(&a->cb[i], cf[i * 3], cf[i * 3 + 1]);
+    if (ped == 1)
+        pl = 0.5f + 1.5f * drv;                       /* BOOST: its level is its drive */
+    pg *= gtr_ped_g[ped];
+    for (i = 0; i < n; i++) {
+        float x = src[i], y, bp, hp, lo;
+        if (ped) {                                    /* the pedal */
+            a->hp += (x - a->hp) * c[0];
+            hp = x - a->hp;
+            if (ped == 1)                             /* BOOST: louder, the highs up */
+                y = x + hp * 0.8f;
+            else {                                    /* OD: the mids clipped onto the clean note; DIST: hard, from
+                                                     * 300 Hz; FUZZ: all of it, twice, the second near square */
+                y = sat((ped == 4 ? x : hp) * pg);
+                if (ped == 4)
+                    y = sat(y * 5.0f);
+                if (ped == 2)
+                    y = x + y * 0.5f;
+                a->lp += (y - a->lp) * c[1];
+                a->lp2 += (y - a->lp2) * c[2];
+                y = ped == 4 ? a->lp + (y - a->lp2) : a->lp;   /* (FUZZ: the mids scooped, its tone stack) */
+            }
+            a->tl += (y - a->tl) * c[3];              /* TONE: the highs over 1 kHz, none to twice */
+            x = (a->tl + (y - a->tl) * tk) * pl;
+        }
+        a->tight += (x - a->tight) * c[4];            /* the amp: tightened, */
+        a->aa += (x - a->tight - a->aa) * c[5];       /* rounded off before it clips, */
+        y = sat(a->aa * g1 + m->bias) - b0;           /* the first stage (biased: even harmonics), */
+        if (g2 > 0.0f) {
+            a->s1hp += (y - a->s1hp) * c[6];          /* coupled to the second */
+            a->s1lp += (y - a->s1hp - a->s1lp) * c[7];
+            y = sat(a->s1lp * g2);
+        }
+        a->tl2 += (y - a->tl2) * c[9];                /* the tone stack: three bands, flat at noon */
+        a->s2lp += (y - a->s2lp) * c[10];
+        lo = a->tl2;
+        hp = y - a->s2lp;
+        y = lo * bass + (y - lo - hp) * mid + hp * treb;
+        y = sat(y * 1.2f) * 0.85f;                    /* the power stage, */
+        a->prs += (y - a->prs) * c[8];                /* PRESENCE: the top of it */
+        y += (y - a->prs) * prs;
+        if (cab) {                                    /* the cabinet: its low end and thump, its top falling away */
+            svf_tick(&a->cb[0], y, &bp, &hp);
+            y = svf_tick(&a->cb[1], hp + bp * a->cb[0].k * bump, 0, 0);
+        }
+        dst[i] = y * out;                             /* (the DC the biased stages leave: the chain's DC block takes it) */
+    }
+}
+
 static __attribute__((noinline)) void chain_a(int t, int n, const float *src, int core)
 {
     track_t *tr = &trk[t];
     const float *eff = tr->eff;
     float drive, fld, derez, ia, ib, imix, peak = 0.0f, ring = tr->ring_amt, *ring_buf = ring_bufs[core & 1];
-    int bits, mask, ins, chain_bad = 0, n_chain = n, i;
+    int bits, mask, ins, gtr, chain_bad = 0, n_chain = n, i;
     drive = eff[TP_DRIVE] * (1.0f / 127.0f);
     fld = eff[TP_FOLD] * (1.0f / 127.0f);
     bits = (int)(eff[TP_BITS] + 0.5f);
@@ -1818,11 +1916,22 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
     ia = eff[TP_INA] * (1.0f / 127.0f);
     ib = eff[TP_INB] * (1.0f / 127.0f);
     imix = eff[TP_INMIX] * (1.0f / 127.0f);
+    gtr = rv.tp[t][TP_KIND] == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_GUITAR;
+    if (gtr)
+        ins = 0;                                    /* (GUITAR: its amp in the INSERT's place) */
+    if ((gtr || ins) && tr->ins_own != (gtr ? 2 : 1)) {   /* the memory changes hands: from nothing */
+        __builtin_memset(tr->comb, 0, (unsigned)((char *)(&tr->crush_n + 1) - (char *)tr->comb));
+        tr->ins_own = (uint8_t)(gtr ? 2 : 1);
+    }
     if (ring <= 0.001f && peak_of(src, n) <= 1e-7f) {   /* nothing in: once its chain has rung out, skip it */
         if (tr->quiet >= BUS_HOLD)
             n_chain = 0;
     } else {
         tr->quiet = 0;
+    }
+    if (gtr && n_chain) {                           /* GUITAR: the pedal, the amp, the cabinet */
+        gtr_amp(tr, src, tr->buf, n_chain);
+        src = tr->buf;
     }
     if (ring > 0.001f && n_chain) {                 /* RING: the carriers, the other tracks' last step (as summed before) */
         int a;
@@ -1878,6 +1987,7 @@ static __attribute__((noinline)) void chain_a(int t, int n, const float *src, in
         __builtin_memset(tr->hilb_q, 0, sizeof(tr->hilb_q));
         tr->comb_lp = tr->sh_z = tr->crush_hold = tr->derez_hold = 0.0f;
         tr->ring_amt = 0.0f;
+        tr->ins_own = 0;                            /* (its memory, whoever's: cleared when next used) */
         zero_buf(tr->exc, n);
     }
     tr->cpk = peak;

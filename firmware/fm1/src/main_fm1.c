@@ -302,6 +302,10 @@ static void fm1_main(void)
             rv_track_set_kind(0, 6);               /* (KIND_WEFT) */
             rv_weft_preset(0, RAVEL_BENCH);
         }
+#ifdef RAVEL_BENCH_ENG
+        {   void rv_track_defaults(int t, int kind, int engine);
+            rv_track_defaults(0, 0, RAVEL_BENCH_ENG); }
+#endif
         rv_transport(1);
 #ifdef RAVEL_BENCH_SLOWUI
         ui_slow = 1;                                /* (and the screen once a second: what drawing costs the audio) */
