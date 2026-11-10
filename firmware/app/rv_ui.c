@@ -2837,6 +2837,11 @@ static void key_event(int k, int on)
     if (btn & (1u << B_FX)) {                 /* punch-in effects on the white keys */
         if (wi >= 0 && wi < 8)
             rv_punch(wi, on);
+        else if (bi >= 0 && bi < 5 && on) {   /* the black keys: REPEAT's division (at once if it is held) */
+            static const char *const div[5] = {"REPEAT 1/16", "REPEAT 1/16T", "REPEAT 1/32", "REPEAT 1/32T", "REPEAT 1/64"};
+            rv_punch(8, bi);
+            msg(div[bi]);
+        }
         ui.layer_used[B_FX] = 1;
         return;
     }
@@ -3823,7 +3828,7 @@ static void draw_footer(void)
     else if (btn & (1u << B_LFO))
         hint = "KNOBS: MACRO 1-4";
     else if (btn & (1u << B_FX))
-        hint = "LOOP REV STUT FRZ LP HP THRW FILL";
+        hint = "LOOP REV STT RPT LO HI THR FIL";
     else if (btn & (1u << B_GLO))
         hint = pg->pic == PIC_MUTES ? "1-8 SOLO  BLK1 TAP" : "1-8 MUTE  9-16 SOLO  BLK1 TAP";
     else if (btn & (1u << B_SAVE))
@@ -6585,6 +6590,7 @@ static void draw_help(void)
             "REC: ARM. STOPPED ON SEQ: STEP BY STEP",
             "REC + SAVE: TAKE THE LAST LOOP PLAYED",
             "FX + KEYS 1-8: PUNCH-IN EFFECTS",
+            "FX + BLACK 1-5: REPEAT 1/16 TO 1/64",
             "GLO + KEYS: MUTE 1-8, SOLO 9-16",
             "SAVE + KEY: STORE A SCENE",
             "LFO + KNOBS: MACROS 1-4   SCL + KEY: ROOT",

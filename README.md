@@ -1104,9 +1104,13 @@ Each track can send part of its sound into three shared effects (buses): the del
 
 | Key | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Effect | LOOP (microcut) | REVERSE | STUTTER | FREEZE the delay | LOW PASS sweep | HIGH PASS sweep | THROW: everything into delay and space | FILL: steps set to FILL play |
+| Effect | LOOP (microcut) | REVERSE | STUTTER | REPEAT: the master repeated in time | LOW PASS sweep | HIGH PASS sweep | THROW: only the echoes and the space | FILL: steps set to FILL play |
 
 The effects last while the key is held. Letting go of FX releases them all.
+
+- **REPEAT** (key 4) takes the last slice of the master output, a tempo division long, and repeats it for as long as you hold it. While FX is held, the **black keys 1–5** set the division: **1/16, 1/16T, 1/32, 1/32T, 1/64** (1/32 to start with). Pressed while REPEAT is held, the new division takes a fresh slice at once, so you can roll it faster or slower as you play. A slice can be at most 93 ms: a division longer than that at the tempo (1/16 below about 160 BPM) is halved until it fits, so it stays on the beat. It shares the microcut memory, so it doesn't work while a LOOP track is using it. (The delay's freeze is still on its knob: DELAY 2 › FREEZE.)
+- **LOW PASS** (key 5) closes from 8 kHz to 300 Hz, and **HIGH PASS** (key 6) opens from 40 Hz to 6 kHz, each over one bar from the moment you press it.
+- **THROW** (key 7) sends everything into the delay and the space and fades the dry sound out (in about 80 ms), so only the echoes and the space play; letting go brings the dry back.
 
 ## 10. SCL: scale
 
@@ -1496,7 +1500,7 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 | **SEQ** | white keys | Steps, from any page. Hold a step and turn a knob to lock that value on that step. |
 | **SEQ + ENV** | hold a step, turn KNOB 1 | The step's LIBRARY envelope |
 | **LFO** | KNOB 1–4 | Macros 1–4 |
-| **FX** | white keys 1–8 | Punch-ins: loop, reverse, stutter, freeze, low pass, high pass, throw, fill |
+| **FX** | white keys 1–8; black 1–5 | Punch-ins: loop, reverse, stutter, repeat, low pass, high pass, throw, fill; REPEAT's division |
 | **GLO** | white keys 1–8 / 9–16, black 1 | Mute / solo, tap tempo |
 | **SAVE** | white key | Store scene 1–16 |
 | **SCL** | any key | Set the root |

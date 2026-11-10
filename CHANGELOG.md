@@ -3,6 +3,19 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.30.0
+
+New
+- REPEAT punch-in (FX + white 4, in place of the delay freeze, which stays on DELAY 2 › FREEZE): the last slice of the master, a tempo division long, repeated while held. FX + black keys 1–5 set the division (1/16, 1/16T, 1/32, 1/32T, 1/64), at once while REPEAT is held, so it can be rolled faster or slower as you play. A division longer than 93 ms at the tempo is halved until it fits, so it stays on the beat.
+
+Changed
+- LOW PASS and HIGH PASS punch-ins: each press sweeps from the start, over one bar at the tempo, and further: low pass 8 kHz to 300 Hz, high pass 40 Hz to 6 kHz.
+- THROW: the dry sound fades out while it is held (about 80 ms), so only the echoes and the space play.
+- The FX hint fits the screen (LOOP REV STT RPT LO HI THR FIL).
+
+Fixed
+- The punch-in filters' right channel took the left's state every block (not truly stereo, with a faint click); a sweep after the other filter started from where that one had stopped.
+
 ## 1.29.0
 
 New

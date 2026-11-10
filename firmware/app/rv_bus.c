@@ -706,7 +706,7 @@ RV_HOT static void bed_run(float *rev_in, float *l, float *r, int n, float act, 
 static int16_t cut_buf[RV_CUT_SAMPLES] RV_RAMBSS;   /* (in plain RAM: the pool keeps its room) */
 static int32_t cut_w, cut_start, cut_seg, cut_reps, cut_fade;
 static float cut_pos, cut_rate;
-static uint8_t cut_rev, cut_shape;
+static uint8_t cut_rev, cut_shape, cut_hold;   /* cut_hold: the REPEAT punch-in, repeating while held, at full mix */
 static uint32_t cut_rng = 0xA5A5A5u;
 
 /* action: bits 0-1 LOOP, REVERSE, STUTTER; 2-3 the shape (EVEN, BOUNCE, DRAG); 4-6 the size
@@ -717,6 +717,8 @@ static void cut_now(int action, float step_s)
         return;
     static const float frac[8] = {0.0f, 1.0f / 32.0f, 1.0f / 16.0f, 1.0f / 8.0f, 1.0f / 6.0f, 0.25f, 1.0f / 3.0f, 0.5f};
     int type = action & 3, size = (action >> 4) & 7;
+    if (cut_hold)                                     /* (the REPEAT punch-in has it while held) */
+        return;
     float sz = size && step_s > 0.0f ? step_s * frac[size] : 0.008f + (float)rv.gp[GP_CUTSIZE] * (0.08f / 127.0f);
     int32_t back;
     if (type == 0)
@@ -736,13 +738,46 @@ static void cut_now(int action, float step_s)
     cut_fade = clampi(cut_seg / 8, 16, 400);
 }
 
+/* the REPEAT punch-in (FX + white 4): the latest slice of the master, a tempo division long (1/16 1/16T 1/32
+ * 1/32T 1/64: rate 0-4), repeated while held. Pressed again with another rate it takes a fresh slice at once.
+ * A slice longer than the ring allows (half of it, 93 ms) is halved until it fits, so it stays on the beat. */
+static void stutter_now(int on, int rate)
+{
+    static const float mul[5] = {1.0f, 2.0f / 3.0f, 0.5f, 1.0f / 3.0f, 0.25f};
+    int32_t seg;
+    if (loop_mem & LM_CUT)                            /* (the LOOP track has the buffer) */
+        return;
+    if (!on) {
+        if (cut_hold)
+            cut_reps = 1;                             /* the slice playing ends, then the master again */
+        cut_hold = 0;
+        return;
+    }
+    seg = (int32_t)(15.0f / (float)clampi(rv.gp[GP_TEMPO], 20, 300) * mul[clampi(rate, 0, 4)] * (float)RV_FS);
+    while (seg > (int32_t)RV_CUT_SAMPLES / 2)
+        seg >>= 1;
+    if (seg < 64)
+        seg = 64;
+    cut_seg = seg;
+    cut_start = cut_w - seg;
+    while (cut_start < 0)
+        cut_start += (int32_t)RV_CUT_SAMPLES;
+    cut_shape = 0;
+    cut_rev = 0;
+    cut_pos = 0.0f;
+    cut_rate = 1.0f;
+    cut_reps = 1;
+    cut_fade = clampi(seg / 16, 16, 200);
+    cut_hold = 1;
+}
+
 /* in place on the master: writes the ring, plays the cut over it */
 RV_HOT static void cuts_run(float *l, float *r, int n)   /* (v1.22: from RAM) */
 {
     if (loop_mem & LM_CUT)
         return;
     int i;
-    float mix = gv(GP_CUTMIX) * (1.0f / 127.0f);
+    float mix = cut_hold ? 1.0f : gv(GP_CUTMIX) * (1.0f / 127.0f);
     for (i = 0; i < n; i++) {
         if (cut_reps <= 0) {
             cut_buf[cut_w] = (int16_t)clampf((l[i] + r[i]) * 8192.0f, -32000.0f, 32000.0f);
@@ -768,7 +803,8 @@ RV_HOT static void cuts_run(float *l, float *r, int n)   /* (v1.22: from RAM) */
             cut_pos += cut_rate;
             if (cut_pos >= (float)cut_seg) {          /* the next repeat */
                 cut_pos = 0.0f;
-                cut_reps--;
+                if (!cut_hold)
+                    cut_reps--;
                 if (cut_shape == 1) {
                     cut_seg = cut_seg * 3 / 4 > 64 ? cut_seg * 3 / 4 : 64;
                     cut_rate *= 1.06f;
@@ -807,6 +843,7 @@ static void buses_reset(void)                         /* (a buffer the LOOP trac
     if (!(loop_mem & LM_CUT))
         __builtin_memset(cut_buf, 0, sizeof(cut_buf));
     cut_reps = 0;
+    cut_hold = 0;
     __builtin_memset(bed_y1, 0, sizeof(bed_y1));
     __builtin_memset(bed_y2, 0, sizeof(bed_y2));
     bed_key[0] = -1;

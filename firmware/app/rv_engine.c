@@ -18,6 +18,8 @@ static uint32_t age_ctr;
 static uint32_t eng_rng = 0x13579BDFu;
 static float in_buf[RV_SUB * 2];
 static uint8_t punch[8];
+static uint8_t stut_rate = 2;                      /* the REPEAT punch-in's division (rv_bus.c stutter_now): 1/32 */
+static float punch_t, throw_g = 1.0f;              /* seconds since LOW or HIGH PASS was pressed; THROW's dry level */
 static hitshade_t hs_pend;                         /* the next hit's shading (R MOVE, GRAIN), taken by its voice */
 static svf_t punch_f[2];
 static float lim_gain = 1.0f;
@@ -517,6 +519,16 @@ static void cmd_drain(void)
             rv_live.playing = playing;
             break;
         case C_PUNCH:
+            if (c.a == 8) {                              /* REPEAT's division, from the black keys */
+                stut_rate = (uint8_t)clampi(c.b, 0, 4);
+                if (punch[3])
+                    stutter_now(1, stut_rate);
+                break;
+            }
+            if ((c.a == 4 || c.a == 5) && c.b && !punch[c.a])
+                punch_t = 0.0f;                          /* each press sweeps from the start */
+            if (c.a == 3 && c.b != punch[3])
+                stutter_now(c.b, stut_rate);
             punch[c.a & 7] = (uint8_t)c.b;
             if (c.a == 0 && c.b)
                 cut_now(1 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
@@ -524,7 +536,6 @@ static void cmd_drain(void)
                 cut_now(2 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
             if (c.a == 2 && c.b)
                 cut_now(3 | (rv.gp[GP_CUTSHAPE] << 2), 0.0f);
-            dly_freeze = punch[3];
             fill_on = punch[7];
             break;
         case C_CUT:
@@ -2234,11 +2245,11 @@ static void render_sub(float *outl, float *outr, int n)
         pan = eff[TP_PAN] * (1.0f / 64.0f);
         gl = lvl * fm_sqrtf(clampf(0.5f - pan * 0.5f, 0.0f, 1.0f)) * 1.414f;
         gr = lvl * fm_sqrtf(clampf(0.5f + pan * 0.5f, 0.0f, 1.0f)) * 1.414f;
-        if (punch[6]) {                              /* THROW: everything into delay and space */
-            gl *= 0.6f;
-            gr *= 0.6f;
+        if (punch[6] || throw_g < 1.0f) {            /* THROW: everything into delay and space, the dry fading out */
+            gl *= throw_g;
+            gr *= throw_g;
         }
-        if (!muted && !chorus && !punch[6] && n_chain) {   /* (the usual way: from RAM, the same sums) */
+        if (!muted && !chorus && !punch[6] && throw_g >= 1.0f && n_chain) {   /* (the usual way: from RAM, the same sums) */
             float g[6];
             float *o[6];
             g[0] = gl, g[1] = gr, g[2] = lvl, g[3] = eff[TP_FBS], g[4] = eff[TP_DLYS], g[5] = eff[TP_REVS];
@@ -2362,11 +2373,20 @@ static void render_sub(float *outl, float *outr, int n)
             }
         }
         RV_FAR(cuts_run)(outl, outr, n);
+        /* THROW's dry: out over ~80 ms while held, back as fast when let go */
+        throw_g += ((punch[6] ? 0.0f : 1.0f) - throw_g) * (1.0f - fm_expf(-(float)n * (1.0f / (0.08f * RV_FS))));
+        if (!punch[6] && throw_g > 0.999f)
+            throw_g = 1.0f;
         if (punch[4] || punch[5]) {
-            static float sweep = 1.0f;
-            sweep += ((punch[4] ? 0.15f : 0.05f) - sweep) * (1.0f - fm_expf(-0.0202f * (float)n * (1.0f / 32.0f)));
-            svf_set(&punch_f[0], punch[4] ? 200.0f + sweep * 8000.0f : 300.0f + (1.0f - sweep) * 3000.0f, 1.5f);
-            punch_f[1] = punch_f[0];
+            /* LOW PASS 8 kHz -> 300 Hz, HIGH PASS 40 Hz -> 6 kHz, over one bar from each press, exponentially */
+            float bar = 240.0f / (float)clampi(rv.gp[GP_TEMPO], 20, 300), p = fm_minf(1.0f, punch_t / bar);
+            punch_t += (float)n * RV_DT;
+            svf_set(&punch_f[0], punch[4] ? 8000.0f * fm_exp2f(p * -4.737f) : 40.0f * fm_exp2f(p * 7.229f), 1.5f);
+            punch_f[1].g = punch_f[0].g;              /* (the coefficients only: each side keeps its own state) */
+            punch_f[1].k = punch_f[0].k;
+            punch_f[1].a1 = punch_f[0].a1;
+            punch_f[1].a2 = punch_f[0].a2;
+            punch_f[1].a3 = punch_f[0].a3;
             for (i = 0; i < n; i++) {
                 float hp;
                 if (punch[4]) {

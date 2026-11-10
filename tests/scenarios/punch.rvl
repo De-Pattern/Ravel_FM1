@@ -1,0 +1,46 @@
+# The punch-ins: REPEAT (FX + white 4) with its division on the black keys, LOW/HIGH PASS sweeps, THROW.
+# (Their sound is checked by ear and by tests/fm1 analysis; this runs them and checks the messages.)
+wait 300
+demo 1
+wait 300
+tap PLAY
+wait 1500
+
+wait 1000
+press FX
+key 6 down
+wait 1500
+key 6 up
+release FX
+wait 800
+press FX
+key 6 down
+wait 600
+key 1 down
+wait 50
+expect msg REPEAT 1/16
+key 1 up
+wait 900
+key 6 up
+release FX
+wait 800
+press FX
+key 11 down
+wait 1500
+key 11 up
+release FX
+wait 800
+press FX
+key 7 down
+wait 2200
+key 7 up
+release FX
+wait 300
+press FX
+key 9 down
+wait 2200
+key 9 up
+release FX
+wait 500
+
+expect gp TEMPO 104
