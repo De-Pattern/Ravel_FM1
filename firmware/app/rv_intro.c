@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel: the start screen, as a worn VHS tape plays it. Snow fills the dark, the picture rolls and locks, and
- * the RAVEL logo comes through it with a teal and red ghost while the sky flickers white. The logo holds,
- * trembling as a tape does; then the tape fails (the picture wobbles and bleeds), the player crashes (the
+/* Ravel: the start screen, as a worn VHS tape plays it. The tube warms up (a dot, a line, opening), snow fills the
+ * dark, three cloaked figures stand in it, the picture rolls and locks, and the RAVEL logo comes through as they
+ * fade, with a teal and red ghost, while the sky flickers white. The logo holds, trembling as a tape does; then the tape fails (the picture wobbles and bleeds), the player crashes (the
  * picture warps in waves, tears sideways in bands and breaks into sliding blocks, every frame), and the tube
  * collapses to a line. Greys, a little teal, a touch of deep red, and the colour fringes of tape. About six
  * seconds; any key, button or knob skips it. Everything is worked out from the time each frame (no state but
@@ -13,6 +13,7 @@
 #define IN_CRASH 5000u                   /* the player crashes into blocks */
 #define IN_OFF 5550u                     /* the tube collapses */
 #define IN_END 5900u
+#define IN_ON 420u                       /* ms: the tube warming up, a line opening into the picture */
 #define IN_LY 102                        /* the logo's letters: top */
 #define IN_LH 16                         /* and height */
 
@@ -197,15 +198,47 @@ static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
     }
 }
 
+/* three hooded figures in cloaks, standing behind where the logo will be: seen as the snow clears, lit by the
+ * flashes, gone as the logo comes; a: how much (0..1) */
+static __attribute__((noinline)) void in_cloaks(int b, float a, float fl, int ox, int oy)
+{
+    static const int8_t fx[3] = {-46, 0, 46};
+    static const uint8_t fy[3] = {78, 64, 80};     /* (their heads; the middle one taller) */
+    int k, y;
+    for (k = 0; k < 3; k++) {
+        int cx = PLAT_W / 2 + fx[k] + ox, hy = fy[k] + oy, hem = 206 + oy - (k == 1 ? 0 : 3 * k);
+        float v = (0.13f + fl * 0.4f) * a;
+        uint16_t c = in_grey(v), fold = in_grey(v * 0.55f);
+        if (hem < b || hy - 16 > b + GB_H)
+            continue;
+        for (y = hy + 6 > b ? hy + 6 : b; y < b + GB_H && y < hem; y++) {   /* the cloak: the shoulders, then falling
+                                                                             * almost straight to a hem that frays */
+            float d = (float)(y - hy - 6), sh = d < 12.0f ? d / 12.0f : 1.0f;
+            int w = (int)(6.0f + 9.0f * (2.0f - sh) * sh + (d > 12.0f ? (d - 12.0f) * 0.07f : 0.0f)) + (k == 1);
+            if (y > hem - 6 && (in_hash((uint32_t)(y * 7 + k)) & 3u) == 0u)
+                w -= 2;
+            g_fill(cx - w, y, 2 * w + 1, 1, in_grey(v * (1.0f - 0.45f * d / (float)(hem - hy))));   /* (darker toward the ground) */
+        }
+        g_seg((float)cx - 3.0f, (float)hy + 16.0f, (float)cx - 6.0f, (float)hem - 2.0f, 1.2f, fold);   /* (its folds) */
+        g_seg((float)cx + 4.0f, (float)hy + 18.0f, (float)cx + 7.0f, (float)hem - 2.0f, 1.2f, fold);
+        g_seg((float)cx, (float)hy - 15.0f, (float)cx, (float)hy - 4.0f, 2.5f, c);   /* the hood, pointed */
+        g_discf((float)cx, (float)hy, 10.0f, c);
+        g_discf((float)cx, (float)hy + 3.0f, 5.0f, in_grey(0.005f));           /* (no face in it) */
+        g_discf((float)cx, (float)hy + 6.0f, 4.0f, in_grey(0.005f));
+    }
+}
+
 /* everything over the background at t: the logo and the maker's name (dy: none now; the melt is gone) */
 static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float fl, float fade)
 {
     int ox = in.ox, oy = in.oy + dy;
-    float tf = (float)t, lv = in_smooth((tf - 1300.0f) / 450.0f), melt = 0.0f;
+    float tf = (float)t, lv = in_smooth((tf - 1650.0f) / 500.0f), melt = 0.0f, ca = in_smooth((tf - 700.0f) / 600.0f) * (1.0f - lv);
+    if (ca > 0.01f)
+        in_cloaks(b, ca * fade, fl, ox, oy);
     /* the logo, a teal and red ghost on either side as it lands */
     if (lv > 0.0f) {
-        if (t < 1950 || (in_hash(t / 60u) & 7u) == 0u) {
-            float sp = t < 1950 ? (1.0f - lv) * 4.0f + 1.0f : 2.0f;
+        if (t < 2300 || (in_hash(t / 60u) & 7u) == 0u) {
+            float sp = t < 2300 ? (1.0f - lv) * 4.0f + 1.0f : 2.0f;
             in.ox = (int8_t)(ox - (int)sp);
             in_logo(b, lv * 0.32f, melt, dy);
             in.ox = (int8_t)(ox + (int)sp);
@@ -216,7 +249,7 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
     }
     /* the maker's name, small, once the logo is there: it flickers like a failing tube, now and then jumping a
      * pixel with a teal or red ghost */
-    if (t > 1650 && b + GB_H > 210 + oy && b < 226 + oy && g_cx1 > PLAT_W / 2 - 36 + ox && g_cx0 < PLAT_W / 2 + 36 + ox) {
+    if (t > 2000 && b + GB_H > 210 + oy && b < 226 + oy && g_cx1 > PLAT_W / 2 - 36 + ox && g_cx0 < PLAT_W / 2 + 36 + ox) {
         uint32_t q = in_hash(t / 45u), q2 = in_hash(t / 45u + 991u);
         int dark = (q & 7u) == 0u || ((q >> 3) & 15u) == 0u, jx = (q2 & 15u) == 0u ? ((q2 >> 4) & 1u ? 1 : -1) : 0;
         float v = (0.30f + (float)((q >> 8) & 255u) * (0.32f / 255.0f)) * fade;
@@ -336,13 +369,30 @@ static int intro_frame(void)
             in_back(ts, b, fl, sn, fade);
             in_scene(ts, b, 0, fl, fade);
             in_tape(t, b);
+            if (t < IN_ON) {                          /* the tube warming up: a dot, a line across, opening into the picture */
+                float u = (float)t / (float)IN_ON, w = in_smooth(u / 0.3f), hh = 1.0f + in_smooth((u - 0.25f) / 0.75f) * 125.0f;
+                int x0 = PLAT_W / 2 - (int)(w * PLAT_W * 0.5f), yy;
+                for (yy = b; yy < b + GB_H; yy++) {
+                    float d = fm_fabsf((float)yy - (float)(PLAT_H / 2));
+                    if (d > hh)
+                        g_fill(0, yy, PLAT_W, 1, RGB(0, 0, 0));
+                    else if (d < 2.0f + (1.0f - u) * 3.0f) {   /* (the bright line, fading as it opens) */
+                        g_fill(0, yy, PLAT_W, 1, RGB(0, 0, 0));
+                        g_fill(x0, yy, PLAT_W - 2 * x0, 1, in_grey(1.0f - u * 0.6f));
+                    }
+                }
+            }
         }
         g_send();
     }
     /* the keys' lights follow the picture: all at a flash; the snow's sparkle, thinning as the specks come loose;
      * a sweep as they gather into the logo; the tracking band rolling past while it holds; flicker as the tape
      * fails; blocks of three in the crash; then in from both ends as the tube collapses, to the middle key, out */
-    if (fl > 0.45f && t < IN_FAIL)
+    if (t < IN_ON) {                                  /* (the tube warming: out from the middle key) */
+        int w = (int)(13.0f * (float)t / (float)IN_ON), k2;
+        for (k2 = 13 - w; k2 <= 13 + w; k2++)
+            lk |= 1u << k2;
+    } else if (fl > 0.45f && t < IN_FAIL)
         lk = 0x07FFFFFFu;
     else if (t < 900)
         lk = in_hash(t / 50u) & in_hash(t / 50u + 99u);
