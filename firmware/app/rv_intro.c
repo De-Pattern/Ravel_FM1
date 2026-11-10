@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel: the start screen, as a worn VHS tape plays it. Snow fills the dark; then the snow comes loose from
- * the picture: its brightest specks stay, drift apart in the rain, and gather into the RAVEL logo while the
- * sky flickers white. The logo holds, trembling as a tape does, and starts to run in drips; then the tape
- * fails (the picture wobbles, smears down and bleeds), the player crashes (the picture warps in waves, tears
- * sideways in bands and breaks into sliding blocks, every frame), and the tube collapses to a line. Greys, a little teal, a touch of deep red, and the colour fringes of tape. About
- * six seconds; any key, button or knob skips it. Everything is worked out from the time each frame (no
- * state but the start), so a slow frame only skips ahead.
+/* Ravel: the start screen, as a worn VHS tape plays it. Snow fills the dark, the picture rolls and locks, and
+ * the RAVEL logo comes through it with a teal and red ghost while the sky flickers white. The logo holds,
+ * trembling as a tape does; then the tape fails (the picture wobbles and bleeds), the player crashes (the
+ * picture warps in waves, tears sideways in bands and breaks into sliding blocks, every frame), and the tube
+ * collapses to a line. Greys, a little teal, a touch of deep red, and the colour fringes of tape. About six
+ * seconds; any key, button or knob skips it. Everything is worked out from the time each frame (no state but
+ * the start), so a slow frame only skips ahead. (The specks, rain, drips and melt of earlier versions went to
+ * make room in the flash.)
  * Part of the engine unit (ravel_app.c), after rv_ui.c (its drawing and its input). */
 
-#define IN_NP 200                        /* the specks that leave the snow */
-#define IN_NRAIN 46
-#define IN_NDROP 12
 #define IN_FAIL 4300u                    /* ms: the tape starts to fail */
 #define IN_CRASH 5000u                   /* the player crashes into blocks */
 #define IN_OFF 5550u                     /* the tube collapses */
@@ -98,40 +96,6 @@ static float in_rib(int k, float x)
 {
     float s = in_smooth(x / (float)IN_MW);
     return (float)IN_MY + 4.0f + (k ? 1.0f - s : s) * (float)(IN_MH - 8);
-}
-
-/* speck i's place in the logo */
-static void in_target(int i, float *x, float *y)
-{
-    if (in_rnd((uint32_t)i, 30) < 0.28f) {             /* on the mark */
-        float u = in_rnd((uint32_t)i, 31) * (float)IN_MW;
-        *x = (float)IN_MX + u;
-        *y = in_rib(i & 1, u) + (in_rnd((uint32_t)i, 32) - 0.5f) * 5.0f;
-    } else {                                           /* on a stroke of a letter */
-        int s = (int)(in_hash((uint32_t)i * 31u + 5u) % (uint32_t)IN_NSEG);
-        float u = in_rnd((uint32_t)i, 33), lx = (float)in_lx[in_seg_l[s]];
-        *x = lx + (float)in_seg[s][0] + (float)(in_seg[s][2] - in_seg[s][0]) * u;
-        *y = (float)IN_LY + (float)in_seg[s][1] + (float)(in_seg[s][3] - in_seg[s][1]) * u;
-    }
-}
-
-/* speck i at t: where, and how bright (0: unseen). It sits in the snow, comes loose, drifts apart on the wind,
- * then flies to its place in the logo, swirling in */
-static float in_speck(int i, float t, float *x, float *y)
-{
-    float x0 = in_rnd((uint32_t)i, 1) * (float)PLAT_W, y0 = in_rnd((uint32_t)i, 2) * (float)PLAT_H;
-    float a = in_rnd((uint32_t)i, 3), u = in_clamp((t - 900.0f) / 1500.0f), r = u * u * (20.0f + 50.0f * in_rnd((uint32_t)i, 4));
-    float gust = fm_sin_turns(t * 0.00021f) * 14.0f;
-    float px = x0 + fm_sin_turns(a + 0.25f) * r + (gust + fm_sin_turns(t * 0.0004f + a * 9.0f) * 9.0f) * u;
-    float py = y0 + fm_sin_turns(a) * r + fm_sin_turns(t * 0.0003f + a * 5.0f) * 7.0f * u + u * 10.0f;
-    float g = in_smooth((t - 2150.0f - in_rnd((uint32_t)i, 5) * 450.0f) / 750.0f), tx, ty, sw;
-    in_target(i, &tx, &ty);
-    sw = (1.0f - g) * (1.0f - g) * 26.0f;
-    *x = px + (tx - px) * g + fm_sin_turns(a * 3.0f + t * 0.0011f + 0.25f) * sw;
-    *y = py + (ty - py) * g + fm_sin_turns(a * 3.0f + t * 0.0011f) * sw * 0.5f;
-    if (t < 600.0f)
-        return 0.0f;
-    return (0.35f + 0.6f * in_rnd((uint32_t)i, 6)) * in_smooth((t - 600.0f) / 500.0f) * (1.0f - in_smooth((t - 3050.0f) / 350.0f));
 }
 
 /* the background of rows b .. b+GB_H: the dark sky (lit from above when it flashes) and the snow over it, as a
@@ -233,66 +197,15 @@ static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
     }
 }
 
-/* a drip at t: where it leaves the logo, how far its end has run, its bulb's size; 0 if not yet */
-static int in_drip(int k, uint32_t t, float *x, float *top, float *end, float *r)
-{
-    float ts = 3550.0f + in_rnd((uint32_t)k, 21) * 1100.0f, dt = ((float)t - ts) * 0.001f;
-    int s = (int)(in_hash((uint32_t)k * 13u + 3u) % (uint32_t)IN_NSEG);
-    float u = in_rnd((uint32_t)k, 22);
-    if (dt < 0.0f)
-        return 0;
-    if (in_seg[s][1] != 16 && in_seg[s][3] != 16)
-        s = IN_NSEG - 1;                              /* (from a stroke that reaches the bottom: L's foot) */
-    *x = (float)in_lx[in_seg_l[s]] + (float)in_seg[s][0] + (float)(in_seg[s][2] - in_seg[s][0]) * (in_seg[s][1] == in_seg[s][3] ? u : 1.0f) + 0.5f;
-    if (in_seg[s][1] != in_seg[s][3] && in_seg[s][1] == 16)
-        *x = (float)in_lx[in_seg_l[s]] + (float)in_seg[s][0] + 0.5f;
-    *top = (float)(IN_LY + IN_LH) + 1.0f;
-    *r = 1.2f + in_rnd((uint32_t)k, 24) * 1.3f + fm_minf(dt, 0.5f) * 1.2f;
-    *end = *top + (dt < 0.5f ? dt * 6.0f : 3.0f + 18.0f * (dt - 0.5f) + 120.0f * (dt - 0.5f) * (dt - 0.5f) * (0.6f + in_rnd((uint32_t)k, 23)));
-    return 1;
-}
-
-/* everything over the background at t: rain, the specks, the logo, its drips, the maker's name; dy: how far this
- * strip has fallen in the melt */
+/* everything over the background at t: the logo and the maker's name (dy: none now; the melt is gone) */
 static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float fl, float fade)
 {
-    int i, ox = in.ox, oy = in.oy + dy;
-    float tf = (float)t, lv = in_smooth((tf - 2950.0f) / 450.0f), melt = in_smooth((tf - 3700.0f) / 1800.0f);
-    /* rain: thin slanting streaks, leaning with the wind */
-    if (t > 450) {
-        float lean = 0.18f + fm_sin_turns(tf * 0.00021f) * 0.12f, rv = in_smooth((tf - 450.0f) / 600.0f) * (1.0f - in_smooth((tf - 3300.0f) / 1200.0f) * 0.6f);
-        for (i = 0; i < IN_NRAIN; i++) {
-            float sp = 0.32f + in_rnd(i, 11) * 0.22f, len = 5.0f + in_rnd(i, 12) * 9.0f;
-            int y = (int)in_mod(in_rnd(i, 13) * 280.0f + tf * sp, 280.0f) - 20 + oy;
-            int x = (int)in_mod(in_rnd(i, 14) * 300.0f + (float)y * lean + tf * 0.02f, 300.0f) - 30 + ox;
-            int ddx = (int)(len * lean), ddy = (int)len;
-            if (y < b - 20 || y - ddy > b + GB_H || x < g_cx0 - 20 || x - ddx > g_cx1 + 4)
-                continue;
-            g_line_px(x, y, x - ddx, y - ddy, in_grey((0.16f + in_rnd(i, 15) * 0.18f + fl * 0.3f) * rv * fade));
-        }
-    }
-    /* the specks: loose from the snow, drifting, gathering (a short streak behind each as it moves) */
-    if (t > 600 && t < 3450)
-        for (i = 0; i < IN_NP; i++) {
-            float x, y, x0, y0, v = in_speck(i, tf, &x, &y);
-            int ix, iy;
-            if (v <= 0.0f)
-                continue;
-            ix = (int)x + ox;
-            iy = (int)y + oy;
-            if (iy < b - 4 || iy > b + GB_H + 3)
-                continue;
-            in_speck(i, tf - 40.0f, &x0, &y0);
-            if (fm_fabsf(x0 - x) + fm_fabsf(y0 - y) > 1.5f)
-                g_line_px((int)x0 + ox, (int)y0 + oy, ix, iy, in_grey(v * 0.35f * fade));
-            g_fill(ix, iy, 1 + (i % 5 == 0), 1 + (i % 7 == 0), in_grey((v + fl * 0.2f) * fade));
-            if (i % 41 == 0)
-                g_pset(ix + 1, iy, IN_TEAL);
-        }
+    int ox = in.ox, oy = in.oy + dy;
+    float tf = (float)t, lv = in_smooth((tf - 1300.0f) / 450.0f), melt = 0.0f;
     /* the logo, a teal and red ghost on either side as it lands */
     if (lv > 0.0f) {
-        if (t < 3600 || (in_hash(t / 60u) & 7u) == 0u) {
-            float sp = t < 3600 ? (1.0f - lv) * 4.0f + 1.0f : 2.0f;
+        if (t < 1950 || (in_hash(t / 60u) & 7u) == 0u) {
+            float sp = t < 1950 ? (1.0f - lv) * 4.0f + 1.0f : 2.0f;
             in.ox = (int8_t)(ox - (int)sp);
             in_logo(b, lv * 0.32f, melt, dy);
             in.ox = (int8_t)(ox + (int)sp);
@@ -301,26 +214,9 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
         }
         in_logo(b, (0.25f + 0.7f * lv) * (1.0f - melt * 0.25f) * fade, melt, dy);
     }
-    /* the drips: a thread from the bottom of a letter, thicker where it leaves, swelling into a drop that hangs,
-     * lets go and runs; shaded, lit from the upper left */
-    for (i = 0; i < IN_NDROP; i++) {
-        float x, top, end, r, yy;
-        if (!in_drip(i, t, &x, &top, &end, &r) || end + r + (float)oy < (float)b - 2.0f || top + (float)oy > (float)(b + GB_H + 2))
-            continue;
-        x += (float)ox;
-        if (x + r + 3.0f < (float)g_cx0 || x - r - 3.0f > (float)g_cx1)
-            continue;
-        for (yy = top; yy < end; yy += 1.0f) {        /* the thread: tapering, from the letter's width down to a hair */
-            float f = (yy - top) / (end - top + 1.0f), w = 1.0f + (1.0f - f) * (1.0f - f) * 1.6f;
-            g_seg(x, yy + (float)oy, x, yy + 1.0f + (float)oy, w, in_grey((0.75f - f * 0.15f) * fade));
-        }
-        g_discf(x, end + (float)oy, r * 0.8f, in_grey(0.5f * fade));                                     /* (its shadow side) */
-        g_discf(x - r * 0.15f, end - r * 0.25f + (float)oy, r * 0.75f, in_grey(0.8f * fade));          /* (the body) */
-        g_discf(x - r * 0.35f, end - r * 0.45f + (float)oy, r * 0.3f, i == 4 ? IN_RED : in_grey(fade));  /* (the light on it) */
-    }
     /* the maker's name, small, once the logo is there: it flickers like a failing tube, now and then jumping a
      * pixel with a teal or red ghost */
-    if (t > 3300 && b + GB_H > 210 + oy && b < 226 + oy && g_cx1 > PLAT_W / 2 - 36 + ox && g_cx0 < PLAT_W / 2 + 36 + ox) {
+    if (t > 1650 && b + GB_H > 210 + oy && b < 226 + oy && g_cx1 > PLAT_W / 2 - 36 + ox && g_cx0 < PLAT_W / 2 + 36 + ox) {
         uint32_t q = in_hash(t / 45u), q2 = in_hash(t / 45u + 991u);
         int dark = (q & 7u) == 0u || ((q >> 3) & 15u) == 0u, jx = (q2 & 15u) == 0u ? ((q2 >> 4) & 1u ? 1 : -1) : 0;
         float v = (0.30f + (float)((q >> 8) & 255u) * (0.32f / 255.0f)) * fade;
@@ -406,7 +302,7 @@ static __attribute__((noinline)) void in_tape(uint32_t t, int b)
 static int intro_frame(void)
 {
     uint32_t t = plat_ms() - in.t0, lk = 0, ts;
-    int b, k;
+    int b;
     float fl, fade, sn;
     if (!in.on)
         return 0;
@@ -438,19 +334,7 @@ static int intro_frame(void)
             g_fill(PLAT_W / 2 - w / 2, PLAT_H / 2 - 1, w, 2, in_grey(fade));
         } else {
             in_back(ts, b, fl, sn, fade);
-            if (t < IN_FAIL)
-                in_scene(ts, b, 0, fl, fade);
-            else {                                    /* the melt: 4-pixel strips, each falling at its own pace */
-                for (k = 0; k < PLAT_W / 4; k++) {
-                    float d0 = (float)IN_FAIL + 250.0f + in_rnd((uint32_t)k / 3u, 71) * 400.0f + fm_sin_turns((float)k * 0.03f) * 150.0f, dt = (float)ts - d0;
-                    int dy = dt > 0.0f ? (int)(dt * dt * (0.00004f + in_rnd((uint32_t)k / 2u, 72) * 0.00006f)) : 0;
-                    g_cx0 = k * 4;
-                    g_cx1 = g_cx0 + 4;
-                    in_scene(ts, b, dy, fl, fade);
-                }
-                g_cx0 = 0;
-                g_cx1 = PLAT_W;
-            }
+            in_scene(ts, b, 0, fl, fade);
             in_tape(t, b);
         }
         g_send();
