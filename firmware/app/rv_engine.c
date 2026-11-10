@@ -1987,6 +1987,7 @@ static void render_sub(float *outl, float *outr, int n)
     RV_FAR(rv_fill0)(rev_in, RV_SUB);
     RV_FAR(rv_fill0)(outl, n);
     RV_FAR(rv_fill0)(outr, n);
+    RV_FAR(wf_tap_find)();                           /* TRK IN: which track a WEFT patch takes in (rv_weft.c) */
     nin = plat_audio_in(in_buf, n);
     for (i = nin; i < n; i++)
         in_buf[2 * i] = in_buf[2 * i + 1] = 0.0f;
@@ -2238,6 +2239,10 @@ static void render_sub(float *outl, float *outr, int n)
         int n_chain = tr->cskip ? 0 : n;
         int chorus = kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ ? clampi(rv.tp[t][TP_S3], 0, 3) : 0;
         uint8_t muted = ((rv.mute | weft_gate_mute) >> t) & 1u;   /* (a SEQ OUT in GATE mode holds it quiet too) */
+        uint8_t routed = t == wf_tap_src;            /* TRK IN takes it: into that patch only (send only) */
+        if (routed)                                  /* (before its LEVEL and mute: a wet send at its own level) */
+            for (i = 0; i < n && i < RV_SUB; i++)
+                wf_tap[i] = i < n_chain ? (int16_t)clampf(tr->buf[i] * 16384.0f, -32767.0f, 32767.0f) : 0;
         if (rv.solo && !((rv.solo >> t) & 1u))
             muted = 1;
         lvl = eff[TP_LEVEL] * (1.0f / 127.0f);
@@ -2249,14 +2254,14 @@ static void render_sub(float *outl, float *outr, int n)
             gl *= throw_g;
             gr *= throw_g;
         }
-        if (!muted && !chorus && !punch[6] && throw_g >= 1.0f && n_chain) {   /* (the usual way: from RAM, the same sums) */
+        if (!muted && !routed && !chorus && !punch[6] && throw_g >= 1.0f && n_chain) {   /* (the usual way: from RAM, the same sums) */
             float g[6];
             float *o[6];
             g[0] = gl, g[1] = gr, g[2] = lvl, g[3] = eff[TP_FBS], g[4] = eff[TP_DLYS], g[5] = eff[TP_REVS];
             o[0] = outl, o[1] = outr, o[2] = fb_in, o[3] = dly_in, o[4] = rev_in;
             o[5] = t != loop_t && lp_mix ? lp_cap : 0;
             RV_FAR(mix_track)(tr->buf, n_chain, g, o);
-        } else if (!muted)
+        } else if (!muted && !routed)
             for (i = 0; i < n_chain; i++) {
                 float x = tr->buf[i], sl = x * gl, sr = x * gr, m = x * lvl;
                 if (chorus) {                       /* Juno-60 style: dry + bbd left, dry - bbd right */

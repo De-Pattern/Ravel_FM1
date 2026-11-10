@@ -415,6 +415,7 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
     }
     case WO_SNAP: { static const float L[5] = {4.0f, 8.0f, 16.0f, 32.0f, 64.0f}; W->c1[i] = L[WN(x1, 5)]; W->kf[i] = x2 > 0.0f ? wk(0.0005f + x2 * x2 * 0.3f) : 1.0f; break; }
     case WO_TREAD: W->c1[i] = (float)WN(x1, 8); W->c2[i] = (float)WN(x2, 5); break;
+    case WO_TRKIN: W->c2[i] = x2 * 1.27f; break;   /* (the track: wf_tap_src, worked out in rv_engine.c) */
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
     case WO_CHEBY:                              /* four poles, Chebyshev type I: CUTOFF, RIPPLE 0.1 .. 6 dB; two biquads */
@@ -1927,6 +1928,55 @@ WK_FLASH static void wk_snap(wk_t *K, int i, int j1, int j2)
     }
 }
 
+/* TRK IN: one track's sound (its chain's output, before its LEVEL and mute), a block late (128 samples),
+ * filled by rv_engine.c as it mixes that track; the track then plays only here (send only). One per project:
+ * the first unmuted WEFT track's first TRK IN names it (wf_tap_find) */
+static int16_t wf_tap[RV_SUB] RV_RAMBSS;       /* (in plain RAM: the pool has no room to spare) */
+static int8_t wf_tap_src = -1;
+static void wf_tap_find(void)                    /* (once a control step) */
+{
+    int t, i, src = -1;
+    for (t = 0; t < RV_TRACKS && src < 0; t++) {
+        if (rv.tp[t][TP_KIND] != KIND_WEFT || ((rv.mute >> t) & 1u) || (rv.solo && !((rv.solo >> t) & 1u)))
+            continue;
+        for (i = 0; i < WF_BLOCKS; i++)
+            if (rv.weft[t].type[i] == WO_TRKIN) {
+                int k = wf_sp(2 * i), s = k >= 0 ? clampi((int)rv.tp[t][k], 0, 7) : 0;
+                if (s != t)
+                    src = s;
+                break;
+            }
+    }
+    if (src != wf_tap_src) {
+        wf_tap_src = (int8_t)src;
+        __builtin_memset(wf_tap, 0, sizeof(wf_tap));
+    }
+}
+WK_FLASH static void wk_trkin(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* the track TRK IN names (as wf_tap_find found it), at LEVEL; A: times (none: 1), B: plus */
+        float g = W->c2[i] * (1.0f / 16384.0f);
+        int hr = W->hr, mine = wf_tap_src >= 0 && wf_tap_src == clampi(WN(x1, 8), 0, 7);
+        for (j = j1; j < j2; j++) {
+            int q = K->j0 + j;
+            if (!mine)
+                y = 0.0f;
+            else if (hr) {
+                q = clampi(q * 2, 0, RV_SUB - 2);
+                y = (float)(wf_tap[q] + wf_tap[q + 1]) * 0.5f * g;
+            } else
+                y = (float)wf_tap[clampi(q, 0, RV_SUB - 1)] * g;
+            if (ac)
+                y *= WA;
+            if (bc)
+                y += WB;
+            yo[j] = y;
+        }
+        return;
+    }
+}
+
 WK_FLASH static void wk_tread(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -2129,6 +2179,7 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_VISCERA] = wk_viscera,
     [WO_SNAP] = wk_snap,
     [WO_TREAD] = wk_tread,
+    [WO_TRKIN] = wk_trkin,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,

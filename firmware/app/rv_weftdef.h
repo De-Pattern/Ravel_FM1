@@ -29,6 +29,7 @@ enum {
                                                          * curve that settles */
     WO_LAMINA, WO_FASCIA, WO_VISCERA, WO_SNAP, WO_TREAD,   /* layers apart; one sound's skin on another; a body that gives;
                                                          * a gesture kept; another track read */
+    WO_TRKIN,                                           /* another track's sound, into the patch (send only: rv_engine.c) */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -148,6 +149,7 @@ static const wf_type_t wf_types[WO_N] = {
     {"VISCERA", "SIZE", "FLESH", "STRIKE", "PITCH", 64, 80, 0, 0, 0, 0},
     {"SNAP", "LENGTH", "SMOOTH", "IN", "REC", 2, 10, 5, 0, wf_snapl, 0},
     {"TRACK", "TRACK", "WHAT", "SCALE", "ADD", 0, 0, 8, 5, wf_trk, wf_what},
+    {"TRK IN", "TRACK", "LEVEL", "LEVEL", "ADD", 0, 100, 8, 0, wf_trk, 0},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -219,7 +221,8 @@ static const char *const wf_desc[WO_N] = {
     "A WEARS B'S SKIN",
     "A BODY THAT GIVES WHEN HIT",
     "A GESTURE KEPT AND LOOPED",
-    "ANOTHER TRACK, READ"
+    "ANOTHER TRACK, READ",
+    "ANOTHER TRACK'S SOUND IN"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",

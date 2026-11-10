@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.31.0
+
+New
+- WEFT block TRK IN: another track's sound into a patch, to filter, fold, resonate or gate it (a STRIKE track through a patch's LP, BANDS or FORMANT). Taken before that track's LEVEL and mute, at its own level, so it works as a wet send; about 3 ms late. While a patch takes it, that track plays only through the patch (its sends too); muting the WEFT track gives it back. One per project. The patch hears it while its voices play: on its notes, or always with RUN ALWAYS.
+
 ## 1.30.0
 
 New

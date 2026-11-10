@@ -1,0 +1,43 @@
+# TRK IN: a WEFT patch (T2) takes T1's sound through its LP; T1 then plays only there; muting T2 gives it back.
+wait 300
+settp 1 KIND 1
+settp 2 KIND 6
+wait 100
+tap SEQ
+wait 100
+tapkey 0
+tapkey 4
+tapkey 7
+tapkey 11
+tapkey 14
+tapkey 18
+tapkey 21
+tapkey 24
+wait 100
+tap HOME
+wset 2 0 1 68
+wset 2 7 1 0
+wset 2 7 2 100
+wset 2 0 2 6
+wset 2 1 2 1
+wset 2 3 2 100
+wset 2 7 3 10
+wset 2 7 4 20
+wset 2 5 0 2
+wset 2 10 0 1
+wait 100
+tap PLAY
+wait 800
+
+wait 2000
+wset 2 7 3 120
+wait 2000
+tap GLO
+wait 10
+press GLO
+key 2 down
+key 2 up
+release GLO
+wait 2000
+
+expect mutes 2
