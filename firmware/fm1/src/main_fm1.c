@@ -347,14 +347,8 @@ static void fm1_main(void)
             if (d >= 7u && ota_dec[2] >= 0x60u && ota_dec[2] <= 0x65u)
                 rv_xfer_msg(ota_dec, d);
         }
-#ifdef RAVEL_MIRROR
-        mir_service();
-#endif
         if (usb.ota_req) {
             usb.ota_req = 0;
-#ifdef RAVEL_MIRROR
-            mir_on = 0;                             /* (an install: no mirror rows among its messages) */
-#endif
             rv_transport(0);
             if (flash_ok) {
                 int c2 = fm1_c1_on;

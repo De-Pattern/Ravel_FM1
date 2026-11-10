@@ -3567,17 +3567,6 @@ static const char *sound_name(int t)
     }
 }
 
-/* the track in view and its sound, for a computer's screen mirror ("T1 GUITAR") */
-void rv_screen_label(char *b, int n)
-{
-    const char *s = sound_name(ui.track);
-    int i = 3;
-    b[0] = 'T', b[1] = (char)('1' + (ui.track & 7)), b[2] = ' ';
-    while (*s && i < n - 1)
-        b[i++] = *s++;
-    b[i] = 0;
-}
-
 static void draw_top(void)
 {
     char b[24];

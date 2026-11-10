@@ -125,22 +125,6 @@ static uint32_t sx_out_q[SXQ];
 static volatile uint32_t so_w, so_r;
 #endif
 
-#ifdef RAVEL_MIRROR
-/* The screen mirror: FM1 Mirror (github.com/pfkellogg/fm1-mirror) and the Big Screen firmware's messages. The
- * computer says hello (F0 7D 'F' 'S' 00 F7, 01: send it all again) about once a second; while it does, each screen
- * row the firmware paints goes out as F0 7D 'F' 'S' 01, the row and the first column (two 7-bit bytes each), then
- * runs: a count and the RGB565 colour in 7, 7 and 2 bits. F0 7D 'F' 'L' 01 F7 asks the firmware's name. Here the
- * rows wait as event packets in a ring of their own (in .noinit: 8 KB nothing else uses), sent after the M-UPGRADE
- * SysEx and the notes, a whole message at a time, so they never split another; a screen band that doesn't fit is
- * sent again later (plat_fm1.c), and nothing here ever waits for the computer. */
-#define MIRQ 2048u                                /* a power of two */
-static uint32_t mir_q[MIRQ] __attribute__((section(".noinit")));
-static volatile uint16_t mir_w, mir_r;            /* the main loop's, the TX side's (free-running) */
-static uint16_t mir_wp;                           /* the main loop's next packet, before it is published */
-static uint8_t mir_mid;                           /* (TX side) a mirror message half sent */
-static volatile uint8_t mir_hello, mir_info;      /* (RX side) 1 a hello, 2 one asking for all; the name asked */
-#endif
-
 /* MIDI rings: 4-byte USB-MIDI event packets */
 #define MQ 64u
 static uint32_t midi_in_q[MQ], midi_out_q[MQ];
@@ -618,14 +602,6 @@ static void sysex_byte(uint8_t b)
         usb.sysex[usb.sx_len++] = b;
     if (b == 0xF7) {
         uint32_t i, ok = usb.sx_len == 6u;
-#ifdef RAVEL_MIRROR
-        if (ok && usb.sysex[1] == 0x7D && usb.sysex[2] == 'F' && usb.sysex[4] <= 1u) {   /* the screen mirror */
-            if (usb.sysex[3] == 'S')
-                mir_hello |= (uint8_t)(usb.sysex[4] ? 3u : 1u);
-            else if (usb.sysex[3] == 'L' && usb.sysex[4] == 1u)
-                mir_info = 1;
-        }
-#endif
         for (i = 0; ok && i < 6u; i++)
             ok = usb.sysex[i] == UBOOT_KEY[i];
         if (ok)
@@ -708,29 +684,6 @@ static int ota_wire_send(const uint8_t *p, uint32_t n)   /* F0..F7 -> USB-MIDI S
     sx_busy = 0;
     return 0;
 }
-#ifdef RAVEL_MIRROR
-/* one F0..F7 message into the mirror's ring, unpublished (mir_publish sends what was put); 0 if it doesn't fit */
-static int mir_put(const uint8_t *p, uint32_t n)
-{
-    uint32_t i = 0;
-    if ((uint32_t)(uint16_t)(mir_wp - mir_r) + (n + 2u) / 3u > MIRQ)
-        return 0;
-    while (i < n) {
-        uint32_t k = n - i >= 3u ? 3u : n - i;
-        uint32_t cin = k == 3u && i + 3u < n ? 4u : k == 3u ? 7u : 4u + k;   /* (as ota_wire_send) */
-        mir_q[mir_wp & (MIRQ - 1u)] = cin | (uint32_t)p[i] << 8 | (k > 1u ? (uint32_t)p[i + 1] << 16 : 0u) |
-                                      (k > 2u ? (uint32_t)p[i + 2] << 24 : 0u);
-        mir_wp++;
-        i += k;
-    }
-    return 1;
-}
-static void mir_publish(void)
-{
-    RING_PUBLISH();                                     /* the packets before the index */
-    mir_w = mir_wp;
-}
-#endif
 static int ota_frame_get(const uint8_t **p, uint32_t *n)
 {
     if (!sx_ready)
@@ -751,13 +704,8 @@ static void ep1_tx(void)
 {
     uint32_t csr, n = 0;
 #if FELUCCA_OTA
-#ifdef RAVEL_MIRROR
-    if (mo_w == mo_r && so_w == so_r && mir_w == mir_r)
-        return;
-#else
     if (mo_w == mo_r && so_w == so_r)
         return;
-#endif
 #else
     if (mo_w == mo_r)
         return;
@@ -769,10 +717,7 @@ static void ep1_tx(void)
     if (csr & 0x80u)
         sie_wr(S_TXCSR1, csr & ~0x80u);
 #if FELUCCA_OTA
-#ifndef RAVEL_MIRROR
-#define mir_mid 0
-#endif
-    while (!mir_mid && so_r != so_w && n < 64u) {      /* SysEx first, never split by notes */
+    while (so_r != so_w && n < 64u) {                   /* SysEx first, never split by notes */
         uint32_t pkt = sx_out_q[so_r % SXQ];
         ep1tx[n] = (uint8_t)pkt;
         ep1tx[n + 1] = (uint8_t)(pkt >> 8);
@@ -781,7 +726,7 @@ static void ep1_tx(void)
         n += 4u;
         so_r++;
     }
-    while (!mir_mid && !sx_busy && so_r == so_w && mo_r != mo_w && n < 64u) {
+    while (!sx_busy && so_r == so_w && mo_r != mo_w && n < 64u) {
 #else
     while (mo_r != mo_w && n < 64u) {
 #endif
@@ -796,23 +741,6 @@ static void ep1_tx(void)
         RING_PUBLISH();
         mo_r++;
     }
-#ifdef RAVEL_MIRROR
-    while (!sx_busy && so_r == so_w && mir_r != mir_w && n < 64u) {   /* the screen mirror: last, a message at a time */
-        uint32_t pkt;
-        RING_PUBLISH();
-        pkt = mir_q[mir_r & (MIRQ - 1u)];
-        ep1tx[n] = (uint8_t)pkt;
-        ep1tx[n + 1] = (uint8_t)(pkt >> 8);
-        ep1tx[n + 2] = (uint8_t)(pkt >> 16);
-        ep1tx[n + 3] = (uint8_t)(pkt >> 24);
-        n += 4u;
-        mir_mid = (pkt & 15u) == 4u;                    /* (CIN 4: the message goes on) */
-        RING_PUBLISH();
-        mir_r++;
-    }
-#else
-#undef mir_mid
-#endif
     if (!n)
         return;
     fm1_usb_ep_send(1, ep1tx, n);

@@ -8,7 +8,6 @@ GitHub release; a version with no section here gets its commits listed instead. 
 New
 - HARMONIC, a fifteenth synth engine, after Make Noise's Telharmonic: H (24 harmonics, the loudest at CENTRD, FLUX how fast the rest fall away, LOCK one held at full, EVEN the odd against the even), P (a carrier phase-modulated by two locked sines) and N (noise in two sidebands around the note), each at its own level, stacked in chords (INTRVL, STACK, DETUNE). Presets: TONEWHEELS, SPECTRAL TRIAD, PM MINOR, NOISE CHOIR.
 - WEFT blocks IMPULSE (after Mannequins' Mangrove: a rise and fall each cycle, FORMANT and BARREL; split tones, the pitch dividing), CREASE and LOCATE (after Cold Mac's CREASE and LOCATION: a cut at zero; a clipped integrator). Factory patches MANGROVE, SPLIT TONE, CREASED RAMP.
-- The screen to a computer: FM1 Mirror (github.com/pfkellogg/fm1-mirror) shows the FM-1's screen live over USB, with the track's sound and the firmware's name.
 - The start screen: the tube warms up (a dot, a line, opening into the picture), and three cloaked figures stand in the snow where the logo comes.
 
 Changed
