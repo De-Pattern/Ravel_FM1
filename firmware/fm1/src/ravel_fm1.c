@@ -38,6 +38,7 @@ void rv_transport(int run);
 void rv_xfer_msg(const uint8_t *m, uint32_t d);   /* projects and sounds over SysEx (app/rv_xfer.c) */
 
 #define FELUCCA_OTA 1             /* M-UPGRADE update entry: keeps the web installer working */
+#define RAVEL_MIRROR 1            /* the screen to a computer (FM1 Mirror; usb.c, plat_fm1.c) */
 #ifndef RAVEL_CDC
 #define RAVEL_CDC 0               /* USB serial console off: one plain MIDI interface */
 #endif

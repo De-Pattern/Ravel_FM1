@@ -97,6 +97,87 @@ static uint16_t blit_buf[2][BLIT_MAX] __attribute__((aligned(4)));
 static uint8_t blit_k;
 static uint32_t band_hash[PLAT_H / BLIT_ROWS];
 static void blit_one(int x, int y, int w, int h, const uint16_t *px);
+#ifdef RAVEL_MIRROR
+/* the screen mirror (usb.c): while a computer says hello, each band painted goes out as its rows too, a band
+ * whole or not at all; one that didn't fit in the ring stays marked and goes when there's room (Ravel paints every
+ * band every frame, so it comes round again) */
+static uint32_t mir_seen;                       /* fm1_ms of the last hello */
+static uint8_t mir_on;                          /* hellos are coming */
+static uint32_t mir_dirty[(PLAT_H / BLIT_ROWS + 31) / 32];
+static int mir_rows(int x, int y, int w, int h, const uint16_t *px)
+{
+    uint8_t m[72];
+    uint16_t start = mir_wp;
+    int r, i;
+    for (r = 0; r < h; r++) {
+        const uint16_t *row = px + r * w;
+        int yy = y + r;
+        for (i = 0; i < w;) {
+            uint32_t k = 9u;
+            int xx = x + i;
+            m[0] = 0xF0, m[1] = 0x7D, m[2] = 'F', m[3] = 'S', m[4] = 1;
+            m[5] = (uint8_t)(yy & 127), m[6] = (uint8_t)(yy >> 7), m[7] = (uint8_t)(xx & 127), m[8] = (uint8_t)(xx >> 7);
+            while (i < w && k + 5u <= 70u) {            /* runs: a count, the colour in 7, 7 and 2 bits */
+                uint16_t c = row[i];
+                int run = 1;
+                while (i + run < w && run < 127 && row[i + run] == c)
+                    run++;
+                m[k++] = (uint8_t)run;
+                m[k++] = (uint8_t)(c & 127u);
+                m[k++] = (uint8_t)((c >> 7) & 127u);
+                m[k++] = (uint8_t)(c >> 14);
+                i += run;
+            }
+            m[k++] = 0xF7;
+            if (!mir_put(m, k)) {
+                mir_wp = start;                         /* (none of it: the band goes again later) */
+                return 0;
+            }
+        }
+    }
+    mir_publish();
+    return 1;
+}
+/* one short message: F0 7D 'F' head0 head1, the text (7-bit), [0,] F7 */
+static void mir_say(uint8_t h0, uint8_t h1, const char *txt, int nul)
+{
+    uint8_t m[48];
+    uint32_t k = 5u;
+    m[0] = 0xF0, m[1] = 0x7D, m[2] = 'F', m[3] = h0, m[4] = h1;
+    while (*txt && k < sizeof m - 2u)
+        m[k++] = (uint8_t)(*txt++ & 127);
+    if (nul)
+        m[k++] = 0;
+    m[k++] = 0xF7;
+    if (mir_put(m, k))
+        mir_publish();
+}
+/* main loop: the hellos, the firmware's name when asked, the sound playing after each hello */
+static void mir_service(void)
+{
+    uint8_t h = mir_hello, q = mir_info;
+    unsigned b;
+    if (q) {
+        mir_info = 0;
+        mir_say('L', 1, "RAVEL " RAVEL_BUILD, 1);
+    }
+    if (h) {
+        mir_hello = 0;
+        if ((h & 2u) || !mir_on)                        /* a new listener, or one asking: the whole screen */
+            for (b = 0; b < sizeof mir_dirty / sizeof mir_dirty[0]; b++)
+                mir_dirty[b] = ~0u;
+        mir_seen = fm1_ms;
+        mir_on = 1;
+        {
+            char lbl[32];
+            void rv_screen_label(char *b, int n);
+            rv_screen_label(lbl, sizeof lbl);
+            mir_say('S', 2, lbl, 0);
+        }
+    } else if (mir_on && fm1_ms - mir_seen > 3000u)    /* the computer went quiet: stop */
+        mir_on = 0;
+}
+#endif
 void plat_blit(int x, int y, int w, int h, const uint16_t *px)
 {
     if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > PLAT_W || y + h > PLAT_H)
@@ -121,10 +202,23 @@ static void blit_one(int x, int y, int w, int h, const uint16_t *px)
     for (i = 0; i < n; i++)
         hsh = (hsh ^ px[i]) * 16777619u;
     if (x == 0 && w == PLAT_W && (y % BLIT_ROWS) == 0) {
+#ifdef RAVEL_MIRROR
+        uint32_t bi = (uint32_t)y / BLIT_ROWS, bit = 1u << (bi & 31u);
+        if (mir_on && ((mir_dirty[bi >> 5] & bit) || band_hash[bi] != hsh)) {   /* the mirror: what changed, what waits */
+            if (mir_rows(x, y, w, h, px))
+                mir_dirty[bi >> 5] &= ~bit;
+            else
+                mir_dirty[bi >> 5] |= bit;
+        }
+#endif
         if (band_hash[y / BLIT_ROWS] == hsh)
             return;
         band_hash[y / BLIT_ROWS] = hsh;
     }
+#ifdef RAVEL_MIRROR
+    else if (mir_on)
+        (void)mir_rows(x, y, w, h, px);
+#endif
     b = blit_buf[blit_k];
     blit_k ^= 1u;
     for (i = 0; i < n; i++)
