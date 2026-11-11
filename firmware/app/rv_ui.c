@@ -5461,6 +5461,18 @@ static __attribute__((noinline)) void pic_weft(void)
     } else
         sx_cat(b, "TYPE: TURN KNOB 2 TO MAKE A BLOCK");
     g_text(9, 206, &FONT_T, b, C_DIM);
+    if (w->type[sel]) {                               /* what the chosen block is, bottom right (the inputs keep their room) */
+        char d[20];
+        int room = 232 - (9 + g_text_w(&FONT_T, b) + 10), n;
+        d[0] = 0;
+        sx_cat(d, wf_short[w->type[sel] % WO_N]);
+        while (d[0] && g_text_w(&FONT_T, d) > room) {   /* (trimmed, rarely: a long input) */
+            for (n = 0; d[n]; n++) {}
+            d[n - 1] = 0;
+        }
+        if (d[0])
+            g_text_r(232, 206, &FONT_T, d, C_TEAL);
+    }
 }
 
 /* WEFT BLOCK: the chosen block close up: what comes in, what it does, what goes out and where */

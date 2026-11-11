@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.34.1
+
+New
+- WEFT PATCH says what the chosen block is, in a few words at the bottom right (RAMP OSC, VCA / RING, DRUM SKIN, LEAKY SUM…), beside its inputs. WEFT BLOCK keeps its longer line.
+
 ## 1.34.0
 
 New
