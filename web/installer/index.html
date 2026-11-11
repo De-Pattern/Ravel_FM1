@@ -36,6 +36,10 @@
   #alert:empty { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
   .latest { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .other { border: 1px solid #a3161c; padding: 10px 14px; margin: 0 0 18px; }   /* another firmware: stock first */
+  .other p { margin: 0 0 8px; }
+  .other a.btn { display: inline-block; background: #a3161c; color: #fff; padding: 6px 16px; text-decoration: none; }
+  html { scroll-behavior: smooth; }
   .latest span { color: var(--dim); font-weight: 400; font-size: 15px; }
   select { font: inherit; font-size: 15px; background: var(--bg); color: var(--fg); border: 1px solid var(--dim); padding: 6px 8px; max-width: 100%; margin-top: 4px; }
   #pickwarn { font-weight: 600; }
@@ -95,6 +99,10 @@
   <button class="lang" id="lang"></button>
   <a class="home" href="../">RAVEL · back to the emulator</a>
   <h1>Install Ravel on the FM-1</h1>
+  <div class="other" role="note">
+    <p><b data-t="otherh"></b> <span data-t="otherbody"></span></p>
+    <a class="btn" href="#stock" data-t="otherbtn"></a>
+  </div>
   <p id="latest" class="latest"></p>
   <p><label for="pick" class="small" data-t="pick"></label><br><select id="pick"></select></p>
   <p id="pickwarn" class="small"></p>
@@ -154,7 +162,7 @@
     <p class="small" data-t="bkhow"></p>
   </section>
 
-  <h2 data-t="stockh"></h2>
+  <h2 id="stock" data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
     <li data-t="stock1"></li>
@@ -190,6 +198,9 @@ const TEXT = {
     bricklink: "起動しない FM-1 の復旧",
     beta: "これはベータ版で、不安定な場合があります。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
     back: "公式ファームウェアに戻すには、このページ下の「純正ファームウェアに戻す」を使います（V15 のファイルが必要です）。M-VAVE の M-UPGRADE など、M-VAVE のローダーを使うアップデーターは、Ravel からだと今も FM-1 の電源が切れてしまいます（電源を入れ直せば Ravel のままで、問題はありません）。ほかのファームウェアは、純正に戻してからそのページでインストールしてください。",
+    otherh: "別のファームウェアを入れる前に:",
+    otherbody: "まずこのページの下で純正ファームウェア（V15）に戻してから、そのファームウェアのページでインストールしてください。Ravel から直接ほかのファームウェアを入れると、FM-1 の電源が切れたり、起動しなくなったりすることがあります。",
+    otherbtn: "純正ファームウェアに戻す ↓",
     stockh: "純正ファームウェアに戻す",
     stockwhy: "M-VAVE の FM-1 V15 を、Ravel（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Ravel のプロジェクトとサウンドは消えます（純正の設定も工場出荷時に戻ります）。先に上の「バックアップ」で保存してください。純正に戻ったら、System → Reset Patches でバンクを読み込み直してください。",
     stock1: "上の「バックアップ」でプロジェクトとサウンドを保存します。",
@@ -261,7 +272,10 @@ const TEXT = {
     brick: "If the FM-1 no longer starts, a rescue tool (Mac, Windows or Linux) can put the stock firmware V15 back:",
     bricklink: "recovering an FM-1 that won't start",
     beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
-    back: "To go back to the official firmware, use \"Back to the stock firmware\" below (it needs the V15 file). Updaters that use M-VAVE's own loader, such as M-UPGRADE, still switch the FM-1 off from Ravel (switched on, it is still Ravel, unharmed). For another firmware, go back to stock first, then install it from its own page.",
+    back: "To go back to the official firmware, or before installing any other firmware, use \"Back to the stock firmware\" below. Updaters that use M-VAVE's own loader, such as M-UPGRADE, switch the FM-1 off if run from Ravel (switched on, it is still Ravel, unharmed).",
+    otherh: "Installing a different firmware?",
+    otherbody: "Go back to the stock firmware (V15) first, with the tool further down this page, then install the other firmware from its own page. Installing another firmware straight over Ravel can switch the FM-1 off or leave it unable to start.",
+    otherbtn: "Back to the stock firmware ↓",
     stockh: "Back to the stock firmware",
     stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Ravel (or its safe mode, or Felucca) over the same USB cable. Ravel's projects and sounds are erased, and the stock settings start as on a new unit: save them first with Back up above. Back on stock, reload the banks with System → Reset Patches.",
     stock1: "Save your projects and sounds first, with Back up above.",

@@ -67,6 +67,8 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 18. [Quick reference](#18-quick-reference)
 19. [Questions people ask](#19-questions-people-ask)
 
+> **Installing a different firmware?** Go back to the stock firmware first, every time: on the [install page](https://de-pattern.github.io/Ravel_FM1/install/#stock), press **Back to the stock firmware** (it's linked at the top of the page). Then install the other firmware from its own page. Installing another firmware straight over Ravel can switch the FM-1 off or leave it unable to start. See [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel).
+
 **On the FM-1:** [Installing](#installing-on-the-fm-1) · [Back to the stock firmware](#back-to-the-stock-firmware) · [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
 
 **For developers:** [What's here](#whats-here) · [Building](#building) · [The FM-1 build](#the-fm-1-build) · [Licence](#licence)
@@ -1743,6 +1745,8 @@ From the command line instead (`pip3 install mido python-rtmidi`): `python3 tool
 
 The installer works from M-VAVE's own firmware, from Ravel, and from the other community firmwares.
 
+> **Installing a different firmware?** Go back to the stock firmware first, every time: on the [install page](https://de-pattern.github.io/Ravel_FM1/install/#stock), press **Back to the stock firmware** (it's linked at the top of the page). Then install the other firmware from its own page. Installing another firmware straight over Ravel can switch the FM-1 off or leave it unable to start. See [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel).
+
 ### Back to the stock firmware
 
 The same install page puts M-VAVE's own firmware (V15) back, from Ravel, over the same USB cable.
@@ -1756,9 +1760,15 @@ How it works: M-VAVE's own update loader switches the FM-1 off when Ravel hands 
 
 ### Updating to another firmware from Ravel
 
-- **Felucca-based firmwares** (X0X, SLOOP, Clipper and the others built the same way as Ravel): install them straight from their own install page, as you would a Ravel update.
-- **Anything else** (M-VAVE's own updater M-UPGRADE, and firmwares built on M-VAVE's SDK): go **back to the stock firmware** first (above), then install from their page or updater as from a new unit. Run from Ravel directly, they hand over to M-VAVE's loader, which switches the FM-1 off; switched on again it is still Ravel, unharmed (the half-done update is cleared).
-- **Back to Ravel** from anything: install from this page as usual, then restore your backup.
+**Go back to the stock firmware first, then install the other firmware.** Every time, whatever the firmware.
+
+1. **Back up** your projects and sounds on the install page (under **Projects and sounds**).
+2. Put the stock firmware back with the page's **Back to the stock firmware** tool ([install page](https://de-pattern.github.io/Ravel_FM1/install/#stock); the button at the top of the page jumps to it; the steps are [above](#back-to-the-stock-firmware)).
+3. Install the other firmware from its own page or updater, as on a new unit.
+
+Why: firmwares built on M-VAVE's SDK, and M-VAVE's own updater M-UPGRADE, hand over to M-VAVE's loader, which switches the FM-1 off when started from Ravel (switched on again, it is still Ravel, unharmed); and a firmware installed straight over Ravel can be left unable to start (Ravel's install page can still put the stock firmware back then, or a rescue tool can, below). From the stock firmware every installer starts from the state it expects. (Firmwares built the same way as Ravel, Felucca's X0X, SLOOP, Clipper and the others, do install straight over it, but going through stock is never wrong.)
+
+**Back to Ravel** from anything: install from the install page as usual, then restore your backup.
 
 **Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer. To move it on: hold **OCT− and OCT+ for 5 seconds** (the chip's own update mode), put M-VAVE's firmware back with a rescue tool (below; this repository's knows the newer chip), then install Ravel from the page as usual.
 
