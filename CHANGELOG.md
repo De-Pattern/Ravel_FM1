@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.33.1
+
+Fixed
+- LADDER and SH-101 filters: with RESO past about a fifth and the cutoff (with ENV>CUT) high, past about 3 kHz, they broke into a hollow, piercing ring of tones unrelated to the notes. Their feedback came from a stage's memory, which at high cutoffs swings from sample to sample; it now comes from the output the filter is about to make, so the resonance stays clean all the way up. Lower down they sound as before (within a few percent).
+
 ## 1.33.0
 
 New

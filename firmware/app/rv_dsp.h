@@ -84,16 +84,20 @@ RV_INL void ladder_set(ladder_t *l, float hz, float res)
     l->g = fm_tanf(3.14159265f * hz * RV_DT);
     l->res = res * 4.2f;
 }
+/* the four stages' memory as it reaches the output: with G = g/(1+g), each stage gives G*in + (1-G)*s, so the
+ * last one is G^4*in + this. Solving the feedback with it (zero delay: the output the input is about to make,
+ * not a stage's memory, which at high cutoffs swings sample to sample) keeps the resonance clean all the way up */
+RV_INL float ladder_mem(const ladder_t *l, float G)
+{
+    return (1.0f - G) * (((l->s[0] * G + l->s[1]) * G + l->s[2]) * G + l->s[3]);
+}
 RV_INL float ladder_tick(ladder_t *l, float x)
 {
-    float G = l->g / (1.0f + l->g), y, u;
+    float G = l->g / (1.0f + l->g), G4 = G * G * G * G, u;
     int i;
-    /* zero-delay feedback estimate from the last state (one step: cheap, stable enough) */
-    float fb = l->s[3];
-    u = sat(x - l->res * fb);
+    u = sat((x - l->res * ladder_mem(l, G)) / (1.0f + l->res * G4));   /* (the input saturating, as before) */
     for (i = 0; i < 4; i++) {
-        float v = (u - l->s[i]) * G;
-        y = v + l->s[i];
+        float v = (u - l->s[i]) * G, y = v + l->s[i];
         l->s[i] = y + v;
         u = y;
     }
@@ -127,9 +131,11 @@ RV_INL float ms20_tick(ladder_t *l, float x)
  * resonance that sings rather than bites */
 RV_INL float sh101_tick(ladder_t *l, float x)
 {
-    float G = l->g / (1.0f + l->g), k = l->res * (3.85f / 4.2f), u, y = 0.0f;
+    float G = l->g / (1.0f + l->g), k = l->res * (3.85f / 4.2f), u, y;
     int i;
-    u = x * (1.0f + k * 0.45f) - k * sat(l->s[3] * 0.9f) * 1.1f;
+    float G4 = G * G * G * G, xin = x * (1.0f + k * 0.45f);
+    y = (G4 * xin + ladder_mem(l, G)) / (1.0f + k * 0.99f * G4);   /* the output about to be (see ladder_mem) */
+    u = xin - k * sat(y * 0.9f) * 1.1f;
     u = sat(u * 0.8f) * 1.25f;                        /* a very soft input stage */
     for (i = 0; i < 4; i++) {
         float v = (u - l->s[i]) * G;
