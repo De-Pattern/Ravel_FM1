@@ -67,7 +67,7 @@ jobs:
       - name: The manual as a PDF
         run: |
           npm install --no-save playwright@1.47.2
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium || npx playwright install chromium   # (the runner has the system libraries already; apt is only for missing fonts)
           node tools/make_manual_pdf.mjs
       - name: Assemble the site
         run: python3 tools/make_site.py _site build/web/ravel-emulator.html build/fm1/Ravel-FM1.fwsc "$RAVEL_VERSION" build/releases
