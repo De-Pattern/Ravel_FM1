@@ -32,6 +32,8 @@
  *   wset T F I V                  WEFT: a field of track T's patch, as the emulator's patcher sets it (F: 0 type,
  *                                 1 input A, 2 input B, 3 amount A, 4 amount B (block I, 1..12), 5 the output,
  *                                 7 setting I (1..24), 9 B moves (block I))
+ *   setgp G V                     global G (GP_ number) to V
+ *   setmatg K S G A               matrix row K from source S (MS_ number) into global G (GP_ number), amount A
  *   setmat K T N | setlock T S N  matrix row K (1..8) into, or step S of track T locking, track T's WEFT setting N (1..24)
  *   expect wsetting T N V | matset K N | lockset T S N   a WEFT setting's value; which setting a matrix row / lock names
  *   expect soundused N K          the bank's slot N holds a sound of kind K (-1: empty)
@@ -378,6 +380,17 @@ int main(int argc, char **argv)
             int tt = 0, kk = 0;
             sscanf(line, "%*s %d %d", &tt, &kk);
             rv_weft_preset((tt - 1) & 7, kk);
+        } else if (!strcmp(a, "setgp")) {     /* setgp G V: global G (GP_ number) to V */
+            int x = 0, y = 0;
+            sscanf(line, "%*s %d %d", &x, &y);
+            if (x >= 0 && x < GP_N)
+                rv.gp[x] = (int16_t)y;
+        } else if (!strcmp(a, "setmatg")) {   /* setmatg K S G A: matrix row K (1..8) from source S (MS_ number) into global G (GP_ number), amount A */
+            int x = 0, y = 0, z = 0, w = 0;
+            sscanf(line, "%*s %d %d %d %d", &x, &y, &z, &w);
+            rv.mat[(x - 1) & 7].src = (uint8_t)y;
+            rv.mat[(x - 1) & 7].amt = (int8_t)w;
+            rv.mat[(x - 1) & 7].dst = (uint16_t)PID_G(z);
         } else if (!strcmp(a, "setmat") || !strcmp(a, "setlock")) {   /* setmat K T N: matrix row K (1..8) into track T's
                                                  * WEFT setting N (1..24); setlock T S N: step S (1..64) locks it */
             int x = 0, y = 0, z = 0;

@@ -907,6 +907,7 @@ int rv_is_moddest_g(int g)
     switch (g) {
     case GP_TEMPO: case GP_SWING: case GP_CLKDEPTH: case GP_CLKBRATE: case GP_CLKTHR:
     case GP_LFO1RATE: case GP_LFO2RATE: case GP_DUSTRATE: case GP_DUSTDECAY: case GP_DUSTSCAT:
+    case GP_LFO1SHAPE: case GP_LFO2SHAPE: case GP_LFO1SYM: case GP_LFO2SYM:   /* (SHAPE moved: a blend of two shapes) */
     case GP_DLYTIME: case GP_DLYFB: case GP_DLYTONE: case GP_DLYLEVEL: case GP_DLYWOB: case GP_DLYMODE:
     case GP_GRDENS: case GP_GRSIZE: case GP_GRPITCH:
     case GP_REVSIZE: case GP_REVDAMP: case GP_REVLEVEL: case GP_REVMOD:

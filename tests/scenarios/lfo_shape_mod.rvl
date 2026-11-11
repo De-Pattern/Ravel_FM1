@@ -1,0 +1,20 @@
+# The matrix moves LFO 1's SHAPE and SYM: LFO 2 (slow) sweeps SHAPE from SQUARE down through SAW, RAMP, TRI to
+# SINE (a blend between neighbours, so it morphs), and SYM both ways; LFO 1 stays in -1..1 and the destinations
+# are offered (GP 14 L1 SHAPE, GP 103 L1 SYM, GP 13 L1 RATE, GP 15 L2 RATE; MS 2 LFO2)
+wait 300
+setgp 14 4
+setgp 13 90
+setgp 15 20
+setmatg 1 2 14 -100
+setmatg 2 2 103 100
+key 7 down
+wait 500
+expect msrc LFO1 -1.0 1.0
+wait 700
+expect msrc LFO1 -1.0 1.0
+wait 900
+expect msrc LFO1 -1.0 1.0
+wait 1100
+expect msrc LFO1 -1.0 1.0
+key 7 up
+wait 200

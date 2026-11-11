@@ -150,8 +150,29 @@ static float lfo_wave(int shape, float q)
 
 /* mode 0 LOOP, 1 RETRIG (a note restarts it), 2 1 SHOT (a note plays one cycle, then it holds);
  * phase: where the cycle starts, 0..1 */
-static float lfo_tick(lfo_t *l, float rate, int shape, float dt, uint8_t *wrap, float sym, float phase, int mode)
+/* one shape's value at q (S&H and DRIFT: their own held values, new ones drawn as the cycle wraps) */
+static float lfo_shape_at(lfo_t *l, int shape, float q, int w)
 {
+    switch (shape) {
+    case 5:
+        if (w)
+            l->held = xs_bi(&mod_rng);
+        return l->held;
+    case 6:
+        if (w) {
+            l->from = l->to;
+            l->to = xs_bi(&mod_rng);
+        }
+        return l->from + (l->to - l->from) * (0.5f - 0.5f * sin_lut(q * 0.5f + 0.25f));
+    default: return lfo_wave(shape, q);
+    }
+}
+
+/* SHAPE may come in moved by the matrix or a macro (between two shapes: a blend of them, so it morphs) */
+static float lfo_tick(lfo_t *l, float rate, float shapef, float dt, uint8_t *wrap, float sym, float phase, int mode)
+{
+    int shape = clampi((int)shapef, 0, 6);
+    float sf = shapef - (float)shape;
     int w = 0;
     float q;
     if (mode == 2) {                                  /* one cycle, then still */
@@ -172,17 +193,9 @@ static float lfo_tick(lfo_t *l, float rate, int shape, float dt, uint8_t *wrap, 
     if (q > 1.0f)                                     /* (a finished 1 SHOT rests at the cycle's end) */
         q -= 1.0f;
     q = lfo_warp(q, sym);
-    switch (shape) {
-    case 5: if (w) l->held = xs_bi(&mod_rng); l->value = l->held; break;
-    case 6:
-        if (w) {
-            l->from = l->to;
-            l->to = xs_bi(&mod_rng);
-        }
-        l->value = l->from + (l->to - l->from) * (0.5f - 0.5f * sin_lut(q * 0.5f + 0.25f));
-        break;
-    default: l->value = lfo_wave(shape, q); break;
-    }
+    l->value = lfo_shape_at(l, shape, q, w);
+    if (sf > 0.001f && shape < 6)                     /* (part way to the next shape) */
+        l->value += (lfo_shape_at(l, shape + 1, q, w) - l->value) * sf;
     return l->value;
 }
 
@@ -276,7 +289,7 @@ static void movement_tick(int n)
         lfo_note_trig = 0;
     }
     for (k = 0; k < 2; k++)
-        lfo_tick(&lfo[k], k ? r2 : r1, clampi((int)G(k ? GP_LFO2SHAPE : GP_LFO1SHAPE), 0, 6), dt, &lfo_wrapped[k],
+        lfo_tick(&lfo[k], k ? r2 : r1, clampf(G(k ? GP_LFO2SHAPE : GP_LFO1SHAPE), 0.0f, 6.0f), dt, &lfo_wrapped[k],
                  clampf(G(k ? GP_LFO2SYM : GP_LFO1SYM) * (1.0f / 64.0f), -1.0f, 1.0f),
                  clampf(G(k ? GP_LFO2PHASE : GP_LFO1PHASE) * (1.0f / 360.0f), 0.0f, 0.9999f),
                  clampi(rv.gp[k ? GP_LFO2MODE : GP_LFO1MODE], 0, 2));

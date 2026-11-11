@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.34.0
+
+New
+- The matrix and the macros reach the LFOs' SHAPE and SYM (GLOBAL: L1 SHAPE, L2 SHAPE, L1 SYM, L2 SYM). SHAPE moved blends one shape into the next, so an LFO morphs (SINE, TRI, RAMP, SAW, SQUARE, then S&H and DRIFT); SYM skews it, as its knob does. With nothing moving them, the LFOs are exactly as before.
+
 ## 1.33.1
 
 Fixed
