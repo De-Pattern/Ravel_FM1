@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.39.0
+
+Changed
+- The start screen moves more: wind blows through the figures' cloaks in gusts, their arms lift slowly, a white flash hits as the last letter lands and twice more after, smoke rises off each letter once it lands, then RAVEL melts (it sags, drips run off its feet, drops fall), stutters as it goes, and crumbles away into the smoke. It's all worked out from the one stored picture, so it needs no more RAM.
+
 ## 1.38.0
 
 Changed
