@@ -8,6 +8,11 @@ GitHub release; a version with no section here gets its commits listed instead. 
 New
 - WEFT blocks VCA (A as loud as LEVEL plus CV, linear to exponential) and ENV (a two-stage attack and release on the gate, or the note's). Existing patches play exactly as before.
 
+## 1.34.1
+
+New
+- WEFT PATCH says what the chosen block is, in a few words at the bottom right (RAMP OSC, VCA / RING, DRUM SKIN, LEAKY SUM…), beside its inputs. WEFT BLOCK keeps its longer line.
+
 ## 1.34.0
 
 New
