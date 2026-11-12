@@ -5,9 +5,9 @@
  * (all little-endian). The emulator page and the tests use it; tools/fm1_data.py speaks the same. */
 (function (root) {
   "use strict";
-  /* projects 1-7: slots 0-6; sound banks A-D: 9-12; projects 8-32: 13-37 */
-  const STORES = 38, PROJECTS = 7, BANK0 = 9, BANKS = 4, MORE = 13, CHUNK = 256;
-  const SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, ...Array.from({ length: 25 }, (_, i) => MORE + i)];
+  /* projects 1-7: slots 0-6; sound banks A-D: 9-12; projects 8-48: 13-53 (8-32 until 1.36) */
+  const STORES = 54, PROJECTS = 7, BANK0 = 9, BANKS = 4, MORE = 13, CHUNK = 256;
+  const SLOTS = [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, ...Array.from({ length: 41 }, (_, i) => MORE + i)];
   const slotName = s => s < PROJECTS ? `project ${s + 1}` : s >= MORE ? `project ${s - MORE + 8}` : `bank ${"ABCD"[s - BANK0]}`;
 
   let CRC_T = null;
@@ -92,6 +92,7 @@
       const b = await this.ask(0x60, []);
       if (String.fromCharCode(b[0], b[1], b[2], b[3]) !== "RVX1") throw new Error("the FM-1 answered, but not as Ravel");
       const out = [];
+      this.stores = b[4];                 /* (how many slots it has: 38 before 1.36, 54 since) */
       for (let s = 0; s < b[4]; s++) { const len = rd32(b, 5 + s * 8); if (len !== 0xFFFFFFFF && SLOTS.includes(s)) out.push({ slot: s, len, crc: rd32(b, 9 + s * 8) }); }
       this.caps = b.length > 5 + b[4] * 8 ? b[5 + b[4] * 8] : 0;   /* (what it can do, v1.25: bit 0 DELETE) */
       return out;

@@ -1442,7 +1442,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 <p align="center"><img src="docs/manual/save.png" alt="SAVE" width="320"></p>
 
 1. Press **SAVE** to open the page.
-2. Turn **PRESETS** to choose a slot (1–32). The picture shows eight at a time around the chosen one, which are used and their names, and on the FM-1 how much room the projects have left (**ROOM**).
+2. Turn **PRESETS** to choose a slot (1–48; 1–32 before 1.36). The picture shows eight at a time around the chosen one, which are used and their names, and on the FM-1 how much room the projects have left (**ROOM**). Each project takes at least one 4 KB piece of the projects' room (a busy one a few), so ROOM, not the 48, is usually what runs out first. **Going back to a version before 1.36:** it sees only projects 1–32, and saving may write over the room projects 33–48 use: back them up first (install page, Projects and sounds).
 3. Turn **KNOB 1 (ACTION)**:
 
    | Action | What it does |
@@ -1497,7 +1497,7 @@ Loading a sound that changes a track between a kit and notes (lanes and notes do
 
 ### Moving projects and sounds to an FM-1 (and back)
 
-Everything you have saved, the projects in slots 1–32 and the sound banks A–D, can leave the emulator as a file and go onto an FM-1 running Ravel, and the other way. The FM-1's own update leaves its saved projects and banks alone, so install the firmware first, then bring your work over.
+Everything you have saved, the projects in slots 1–48 and the sound banks A–D, can leave the emulator as a file and go onto an FM-1 running Ravel, and the other way. The FM-1's own update leaves its saved projects and banks alone, so install the firmware first, then bring your work over.
 
 **In the emulator** (the *Projects & sounds* panel on the left):
 

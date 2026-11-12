@@ -1264,7 +1264,7 @@ $("xfile").addEventListener("change", async e => {
     const es = RavelXfer.fileDecode(new Uint8Array(await f.arrayBuffer()));
     /* each into its own slot if free, else the first free one of its kind: nothing here is replaced
      * (only when every slot of its kind is in use does it ask) */
-    const isBank = s => s >= 9 && s <= 12, order = [0, 1, 2, 3, 4, 5, 6, ...Array.from({ length: 25 }, (_, i) => 13 + i), 9, 10, 11, 12];
+    const isBank = s => s >= 9 && s <= 12, order = [0, 1, 2, 3, 4, 5, 6, ...Array.from({ length: 41 }, (_, i) => 13 + i), 9, 10, 11, 12];
     const taken = new Set(order.filter(s => rv.rv_store_len(s) >= 0)), moved = [];
     for (const x of es) {
       let to = x.slot;

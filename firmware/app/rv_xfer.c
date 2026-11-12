@@ -12,14 +12,19 @@
  *   0x65 DELETE slot                  -> slot status                      (a project slot emptied; banks: 1, not done)
  * INFO's list is followed by one byte of what this Ravel can do (bit 0: DELETE; v1.25), which an older
  * computer side never reads.
- * Stores are the platform's slots: projects 1-7 in 0-6, the sound banks in 9-12, projects 8-32 in 13-37 (plat.h). Everything is
+ * Stores are the platform's slots: projects 1-7 in 0-6, the sound banks in 9-12, projects 8-48 in 13-53 (plat.h). Everything is
  * little-endian; status 0 is ok. The data is what plat_save stores, so a project or a bank moves
  * between the emulator and an FM-1 unchanged, and is checked again when it is loaded. */
 #include "rv.h"
 
 #define XF_MAX 256u
 #define XF_BODY (6u + PLAT_STORES * 8u > XF_MAX + 8u ? 6u + PLAT_STORES * 8u : XF_MAX + 8u)   /* (INFO's list is the longest) */
-static uint8_t xf_msg[8 + XF_BODY] RV_RAMBSS, xf_wire[2 + ((8 + XF_BODY) * 8 + 6) / 7] RV_RAMBSS;   /* (in RAM, outside the pool) */
+#ifdef RV_FM1
+#define XF_RAM __attribute__((section(".noinit")))   /* (outside the pool and the sound's RAM; written before each use) */
+#else
+#define XF_RAM
+#endif
+static uint8_t xf_msg[8 + XF_BODY] XF_RAM, xf_wire[2 + ((8 + XF_BODY) * 8 + 6) / 7] XF_RAM;
 
 static int xf_slot_ok(int s) { return plat_proj_of(s) >= 0 || plat_is_bank(s); }
 static uint32_t xf_rd32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }

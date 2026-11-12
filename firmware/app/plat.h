@@ -28,12 +28,12 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px);
 /* storage: numbered slots of up to PLAT_SLOT_MAX bytes */
 #define PLAT_SLOT_MAX (64u * 1024u)
 /* projects 1-7 are slots 0-6 (as they always were; 7 was the eighth, now the sound banks' room), the
- * sound banks A-D 9-12, and projects 8-32 slots 13-37 (so a slot keeps its number in files and transfers) */
+ * sound banks A-D 9-12, and projects 8-48 slots 13-53 (so a slot keeps its number in files and transfers) */
 #define PLAT_SLOTS 7                    /* the first projects' slots, 0..6 */
 #define PLAT_BANK_OLD 8                 /* the first sound bank's old place (read once, to move it) */
 #define PLAT_BANK0 9                    /* the sound banks A..D */
 #define PLAT_BANKS 4
-#define PLAT_PROJECTS 32                /* projects in all */
+#define PLAT_PROJECTS 48                /* projects in all (32 until 1.36) */
 #define PLAT_PROJ_MORE 13               /* the slot of project 8 */
 #define PLAT_PROJ(p) ((p) < PLAT_SLOTS ? (p) : PLAT_PROJ_MORE + (p) - PLAT_SLOTS)   /* project p (0..31): its slot */
 #define PLAT_STORES (PLAT_PROJ_MORE + PLAT_PROJECTS - PLAT_SLOTS)

@@ -262,8 +262,6 @@ static struct {
     uint8_t save_confirm;
     uint8_t cur_sound, bank_action, bank_cursor, bank_dirty;   /* SOUNDS: the slot, LOAD/SAVE/CLEAR, the name's cursor */
     uint32_t bank_edit_ms;                   /* a name edited: kept in flash once the naming pauses */
-    char slot_names[PLAT_PROJECTS][13];
-    uint8_t slot_used[PLAT_PROJECTS];
     int8_t room;                           /* the projects' room left, % (-1: not counted here) */
     int8_t euc_rot[RV_TRACKS][RV_LANES];     /* EUCLID: the last ROTATE turned to (a track's in [0], a kit's per lane) */
     uint32_t frame;
@@ -2564,11 +2562,20 @@ static void preset_turn(int d)
     }
 }
 
+/* the projects' names and which are used, for SAVE (worked out again each time it opens: in .noinit, outside the
+ * RAM the sound needs) */
+#ifdef RV_FM1
+#define RV_NOINIT __attribute__((section(".noinit")))
+#else
+#define RV_NOINIT
+#endif
+static char slot_names[PLAT_PROJECTS][13] RV_NOINIT;
+static uint8_t slot_used[PLAT_PROJECTS] RV_NOINIT;
 static void slots_refresh(void)
 {
     int i, pct;
     for (i = 0; i < PLAT_PROJECTS; i++)
-        ui.slot_used[i] = (uint8_t)rv_slot_used(PLAT_PROJ(i), ui.slot_names[i]);
+        slot_used[i] = (uint8_t)rv_slot_used(PLAT_PROJ(i), slot_names[i]);
     ui.room = (int8_t)(plat_proj_room(&pct) < 0 ? -1 : pct);
 }
 
@@ -6350,7 +6357,7 @@ static void pic_clock(void)
 
 static void pic_save(void)
 {
-    int r, top = clampi(ui.cur_slot - 4, 0, PLAT_PROJECTS - 8);   /* eight of the 32, around the chosen one */
+    int r, top = clampi(ui.cur_slot - 4, 0, PLAT_PROJECTS - 8);   /* eight of the 48, around the chosen one */
     for (r = 0; r < 8; r++) {
         int i = top + r, y = PIC_Y + 2 + r * 15;
         char b[20];
@@ -6358,7 +6365,7 @@ static void pic_save(void)
             g_fill(0, y - 1, 240, 14, ui.save_confirm ? C_AMBER_D : C_PANEL);
         sx_int(b, i + 1);
         g_text(8, y, &FONT_XS, b, C_DIM);
-        g_text(26, y, &FONT_XS, ui.slot_used[i] ? ui.slot_names[i] : "EMPTY", ui.slot_used[i] ? C_INK : C_DIM);
+        g_text(26, y, &FONT_XS, slot_used[i] ? slot_names[i] : "EMPTY", slot_used[i] ? C_INK : C_DIM);
     }
     {   /* the project's name (CURSOR and LETTER edit it; SAVE keeps it with the slot) */
         char b[16];

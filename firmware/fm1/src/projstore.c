@@ -31,7 +31,7 @@
 #define PS_OLD_SLOTS 7
 #define PS_OLD_SIZE 0x8000u
 #define PS_MAXPARTS 9                      /* (a 30 KB project that will not compress at all: 8) */
-#define PS_PROJ 32
+#define PS_PROJ 48                         /* (32 until 1.36: older versions skip 33-48, and may write over them) */
 #define PS_RAW_MAX 32768u
 #define PS_WIN 1024u                       /* the LZ window: matches reach back at most this far */
 #define PS_RING 2048u
@@ -68,8 +68,11 @@ static uint32_t ps_sec_addr(int k)
 }
 
 /* ------------------------------------------------------------------ the map --- */
-typedef struct { uint8_t slot, part, nparts, ok; uint32_t seq, len, raw, crc, rcrc, comp; } ps_sinfo;
-typedef struct { int8_t sec[PS_MAXPARTS]; uint8_t nparts, legacy, comp; uint32_t seq, len, raw, crc, rcrc; } ps_entry;
+/* (len at most 9 parts of 4064 bytes, raw at most 32 KB: both in 16 bits, which keeps the map in the pool's room
+ * with 48 projects) */
+typedef struct { uint8_t slot, part, nparts, ok, comp; uint16_t len, raw; uint32_t seq, crc, rcrc; } ps_sinfo;
+typedef struct { int8_t sec[PS_MAXPARTS]; uint8_t nparts, legacy, comp; uint16_t len, raw; uint32_t seq, crc, rcrc; } ps_entry;
+typedef char ps_len16[PS_MAXPARTS * PS_PAY <= 65535u && PS_RAW_MAX <= 65535u ? 1 : -1];
 static ps_sinfo ps_si[PS_SECTORS] PS_POOL;
 static ps_entry ps_e[PS_PROJ] PS_POOL;     /* each project's winning copy (nparts 0: empty) */
 static uint8_t ps_used[PS_SECTORS] PS_POOL;
@@ -93,7 +96,7 @@ static void ps_scan(void)
             h.raw > PS_RAW_MAX || h.len > (uint32_t)h.nparts * PS_PAY || h.len + PS_PAY <= (uint32_t)h.nparts * PS_PAY)
             continue;
         s->ok = 1, s->slot = h.slot, s->part = h.part, s->nparts = h.nparts;
-        s->seq = h.seq, s->len = h.len, s->raw = h.raw, s->crc = h.crc, s->rcrc = h.rcrc, s->comp = h.comp;
+        s->seq = h.seq, s->len = (uint16_t)h.len, s->raw = (uint16_t)h.raw, s->crc = h.crc, s->rcrc = h.rcrc, s->comp = h.comp;
         if (h.seq > ps_seqmax)
             ps_seqmax = h.seq;
     }
@@ -141,7 +144,7 @@ static void ps_scan(void)
                 if (!clash) {
                     found = 1;
                     e->legacy = 1, e->comp = 0, e->nparts = (uint8_t)n, e->seq = 0;
-                    e->len = e->raw = o.len, e->crc = e->rcrc = o.crc;
+                    e->len = e->raw = (uint16_t)o.len, e->crc = e->rcrc = o.crc;
                     for (q = 0; q < PS_MAXPARTS; q++)
                         e->sec[q] = (int8_t)(q < n ? first + q : -1);
                 }

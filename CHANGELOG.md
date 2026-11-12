@@ -3,6 +3,15 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.36.0
+
+New
+- 48 project slots, up from 32 (the projects' room on the FM-1 is the same: ROOM on SAVE still says how much is left, and is usually what runs out first). The install page's Projects and sounds and the emulator's transfer take 1–48.
+
+Changed
+- Going back to a version before 1.36: it sees projects 1–32 only, and saving there may write over the room projects 33–48 use. Back them up first.
+- Less of the FM-1's RAM in use (the transfer's buffers and SAVE's list of names moved to memory the sound doesn't use): 1.1 KB more room.
+
 ## 1.35.0
 
 New

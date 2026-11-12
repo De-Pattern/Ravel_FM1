@@ -228,7 +228,7 @@ const TEXT = {
     license: "GPL-3.0、無保証。ソース:",
     newtab: "（新しいタブで開きます）", progress: "書き込みの進み具合", percent: "%",
     bkh: "プロジェクトとサウンド: バックアップと復元",
-    bkwhy: "FM-1 の Ravel に保存したプロジェクト（1〜32）とサウンドバンク（A〜D）を、このパソコンに .ravel ファイルとして保存し、また FM-1 に戻せます。ファームウェアを入れ替える前や、別の版を試す前にどうぞ。エミュレーターの「Export file」のファイルもそのまま使えます。",
+    bkwhy: "FM-1 の Ravel に保存したプロジェクト（1〜48）とサウンドバンク（A〜D）を、このパソコンに .ravel ファイルとして保存し、また FM-1 に戻せます。ファームウェアを入れ替える前や、別の版を試す前にどうぞ。エミュレーターの「Export file」のファイルもそのまま使えます。",
     bkconnect: "FM-1 に接続", bkreconnect: "読み直す", bkconnected: "接続しました: FM-1 の Ravel",
     pc: "このパソコン", pcadd: "ファイルを追加…", selall: "すべて選ぶ", reload: "FM-1 を読み直す",
     colwhat: "種類", colname: "名前", colto: "FM-1 の行き先", colsize: "サイズ", colslot: "スロット",
@@ -303,7 +303,7 @@ const TEXT = {
     license: "GPL-3.0, no warranty. Source:",
     newtab: " (opens in a new tab)", progress: "Install progress", percent: " percent",
     bkh: "Projects and sounds: back up and restore",
-    bkwhy: "Keep the projects (1–32) and sound banks (A–D) saved in Ravel on your FM-1 as .ravel files on this computer, and put them back. Do it before installing another version. Files from the emulator's Export file work here too.",
+    bkwhy: "Keep the projects (1–48) and sound banks (A–D) saved in Ravel on your FM-1 as .ravel files on this computer, and put them back. Do it before installing another version. Files from the emulator's Export file work here too.",
     bkconnect: "Connect to the FM-1", bkreconnect: "Read again", bkconnected: "Connected: Ravel on the FM-1",
     pc: "This computer", pcadd: "Add files…", selall: "Select all", reload: "Read the FM-1 again",
     colwhat: "What", colname: "Name", colto: "To the FM-1", colsize: "Size", colslot: "Slot",
@@ -547,7 +547,8 @@ const P_MAGIC = 0x4A505652, B_MAGIC = 0x4B4E4252, KINDS = ["SYNTH", "STRIKE", "T
 const isBank = (s) => s >= 9 && s <= 12;
 const projNo = (s) => (s < 7 ? s + 1 : s - 13 + 8);
 const projSlot = (n) => (n <= 7 ? n - 1 : 13 + n - 8);
-const FM_ROWS = [...Array.from({ length: 32 }, (_, i) => projSlot(i + 1)), 9, 10, 11, 12];   /* projects 1-32, banks A-D */
+const ALL_ROWS = [...Array.from({ length: 48 }, (_, i) => projSlot(i + 1)), 9, 10, 11, 12];   /* projects 1-48, banks A-D */
+let FM_ROWS = ALL_ROWS;   /* (those the connected FM-1 has: an older Ravel, 1-32) */
 const slotLabel = (s) => (isBank(s) ? `${t("bank")} ${"ABCD"[s - 9]}` : `${t("proj")} ${projNo(s)}`);
 const b32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
 const w32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
@@ -780,7 +781,7 @@ async function bkPart(slot, off, n) {                    /* n bytes of a slot (n
 /* what the FM-1 holds: each slot's length and check, a project's name, a bank's sounds */
 async function bkRead() {
   let list;
-  try { list = await dev.sess.info(); }
+  try { list = await dev.sess.info(); FM_ROWS = ALL_ROWS.filter((s) => s < (dev.sess.stores || 54)); }
   catch (e) { throw new Error(/not as Ravel/.test(e.message) ? t("bknotravel") : t("bknofm")); }
   const old = fm;
   fm = new Map();
