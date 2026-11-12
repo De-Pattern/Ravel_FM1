@@ -5614,7 +5614,7 @@ static __attribute__((noinline)) void pic_weftrate(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int half = (w->run >> 1) & 1, i;
-    char b[32];
+    char b[48];
     for (i = 0; i < 2; i++) {
         int y = 82 + i * 46, on = i == half;
         g_rbox(6, y, 228, 40, 5, on ? g_mix(C_PANEL, C_INK, 0.10f) : C_PANEL, 1);

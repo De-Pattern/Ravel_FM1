@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.38.0
+
+Changed
+- A new start screen, drawn like a gritty late-90s TV cartoon: the hooded figures, the cross and the red ring from the new key art fade up out of film grain, RAVEL slams in letter by letter with a red drop shadow and worn edges, the grey-and-red hazard stripes slide in under it and DE-PATTERN types out, then smoke pours off the L and fills the screen before the tube switches off. It runs at 12 drawings a second, with a slight film weave. The CRT warm-up and switch-off stay; the scan lines are fainter. It takes less flash and RAM than before.
+
+Fixed
+- WEFT RATE: the line under the choices (THIS TRACK NOW) could write past its buffer when the track hadn't been measured yet.
+
 ## 1.37.0
 
 Changed
