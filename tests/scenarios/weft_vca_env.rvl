@@ -1,0 +1,21 @@
+# WEFT VCA and ENV: INIT's saw and low pass, its SLOPE an ENV and its MULT a VCA (CV: the ENV): silent before the
+# note, up while it is held, gone soon after it lets go (ENV releases at once, it doesn't finish a rise first)
+wait 300
+settp 1 KIND 6
+wait 50
+wpreset 1 0
+wset 1 0 2 73
+wset 1 0 4 72
+wset 1 7 7 0
+wset 1 7 8 0
+wset 1 7 4 30
+wait 200
+expect wtype 1 2 73
+expect wtype 1 4 72
+expect meter_max 1 0.001
+key 7 down
+wait 400
+expect meter_min 1 0.01
+key 7 up
+wait 1500
+expect meter_max 1 0.002

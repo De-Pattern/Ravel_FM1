@@ -420,6 +420,8 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
         W->c1[i] = 0.02f * wx_exp2(-x1 * 9.0f) / W->dt;
         W->c2[i] = clampf(1.0f - x2, 0.01f, 1.0f);
         break;
+    case WO_VCA: W->c1[i] = x1; W->c2[i] = x2; break;   /* LEVEL: open with nothing on CV; CURVE: linear to exponential */
+    case WO_ENV: W->kr[i] = wk(wtime(x1)); W->kf[i] = wk(wtime(x2)); break;
     case WO_LOCATE: W->c1[i] = 0.1f * wx_exp2(x1 * 13.0f) * W->dt; W->c2[i] = x2 * x2 * 0.02f; break;   /* RATE: 0.1 to 800 a second; LEAK */
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
@@ -2064,6 +2066,46 @@ WK_FLASH static void wk_locate(wk_t *K, int i, int j1, int j2)
     }
 }
 
+/* VCA: A, as loud as LEVEL plus B (CV), 0 to 1 (nothing on A: the CV itself); CURVE from linear toward
+ * exponential (a cube: quiet low down, as a VCA for sound is set up) */
+WK_FLASH static void wk_vca(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float lv = W->c1[i], cv = W->c2[i];
+        for (j = j1; j < j2; j++) {
+            float g = clampf(lv + (bc ? WB : 0.0f), 0.0f, 1.0f);
+            g += (g * g * g - g) * cv;
+            yo[j] = (ac ? WA : 1.0f) * g;
+        }
+        return;
+    }
+}
+
+/* ENV: two stages: ATTACK while the gate (A, else the note's) is up, toward full, held there; RELEASE as soon as
+ * it is down, from wherever it got to (SLOPE, by contrast, always finishes its rise). B: both faster or slower */
+WK_FLASH static void wk_env(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {
+        float yv = s->y, kr = W->kr[i], kf = W->kf[i];
+        if (!(yv == yv))
+            yv = 0.0f;
+        for (j = j1; j < j2; j++) {
+            float sc = bc ? fm_exp2f(-WB * 4.0f) : 1.0f;
+            if ((ac ? WA : K->gatev) > 0.5f) {
+                yv += (1.25f - yv) * clampf(kr * sc, 0.0f, 1.0f);
+                if (yv > 1.0f)
+                    yv = 1.0f;
+            } else
+                yv -= yv * clampf(kf * sc, 0.0f, 1.0f);
+            yo[j] = yv;
+        }
+        s->y = yv;
+        return;
+    }
+}
+
 WK_FLASH static void wk_tread(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -2270,6 +2312,8 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_IMPULSE] = wk_impulse,
     [WO_CREASE] = wk_crease,
     [WO_LOCATE] = wk_locate,
+    [WO_VCA] = wk_vca,
+    [WO_ENV] = wk_env,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,

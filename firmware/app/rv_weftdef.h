@@ -32,6 +32,7 @@ enum {
     WO_TRKIN,                                           /* another track's sound, into the patch (send only: rv_engine.c) */
     WO_IMPULSE, WO_CREASE, WO_LOCATE,                  /* a rise and fall on each cycle (after Mangrove); a cut at zero, a
                                                          * clipped integrator (after Cold Mac) */
+    WO_VCA, WO_ENV,                                     /* the modular basics, by their names */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -155,6 +156,8 @@ static const wf_type_t wf_types[WO_N] = {
     {"IMPULSE", "FORMANT", "BARREL", "SYNC", "FORMANT", 50, 64, 0, 0, 0, 0},
     {"CREASE", "SHIFT", "BIAS", "IN", "ADD", 64, 64, 0, 0, 0, 0},
     {"LOCATE", "RATE", "LEAK", "IN", "RESET", 60, 0, 0, 0, 0, 0},
+    {"VCA", "LEVEL", "CURVE", "IN", "CV", 0, 0, 0, 0, 0, 0},
+    {"ENV", "ATTACK", "RELEASE", "GATE", "TIME", 4, 60, 0, 0, 0, 0},
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -230,7 +233,9 @@ static const char *const wf_desc[WO_N] = {
     "ANOTHER TRACK'S SOUND IN",
     "A RISE AND FALL EACH CYCLE",
     "A CUT AT ZERO, HALVES SWAPPED",
-    "A ADDED UP, HELD AT ITS EDGES"
+    "A ADDED UP, HELD AT ITS EDGES",
+    "A, AS LOUD AS LEVEL PLUS CV",
+    "ATTACK WHILE THE GATE IS UP, RELEASE"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",

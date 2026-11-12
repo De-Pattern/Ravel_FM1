@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.35.0
+
+New
+- WEFT blocks VCA (A as loud as LEVEL plus CV, linear to exponential) and ENV (a two-stage attack and release on the gate, or the note's). Existing patches play exactly as before.
+
 ## 1.34.0
 
 New
