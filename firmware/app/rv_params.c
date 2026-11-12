@@ -669,7 +669,7 @@ static const char *dest_name(int p)
     return p >= 0 && p < TP_N && TRACK[p].name ? TRACK[p].name : "-";
 }
 
-void rv_param_format(int pid, int v, char *o, int max)
+RV_SMALL void rv_param_format(int pid, int v, char *o, int max)
 {
     const rv_pinfo *pi = rv_pinfo_pid(pid);
     int i = 0;

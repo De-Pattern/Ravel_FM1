@@ -29,7 +29,7 @@ static void stress_hit(int t, int s, int note)
 }
 
 /* step 0 stops it all (the project stays as it is); any other builds the project for that step */
-void rv_stress(int step, int engine)
+RV_SMALL void rv_stress(int step, int engine)
 {
     static const uint8_t chord[4] = {48, 55, 60, 64};
     int t, s, k;

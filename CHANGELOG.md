@@ -3,6 +3,12 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.37.0
+
+Changed
+- The start screen's three cloaked figures are now pixel art (16 colours, a touch see-through over the snow), lit by the flashes and fading as the logo comes.
+- More of the interface built for size (the knobs' tables and drawing, the WEFT pictures, the start screen, the stress test): about 20 KB more room in the flash for what comes next.
+
 ## 1.36.1
 
 (1.36.0 was never released: its emulator test still expected 38 slots.)

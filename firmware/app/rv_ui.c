@@ -862,7 +862,7 @@ static int wl_entry(void)
     return n ? l[ui.wl_sel % n] : 0;
 }
 
-static kinfo_t kb_info(kb_t k)
+static RV_SMALL kinfo_t kb_info(kb_t k)
 {
     kinfo_t r = {0, 0, 0, PF_NUM, 0};
     const rv_pinfo *pi;
@@ -1224,7 +1224,7 @@ static uint16_t macro_index_to_dst(int i)
     return (uint16_t)PID_G(i - RV_TRACKS * TP_N);
 }
 
-static int kb_get(kb_t k)
+static RV_SMALL int kb_get(kb_t k)
 {
     rv_step *s;
     switch (k.kind) {
@@ -1864,7 +1864,7 @@ static void kb_set(kb_t k, int v)
     }
 }
 
-static void kb_format(kb_t k, int v, char *o)
+static RV_SMALL void kb_format(kb_t k, int v, char *o)
 {
     kinfo_t in = kb_info(k);
     o[0] = 0;
@@ -3623,7 +3623,7 @@ static void draw_top(void)
 
 /* one knob: a small dial in its colour, its name, its value, and a bar in its colour (bipolar ones
  * from the middle); greyed when it does nothing as the track is set */
-static void knob_draw(int i, const char *name, const char *val, int v, int mn, int mx, uint16_t lc, uint16_t vc, int grey)
+static RV_SMALL void knob_draw(int i, const char *name, const char *val, int v, int mn, int mx, uint16_t lc, uint16_t vc, int grey)
 {
     int x = i * 60;
     uint16_t kc = grey ? C_KOFF : knob_col[i], ring = grey ? C_KDIV : g_mix(C_KPANEL, kc, 0.45f);
@@ -4496,7 +4496,7 @@ static void pic_env(void)
 
 /* a LIBRARY envelope across the screen: its segments with their bends, the step grid (synced), the
  * loop, where it chains to, the segment on the knobs (sel, or -1) and the playing position of track t */
-static void senv_draw(int idx, int sel, int t)
+static RV_SMALL void senv_draw(int idx, int sel, int t)
 {
     const rv_senv *e = &rv.senv[idx % RV_SENV];
     int n = SENV_NSEG(e), i, x[RV_SENV_SEG + 1], top = PIC_Y + 22, base = PIC_Y + 100, tot8 = 0;
@@ -5284,7 +5284,7 @@ static void pic_flash(void)
 /* LOOP: the four lanes, each its sound drawn small (worked out a few times a second), its play range
  * with the four slices, where it plays, whether it records (red), waits for the threshold (amber),
  * plays (green) or a slice of it is held (white); what comes in */
-static void pic_loop(void)
+static RV_SMALL void pic_loop(void)
 {
     static uint8_t ov[4][100];
     static uint32_t ov_frame;
@@ -5407,7 +5407,7 @@ static void wf_cord(int s, int d, int port, int lit)
 }
 
 /* WEFT PATCH: the twelve blocks as tiles (a scope of each), their cords, the chosen one lit */
-static __attribute__((noinline)) void pic_weft(void)
+static __attribute__((noinline)) RV_SMALL void pic_weft(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     rv_live.wf_view = 60;                            /* (the engine catches the scopes while they show) */
@@ -5483,7 +5483,7 @@ static __attribute__((noinline)) void pic_weft(void)
 }
 
 /* WEFT BLOCK: the chosen block close up: what comes in, what it does, what goes out and where */
-static __attribute__((noinline)) void pic_weftblk(void)
+static __attribute__((noinline)) RV_SMALL void pic_weftblk(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     rv_live.wf_view = 60;                            /* (the engine catches the scopes while they show) */
@@ -5636,7 +5636,7 @@ static __attribute__((noinline)) void pic_weftrate(void)
 }
 
 /* WEFT LIBRARY: the list (factory patches, then your own and the empty slots of the bank), the chosen one lit */
-static __attribute__((noinline)) void pic_weftlib(void)
+static __attribute__((noinline)) RV_SMALL void pic_weftlib(void)
 {
     uint8_t l[WL_MAX];
     int n = wl_list(l), sel = n ? ui.wl_sel % n : 0, top = sel - 3, i, own = 0, used = 0;

@@ -147,7 +147,7 @@ static __attribute__((noinline)) void in_back(uint32_t t, int b, float fl, float
 
 /* the logo: the mark's ribbons (halftone on the left, solid on the right), the letters as smooth strokes,
  * the dashes around them; dv: its brightness; mt: how far it has run down (0..1) */
-static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
+static __attribute__((noinline)) RV_SMALL void in_logo(int b, float dv, float mt, int dy)
 {
     int x, s, ox = in.ox, oy = in.oy + dy;
     static const uint8_t bay[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
@@ -198,38 +198,28 @@ static __attribute__((noinline)) void in_logo(int b, float dv, float mt, int dy)
     }
 }
 
-/* three hooded figures in cloaks, standing behind where the logo will be: seen as the snow clears, lit by the
- * flashes, gone as the logo comes; a: how much (0..1) */
-static __attribute__((noinline)) void in_cloaks(int b, float a, float fl, int ox, int oy)
+/* three hooded figures in cloaks (docs/brand/cloaks.png, 16 colours: rv_cloaks.h), standing behind where the logo
+ * will be: seen as the snow clears, a touch see-through, lit by the flashes, gone as the logo comes; a: how much */
+#include "rv_cloaks.h"
+static __attribute__((noinline)) RV_SMALL void in_cloaks(int b, float a, float fl, int ox, int oy)
 {
-    static const int8_t fx[3] = {-46, 0, 46};
-    static const uint8_t fy[3] = {78, 64, 80};     /* (their heads; the middle one taller) */
-    int k, y;
-    for (k = 0; k < 3; k++) {
-        int cx = PLAT_W / 2 + fx[k] + ox, hy = fy[k] + oy, hem = 206 + oy - (k == 1 ? 0 : 3 * k);
-        float v = (0.13f + fl * 0.4f) * a;
-        uint16_t c = in_grey(v), fold = in_grey(v * 0.55f);
-        if (hem < b || hy - 16 > b + GB_H)
-            continue;
-        for (y = hy + 6 > b ? hy + 6 : b; y < b + GB_H && y < hem; y++) {   /* the cloak: the shoulders, then falling
-                                                                             * almost straight to a hem that frays */
-            float d = (float)(y - hy - 6), sh = d < 12.0f ? d / 12.0f : 1.0f;
-            int w = (int)(6.0f + 9.0f * (2.0f - sh) * sh + (d > 12.0f ? (d - 12.0f) * 0.07f : 0.0f)) + (k == 1);
-            if (y > hem - 6 && (in_hash((uint32_t)(y * 7 + k)) & 3u) == 0u)
-                w -= 2;
-            g_fill(cx - w, y, 2 * w + 1, 1, in_grey(v * (1.0f - 0.45f * d / (float)(hem - hy))));   /* (darker toward the ground) */
+    int x0 = PLAT_W / 2 - CLOAK_W / 2 + ox, y0 = 58 + oy, y, x, k;
+    uint16_t pal[16];
+    a *= 0.86f;                                       /* (a little of the snow through them, always) */
+    for (k = 1; k < 16; k++)                          /* the flashes light them */
+        pal[k] = fl > 0.02f ? g_mix(cloak_pal[k], RGB(255, 255, 255), fl * 0.35f) : cloak_pal[k];
+    for (y = b > y0 ? b : y0; y < b + GB_H && y < y0 + CLOAK_H; y++) {
+        const uint8_t *row = cloak_px + (uint32_t)(y - y0) * CLOAK_W / 2u;
+        for (x = 0; x < CLOAK_W; x++) {
+            int i = (x & 1) ? row[x >> 1] & 15 : row[x >> 1] >> 4;
+            if (i && x0 + x >= 0 && x0 + x < PLAT_W)
+                g_cover(x0 + x, y, pal[i], a);
         }
-        g_seg((float)cx - 3.0f, (float)hy + 16.0f, (float)cx - 6.0f, (float)hem - 2.0f, 1.2f, fold);   /* (its folds) */
-        g_seg((float)cx + 4.0f, (float)hy + 18.0f, (float)cx + 7.0f, (float)hem - 2.0f, 1.2f, fold);
-        g_seg((float)cx, (float)hy - 15.0f, (float)cx, (float)hy - 4.0f, 2.5f, c);   /* the hood, pointed */
-        g_discf((float)cx, (float)hy, 10.0f, c);
-        g_discf((float)cx, (float)hy + 3.0f, 5.0f, in_grey(0.005f));           /* (no face in it) */
-        g_discf((float)cx, (float)hy + 6.0f, 4.0f, in_grey(0.005f));
     }
 }
 
 /* everything over the background at t: the logo and the maker's name (dy: none now; the melt is gone) */
-static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float fl, float fade)
+static __attribute__((noinline)) RV_SMALL void in_scene(uint32_t t, int b, int dy, float fl, float fade)
 {
     int ox = in.ox, oy = in.oy + dy;
     float tf = (float)t, lv = in_smooth((tf - 1650.0f) / 500.0f), melt = 0.0f, ca = in_smooth((tf - 700.0f) / 600.0f) * (1.0f - lv);
@@ -263,7 +253,7 @@ static __attribute__((noinline)) void in_scene(uint32_t t, int b, int dy, float 
 /* the tape, over the finished band: rows pushed sideways (the camera's shake, a tracking band rolling down,
  * the wobble of a failing tape, the head switching at the bottom), the colour bleeding off to the sides, each
  * row smeared down into the next as the tape melts, and in the crash, blocks */
-static __attribute__((noinline)) void in_tape(uint32_t t, int b)
+static __attribute__((noinline)) RV_SMALL void in_tape(uint32_t t, int b)
 {
     float tf = (float)t, fail = in_smooth((tf - (float)IN_FAIL) / 700.0f), smear = in_smooth((tf - (float)IN_FAIL - 200.0f) / 900.0f) * 0.85f;
     float crash = t >= IN_CRASH ? in_smooth((tf - (float)IN_CRASH) / 260.0f) : 0.0f;   /* (the crash: 0 .. 1) */
