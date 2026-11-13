@@ -252,6 +252,7 @@ static struct {
     uint8_t armed;
     int8_t srec_t;                  /* step recording on this track (-1: off) */
     uint8_t wf_blk, wf_map;         /* WEFT: the block on PATCH and BLOCK, the knob on MAP */
+    uint8_t wf_list, wf_lpos;       /* WEFT PATCH, EDIT held and TYPE turned: the list of blocks open, and where in it */
     uint8_t wl_sel, wl_cursor;      /* WEFT LIBRARY: the entry chosen, the name's cursor */
     char wf_name[RV_TRACKS][12];    /* WEFT: the name of the patch each track has (its own: "") */
     int8_t wf_pre[RV_TRACKS];       /* WEFT: the factory patch each track has (-1: its own) */
@@ -862,6 +863,10 @@ static int wl_entry(void)
     return n ? l[ui.wl_sel % n] : 0;
 }
 
+/* TYPE's order: the blocks as numbered (as patches keep them), but AUDIO (the track's sound out) last */
+static int wf_tpos(int t) { return t < WO_AOUT ? t : t == WO_AOUT ? WO_N - 1 : t - 1; }
+static int wf_tat(int p) { return p < WO_AOUT ? p : p >= WO_N - 1 ? WO_AOUT : p + 1; }
+
 static RV_SMALL kinfo_t kb_info(kb_t k)
 {
     kinfo_t r = {0, 0, 0, PF_NUM, 0};
@@ -1061,7 +1066,7 @@ static RV_SMALL kinfo_t kb_info(kb_t k)
         case 0: r.min = 0; r.max = WF_BLOCKS - 1; r.fmt = PF_ENUM; r.names = blk; break;
         case 1:
             for (i = 0; i < WO_N; i++)
-                typ[i] = wf_types[i].name;
+                typ[i] = wf_types[wf_tat(i)].name;
             r.max = WO_N - 1; r.fmt = PF_ENUM; r.names = typ; break;
         case 2: case 4:                               /* a source: a block (named), or a built-in */
             for (i = 0; i < WS_N; i++) {
@@ -1343,7 +1348,7 @@ static RV_SMALL int kb_get(kb_t k)
         int b = ui.wf_blk % WF_BLOCKS;
         switch (k.id) {
         case 0: return b;
-        case 1: return w->type[b] % WO_N;
+        case 1: return wf_tpos(w->type[b] % WO_N);
         case 2: return w->a[b] % WS_N;
         case 3: return w->amta[b];
         case 4: return w->b[b] % WS_N;
@@ -1777,6 +1782,7 @@ static void kb_set(kb_t k, int v)
         switch (k.id) {
         case 0: ui.wf_blk = (uint8_t)(v % WF_BLOCKS); break;
         case 1:                                       /* a new type: its own settings, its inputs kept */
+            v = wf_tat(v);                            /* (the knob goes in TYPE's order) */
             if (v != w->type[b]) {
                 w->type[b] = (uint8_t)v;
                 w->bmove &= (uint16_t)~(1u << b);      /* (B back to its own job) */
@@ -2104,6 +2110,16 @@ static RV_SMALL void knob_turn(int i, int d)
     if (btn & (1u << B_LFO)) {                    /* LFO held: the macros */
         rv.gp[GP_MACRO1 + i] = (int16_t)clampi(rv.gp[GP_MACRO1 + i] + d, 0, 127);
         ui.layer_used[B_LFO] = 1;
+        ui.turned_ms[i] = plat_ms();
+        return;
+    }
+    if ((btn & (1u << B_EDIT)) && i == 1 && pg->pic == PIC_WEFT) {   /* EDIT held on WEFT PATCH: TYPE opens the list of blocks */
+        kb_t kt = {K_WF, 1};
+        if (!ui.wf_list)
+            ui.wf_lpos = (uint8_t)kb_get(kt);
+        ui.wf_list = 1;
+        ui.wf_lpos = (uint8_t)clampi(ui.wf_lpos + d, 0, WO_N - 1);   /* (let go of EDIT: the block there is chosen) */
+        ui.layer_used[B_EDIT] = 1;
         ui.turned_ms[i] = plat_ms();
         return;
     }
@@ -3097,6 +3113,12 @@ static void buttons(uint32_t now_btn)
             ui.layer_used[b] = 0;
         }
     }
+    if (ui.wf_list && ((up & (1u << B_EDIT)) || !(now_btn & (1u << B_EDIT)))) {   /* the list of blocks: EDIT let go */
+        kb_t kt = {K_WF, 1};
+        ui.wf_list = 0;
+        if (cur_page()->pic == PIC_WEFT && ui.wf_lpos != kb_get(kt))
+            kb_set(kt, ui.wf_lpos);
+    }
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
     }
@@ -3777,7 +3799,7 @@ static void draw_footer(void)
     case PR_WLIB: hint = "SAVE: SAVE  BLK: LD SV DEL INIT CLR"; break;
     case PR_WEFT:
         hint = pg->pic == PIC_WEFTBLK ? "BLK1: B MOVES  11 X2: UNPATCH" : pg->pic == PIC_WEFTMAP ? "THESE KNOBS ON WEFT PLAY"
-             : pg->pic == PIC_WEFT ? ((plat_buttons() & (1u << B_EDIT)) ? "EDIT HELD: BLOCK MOVES IT" : "PRESETS  BLK11 X2: UNPATCH")
+             : pg->pic == PIC_WEFT ? ((plat_buttons() & (1u << B_EDIT)) ? "EDIT: BLOCK MOVES  TYPE LIST" : "PRESETS  BLK11 X2: UNPATCH")
              : "PRESETS: PATCHES  KEYS: PLAY";
         break;
     case PR_STEPCUR: {                                /* the graph: which steps the keys hold, and OCT for more */
@@ -5407,6 +5429,33 @@ static void wf_cord(int s, int d, int port, int lit)
 }
 
 /* WEFT PATCH: the twelve blocks as tiles (a scope of each), their cords, the chosen one lit */
+/* WEFT PATCH, EDIT held and TYPE turned: every block in a list over the left side, the one it's on in the middle
+ * (let go of EDIT: that one), the block's type now marked */
+#define WL_ROWS 10
+static __attribute__((noinline)) RV_SMALL void wf_list_draw(void)
+{
+    const rv_weft *w = &rv.weft[ui.track];
+    int x0 = 4, y0 = 74, wd = 116, rh = 12, p0 = ui.wf_lpos - WL_ROWS / 2, r, now = wf_tpos(w->type[ui.wf_blk % WF_BLOCKS] % WO_N);
+    char n[8];
+    p0 = clampi(p0, 0, WO_N - WL_ROWS);
+    g_rbox(x0, y0 - 4, wd, WL_ROWS * rh + 17, 4, C_BG, 1);
+    g_rbox(x0, y0 - 4, wd, WL_ROWS * rh + 17, 4, C_INK, 0);
+    for (r = 0; r < WL_ROWS; r++) {
+        int p = p0 + r, y = y0 + r * rh, ty = wf_tat(p);
+        if (p == ui.wf_lpos)
+            g_rbox(x0 + 3, y - 2, wd - 6, rh, 3, C_INK, 1);
+        g_text(x0 + 8, y, &FONT_T, ty ? wf_types[ty].name : "NONE", p == ui.wf_lpos ? C_BG : p == now ? C_TEAL : C_INK);
+        if (p == now)
+            g_fill(x0 + wd - 12, y + 3, 4, 4, p == ui.wf_lpos ? C_BG : C_TEAL);
+    }
+    n[0] = 0;
+    sx_int(n, ui.wf_lpos + 1);
+    sx_cat(n, "/");
+    sx_int(n + sx_cat(n, ""), WO_N);
+    g_text_r(x0 + wd - 6, y0 + WL_ROWS * rh + 1, &FONT_T, n, C_DIM);
+    g_text(x0 + 8, y0 + WL_ROWS * rh + 1, &FONT_T, "LET GO: SET", C_DIM);
+}
+
 static __attribute__((noinline)) RV_SMALL void pic_weft(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
@@ -5472,7 +5521,7 @@ static __attribute__((noinline)) RV_SMALL void pic_weft(void)
         char d[20];
         int room = 232 - (9 + g_text_w(&FONT_T, b) + 10), n;
         d[0] = 0;
-        sx_cat(d, wf_short[w->type[sel] % WO_N]);
+        sx_cat(d, wf_short[ui.wf_list ? wf_tat(ui.wf_lpos) : w->type[sel] % WO_N]);   /* (the list open: the one it's on) */
         while (d[0] && g_text_w(&FONT_T, d) > room) {   /* (trimmed, rarely: a long input) */
             for (n = 0; d[n]; n++) {}
             d[n - 1] = 0;
@@ -5480,6 +5529,8 @@ static __attribute__((noinline)) RV_SMALL void pic_weft(void)
         if (d[0])
             g_text_r(232, 206, &FONT_T, d, C_TEAL);
     }
+    if (ui.wf_list)
+        wf_list_draw();
 }
 
 /* WEFT BLOCK: the chosen block close up: what comes in, what it does, what goes out and where */

@@ -3,6 +3,15 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.41.0
+
+Added
+- WEFT PATCH: hold EDIT and turn TYPE to open a list of every block over the left of the screen; turn to move through it (the bottom right says what the one you're on does) and let go of EDIT to make the selected block that one.
+
+Changed
+- WEFT PATCH: TYPE puts AUDIO last. Patches keep their blocks as they are; only the order you turn through changes.
+- A new start screen: the RAVEL wordmark, crisp white on black, comes in band by band, holds, then slides and tears apart (three seconds, 24 frames a second). It's drawn from the wordmark itself rather than stored frames, so the firmware is about 18 KB smaller. The version stays small at the bottom right.
+
 ## 1.40.0
 
 Changed

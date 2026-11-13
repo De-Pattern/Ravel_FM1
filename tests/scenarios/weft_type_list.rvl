@@ -1,0 +1,31 @@
+# WEFT PATCH: TYPE goes through the blocks with AUDIO last (patches keep their numbers: AUDIO is still 52); EDIT held and
+# TYPE turned opens the list of blocks over the left side, the block's type unchanged until EDIT is let go
+wait 300
+tap EDIT
+wait 100
+kind 1 6
+wait 100
+turn SELECT 2
+wait 100
+expect page WEFT PATCH
+expect wtype 1 1 2
+press EDIT
+wait 50
+turn K2 3
+wait 100
+shot weft_type_list.png
+expect wtype 1 1 2
+release EDIT
+wait 100
+expect wtype 1 1 11
+expect page WEFT PATCH
+press EDIT
+wait 50
+turn K2 80
+wait 100
+release EDIT
+wait 100
+expect wtype 1 1 52
+turn K2 -1
+wait 100
+expect wtype 1 1 73

@@ -1,198 +1,54 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""The start screen's animation (docs/brand/ravel-boot.gif: smoke curling across, RAVEL forming in it, tearing,
-dripping), its frames' lit band cut out, made smaller, in grey levels, and packed to fit the flash, written to
-firmware/app/rv_boot.h.
+"""The start screen's data (firmware/app/rv_boot.h): the RAVEL wordmark, 224 x 46 at one bit a pixel
+(docs/brand/ravel-logo-224x46.bin: row by row, the leftmost pixel the top bit), and how far each of its rows is
+pushed sideways in each frame of the smear at the end. The device draws the 72 frames (24 a second, three seconds)
+from these with a few rules (rv_intro.c, in_logo_row); the smear's shifts are worked out here, in double precision,
+so the FM-1 (single precision) gives the same pixels.
 
-Each frame is coded row by row, each pixel predicted from its neighbours above and to the left (the median edge
-predictor); where all of them are black the pixels go as a run of black (an Elias gamma count, then the pixel that
-ends it); elsewhere as what's left over from the prediction (zigzagged, in an adaptive Rice code). The device
-unpacks a frame top to bottom as the screen is drawn, keeping only two rows (rv_intro.c, in_bd_*): this encoder
-and that decoder must agree bit for bit (`tools/make_boot.py --check` decodes it again here).
+The frames, from the start: the wordmark comes in band by band from the top (its left side cut away at first, a
+two-row gap every fourth frame); settles (a two-row gap once); holds; then from frame 55 its rows slide, more and
+more (two sines), and from 62 every eighth pair of rows tears further; frame 71 is black. Thin grey lines flash on
+eight of the frames.
 
-  tools/make_boot.py [--check]
+  tools/make_boot.py
 """
+import math
 import os
-import sys
-
-import numpy as np
-from PIL import Image, ImageSequence
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-W, H, LV = 160, 90, 16                 # the frames as stored (drawn 1.5 times as big)
-Y0, Y1 = 52, 187                       # the rows of the 240 x 240 frames that have anything in them
-BLACK = 12                             # under this (of 255): black
+LW, LH = 224, 46
+S0, S1 = 55, 71                         # the frames with shifts: 55 .. 70
 
 
-def load():
-    im = Image.open(os.path.join(ROOT, "docs", "brand", "ravel-boot.gif"))
-    frames, ms = [], []
-    for f in ImageSequence.Iterator(im):
-        a = np.asarray(f.convert("L"))[Y0:Y1 + 1]
-        a = np.asarray(Image.fromarray(a).resize((W, H), Image.LANCZOS)).astype(float)
-        q = np.clip(np.round((a / 255.0) ** 0.7 * (LV - 1)), 0, LV - 1).astype(int)
-        q[a < BLACK] = 0
-        frames.append(q)
-        ms.append(int(f.info.get("duration", 100)))
-    return frames, ms
-
-
-class Bits:
-    def __init__(self):
-        self.b = []
-
-    def put(self, v, n):
-        for i in range(n - 1, -1, -1):
-            self.b.append((v >> i) & 1)
-
-    def bytes(self):
-        b = self.b + [0] * (-len(self.b) % 8)
-        return bytes(int("".join(map(str, b[i:i + 8])), 2) for i in range(0, len(b), 8))
-
-
-def med(a, b, c):
-    if c >= max(a, b):
-        return min(a, b)
-    if c <= min(a, b):
-        return max(a, b)
-    return a + b - c
-
-
-def kof(A, N):
-    k = 0
-    while (N << k) < A:
-        k += 1
-    return k
-
-
-def encode(q):
-    o = Bits()
-    A, N = 4, 1
-    prev = [0] * (W + 1)
-    for y in range(H):
-        row = list(q[y])
-        x = 0
-        while x < W:
-            a = row[x - 1] if x else 0
-            b, c, d = prev[x], prev[x - 1] if x else 0, prev[x + 1] if x + 1 < W else 0
-            if a == 0 and b == 0 and c == 0 and d == 0:
-                r = 0
-                while x + r < W and row[x + r] == 0:
-                    r += 1
-                n = r + 1                                  # (Elias gamma of the run + 1)
-                L = n.bit_length()
-                o.put(0, L - 1)
-                o.put(n, L)
-                x += r
-                if x < W:                                  # (the pixel that ends it: not black)
-                    v = row[x] - 1
-                    o.put(0, v >> 1)
-                    o.put(1, 1)
-                    o.put(v & 1, 1)
-                    x += 1
-                continue
-            p = med(a, b, c)
-            e = (row[x] - p) % LV
-            if e >= LV // 2:
-                e -= LV
-            m = 2 * e if e >= 0 else -2 * e - 1
-            k = kof(A, N)
-            o.put(0, m >> k)
-            o.put(1, 1)
-            o.put(m & ((1 << k) - 1), k)
-            A += abs(e)
-            N += 1
-            if N == 16:
-                A = (A + 1) >> 1
-                N >>= 1
-            x += 1
-        prev = row + [0]
-    return o.bytes()
-
-
-def decode(data):
-    pos = [0]
-
-    def bit():
-        v = (data[pos[0] >> 3] >> (7 - (pos[0] & 7))) & 1
-        pos[0] += 1
-        return v
-
-    def get(n):
-        v = 0
-        for _ in range(n):
-            v = v << 1 | bit()
-        return v
+def shifts(i):
+    p = (i - S0) / 17
     out = []
-    A, N = 4, 1
-    prev = [0] * (W + 1)
-    for y in range(H):
-        row = [0] * W
-        x = 0
-        while x < W:
-            a = row[x - 1] if x else 0
-            b, c, d = prev[x], prev[x - 1] if x else 0, prev[x + 1] if x + 1 < W else 0
-            if a == 0 and b == 0 and c == 0 and d == 0:
-                L = 1
-                while not bit():
-                    L += 1
-                n = 1 << (L - 1) | get(L - 1)
-                x += n - 1
-                if x < W:
-                    q = 0
-                    while not bit():
-                        q += 1
-                    row[x] = (q << 1 | bit()) + 1
-                    x += 1
-                continue
-            k = kof(A, N)
-            q = 0
-            while not bit():
-                q += 1
-            m = q << k | get(k)
-            e = m >> 1 if not m & 1 else -((m + 1) >> 1)
-            row[x] = (med(a, b, c) + e) % LV
-            A += abs(e)
-            N += 1
-            if N == 16:
-                A = (A + 1) >> 1
-                N >>= 1
-            x += 1
-        out.append(row)
-        prev = row + [0]
-    return np.array(out)
+    for y in range(LH):
+        dx = int(round((p ** 1.6) * (6 * math.sin(y * .42 + p * 13) + 10 * math.sin(y * .12 + p * 19))))
+        if i >= 62 and y % 8 in (0, 1) and (i + y) % 5 < 3:
+            dx += int(5 + 20 * p)
+        out.append(dx % LW if dx % LW < 128 else dx % LW - LW)   # (a roll: kept small, either way)
+    return out
 
 
 def main():
-    frames, ms = load()
-    blobs = [encode(q) for q in frames]
-    if "--check" in sys.argv:
-        for q, bl in zip(frames, blobs):
-            assert (decode(bl) == q).all()
-        print("decodes back exactly")
-    offs, tot = [], 0
-    for bl in blobs:
-        offs.append(tot)
-        tot += len(bl)
+    logo = open(os.path.join(ROOT, "docs", "brand", "ravel-logo-224x46.bin"), "rb").read()
+    assert len(logo) == LW * LH // 8
     out = os.path.join(ROOT, "firmware", "app", "rv_boot.h")
     with open(out, "w") as f:
         f.write("/* SPDX-License-Identifier: GPL-3.0-only */\n")
-        f.write("/* the start screen's animation (made by tools/make_boot.py from docs/brand/ravel-boot.gif: don't edit) */\n")
-        f.write("#define BOOT_W %d\n#define BOOT_H %d\n#define BOOT_LV %d\n#define BOOT_Y0 %d\n#define BOOT_Y1 %d\n#define BOOT_N %d\n"
-                % (W, H, LV, Y0, Y1, len(frames)))
-        f.write("static const uint16_t boot_ms[BOOT_N] = {%s};\n" % ", ".join(map(str, ms)))
-        f.write("static const uint16_t boot_off[BOOT_N] = {%s};\n" % ", ".join(map(str, offs)))
-        lut = []
-        for i in range(16 * (LV - 1) + 1):                 # (a level, in sixteenths, to its grey: undoing the curve)
-            k = int(round(((i / 16.0) / (LV - 1)) ** 1.85 * 31))   # (a little steeper than undoing it: the fibres, shrunk, go to haze)
-            lut.append(k << 11 | (2 * k) << 5 | k)
-        f.write("static const uint16_t boot_lut[%d] = {%s};\n" % (len(lut), ", ".join("0x%04X" % v for v in lut)))
-        f.write("static const uint8_t boot_bits[%d] = {\n" % tot)
-        allb = b"".join(blobs)
-        for i in range(0, len(allb), 24):
-            f.write("    " + ",".join("0x%02X" % v for v in allb[i:i + 24]) + ",\n")
+        f.write("/* the start screen's wordmark and its smear (made by tools/make_boot.py: don't edit) */\n")
+        f.write("#define BOOT_LW %d\n#define BOOT_LH %d\n#define BOOT_S0 %d\n#define BOOT_S1 %d\n" % (LW, LH, S0, S1))
+        f.write("static const uint8_t boot_logo[%d] = {\n" % len(logo))
+        for i in range(0, len(logo), 28):
+            f.write("    " + ",".join("0x%02X" % v for v in logo[i:i + 28]) + ",\n")
         f.write("};\n")
-    print(out, len(frames), "frames,", tot, "B", [len(b) for b in blobs])
+        f.write("static const int8_t boot_shift[%d][%d] = {\n" % (S1 - S0, LH))
+        for i in range(S0, S1):
+            f.write("    {" + ",".join(str(v) for v in shifts(i)) + "},\n")
+        f.write("};\n")
+    print(out, len(logo), "+", (S1 - S0) * LH, "B")
 
 
 if __name__ == "__main__":
