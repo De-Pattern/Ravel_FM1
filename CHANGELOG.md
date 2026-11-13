@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.41.1
+
+Fixed
+- The start screen is the smoke animation again (1.41.0 had the wrong one): smoke curls in, RAVEL forms in it, tears and drips. Ten of its frames, sharper than 1.40.0's, each blended into the next as it plays, so it moves smoothly, tearing included; brightness matched to the original. The version stays small at the bottom right.
+
 ## 1.41.0
 
 Added
@@ -10,7 +15,7 @@ Added
 
 Changed
 - WEFT PATCH: TYPE puts AUDIO last. Patches keep their blocks as they are; only the order you turn through changes.
-- A new start screen: the RAVEL wordmark, crisp white on black, comes in band by band, holds, then slides and tears apart (three seconds, 24 frames a second). It's drawn from the wordmark itself rather than stored frames, so the firmware is about 18 KB smaller. The version stays small at the bottom right.
+- A new start screen: the RAVEL wordmark, crisp white on black, comes in band by band, holds, then slides and tears apart (replaced in 1.41.1: the wrong animation).
 
 ## 1.40.0
 
