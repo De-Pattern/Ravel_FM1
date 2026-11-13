@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel: the start screen. An animation (docs/brand/boot: ten of its frames, each blended into the next as it
- * plays): smoke curling in from the left, RAVEL forming
- * in it, tearing, dripping. Its frames are packed (tools/make_boot.py, rv_boot.h) and unpacked as the screen is
- * drawn, a row at a time, made half as big again; the last held a moment. The version, small, bottom right, all
- * through. Any key, button or knob skips it.
+/* Ravel: the start screen. An animation (docs/brand/ravel-boot.gif): smoke drifting up from the bottom left,
+ * RAVEL glowing out of it, tearing, melting into drips. Eleven of its frames are packed (tools/make_boot.py,
+ * rv_boot.h) and unpacked as the screen is drawn, a row at a time, made a third as big again, each blended into the
+ * next as it plays; the last held a moment. The version, small, bottom right, all through. Any key, button or
+ * knob skips it.
  * Part of the engine unit (ravel_app.c), after rv_ui.c (its drawing and its input). */
 
 #include "rv_boot.h"
