@@ -1,42 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Ravel: the start screen, as a gritty take on a lo-fi 90s music-TV cartoon, after the key art
- * (docs/brand/ravel-key-art.png). The tube warms up (a dot, a line, opening); out of the dark and the film grain
- * the three cloaked figures boil in before the cross and the red circle; RAVEL slams in letter by letter (a
- * cartoon smear, then settled, worn, a deep red shadow behind it), its outline boiling; the stripes slide in, the
- * maker's name types itself, and smoke rises off the letters and pours off the L, thickening until it takes the
- * picture; meanwhile the wind moves the cloaks, the arms lift, it flashes, and the letters melt, drip and crumble into
- * the smoke; then the tube collapses to a line. Everything moves on twelve drawings a second, as cheap animation
- * did, with the TV's scan lines kept faint. About six seconds; any key, button or knob skips
- * it. Worked out from the time each frame (no state but the start), so a slow frame only skips ahead.
+/* Ravel: the start screen. An animation (docs/brand/ravel-boot.gif): smoke curling in from the left, RAVEL forming
+ * in it, tearing, dripping. Its frames are packed (tools/make_boot.py, rv_boot.h) and unpacked as the screen is
+ * drawn, a row at a time, made half as big again; the last held a moment. The version, small, bottom right, all
+ * through. Any key, button or knob skips it.
  * Part of the engine unit (ravel_app.c), after rv_ui.c (its drawing and its input). */
 
-#define IN_SMOKE 4700u                   /* ms: the smoke starts taking the picture */
-#define IN_OFF 5500u                     /* the tube collapses */
-#define IN_END 5900u
-#define IN_ON 420u                       /* the tube warming up, a line opening into the picture */
-#define IN_FPS 83u                       /* a drawing every 83 ms: twelve a second */
-#define IN_LY 152                        /* the logo's letters: top */
-#define IN_LH 16                         /* and height */
-#define IN_ART_X (PLAT_W / 2 - CLOAK_W / 2)
-#define IN_ART_Y 14
-
-/* the logo's letters as strokes, in pixels from each letter's top left (22 x 16): R A V E L, wide and thin,
- * the A without its bar */
-static const int8_t in_seg[][4] = {
-    {0, 0, 0, 16}, {0, 0, 19, 0}, {19, 0, 21, 2}, {21, 2, 21, 6}, {21, 6, 19, 8}, {0, 8, 19, 8}, {12, 8, 21, 16},   /* R */
-    {0, 16, 11, 0}, {11, 0, 22, 16},                                                                                 /* A */
-    {0, 0, 11, 16}, {11, 16, 22, 0},                                                                                 /* V */
-    {0, 0, 0, 16}, {0, 0, 21, 0}, {0, 8, 17, 8}, {0, 16, 21, 16},                                                     /* E */
-    {0, 0, 0, 16}, {0, 16, 20, 16},                                                                                  /* L */
-};
-static const uint8_t in_seg_l[] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4};   /* each stroke's letter */
-#define IN_NSEG ((int)(sizeof in_seg / sizeof in_seg[0]))
-static const uint8_t in_lx[5] = {46, 77, 108, 139, 171};   /* the letters' left edges */
+#include "rv_boot.h"
+#define IN_HOLD 650u                     /* ms: the last frame, held */
 
 static struct {
     uint8_t on;
     uint32_t t0;
-    int8_t ox, oy;                       /* the film's weave this drawing */
 } in;
 
 static uint32_t in_hash(uint32_t x)
@@ -48,18 +22,6 @@ static uint32_t in_hash(uint32_t x)
     x ^= x >> 16;
     return x;
 }
-static float in_rnd(uint32_t i, uint32_t k) { return (float)(in_hash(i * 2654435761u + k * 40503u + 17u) >> 8) * (1.0f / 16777216.0f); }
-static float in_clamp(float x) { return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x; }
-static float in_smooth(float x) { x = in_clamp(x); return x * x * (3.0f - 2.0f * x); }
-static float in_mod(float x, float m) { return x - m * fm_floorf(x / m); }
-
-static uint16_t in_grey(float v)          /* (neutral: green, with its sixth bit, at twice red and blue) */
-{
-    uint32_t k = (uint32_t)(in_clamp(v) * 31.0f + 0.5f);
-    return (uint16_t)(k << 11 | (k * 2u) << 5 | k);
-}
-#define IN_RED RGB(150, 16, 30)
-#define IN_BONE RGB(222, 214, 206)
 
 static void intro_start(void)
 {
@@ -67,295 +29,132 @@ static void intro_start(void)
     in.on = 1;
 }
 
-/* the background of rows b .. b+GB_H: near black, film grain (new each drawing), now and then a faint
- * scratched dash across, as the key art has */
-static __attribute__((noinline)) RV_SMALL void in_back(uint32_t fr, int b, float fade)
+/* unpacking a frame (the other half of tools/make_boot.py: they must agree bit for bit): row by row, keeping the
+ * row before (to predict from, and to draw between) */
+static struct {
+    uint32_t pos;                        /* the next bit, from the frame's first */
+    const uint8_t *p;
+    int a, n, row;                       /* the Rice code's running size; the row now in cur (-1: none yet) */
+    uint8_t prev[BOOT_W + 1], cur[BOOT_W + 1];
+} bd;
+
+static void in_bd_start(int f)
+{
+    bd.p = boot_bits + boot_off[f];
+    bd.pos = 0;
+    bd.a = 4, bd.n = 1, bd.row = -1;
+    __builtin_memset(bd.cur, 0, sizeof bd.cur);
+}
+static int in_bd_bit(void)
+{
+    int v = (bd.p[bd.pos >> 3] >> (7u - (bd.pos & 7u))) & 1;
+    bd.pos++;
+    return v;
+}
+static int in_bd_get(int n)
+{
+    int v = 0;
+    while (n-- > 0)
+        v = v << 1 | in_bd_bit();
+    return v;
+}
+static int in_med(int a, int b, int c)
+{
+    int lo = a < b ? a : b, hi = a < b ? b : a;
+    return c >= hi ? lo : c <= lo ? hi : a + b - c;
+}
+static __attribute__((noinline)) RV_SMALL void in_bd_row(void)   /* the next row into cur (cur into prev) */
+{
+    int x = 0;
+    __builtin_memcpy(bd.prev, bd.cur, sizeof bd.prev);
+    while (x < BOOT_W) {
+        int a = x ? bd.cur[x - 1] : 0, b = bd.prev[x], c = x ? bd.prev[x - 1] : 0, d = x + 1 < BOOT_W ? bd.prev[x + 1] : 0;
+        if (!(a | b | c | d)) {                       /* (all around black: a run of black) */
+            int l = 1, n, q = 0;
+            while (!in_bd_bit())
+                l++;
+            n = 1 << (l - 1) | in_bd_get(l - 1);
+            while (--n > 0 && x < BOOT_W)
+                bd.cur[x++] = 0;
+            if (x < BOOT_W) {                         /* (and the pixel that ends it, not black) */
+                while (!in_bd_bit())
+                    q++;
+                bd.cur[x++] = (uint8_t)((q << 1 | in_bd_bit()) + 1);
+            }
+            continue;
+        }
+        {                                             /* (what's left over from the prediction) */
+            int k = 0, q = 0, m, e;
+            while ((bd.n << k) < bd.a)
+                k++;
+            while (!in_bd_bit())
+                q++;
+            m = q << k | in_bd_get(k);
+            e = (m & 1) ? -((m + 1) >> 1) : m >> 1;
+            bd.cur[x++] = (uint8_t)((in_med(a, b, c) + e) & (BOOT_LV - 1));
+            bd.a += e < 0 ? -e : e;
+            if (++bd.n == 16)
+                bd.a = (bd.a + 1) >> 1, bd.n = 8;
+        }
+    }
+    bd.row++;
+}
+
+/* frame f on rows b .. b+GB_H: black above and below its band; within it, between its pixels (in sixteenths of a
+ * level, then to a grey) */
+static __attribute__((noinline)) RV_SMALL void in_frame(int f, int b)
 {
     int j, x;
+    if (b == 0)
+        in_bd_start(f);
     for (j = 0; j < GB_H; j++) {
         int y = b + j;
         uint16_t *row = gb + j * PLAT_W;
-        uint32_t rh = in_hash((uint32_t)y * 7919u + fr * 104729u);
-        int dash = (rh & 31u) == 0u, dx = (int)((rh >> 5) % 200u), dw = 8 + (int)((rh >> 13) & 63u);
+        uint32_t fy, i0, wy;
+        if (y < BOOT_Y0 || y > BOOT_Y1) {
+            __builtin_memset(row, 0, PLAT_W * sizeof row[0]);
+            continue;
+        }
+        fy = (uint32_t)(y - BOOT_Y0) * (uint32_t)((BOOT_H - 1) * 16) / (uint32_t)(BOOT_Y1 - BOOT_Y0);   /* (in sixteenths) */
+        i0 = fy >> 4, wy = fy & 15u;
+        while (bd.row < (int)i0 + 1 && bd.row < BOOT_H - 1)
+            in_bd_row();
         for (x = 0; x < PLAT_W; x++) {
-            uint32_t h = in_hash((uint32_t)x * 2654435761u ^ rh);
-            float v = 0.025f + (float)(h & 15u) * 0.0035f;
-            if (dash && x >= dx && x < dx + dw && (h & 48u))
-                v += 0.07f;
-            row[x] = in_grey(v * fade);
+            uint32_t fx = (uint32_t)x * (uint32_t)((BOOT_W - 1) * 16) / (uint32_t)(PLAT_W - 1), x0 = fx >> 4, wx = fx & 15u, x1 = x0 + 1 < BOOT_W ? x0 + 1 : x0;
+            const uint8_t *r0 = bd.row > (int)i0 ? bd.prev : bd.cur, *r1 = bd.cur;
+            uint32_t top = r0[x0] * (16u - wx) + r0[x1] * wx, bot = r1[x0] * (16u - wx) + r1[x1] * wx;
+            row[x] = boot_lut[(top * (16u - wy) + bot * wy) >> 4];
         }
     }
 }
 
-/* the picture: the figures before the cross and the circle (rv_cloaks.h), a touch see-through; a: how much.
- * Moved, not redrawn (one picture, warped as it is read): the wind through the cloaks' hems, more the lower,
- * in gusts; the arms (where they are in the picture) lifting slowly; on a flash, lit toward white */
-#include "rv_cloaks.h"
-static const int8_t in_arm[4][3] = {{38, 57, 9}, {95, 54, 9}, {48, 65, 6}, {86, 62, 6}};   /* x, y, how far up */
-static int in_cloak(int x, int y)
-{
-    const uint8_t *row;
-    if (x < 0 || x >= CLOAK_W || y < 0 || y >= CLOAK_H)
-        return 0;
-    row = cloak_px + (uint32_t)y * CLOAK_W / 2u;
-    return (x & 1) ? row[x >> 1] & 15 : row[x >> 1] >> 4;
-}
-static __attribute__((noinline)) RV_SMALL void in_art(uint32_t t, int b, float a, float raise, float gust, float fl, int ox, int oy)
-{
-    int x0 = IN_ART_X + ox, y0 = IN_ART_Y + oy, y, x, k;
-    float ts = (float)t * 0.001f;
-    a *= 0.88f;
-    for (y = b > y0 ? b : y0; y < b + GB_H && y < y0 + CLOAK_H; y++) {
-        int ay = y - y0;
-        float hem = in_clamp(((float)ay - 58.0f) / 67.0f), w;
-        hem *= hem;                                    /* (the hems move, the hoods hardly) */
-        w = hem * gust * (2.2f + 1.6f * fm_sin_turns(ts * 0.9f - (float)ay * 0.035f) + 1.1f * fm_sin_turns(ts * 2.3f - (float)ay * 0.09f));
-        for (x = 0; x < CLOAK_W; x++) {
-            float sy = (float)ay, sx = (float)x - w * (0.6f + 0.4f * fm_sin_turns((float)x * 0.021f + ts * 0.5f));
-            int i;
-            for (k = 0; k < 4; k++) {                  /* (the arms: what's below them pulled up) */
-                float dx = ((float)x - (float)in_arm[k][0]) * (1.0f / 12.0f), dy = ((float)ay - (float)in_arm[k][1]) * (1.0f / 10.0f), d = dx * dx + dy * dy;
-                if (d < 1.0f)
-                    sy += raise * (float)in_arm[k][2] * (1.0f - d) * (1.0f - d);
-            }
-            i = in_cloak((int)(sx + 0.5f), (int)(sy + 0.5f));
-            if (i)
-                g_cover(x0 + x, y, fl > 0.0f ? g_mix(cloak_pal[i], RGB(255, 236, 236), fl) : cloak_pal[i], a);
-        }
-    }
-}
-
-/* the logo at drawing fr: each letter slams in at its time (two drawings stretched tall, a cartoon smear), its
- * strokes boiling a little as hand-drawn lines do, a deep red shadow behind; then worn: specks of it rubbed off */
-#define IN_MELT 3500u                    /* ms: the letters start to melt */
-static __attribute__((noinline)) RV_SMALL void in_logo(uint32_t t, uint32_t fr, int b, float fade, float fl, int ox, int oy)
-{
-    int s, pass, j, x, l;
-    float melt = in_smooth(((float)t - (float)IN_MELT) / 1700.0f), gone = in_smooth(((float)t - (float)IN_SMOKE + 100.0f) / 700.0f);
-    uint16_t bone = g_mix(IN_BONE, RGB(255, 255, 255), fl), red = g_mix(IN_RED, RGB(235, 30, 50), fl);
-    if (b + GB_H < IN_LY - 12 + oy || b > IN_LY + IN_LH + 40 + oy)
-        return;
-    for (pass = 0; pass < 2; pass++)
-        for (s = 0; s < IN_NSEG; s++) {
-            int l = in_seg_l[s];
-            uint32_t at = 1750u + (uint32_t)l * 110u;
-            float lx = (float)(in_lx[l] + ox), st = 1.0f, y0, y1;
-            if (t < at)
-                continue;
-            if (t < at + 2u * IN_FPS)                  /* (the smear: tall, then taller's half) */
-                st = t < at + IN_FPS ? 1.8f : 1.35f;
-            y0 = (float)IN_LY + 8.0f + ((float)in_seg[s][1] - 8.0f) * st + (float)oy;
-            y1 = (float)IN_LY + 8.0f + ((float)in_seg[s][3] - 8.0f) * st + (float)oy;
-            {                                          /* (melting: the lower a point, the further it sags) */
-                float sag = melt * (2.0f + 4.0f * in_rnd((uint32_t)l, 21));
-                y0 += sag * (float)(in_seg[s][1] * in_seg[s][1]) * (1.0f / 256.0f);
-                y1 += sag * (float)(in_seg[s][3] * in_seg[s][3]) * (1.0f / 256.0f);
-            }
-            g_seg(lx + in_seg[s][0] + (in_rnd(fr / 2u, (uint32_t)s * 4u) - 0.5f) * 1.2f + (float)pass * -2.0f + 2.0f,
-                  y0 + (in_rnd(fr / 2u, (uint32_t)s * 4u + 1u) - 0.5f) * 1.2f + (float)(1 - pass),
-                  lx + in_seg[s][2] + (in_rnd(fr / 2u, (uint32_t)s * 4u + 2u) - 0.5f) * 1.2f + (float)pass * -2.0f + 2.0f,
-                  y1 + (in_rnd(fr / 2u, (uint32_t)s * 4u + 3u) - 0.5f) * 1.2f + (float)(1 - pass),
-                  pass ? 2.2f : 2.6f, pass ? g_mix(RGB(0, 0, 0), bone, fade) : g_mix(RGB(0, 0, 0), red, fade * 0.8f));
-        }
-    if (melt > 0.0f)                                   /* drips running off the letters' feet, a drop on each, a glint */
-        for (l = 0; l < 5; l++)
-            for (s = 0; s < 2; s++) {
-                uint32_t q = (uint32_t)(l * 2 + s);
-                float sag = melt * (2.0f + 4.0f * in_rnd((uint32_t)l, 21));
-                static const int8_t ft[5][2] = {{1, 19}, {1, 21}, {10, 12}, {2, 13}, {1, 12}};   /* (where each letter has a foot) */
-                float dx = (float)ft[l][s] + (l > 2 ? 7.0f * in_rnd(q, 22) : in_rnd(q, 22));
-                float u = in_smooth(((float)t - (float)IN_MELT - 600.0f * in_rnd(q, 23)) / (1000.0f + 700.0f * in_rnd(q, 24)));
-                float len = u * (4.0f + 9.0f * in_rnd(q, 25)), wd = 2.0f + 1.2f * in_rnd(q, 26);
-                float px = (float)(in_lx[l] + ox) + dx, py = (float)(IN_LY + IN_LH + oy) + sag;
-                uint16_t cb = g_mix(RGB(0, 0, 0), bone, fade), cr = g_mix(RGB(0, 0, 0), red, fade * 0.8f);
-                if (len < 0.5f)
-                    continue;
-                g_discf(px + 1.5f, py + len + 1.5f, wd * 0.5f + 1.2f, cr);   /* (its shadow, then it: thick at the root, */
-                g_seg(px + 1.0f, py, px + 1.0f, py + len, wd + 0.4f, cr);   /*  a bulb at the end swelling to fall) */
-                g_seg(px, py - 2.0f, px, py + len, wd, cb);
-                g_discf(px, py + len, wd * 0.5f + 0.5f + u * 0.8f, cb);
-                g_discf(px - 0.6f, py + len - 0.6f, 0.7f, g_mix(RGB(0, 0, 0), RGB(255, 255, 255), fade));
-                if (u > 0.55f) {                       /* (a drop falls) */
-                    float fy = py + len + 3.0f + (u - 0.55f) * 60.0f;
-                    if (fy < 181.0f + (float)oy)
-                        g_discf(px, fy, 1.1f, cb);
-                }
-            }
-    for (j = 0; j < GB_H; j++) {                      /* worn: specks rubbed off the letters (the same ones every drawing) */
-        int y = b + j;
-        uint16_t *row = gb + j * PLAT_W;
-        if (y < IN_LY - 2 + oy || y > IN_LY + IN_LH + 36 + oy)
-            continue;
-        for (x = 40; x < 204; x++) {
-            uint32_t h = in_hash((uint32_t)(x - ox) * 977u + (uint32_t)(y - oy) * 7919u);
-            if (y <= IN_LY + IN_LH + oy && (row[x] >> 11) > 20u && (row[x] & 31u) > 18u && (h & 7u) < 2u)
-                row[x] = g_blend(row[x], RGB(40, 34, 34), 10u);
-            if (gone > 0.0f && ((row[x] >> 11) > 7u) && (float)((h >> 8) & 255u) < gone * 256.0f)   /* (gone: crumbling away) */
-                row[x] = in_grey(0.03f + (float)(h >> 28) * 0.003f);
-        }
-    }
-}
-
-/* a pixel covered a (0..1) by c, rounded by a dither (smoke is many thin layers: rounded the same way each time,
- * a thin layer moves 5-bit red and blue less than half a step and 6-bit green a whole one, and grey goes green) */
-static void in_cov(int x, int y, uint16_t c, float a)
-{
-    uint16_t *p;
-    uint32_t k, q, d;
-    if (x < g_cx0 || x >= g_cx1 || y < g_y0 || y >= g_y1 || a <= 0.004f)
-        return;
-    p = &gb[(y - g_y0) * PLAT_W + x];
-    k = (uint32_t)(a * 255.0f), q = 255u - k, d = ((uint32_t)x * 37u + (uint32_t)y * 91u + k * 13u) & 255u;
-    *p = (uint16_t)((((c >> 11) * k + (*p >> 11) * q + d) / 255u) << 11 | ((((c >> 5) & 63u) * k + ((*p >> 5) & 63u) * q + d) / 255u) << 5 |
-                    (((c & 31u) * k + (*p & 31u) * q + d) / 255u));
-}
-
-/* smoke: puffs rising off the letters' tops and pouring off the L's foot, drifting right and up as they grow
- * and thin; k: how thick (0..1, then more as it takes the picture) */
-static __attribute__((noinline)) RV_SMALL void in_smoke(uint32_t t, int b, float k, int ox, int oy)
-{
-    int i, y, x;
-    float big = k > 1.0f ? 1.0f + (k - 1.0f) * 0.6f : 1.0f;   /* (thicker, it billows bigger) */
-    for (i = 0; i < 46; i++) {
-        float life = 1900.0f + 900.0f * in_rnd((uint32_t)i, 3), u = in_mod((float)t + (float)i * 97.0f, life) / life;
-        int lf = i % 2 != 0, ll = (int)(in_rnd((uint32_t)i, 5) * 4.99f);   /* (half off the L, half off the letters) */
-        float sx = lf ? 189.0f + 6.0f * in_rnd((uint32_t)i, 4) : (float)in_lx[ll] + 22.0f * in_rnd((uint32_t)i, 9);
-        float sy = lf ? (float)(IN_LY + IN_LH - 3) : (float)IN_LY + 14.0f * in_rnd((uint32_t)i, 10);
-        if (!lf && t < 1750u + (uint32_t)ll * 110u + 250u)   /* (a letter smokes once it has landed) */
-            continue;
-        float cx = sx + u * (lf ? 22.0f + 34.0f * in_rnd((uint32_t)i, 6) : 14.0f) + fm_sin_turns(u * (lf ? 1.1f : 1.8f) + in_rnd((uint32_t)i, 7)) * (lf ? 8.0f : 6.0f) * u + (float)ox;
-        float cy = sy - u * (36.0f + 60.0f * in_rnd((uint32_t)i, 8)) * big + (float)oy, r = (lf ? 3.0f + u * 19.0f : 1.5f + u * 9.0f) * big;
-        float a = fm_minf(1.0f, k) * ((lf ? 0.13f : 0.24f) + 0.08f * (k > 1.0f ? k - 1.0f : 0.0f)) * (1.0f - u) * in_smooth(u / 0.1f);
-        int y0 = (int)(cy - r), y1 = (int)(cy + r);
-        uint16_t c = g_mix(RGB(150, 144, 140), RGB(70, 60, 62), u);
-        if (a < 0.02f || y1 < b || y0 >= b + GB_H)
-            continue;
-        for (y = y0 < b ? b : y0; y <= y1 && y < b + GB_H; y++)
-            for (x = (int)(cx - r); x <= (int)(cx + r); x++) {
-                float dx = (float)x - cx, dy = (float)y - cy, d = (dx * dx + dy * dy) / (r * r);
-                if (d < 1.0f)
-                    in_cov(x, y, c, a * (1.0f - d));
-            }
-    }
-}
-
-/* everything over the background at t (on its drawing fr) */
-static __attribute__((noinline)) RV_SMALL void in_scene(uint32_t t, uint32_t fr, int b, float fade)
-{
-    int ox = in.ox, oy = in.oy;
-    float art = in_smooth(((float)t - 600.0f) / 900.0f), sm = in_smooth(((float)t - 2100.0f) / 700.0f) + in_smooth(((float)t - (float)IN_SMOKE) / 700.0f) * 2.2f;
-    /* flashes: as the last letter lands, two hits later on, a stutter as the melting starts */
-    float fl = (t >= 2190 && t < 2190 + IN_FPS) || (t >= 3240 && t < 3240 + IN_FPS) || (t >= 3410 && t < 3410 + IN_FPS) ? 0.8f
-               : t >= IN_MELT && t < IN_MELT + 4u * IN_FPS && (fr & 1u) ? 0.5f : 0.0f;
-    if (art > 0.0f && !(t < 1500 && (in_hash(fr) & 3u) == 0u))   /* (boiling in: a drawing missing now and then) */
-        in_art(t, b, art * fade * (1.0f - 0.85f * in_smooth(((float)t - (float)IN_SMOKE - 300.0f) / 500.0f)),
-               in_smooth(((float)t - 1500.0f) / 3200.0f), 0.6f + 0.4f * fm_sin_turns((float)t * 0.00031f) + sm * 0.5f, fl * 0.6f, ox, oy);
-    in_logo(t, fr, b, fade * (1.0f - 0.7f * in_smooth(((float)t - (float)IN_SMOKE - 400.0f) / 400.0f)), fl, ox, oy);
-    if (t > 2400 && b + GB_H > 182 + oy && b < 190 + oy) {   /* the stripes, sliding in from the left, and a line on */
-        int k, n = (int)((t - 2400u) / IN_FPS);
-        for (k = 0; k < 7 && k < n; k++) {
-            int x = 46 + k * 6 + ox, yy;
-            for (yy = 0; yy < 4; yy++)
-                g_fill(x + 3 - yy, 183 + yy + oy, 3, 1, g_mix(RGB(0, 0, 0), k < 4 ? RGB(150, 146, 144) : IN_RED, fade));
-        }
-        if (n > 7)
-            g_fill(92 + ox, 186 + oy, (n - 7) * 14 < 101 ? (n - 7) * 14 : 101, 1, in_grey(0.32f * fade));
-    }
-    if (t > 2900 && b + GB_H > 218 && b < 230) {     /* the maker's name, typed, and its red square */
-        static const char nm[] = "DE-PATTERN";
-        char sh[11];
-        int k, n = (int)((t - 2900u) / IN_FPS);
-        for (k = 0; k < 10; k++)
-            sh[k] = k < n ? nm[k] : 0;
-        sh[10] = 0;
-        g_text(138 + ox, 220 + oy, &FONT_XS, sh, in_grey(0.78f * fade));
-        if (n > 10)
-            g_fill(214 + ox, 222 + oy, 4, 4, g_mix(RGB(0, 0, 0), IN_RED, fade));
-    }
-    if (sm > 0.0f)
-        in_smoke(t, b, sm * fade, ox, oy);
-}
-
-/* the TV, faint: every other row a shade darker; on some drawings a scratch down the film */
-static __attribute__((noinline)) RV_SMALL void in_tv(uint32_t fr, int b)
-{
-    int j, x, sc = (in_hash(fr * 31u) & 3u) == 0u ? (int)(in_hash(fr * 37u) % (uint32_t)PLAT_W) : -1;
-    for (j = 0; j < GB_H; j++) {
-        uint16_t *row = gb + j * PLAT_W;
-        if ((b + j) & 1)
-            for (x = 0; x < PLAT_W; x++)
-                row[x] = (uint16_t)(row[x] - ((row[x] >> 3) & 0x18E3u));
-        if (sc >= 0)
-            row[sc] = g_blend(row[sc], RGB(120, 116, 110), 5u);
-    }
-}
-
-/* one frame; 0 once it is over */
 static int intro_frame(void)
 {
-    uint32_t t = plat_ms() - in.t0, lk = 0, fr, ts;
-    int b;
-    float fade;
+    uint32_t t = plat_ms() - in.t0, acc = 0, lk = 0, end = IN_HOLD;
+    int b, f;
     if (!in.on)
         return 0;
-    if (t >= IN_END) {
+    for (f = 0; f < BOOT_N; f++)
+        end += boot_ms[f];
+    if (t >= end) {
         in.on = 0;
         return 0;
     }
-    fr = t / IN_FPS;
-    ts = fr * IN_FPS;                                 /* (the picture moves on twelve drawings a second) */
-    fade = 1.0f - in_smooth(((float)t - (float)IN_END + 250.0f) / 250.0f);
-    {                                                  /* the film's weave: a pixel now and then */
-        uint32_t h = in_hash(fr * 7u + 3u);
-        in.ox = (int8_t)((h & 7u) == 0u ? ((h >> 3) & 1u ? 1 : -1) : 0);
-        in.oy = (int8_t)((h & 0x70u) == 0u ? ((h >> 7) & 1u ? 1 : -1) : 0);
-    }
+    for (f = 0; f < BOOT_N - 1 && t >= acc + boot_ms[f]; f++)
+        acc += boot_ms[f];
     for (b = 0; b < PLAT_H; b += GB_H) {
         g_band(b);
-        if (t >= IN_OFF) {                            /* the tube collapses: to a line, to a dot, gone */
-            float u = ((float)t - (float)IN_OFF) / (float)(IN_END - IN_OFF), hh = 40.0f * (1.0f - u) * (1.0f - u) * (1.0f - u) + 1.0f;
-            int w = (int)(PLAT_W * (u < 0.6f ? 1.0f : (1.0f - u) * 2.5f));
-            g_fill(0, b, PLAT_W, GB_H, RGB(0, 0, 0));
-            g_fill(PLAT_W / 2 - w / 2, PLAT_H / 2 - (int)hh, w, 2 * (int)hh, in_grey((0.4f + u * 0.4f) * fade));
-            g_fill(PLAT_W / 2 - w / 2, PLAT_H / 2 - 1, w, 2, in_grey(0.8f * fade));
-        } else {
-            in_back(fr, b, fade);
-            in_scene(ts, fr, b, fade);
-            in_tv(fr, b);
-            if (t < IN_ON) {                          /* the tube warming up: a dot, a line across, opening into the picture */
-                float u = (float)t / (float)IN_ON, w = in_smooth(u / 0.3f), hh = 1.0f + in_smooth((u - 0.25f) / 0.75f) * 125.0f;
-                int x0 = PLAT_W / 2 - (int)(w * PLAT_W * 0.5f), yy;
-                for (yy = b; yy < b + GB_H; yy++) {
-                    float d = fm_fabsf((float)yy - (float)(PLAT_H / 2));
-                    if (d > hh)
-                        g_fill(0, yy, PLAT_W, 1, RGB(0, 0, 0));
-                    else if (d < 2.0f + (1.0f - u) * 3.0f) {   /* (the bright line, fading as it opens) */
-                        g_fill(0, yy, PLAT_W, 1, RGB(0, 0, 0));
-                        g_fill(x0, yy, PLAT_W - 2 * x0, 1, in_grey(0.9f - u * 0.5f));
-                    }
-                }
-            }
-        }
+        in_frame(f, b);
+        g_text_r(PLAT_W - 4, PLAT_H - 11, &FONT_XS, "V" RAVEL_BUILD, RGB(96, 96, 96));   /* (the version, small) */
         g_send();
     }
-    /* the keys' lights: out from the middle as the tube warms; one by one as the letters land; a slow drift like
-     * the smoke; in from both ends as the tube collapses */
-    if (t < IN_ON) {
-        int w = (int)(13.0f * (float)t / (float)IN_ON), k2;
-        for (k2 = 13 - w; k2 <= 13 + w; k2++)
-            lk |= 1u << k2;
-    } else if (t >= 1750 && t < 2400) {
-        uint32_t n = (t - 1750u) / 110u + 1u;
-        lk = (1u << (n * 5u > 27u ? 27u : n * 5u)) - 1u;
-    } else if (t >= 2400 && t < IN_OFF)
-        lk = in_hash(fr / 2u) & in_hash(fr / 2u + 9u) & in_hash(fr / 2u + 17u);
-    else if (t >= IN_OFF) {
-        int w = (int)(13.0f * (1.0f - ((float)t - (float)IN_OFF) / (float)(IN_END - IN_OFF - 100))), k2;
-        for (k2 = 13 - w; k2 <= 13 + w; k2++)
-            if (k2 >= 0 && k2 < 27)
-                lk |= 1u << k2;
-    }
-    plat_leds(0, fade > 0.05f ? lk & 0x07FFFFFFu : 0);
+    /* the keys' lights: filling from the left as the smoke comes in; torn as RAVEL tears */
+    if (f < 5) {
+        uint32_t n = (uint32_t)((t * 27u) / (acc + boot_ms[f] + 1u)) + 1u;
+        lk = (1u << (n > 27u ? 27u : n)) - 1u;
+    } else
+        lk = in_hash((uint32_t)f * 7u + t / 120u) | in_hash(t / 90u + 3u);
+    plat_leds(0, lk & 0x07FFFFFFu);
     return 1;
 }
 

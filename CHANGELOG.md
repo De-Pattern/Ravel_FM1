@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.40.0
+
+Changed
+- A new start screen: smoke curls in from the left, RAVEL forms in it, tears and drips (docs/brand/ravel-boot.gif, packed to fit: tools/make_boot.py). The version the FM-1 runs is shown small at the bottom right throughout, on every release from here on. It takes less to draw each frame than the last start screen.
+
 ## 1.39.0
 
 Changed
