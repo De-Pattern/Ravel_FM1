@@ -1,0 +1,55 @@
+# CHANCE, the third SEQ MODE (after Marbles): its pages in place of the steps', a phrase that plays, REC to lock it,
+# REC + OCT+ to mutate, REC + SAVE to write it into the steps (the track back on STEPS); its settings kept in the
+# graph heads' slots, saved and loaded with the project, and the graph's own back when the mode leaves CHANCE
+wait 300
+tap SEQ
+wait 100
+expect page STEPS
+turn SELECT 5
+wait 100
+expect page TRACK
+turn K1 2
+wait 100
+expect tp 1 MODE 2
+expect tp 1 DENS 86
+expect page TRACK
+expect tp 1 LENGTH 16
+turn SELECT -3
+wait 100
+expect page CHANCE
+tap PLAY
+wait 3000
+shot chance.png
+tap REC
+wait 100
+expect tp 1 LOCK 3
+tap REC
+wait 100
+expect tp 1 LOCK 0
+press REC
+wait 50
+tap OCT+
+wait 50
+release REC
+wait 500
+settp 1 DENS 40
+settp 1 CENTER -5
+rvsave 3
+settp 1 DENS 99
+rvload 3
+wait 100
+expect tp 1 MODE 2
+expect tp 1 DENS 40
+expect tp 1 CENTER -5
+wait 1500
+press REC
+wait 50
+tap SAVE
+wait 50
+release REC
+wait 300
+expect page STEPS
+expect tp 1 MODE 0
+expect tp 1 LENGTH 16
+expect tp 1 ROLE 0
+tap PLAY

@@ -29,6 +29,12 @@ int rv_preset_step(int t, int cur, int dir);
 void rv_scene_store(int s);
 int rv_quantize_note(int n);
 int rv_fold_key(int base, int k);
+void rv_chance_new(int t);
+void rv_chance_mutate(int t);
+int rv_chance_pos(int t);
+int rv_chance_peek(int t, int i, int *note, int *deg, int *vel);
+int rv_chance_step(int t, int i, rv_step *o);
+static void chance_commit(int t);
 float rv_time_s(int v);
 float rv_cut_hz(float v);
 
@@ -52,12 +58,12 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CPU, PIC_CPU2, PIC_STRESS, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CHANCE, PIC_CPU, PIC_CPU2, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB, PIC_WEFTRATE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT, V_HFM };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CHANCE, V_NOTCH, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT, V_HFM };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP , PR_WEFT, PR_WLIB};   /* PR_STEP: the step pages, PRESETS steps through the steps */
@@ -182,13 +188,17 @@ static const page_t pages[] = {
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM", {LF(LF_SEL), LF(LF_LEN), LF(LF_RATE), LF(LF_CHANCE)}},   /* (SWING: GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "DRUM STEP", {SF(SF_ACC), SF(SF_VEL), SF(SF_CHANCE), SF(SF_RATCHET)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "DRUM FEEL", {LF(LF_SEL), LF(LF_QUANT), NO, NO}},   /* a lane's QUANTZE (SONG: the song's) */
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},   /* (the same TEMPO and SWING as GLO > CLOCK) */
+    /* CHANCE (a generated phrase, after Marbles: rv_seq.c): its settings in the graph heads' slots */
+    {SEC_SEQ, V_CHANCE, PIC_CHANCE, PR_NONE, "CHANCE", {TP(TP_H1ROLE), TP(TP_H1SHAPE), TP(TP_H1DEPTH), TP(TP_H1CYCLE)}},
+    {SEC_SEQ, V_CHANCE, PIC_CHANCE, PR_NONE, "CHANCE SHAPE", {TP(TP_H1COMB), TP(TP_H1TRANS), TP(TP_H2TARGET), TP(TP_H2SHAPE)}},
+    {SEC_SEQ, V_CHANCE, PIC_CHANCE, PR_NONE, "CHANCE MORE", {TP(TP_H2DEPTH), TP(TP_H2CYCLE), TP(TP_H2COMB), TP(TP_H2TRANS)}},
+    {SEC_SEQ, V_NOTCH, PIC_STEPS, PR_STEP, "STEPS", {SF(SF_NOTE), SF(SF_VEL), SF(SF_LEN), SF(SF_CHANCE)}},
+    {SEC_SEQ, V_NOTCH, PIC_STEPS, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},   /* (the same TEMPO and SWING as GLO > CLOCK) */
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TEMPO", {GP(GP_TEMPO), GP(GP_SWING), TP(TP_LEN), TP(TP_RATE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
+    {SEC_SEQ, V_NOTCH, PIC_STEPS, PR_STEP, "STEP TIMING", {SF(SF_MICRO), SF(SF_RATCHET), SF(SF_RCURVE), SF(SF_COND)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_STEP, "STEP TIMING", {SF(SF_MICRO), SF(SF_RCURVE), SF(SF_COND), SF(SF_RMOVE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
-    {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_STEP, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
+    {SEC_SEQ, V_NOTCH, PIC_STEPS, PR_STEP, "STEP SHAPE", {SF(SF_ENV), SF(SF_CUT), SF(SF_TIE), SF(SF_RMOVE)}},
+    {SEC_SEQ, V_NOTCH, PIC_STEPS, PR_STEP, "STEP CUT", {SF(SF_CUT), SF(SF_CSHAPE), SF(SF_CSIZE), NO}},
     {SEC_SEQ, V_NOTKIT, PIC_STEPS, PR_PATTERN, "TRACK", {TP(TP_SEQMODE), TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC)}},
     {SEC_SEQ, V_KIT, PIC_DRUM, PR_PATTERN, "TRACK", {TP(TP_LEN), TP(TP_RATE), TP(TP_CLKSRC), GP(GP_QUANT)}},   /* (QUANTZE: as SONG > CLOCK FEEL) */
     {SEC_SEQ, V_STEPSMODE, PIC_STEPS, PR_PATTERN, "DIRECTION", {TP(TP_DIR), {K_LRN, 4}, GP(GP_QUANT), NO}},   /* STEP REC: NEXT or STAY (a device setting); QUANTZE as SONG > CLOCK FEEL */
@@ -199,7 +209,7 @@ static const page_t pages[] = {
     {SEC_SEQ, V_GRAPH2, PIC_MOTION, PR_NONE, "HEAD 2 MOTION", {TP(TP_H2SHAPE), TP(TP_H2DEPTH), TP(TP_H2CYCLE), TP(TP_H2COMB)}},
     /* EUCLID: HITS spread as evenly as they go over the LENGTH, turned by ROTATE, written into the steps
      * as you turn (a kit: into the chosen lane), so they are ordinary steps from then on */
-    {SEC_SEQ, V_NOTKIT, PIC_EUCLID, PR_PATTERN, "EUCLID", {{K_EUC, 0}, {K_EUC, 1}, TP(TP_LEN), NO}},
+    {SEC_SEQ, V_NOTCH, PIC_EUCLID, PR_PATTERN, "EUCLID", {{K_EUC, 0}, {K_EUC, 1}, TP(TP_LEN), NO}},
     {SEC_SEQ, V_KIT, PIC_EUCLID, PR_PATTERN, "EUCLID", {LF(LF_SEL), {K_EUC, 0}, {K_EUC, 1}, LF(LF_LEN)}},
 
     {SEC_SONG, V_ALL, PIC_MIXER, PR_NONE, "MIXER 1-4", {{K_TLEVEL, 0}, {K_TLEVEL, 1}, {K_TLEVEL, 2}, {K_TLEVEL, 3}}},
@@ -334,7 +344,7 @@ static int track_has_pattern_steps(int t)          /* the current pattern only *
 }
 /* an action that destroys steps: the first try only warns; the same action again, after a pause
  * (so one quick spin of a knob can't do it) and within 2.5 s, does it */
-enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR, CONF_WUNP, CONF_KSND };   /* (CONF_SCENE + the scene) */
+enum { CONF_KIND = 1, CONF_MODE, CONF_CLEAR, CONF_PRESET, CONF_PASTE, CONF_STRESS, CONF_LDEL, CONF_LCLR, CONF_SCENE, CONF_WSAVE = 40, CONF_WDEL, CONF_WINIT, CONF_WCLR, CONF_WUNP, CONF_KSND, CONF_CHANCE };   /* (CONF_SCENE + the scene) */
 /* every cord into block b and out of it: its A and B, and the inputs that read it (as SW 1-4 or LIS Y too,
  * when it is the first SW 1>4 or LISSA, the one those read); the count taken off */
 static int wf_unpatch(rv_weft *w, int b)
@@ -538,6 +548,21 @@ static int prefs_stay(void) { return (prefs.back >> 7) & 1; }   /* (bit 7 of bac
 static void learn_knob_any(int kind, int id);
 static void lrn_turn(int id, int d);
 static int is_kit_ui(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }
+static int chance_ui(int t)                         /* a track CHANCE plays (as rv_seq.c's is_chance) */
+{
+    return !is_kit_ui(t) && rv.tp[t][TP_KIND] != KIND_LOOP && rv.tp[t][TP_SEQMODE] == SEQ_CHANCE && rv.tp[t][TP_DIR] != DIR_GRAPH;
+}
+/* SEQ MODE: into CHANCE or out of it, the graph heads' slots (CHANCE's settings there) start from the mode's own */
+static RV_SMALL void seqmode_set(int t, int v)
+{
+    int was = rv.tp[t][TP_SEQMODE] == SEQ_CHANCE, p;
+    rv.tp[t][TP_SEQMODE] = (int16_t)v;
+    if (was != (v == SEQ_CHANCE)) {
+        for (p = TP_H1ROLE; p < TP_H1ROLE + CH_SETS; p++)
+            rv.tp[t][p] = (int16_t)rv_pinfo_track(t, p)->def;
+        rv_chance_new(t);
+    }
+}
 /* a kit lane's machine */
 static const char *lane_mname(int t, int l) { return perc_mnames[rv.kit[t].mach[l] % PM_N]; }
 static const rv_pinfo *lane_pinfo(int t, int l, int f) { return &perc_pi[rv.kit[t].mach[l] % PM_N][f & 7]; }
@@ -603,6 +628,8 @@ static kb_t page_knob(const page_t *pg, int i)
         int sp = k.id <= 7 ? (ui.wf_blk % WF_BLOCKS) * 2 + (k.id - 6) : w->map[k.id - 10] - 1;
         k.kind = sp >= 0 && sp < WF_SETS && w->type[sp >> 1] ? K_TP : K_NONE;
         k.id = (uint16_t)wf_sp(sp < 0 ? 0 : sp);
+    } else if (k.kind == K_TP && k.id == TP_LEN && chance_ui(ui.track)) {
+        k.id = TP_H1ROLE + CH_LENGTH;               /* CHANCE: LENGTH is the phrase's (TRACK keeps its place in every mode) */
     } else if (k.kind == K_OSC) {
         const uint8_t *m = osc_mix_map(rv.tp[ui.track][TP_ENGINE]);
         int p = m ? m[k.id & 3] : 0;
@@ -656,7 +683,9 @@ static int page_visible(int i)
     case V_STRIKE: return kind == KIND_STRIKE;
     case V_PKIT: return kind == KIND_PERC && is_kit_ui(t);
     case V_NOTTAPE: return 1;
-    case V_STEPSMODE: return !is_kit_ui(t) && rv.tp[t][TP_SEQMODE] != SEQ_GRAPH && rv.tp[t][TP_DIR] != DIR_GRAPH;
+    case V_STEPSMODE: return !is_kit_ui(t) && rv.tp[t][TP_SEQMODE] == SEQ_STEPS && rv.tp[t][TP_DIR] != DIR_GRAPH;
+    case V_CHANCE: return chance_ui(t);
+    case V_NOTCH: return !is_kit_ui(t) && !chance_ui(t);
     case V_GRAPH: return !is_kit_ui(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH);
     case V_GRAPH2: return !is_kit_ui(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH) && rv.tp[t][TP_H2ROLE] != ROLE_OFF;
     case V_CZL1: return kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_CZ && rv.tp[t][TP_S0] != 1;   /* not LINE = 2 */
@@ -1381,7 +1410,7 @@ static RV_SMALL int kb_get(kb_t k)
     }
 }
 
-static void kb_set(kb_t k, int v)
+static RV_SMALL void kb_set(kb_t k, int v)
 {
     kinfo_t in = kb_info(k);
     rv_step *s;
@@ -1407,6 +1436,10 @@ static void kb_set(kb_t k, int v)
                 wl_name_set(ui.track, rv_weft_preset_name(0));
             }
             ui.preset_idx[ui.track] = -1;
+            return;
+        }
+        if (k.id == TP_SEQMODE) {
+            seqmode_set(ui.track, v);
             return;
         }
         if (k.id == TP_S0 && v != rv.tp[ui.track][TP_S0] && rv.tp[ui.track][TP_KIND] == KIND_SYNTH && (rv.tp[ui.track][TP_ENGINE] == ENG_RESIN || rv.tp[ui.track][TP_ENGINE] == ENG_TINE)) {
@@ -3123,7 +3156,10 @@ static void buttons(uint32_t now_btn)
         rv_transport(!rv_live.playing);
     }
     if ((down & (1u << B_SAVE)) && (now_btn & (1u << B_REC))) {   /* REC + SAVE: TAKE what was played in the last loop */
-        rv_take();
+        if (cur_page()->pic == PIC_CHANCE && chance_ui(ui.track))
+            chance_commit(ui.track);                  /* (on CHANCE: the phrase into the steps) */
+        else
+            rv_take();
         ui.layer_used[B_REC] = ui.layer_used[B_SAVE] = 1;
     }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pr == PR_CZSTEP) {
@@ -3140,6 +3176,15 @@ static void buttons(uint32_t now_btn)
     }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && cur_page()->pic == PIC_LANE && !(now_btn & (1u << B_SEQ))) {
         ui.lane_row = (uint8_t)((ui.lane_row + ((down & (1u << B_OCTUP)) ? 1 : 2)) % 3);   /* the knobs' row */
+        down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
+    }
+    if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && (now_btn & (1u << B_REC)) && cur_page()->pic == PIC_CHANCE && chance_ui(ui.track)) {
+        if (down & (1u << B_OCTDN))                   /* CHANCE: REC + OCT- a new phrase, REC + OCT+ a few steps anew */
+            rv_chance_new(ui.track);
+        else
+            rv_chance_mutate(ui.track);
+        msg(down & (1u << B_OCTDN) ? "NEW PHRASE" : "MUTATED");
+        ui.layer_used[B_REC] = 1;
         down &= ~((1u << B_OCTDN) | (1u << B_OCTUP));
     }
     if ((down & ((1u << B_OCTDN) | (1u << B_OCTUP))) && ui.srec_t >= 0 && !(now_btn & (1u << B_SEQ))) {
@@ -3190,6 +3235,12 @@ static void buttons(uint32_t now_btn)
                 section_open(s);
             }
         }
+    }
+    if ((up & (1u << B_REC)) && !ui.layer_used[B_REC] && cur_page()->pic == PIC_CHANCE && chance_ui(ui.track)) {
+        int16_t *lk = &rv.tp[ui.track][TP_H1ROLE + CH_LOCK];   /* CHANCE: REC holds the phrase, or lets it go */
+        *lk = (int16_t)(*lk == 3 ? 0 : 3);
+        msg(*lk ? "PHRASE LOCKED" : "PHRASE FREE");
+        ui.layer_used[B_REC] = 1;
     }
     if ((up & (1u << B_REC)) && !ui.layer_used[B_REC]) {
         ui.armed = !ui.armed;
@@ -4841,6 +4892,89 @@ static void pic_bed(void)
 }
 
 /* EUCLID: the steps in a ring, the playing ones lit, the step on now marked */
+/* CHANCE: the phrase as it is, a column a step: a note at its degree (up from CENTER, down below it), a rest a
+ * dot, not yet decided a faint dot; the step playing lit; the key and scale it follows, and what's locked */
+static RV_SMALL void pic_chance(void)
+{
+    int t = ui.track, len = clampi(rv.tp[t][TP_H1ROLE + CH_LENGTH], 1, 16), i, now = rv_chance_pos(t);
+    int span = 1 + (rv.tp[t][TP_H1ROLE + CH_RANGE] * 13 + 63) / 127, lock = clampi(rv.tp[t][TP_H1ROLE + CH_LOCK], 0, 3);
+    int yc = PIC_Y + 50, w = 224 / len, x0 = 120 - w * len / 2;
+    float u = fm_minf(4.0f, 38.0f / (float)span);
+    char b[24];
+    b[0] = 0;
+    sx_cat(b, root_names[clampi(rv.gp[GP_ROOT], 0, 11)]);
+    sx_cat(b, " ");
+    sx_cat(b, rv_scale_names[clampi(rv.gp[GP_SCALE], 0, 11)]);
+    g_text(8, PIC_Y, &FONT_T, b, C_DIM);
+    if (lock) {
+        static const char *const ln[] = {"", "NOTES LOCKED", "RHYTHM LOCKED", "LOCKED"};
+        g_text_r(232, PIC_Y, &FONT_T, ln[lock], C_TEAL);
+    } else {
+        b[0] = 0;
+        sx_cat(b, "MEMORY ");
+        sx_int(b + sx_cat(b, ""), rv.tp[t][TP_H1ROLE + CH_MEMORY] * 100 / 127);
+        sx_cat(b, "%");
+        g_text_r(232, PIC_Y, &FONT_T, b, C_DIM);
+    }
+    g_fill(x0, yc, w * len, 1, C_LINE);
+    for (i = 0; i < len; i++) {
+        int note, deg, vel, on = rv_chance_peek(t, i, &note, &deg, &vel), cx = x0 + i * w + w / 2;
+        uint16_t col = i == now ? C_WHITE : g_mix(kind_dcol(t), C_INK, 0.35f);
+        int hh = on == 1 && vel >= 120 ? 8 : 4;       /* (an accent: taller) */
+        if (i == now)
+            g_fill(x0 + i * w + 1, yc + 44, w - 2, 2, C_WHITE);   /* (the step playing: marked under it too) */
+        if (on == 1)
+            g_rbox(x0 + i * w + 1, (int)((float)yc - (float)clampi(deg, -span, span) * u) - hh / 2, w - 2, hh, 2, col, 1);
+        else
+            g_discf((float)cx, (float)yc, on == 0 ? 1.6f : 1.0f, i == now ? C_WHITE : on == 0 ? C_DIM : C_LINE);
+    }
+    g_text(8, PIC_Y + 104, &FONT_T, "REC: LOCK   REC+SAVE: TO STEPS", C_DIM);
+    g_text(8, PIC_Y + 116, &FONT_T, "REC+OCT-: NEW   REC+OCT+: MUTATE", C_DIM);
+}
+
+/* REC + SAVE on a CHANCE page: the phrase into the track's steps (an empty pattern if there is one), and the track
+ * back to STEPS, to edit it from there */
+static RV_SMALL void chance_commit(int t)
+{
+    int len = clampi(rv.tp[t][TP_H1ROLE + CH_LENGTH], 1, 16), q = rv.pat_cur[t] % RV_PATTERNS, i, any = 0, k;
+    rv_step st;
+    for (i = 0; i < len; i++)
+        any |= rv_chance_step(t, i, &st);
+    if (!any) {
+        msg("PLAY FIRST: NOTHING YET");
+        return;
+    }
+    for (k = 0; k < RV_PATTERNS; k++) {             /* the pattern it's on, or another, if empty */
+        int pp = (q + k) % RV_PATTERNS, used = 0;
+        for (i = 0; i < RV_STEPS; i++)
+            used |= rv.pat[t][pp].s[i].flags & ST_ON;
+        if (!used)
+            break;
+    }
+    if (k == RV_PATTERNS) {
+        if (!confirmed(CONF_CHANCE, q ? "AGAIN: REPLACES PATTERN B" : "AGAIN: REPLACES PATTERN A"))
+            return;
+        k = 0;
+    }
+    q = (q + k) % RV_PATTERNS;
+    for (i = 0; i < RV_STEPS; i++) {
+        rv_step *s = &rv.pat[t][q].s[i];
+        if (i < len && rv_chance_step(t, i, &st))
+            *s = st;
+        else {
+            __builtin_memset(s, 0, sizeof *s);
+            s->note = 60;
+            s->vel = 100;
+            s->len = 8;
+            s->chance = 100;
+        }
+    }
+    rv.tp[t][TP_LEN] = (int16_t)len;
+    rv.pat_cur[t] = (uint8_t)q;
+    seqmode_set(t, SEQ_STEPS);
+    msg(q ? "PHRASE IN PATTERN B: STEPS" : "PHRASE IN PATTERN A: STEPS");
+}
+
 static void pic_euclid(void)
 {
     int t = ui.track, len = euc_len(t), i, hits = euc_hits(t), cx = 120, cy = PIC_Y + 58, now;
@@ -6513,8 +6647,14 @@ static RV_SMALL void draw_picture(void)
     case PIC_CPU2: pic_cpu2(); break;
     case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
+    case PIC_CHANCE: pic_chance(); break;
     case PIC_SCALE: pic_scale(); break;
-    case PIC_STEPS: pic_steps(); break;
+    case PIC_STEPS:
+        if (chance_ui(ui.track))                     /* (TRACK on a CHANCE track: the phrase) */
+            pic_chance();
+        else
+            pic_steps();
+        break;
     case PIC_GRAPH: pic_graph(); break;
     case PIC_MOTION: pic_motion(); break;
     case PIC_MIXER: pic_mixer(); break;

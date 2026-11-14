@@ -489,7 +489,7 @@ static void name_set(const char *s)
 }
 
 static void demo_body(int which);
-void rv_demo(int which)
+RV_SMALL void rv_demo(int which)
 {
     preset_sends = 1;                                 /* a demo is a whole piece: its sounds' sends come with it */
     demo_body(which);

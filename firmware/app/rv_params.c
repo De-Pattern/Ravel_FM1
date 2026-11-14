@@ -16,7 +16,15 @@ const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHR
 static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE", "SEM"};
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
-static const char *const seqmode_names[] = {"STEPS", "GRAPH"};
+static const char *const seqmode_names[] = {"STEPS", "GRAPH", "CHANCE"};
+/* CHANCE (a track's generated phrase, rv_seq.c): its settings, in the graph heads' slots (TP_H1ROLE on) */
+static const char *const ch_feel_names[] = {"EVEN", "OFFBEAT", "SYNCOP", "FREE"};
+static const char *const ch_lock_names[] = {"FREE", "NOTES", "RHYTHM", "BOTH"};
+static const rv_pinfo CHANCE_P[CH_SETS] = {
+    {"DENS", 0, 127, 86, PF_NUM, 0}, {"RANGE", 0, 127, 58, PF_NUM, 0}, {"DRIFT", 0, 127, 30, PF_NUM, 0},
+    {"MEMORY", 0, 127, 99, PF_NUM, 0}, {"CENTER", -14, 14, 0, PF_BI, 0}, {"LENGTH", 1, 16, 16, PF_NUM, 0},
+    {"FEEL", 0, 3, 2, PF_ENUM, ch_feel_names}, {"GATE", 0, 127, 70, PF_NUM, 0}, {"LOCK", 0, 3, 0, PF_ENUM, ch_lock_names},
+    {"RATCHET", 0, 127, 0, PF_NUM, 0}, {"JITTER", 0, 127, 0, PF_NUM, 0}, {"ACCENT", 0, 127, 40, PF_NUM, 0}};
 static const char *const role_names[] = {"OFF", "NOTES", "RHYTHM", "MELODY"};   /* head 2: ROLE_GATE, ROLE_PITCH */
 static const char *const role1_names[] = {"NOTES", "GATE", "PITCH"};
 static const char *const fg_names[] = {"OFF", "RISE", "FALL", "ARCH", "DECAY", "SWELL", "LFO 1", "LFO 2", "DUST"};
@@ -571,6 +579,8 @@ const rv_pinfo *rv_pinfo_track(int t, int p)
             tab = rv.tp[t & 7][TP_S0] == 1 ? SRC_TINE_MAR : SRC_TINE_EP;
         return tab[s].name ? &tab[s] : &NONE;
     }
+    if (p >= TP_H1ROLE && p < TP_H1ROLE + CH_SETS && rv.tp[t & 7][TP_SEQMODE] == SEQ_CHANCE)
+        return &CHANCE_P[p - TP_H1ROLE];             /* CHANCE: its own settings where the graph's heads keep theirs */
     if (rv.tp[t & 7][TP_KIND] == KIND_SYNTH && rv.tp[t & 7][TP_ENGINE] == ENG_FM && hfm_slot(p) >= 0)
         return &SRC_HFM[hfm_slot(p)];
     if (p < 0 || p >= TP_N || !TRACK[p].name)

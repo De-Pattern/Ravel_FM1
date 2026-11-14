@@ -35,7 +35,7 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **GLITCH LOOPER** (any one track, KIND GLITCH): four lanes recorded from the main mix or one track, overdubbing, each with its own level, pitch and speed (pitch and speed apart, by a grain stretch); a threshold to arm a take; quarter slices on the keys that take turns in the order held; PLAY and REC trigs on the steps with sections, Octatrack- and MLR-style. It borrows the effects' memory (it can keep SPACE or DELAY running).
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
-- **Sequencer:** each track runs in **STEPS** or **GRAPH** mode. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), or step by step while stopped (a note or chord a step, rests and back), and each kit lane can run at its own rate.
+- **Sequencer:** each track runs in **STEPS**, **GRAPH** or **CHANCE** mode. CHANCE (after Mutable Instruments' Marbles) makes the phrase up itself, in the song's key and scale, and remembers it as much as you let it; when you like it, it goes into the steps. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), or step by step while stopped (a note or chord a step, rests and back), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
 - **MIDI in** over USB and the TRS jack: notes on one channel, any, or channels 1–8 on tracks 1–8; velocity, mod wheel, aftertouch and pitch bend as matrix sources; clock (counted pulse by pulse, so it never drifts), start and stop.
 - **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a 12-BIT space (a gritty late-80s rack plate: decay, damp, motion, crunch, low cut), a feedback bus (filter, comb, smear, shift, fold or crush, a band filter in the loop, returning to the master or into a track), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it. Every effect starts off: a new project sends nothing into any bus, and a bus with nothing coming in does not run at all.
@@ -187,7 +187,8 @@ Knobs speed up when you turn them quickly, so a fast turn crosses a whole range 
 **Pages appear and disappear.** A section only shows the pages that apply to the current track:
 
 - a VA synth has three SOURCE pages, FM has four;
-- the graph's HEAD pages only appear when the track is in GRAPH mode, and HEAD 2's pages only when head 2 is on.
+- the graph's HEAD pages only appear when the track is in GRAPH mode, and HEAD 2's pages only when head 2 is on;
+- in CHANCE mode, the CHANCE pages take the place of the step pages (STEPS, TEMPO, STEP TIMING, STEP SHAPE, STEP CUT, DIRECTION, EUCLID).
 
 So if a page seems to be "skipped", it is hidden because it does not apply to this track. Change the track or the setting and it comes back.
 
@@ -1211,7 +1212,7 @@ Editing a held empty step switches it on. While a step key is held, OCT− / OCT
 | **STEP TIMING** | MICRO: nudge −6 to +12 (in 24ths of a step) | RATCHET: 1–8 repeats within the step | R CURVE: EVEN, FASTER, SLOWER, BOUNCE (see below); "-F" versions fade out | CONDITN, see below |
 | **STEP SHAPE** | ENV: the LIBRARY envelope this step starts (– = none; see ENV › STEP ENV) | CUT: NONE, LOOP, REVERSE, STUTTER (a master microcut on this step) | TIE: ON holds the note until the track's next note starts | R MOVE: what each repeat of a ratchet does (see below) |
 | **STEP CUT** | CUT (as on STEP SHAPE) | C SHAPE: EVEN, BOUNCE, DRAG | C SIZE: MASTER (the MASTER page's CUT SIZE), or 1/32 to 1/2 of a step | – |
-| **TRACK** | MODE: **STEPS** or **GRAPH** | LENGTH: 1–64 | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST, WEFT (a WEFT patch's CLK OUT) |
+| **TRACK** | MODE: **STEPS**, **GRAPH** or **CHANCE** | LENGTH: 1–64 (CHANCE: its phrase, 1–16) | RATE: ¼× to 4× the master clock | CLOCK: MASTER, LFO1, LFO2, DUST, WEFT (a WEFT patch's CLK OUT) |
 | **DIRECTION** (steps mode) | FWD, REV, PINGPONG, SNAKE (rows of four, walked back and forth) | STEP REC: NEXT (step recording moves on after each note) or STAY (it stays on the step: note input, see Recording). Kept through power-off | QUANTZE: how close recorded notes play to the grid, 0–100 % (the same as SONG › CLOCK FEEL) | – |
 | **EUCLID** (the last SEQ page) | HITS | ROTATE | LENGTH (the track's) | – |
 
@@ -1312,6 +1313,32 @@ With **MELODY** or **RHYTHM**, rhythm and melody walk two different paths at two
   - **× CLOCK** multiplies or divides the clock (up to two octaves faster or slower), so it accelerates and decelerates musically;
   - **+ CLOCK** adds to the clock's rate (from slowing to a near halt up to racing).
 - The MOTION picture draws the shape, where the head is on it, and its current speed in steps per pulse.
+
+### CHANCE mode (a phrase made up as it plays)
+
+Set **SEQ › TRACK › MODE** to **CHANCE**. The track stops playing its steps and makes up its own phrase instead: which steps play, and which notes, decided by chance as the playhead reaches them, then remembered. Turn **MEMORY** up and the phrase settles into a loop; turn it down and new material comes in. It's after Mutable Instruments' Marbles, with its ideas on four knobs. It works on synth, strike, WEFT and other note tracks (not kits or LOOP tracks).
+
+**It follows the song's key.** CHANCE has no scale of its own: the notes are degrees of **SCL**'s ROOT and SCALE (and TRANSPOSE). Change the key or the scale and the phrase keeps its shape in the new one. With CHROMA, the steps are semitones.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **CHANCE** | DENS: how many steps play | RANGE: how far the notes wander from CENTER (1 to 14 degrees each way) and how big the leaps are | DRIFT: when a step changes, how much (low: a note moves a degree, the rhythm stays; high: a new choice) | MEMORY: how much of the phrase comes round again (0: new each time; 127: held) |
+| **CHANCE SHAPE** | CENTER: the phrase's middle, in degrees from the root at middle C (±14) | LENGTH: 1–16 steps | FEEL: EVEN (on the beats), OFFBEAT, SYNCOP (3 + 3 + 2), FREE | GATE: note length, short to three steps |
+| **CHANCE MORE** | LOCK: FREE, NOTES, RHYTHM or BOTH held | RATCHET: how often a step rolls (2 or 3 hits) | JITTER: timing loosened | ACCENT: how often the strong places are accented |
+| **TRACK** | MODE | LENGTH (the phrase's) | RATE | CLOCK |
+
+The picture shows the phrase: a column a step, a note at its height (up from CENTER, down below it; an accent taller), a rest a dot, the step playing marked under it. The top shows the key and scale it follows and what's locked (or MEMORY).
+
+**The notes walk.** A new note is usually close to the last one (the same, a step, two steps), now and then a leap, and is pulled back toward CENTER the further it gets; RANGE widens all of it. A step's chance of a note is DENS, more on the strong places of FEEL's pattern.
+
+**On a CHANCE page:**
+
+- **REC:** lock the phrase (LOCK BOTH), or let it go (FREE).
+- **REC + SAVE:** keep it: the phrase goes into the track's steps, as ordinary steps (into an empty pattern, A or B, if there is one; if both have steps, press it again to replace the one playing), LENGTH set to the phrase's, and the track back on STEPS to edit it.
+- **REC + OCT−:** a new phrase.
+- **REC + OCT+:** mutate: three steps decided again.
+
+The settings are saved with the project. The phrase itself is not: it lives until you switch off, start a new phrase or change the mode (REC + SAVE is how you keep one). Changing MODE into or out of CHANCE starts CHANCE's knobs (or the graph's) from their defaults.
 
 ## 13. GLO: song, scenes and clock
 
@@ -1704,7 +1731,7 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 
 **A page I saw before is gone.**
 
-- It only shows when it applies. SOURCE 3 and 4 depend on the engine. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on.
+- It only shows when it applies. SOURCE 3 and 4 depend on the engine. The graph's HEAD pages appear only in GRAPH mode, HEAD 2's only when head 2 is on; the CHANCE pages only in CHANCE mode, in place of the step pages.
 - Holding LFO does not change pages: it puts the macros on the knobs.
 
 **The FX page changes a value for every track.**

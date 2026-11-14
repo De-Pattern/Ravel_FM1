@@ -157,7 +157,7 @@ static void unknown_kinds(void)
         }
 }
 
-int rv_load(int slot)
+RV_SMALL int rv_load(int slot)
 {
     rv_head h;
     int f, n;

@@ -180,6 +180,175 @@ int rv_fold_key(int base, int k)
     return n;
 }
 
+/* ------------------------------------------------------------- CHANCE --- */
+/* A track's phrase, generated (after Mutable Instruments' Marbles: the rhythm and the notes decided by chance, and
+ * remembered, so that what happened by accident can come round again). Up to 16 steps, each with a rhythm (a note
+ * or a rest, its accent, ratchet and timing) and a note (a degree of the song's scale, from CENTER). Each time
+ * the playhead comes to a step it plays what it remembers, or, as MEMORY allows, decides again: DRIFT says how
+ * far (a small change, or a new choice); LOCK holds the notes, the rhythm or both. A new note walks from the last
+ * one (mostly near it, now and then a leap, pulled back toward CENTER over RANGE); a step's chance of a note is
+ * DENS, weighted by FEEL. The notes are degrees, so a change of key or scale keeps the phrase's shape. The memory
+ * is in RAM, not the project (REC + SAVE writes the phrase into the track's steps); the settings are the track's */
+#define CH_N 16
+typedef struct {
+    int8_t deg[CH_N], mic[CH_N];              /* each step: its degree (from CENTER), its timing (ticks) */
+    uint8_t on[CH_N], vel[CH_N], rat[CH_N];   /* a note or a rest, its velocity, its ratchet (count - 1) */
+    uint8_t got[CH_N];                        /* decided yet: bit 0 the rhythm, bit 1 the note */
+    int8_t last, pos;                         /* the degree last played; the step now */
+    uint32_t rng;
+} chance_t;
+#ifdef RV_FM1
+static chance_t chs[RV_TRACKS] __attribute__((section(".noinit")));   /* (outside the RAM the sound needs; ch_ok says if it holds anything) */
+#else
+static chance_t chs[RV_TRACKS];
+#endif
+static uint8_t ch_ok[RV_TRACKS];
+static rv_step ch_step;                           /* the step CHANCE plays now, as an ordinary step */
+static const uint8_t ch_feel[4][CH_N] = {         /* FEEL: how likely a note is at each place in the bar (tenths) */
+    {14, 7, 10, 7, 14, 7, 10, 7, 14, 7, 10, 7, 14, 7, 10, 7},          /* EVEN: on the beats */
+    {8, 6, 14, 6, 8, 6, 14, 6, 8, 6, 14, 6, 8, 6, 14, 6},             /* OFFBEAT: between them */
+    {15, 6, 8, 14, 6, 8, 14, 6, 12, 6, 8, 14, 6, 8, 12, 7},           /* SYNCOP: 3 + 3 + 2 */
+    {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}};  /* FREE */
+
+static int is_chance(int t)
+{
+    return !is_kit(t) && rv.tp[t][TP_KIND] != KIND_LOOP && rv.tp[t][TP_SEQMODE] == SEQ_CHANCE && rv.tp[t][TP_DIR] != DIR_GRAPH;
+}
+static int ch_set(int t, int k) { return rv.tp[t][TP_H1ROLE + k]; }
+static float ch_u(chance_t *c) { return xs_uni(&c->rng); }
+
+/* a degree of the song's scale from the root at middle C (signed: down as well as up) */
+static RV_SMALL int ch_note(int d)
+{
+    int n = 60 + clampi(rv.gp[GP_ROOT], 0, 11), i;
+    d = clampi(d, -36, 36);
+    if (clampi(rv.gp[GP_SCALE], 0, 11) == 0)
+        return clampi(n + d, 0, 127);
+    for (i = 0; i < d; i++)
+        do
+            n++;
+        while (!in_scale(n));
+    for (i = 0; i > d; i--)
+        do
+            n--;
+        while (!in_scale(n));
+    return clampi(n, 0, 127);
+}
+
+static RV_SMALL chance_t *ch_get(int t)
+{
+    chance_t *c = &chs[t & 7];
+    if (!ch_ok[t & 7]) {                              /* (a new phrase: nothing decided) */
+        __builtin_memset(c, 0, sizeof *c);
+        c->pos = -1;
+        c->rng = 0x9E3779B9u ^ ((uint32_t)(t + 1) * 0x85EBCA6Bu) ^ xs32(&seq_rng);
+        ch_ok[t & 7] = 1;
+    }
+    return c;
+}
+
+/* step i's rhythm: fresh, a note or a rest by DENS and FEEL; either way its accent, ratchet and timing again */
+static RV_SMALL void ch_rhythm(chance_t *c, int t, int i, int fresh)
+{
+    float w = (float)ch_feel[clampi(ch_set(t, CH_FEEL), 0, 3)][i] * 0.1f, dens = (float)ch_set(t, CH_DENS) * (1.0f / 127.0f);
+    if (fresh)
+        c->on[i] = (uint8_t)(dens >= 0.999f || ch_u(c) < dens * w);
+    c->vel[i] = (uint8_t)(w >= 1.2f && ch_u(c) * 127.0f < (float)ch_set(t, CH_ACCENT) ? 124 : 78 + (int)(ch_u(c) * 30.0f));
+    c->rat[i] = (uint8_t)(ch_u(c) * 254.0f < (float)ch_set(t, CH_RATCHET) ? (ch_u(c) < 0.7f ? 1 : 2) : 0);
+    c->mic[i] = (int8_t)((ch_u(c) * 2.0f - 1.0f) * (float)ch_set(t, CH_JITTER) * (8.0f / 127.0f));
+}
+
+/* step i's note: fresh, a step of the walk from the last note (a repeat, a step, two, now and then a leap; RANGE
+ * wider, pulled toward CENTER); or a nudge, a degree up or down from what it was */
+static RV_SMALL void ch_pitch(chance_t *c, int t, int i, int fresh)
+{
+    float rg = (float)ch_set(t, CH_RANGE) * (1.0f / 127.0f), r, pull;
+    int span = 1 + (int)(rg * 13.0f + 0.5f), from = fresh ? c->last : c->deg[i], mag = 1, d;
+    if (fresh) {
+        r = ch_u(c);
+        mag = r < 0.25f ? 0 : r < 0.65f ? 1 : r < 0.87f ? 2 : 3 + (int)(ch_u(c) * 3.0f);
+        mag = (int)((float)mag * (0.4f + 1.6f * rg) + 0.5f);
+    }
+    pull = clampf((float)-from / (float)span, -1.0f, 1.0f);
+    d = from + (ch_u(c) < 0.5f + 0.45f * pull ? mag : -mag);
+    if (d > span)                                     /* (off the edge of RANGE: back in) */
+        d = 2 * span - d;
+    if (d < -span)
+        d = -2 * span - d;
+    c->deg[i] = (int8_t)clampi(d, -span, span);
+}
+
+/* the playhead moves on: decide what it must, and set ch_step to play */
+static RV_SMALL int chance_advance(int t)
+{
+    chance_t *c = ch_get(t);
+    int len = clampi(ch_set(t, CH_LENGTH), 1, CH_N), lock = clampi(ch_set(t, CH_LOCK), 0, 3), i;
+    float mem = (float)ch_set(t, CH_MEMORY) * (1.0f / 127.0f), drift = (float)ch_set(t, CH_DRIFT) * (1.0f / 127.0f);
+    i = c->pos + 1 >= len ? 0 : c->pos + 1;
+    c->pos = (int8_t)i;
+    if (!(c->got[i] & 1))
+        ch_rhythm(c, t, i, 1);
+    else if (!(lock & 2) && ch_u(c) >= mem)
+        ch_rhythm(c, t, i, ch_u(c) < drift);
+    if (!(c->got[i] & 2))
+        ch_pitch(c, t, i, 1);
+    else if (!(lock & 1) && ch_u(c) >= mem)
+        ch_pitch(c, t, i, ch_u(c) < drift);
+    c->got[i] = 3;
+    __builtin_memset(&ch_step, 0, sizeof ch_step);
+    ch_step.flags = c->on[i] ? ST_ON : 0;
+    ch_step.note = (uint8_t)ch_note(c->deg[i] + clampi(ch_set(t, CH_CENTER), -14, 14));
+    ch_step.vel = c->vel[i];
+    ch_step.len = (uint8_t)(1 + ch_set(t, CH_GATE) * 23 / 127);   /* (eighths of a step: to three steps) */
+    ch_step.chance = 100;
+    ch_step.micro = c->mic[i];
+    ch_step.ratchet = c->rat[i];
+    if (c->on[i])
+        c->last = c->deg[i];
+    return i;
+}
+
+/* for the page and REC: a new phrase, a few steps decided again, what step i holds */
+void rv_chance_new(int t) { ch_ok[t & 7] = 0; }
+RV_SMALL void rv_chance_mutate(int t)
+{
+    chance_t *c = ch_get(t);
+    int k, len = clampi(ch_set(t, CH_LENGTH), 1, CH_N);
+    for (k = 0; k < 3; k++) {
+        int i = (int)(ch_u(c) * (float)len) % len;
+        ch_rhythm(c, t, i, 1);
+        ch_pitch(c, t, i, 1);
+        c->got[i] = 3;
+    }
+}
+int rv_chance_pos(int t) { return ch_ok[t & 7] && is_chance(t) ? chs[t & 7].pos : -1; }
+/* -1: not decided yet; 0: a rest; 1: a note (*note its MIDI note before the song's transposition, *deg its degree) */
+RV_SMALL int rv_chance_peek(int t, int i, int *note, int *deg, int *vel)
+{
+    chance_t *c = &chs[t & 7];
+    if (!ch_ok[t & 7] || i < 0 || i >= CH_N || !(c->got[i] & 3))
+        return -1;
+    *deg = c->deg[i];
+    *note = ch_note(c->deg[i] + clampi(ch_set(t, CH_CENTER), -14, 14));
+    *vel = c->vel[i];
+    return c->on[i];
+}
+RV_SMALL int rv_chance_step(int t, int i, rv_step *o)   /* step i as an ordinary step (REC + SAVE); 0: not decided */
+{
+    chance_t *c = &chs[t & 7];
+    if (!ch_ok[t & 7] || i < 0 || i >= CH_N || !(c->got[i] & 3))
+        return 0;
+    __builtin_memset(o, 0, sizeof *o);
+    o->flags = c->on[i] ? ST_ON : 0;
+    o->note = (uint8_t)ch_note(c->deg[i] + clampi(ch_set(t, CH_CENTER), -14, 14));
+    o->vel = c->on[i] ? c->vel[i] : 100;
+    o->len = (uint8_t)(1 + ch_set(t, CH_GATE) * 23 / 127);
+    o->chance = 100;
+    o->micro = c->mic[i];
+    o->ratchet = c->rat[i];
+    return 1;
+}
+
 static int cond_pass(const rv_step *s, int t)
 {
     uint32_t p = sq[t].passes;
@@ -398,7 +567,7 @@ static void kit_fire(int t, int si, uint32_t when)
 
 static void step_fire(int t, int h, int si, uint32_t when)
 {
-    rv_step *s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];
+    rv_step *s = is_chance(t) ? &ch_step : &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];   /* (CHANCE: the step it decided) */
     float sd = step_seconds(t), tick = sd * (1.0f / 24.0f);
     int k, note, cnt, curve, sw;
     int role = head_role(t, h), tt = t;               /* head 2 may play another track */
@@ -533,7 +702,7 @@ static void head_advance(int t, int h, uint32_t when)
         s->passes = 0;
         s->step[0] = s->step[1] = -1;
     }
-    s->step[h] = (int16_t)next_step(t, h, s->step[h]);
+    s->step[h] = (int16_t)(is_chance(t) ? chance_advance(t) : next_step(t, h, s->step[h]));
     s->travelled[h]++;
     if (h == 0) {
         s->step_time = when;
@@ -1129,6 +1298,7 @@ static void seq_start(void)
         sq[t].travelled[0] = sq[t].travelled[1] = 0;
         sq[t].pitch_set = 0;
         turn_bits[t] = 0;
+        chs[t].pos = -1;                              /* (CHANCE starts its phrase from the top; ch_get sets it up if new) */
     }
     if (pend_scene >= 0)                              /* row 1's scene now, without counting a bar */
         apply_pending();
