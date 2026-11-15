@@ -1,0 +1,180 @@
+# The matrix in the sequence: a track's LENGTH, HITS and ROTATE (the steps never change), and CHANCE's settings
+wait 300
+# LFO > MATRIX: a track's PARAM turns through its knobs, LENGTH, then HITS and ROTATE
+tap LFO
+wait 150
+expect page MATRIX
+turn K1 1
+wait 60
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+expect matdst 1 T1 LENGTH
+turn K3 1
+wait 60
+expect matdst 1 T1 HITS
+turn K3 1
+wait 60
+expect matdst 1 T1 ROTATE
+turn K2 1
+wait 60
+expect matdst 1 T2 ROTATE
+turn K2 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+expect matdst 1 T1 SPACE
+turn K1 -1
+wait 60
+tap SEQ
+turn SELECT 20
+wait 150
+expect page EUCLID
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 150
+expect steps 1 4
+# MACRO 1 at full: a steady source
+setgp 64 127
+tap PLAY
+wait 500
+ons 0
+wait 2000
+expect ons 1 3 5
+# HITS +8 (amount 32 of 63: half of 16): twelve of sixteen
+setmatq 1 7 1 1 32
+wait 300
+ons 0
+wait 2000
+expect ons 1 11 13
+expect steps 1 4
+# HITS -4: none
+setmatq 1 7 1 1 -16
+wait 300
+ons 0
+wait 2000
+expect ons 1 0 0
+# ROTATE: as many hits, turned
+setmatq 1 7 1 2 10
+wait 300
+ons 0
+wait 2000
+expect ons 1 3 5
+expect steps 1 4
+# LENGTH -8: the playhead stays in steps 1-8
+setmatq 1 7 1 0 -8
+wait 400
+expect playstep_in 1 1 8
+wait 330
+expect playstep_in 1 1 8
+wait 330
+expect playstep_in 1 1 8
+wait 330
+expect playstep_in 1 1 8
+expect tp 1 LENGTH 16
+# off: as it was
+setmatq 1 0 1 0 0
+wait 300
+ons 0
+wait 2000
+expect ons 1 3 5
+# CHANCE: DENS at 0, then moved up by the matrix
+settp 1 MODE 2
+settp 1 DENS 0
+settp 1 FEEL 3
+settp 1 LENGTH 16
+settp 1 GATE 70
+settp 1 MEMORY 0
+settp 1 LOCK 0
+wait 300
+ons 0
+wait 2000
+expect ons 1 0 0
+# DENS +127 by MACRO 1: every step a note (the knob stays at 0)
+setmatp 2 7 1 DENS 63
+expect matdst 2 T1 DENS
+wait 300
+ons 0
+wait 2000
+expect ons 1 14 18
+expect tp 1 DENS 0

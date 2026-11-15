@@ -46,6 +46,12 @@
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
+ *   expect matdst K NAME          matrix row K (1..8) moves NAME ("T1 HITS")
+ *   expect ons T LO HI            the sequencer started from LO to HI notes on track T since "ons 0"
+ *   clear T                       track T's (1..8) current pattern: every step off
+ *   ons 0                         count track notes from now
+ *   setmatp K S T NAME A          matrix row K (1..8) from source S into track T's parameter NAME, amount A
+ *   setmatq K S T Q A             matrix row K (1..8) from source S (MS_ number) into track T's LENGTH (Q 0), HITS (1) or ROTATE (2), amount A
  *   expect kitq T L N             kit track T's lane L (1..6): its QUANTZE as stored (0 SONG, 1..101 = 0..100 %)
  *   expect msrc NAME LO HI        the matrix source NAME (WHEEL, TOUCH, BEND...) is between LO and HI now
  *   expect stepcur S              the step the knobs edit is S (1..64)
@@ -73,6 +79,7 @@ int rv_load(int slot);
 int rv_bank_store(int t, int i, const char *name);
 int rv_bank_apply(int t, int i);
 int rv_bank_flush(void);
+extern uint32_t rv_dbg_ons[RV_TRACKS];
 void rv_bank_reload(int slot);
 void rv_weft_preset(int t, int k);
 void rv_weft_block_defaults(int t, int i);
@@ -385,6 +392,28 @@ int main(int argc, char **argv)
             sscanf(line, "%*s %d %d", &x, &y);
             if (x >= 0 && x < GP_N)
                 rv.gp[x] = (int16_t)y;
+        } else if (!strcmp(a, "clear")) {    /* clear T: track T's current pattern, no steps */
+            rv_pattern_clear((atoi(b) - 1) & 7);
+        } else if (!strcmp(a, "ons")) {
+            __builtin_memset(rv_dbg_ons, 0, sizeof rv_dbg_ons);
+        } else if (!strcmp(a, "setmatq")) {
+            int x = 0, y = 0, z = 0, q = 0, w = 0;
+            sscanf(line, "%*s %d %d %d %d %d", &x, &y, &z, &q, &w);
+            rv.mat[(x - 1) & 7].src = (uint8_t)y;
+            rv.mat[(x - 1) & 7].amt = (int8_t)w;
+            rv.mat[(x - 1) & 7].dst = (uint16_t)(q == 0 ? PID_T((z - 1) & 7, TP_LEN) : PID_SQ((z - 1) & 7, q - 1));
+        } else if (!strcmp(a, "setmatp")) {   /* setmatp K S T NAME A: matrix row K from source S into track T's parameter NAME */
+            char nm[64] = "";
+            int x = 0, y = 0, tt = 0, w = 0, pp;
+            sscanf(line, "%*s %d %d %d %63s %d", &x, &y, &tt, nm, &w);
+            pp = find_tp((tt - 1) & 7, nm);
+            if (pp < 0) {
+                fprintf(stderr, "line %d: no parameter %s\n", lineno, nm);
+                return 2;
+            }
+            rv.mat[(x - 1) & 7].src = (uint8_t)y;
+            rv.mat[(x - 1) & 7].amt = (int8_t)w;
+            rv.mat[(x - 1) & 7].dst = (uint16_t)PID_T((tt - 1) & 7, pp);
         } else if (!strcmp(a, "setmatg")) {   /* setmatg K S G A: matrix row K (1..8) from source S (MS_ number) into global G (GP_ number), amount A */
             int x = 0, y = 0, z = 0, w = 0;
             sscanf(line, "%*s %d %d %d %d", &x, &y, &z, &w);
@@ -525,6 +554,16 @@ int main(int argc, char **argv)
                     fails++;
                 }
                 continue;
+            } else if (!strcmp(b, "matdst")) {               /* matrix row K's destination, as named ("T1 HITS") */
+                char want_s[64] = "", lb[24];
+                int kk = (atoi(w1) - 1) & 7;
+                sscanf(line, "%*s %*s %*s %63[^\n]", want_s);
+                rv_pid_label(rv.mat[kk].dst, lb, 24);
+                if (strcmp(lb, want_s)) {
+                    printf("FAIL line %d: row %d moves %s, expected %s\n", lineno, kk + 1, lb, want_s);
+                    fails++;
+                }
+                continue;
             } else if (!strcmp(b, "page")) {
                 char title[64];
                 sscanf(line, "%*s %*s %63[^\n]", title);
@@ -568,6 +607,10 @@ int main(int argc, char **argv)
                 const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
                 got = (ss->flags & ST_ON) ? ss->note : -1;
                 want = atoi(w3);
+            } else if (!strcmp(b, "ons")) {                  /* notes started on track T: from LO to HI */
+                int lo = atoi(w2), hi = atoi(w3), n = (int)rv_dbg_ons[(atoi(w1) - 1) & 7];
+                got = n >= lo && n <= hi ? lo : n;
+                want = lo;
             } else if (!strcmp(b, "kitq")) {                 /* kit track T's lane L: its stored QUANTZE */
                 got = rv.kit_quant[(atoi(w1) - 1) & 7][(atoi(w2) - 1) % RV_LANES];
                 want = atoi(w3);

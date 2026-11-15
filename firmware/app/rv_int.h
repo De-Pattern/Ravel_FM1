@@ -259,6 +259,7 @@ typedef struct {
     int32_t ch_w;
     float ch_ph, ch_lp;
 } track_t;
+extern float sq_mod[RV_TRACKS][SQM_N];   /* (rv_mod.c) the matrix's HITS and ROTATE for each track now */
 _Static_assert(sizeof(gtr_amp_t) <= 512, "GUITAR's amp fits in the INSERT's memory");
 
 /* ---------------------------------------------------------- sequencer --- */

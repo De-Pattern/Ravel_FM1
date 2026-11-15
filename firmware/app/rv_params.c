@@ -753,6 +753,12 @@ const char *rv_pid_label(int pid, char *buf, int max)
         put_str(buf, i, max, " AMT");
         return buf;
     }
+    if (PID_IS_SQ(pid)) {                              /* the sequence's HITS or ROTATE */
+        i = put_str(buf, 0, max, "T");
+        i = put_int(buf, i, max, (pid - RV_SPID) / SQM_N + 1, 0);
+        put_str(buf, i, max, (pid - RV_SPID) % SQM_N == SQM_HITS ? " HITS" : " ROTATE");
+        return buf;
+    }
     pi = rv_pinfo_pid(pid);
     if (pid < RV_GPID) {
         i = put_str(buf, 0, max, "T");
@@ -906,8 +912,31 @@ int rv_is_moddest(int p)
     case TP_SUS: case TP_REL: case TP_GIVE: case TP_OVER: case TP_TAIL: case TP_GLIDE:
         return 1;
     default:
+        if (p == TP_LEN || (p >= TP_H1ROLE && p < TP_H1ROLE + CH_SETS && p - TP_H1ROLE != CH_FEEL && p - TP_H1ROLE != CH_LOCK))
+            return 1;   /* (the sequence's LENGTH; CHANCE's settings but its FEEL and LOCK: rv_is_moddest_t says which track) */
         return (p >= TP_S0 && p <= TP_S15) || (p >= TP_WX0 && p <= TP_WX5) || p == TP_VOC || p == TP_PAIRS || p == TP_BANDS;   /* (the last: WEFT's blocks 9-12, HYBRID FM's pages) */
     }
+}
+
+/* the sequence's destinations do something only in some modes: LENGTH on a STEPS track or a kit (CHANCE has its
+ * own LENGTH), CHANCE's settings on a CHANCE track (a graph keeps its heads' settings in those slots) */
+static int seq_chance(int t) { const int16_t *tp = rv.tp[t & 7]; return tp[TP_SEQMODE] == SEQ_CHANCE && !(tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1) && tp[TP_KIND] != KIND_LOOP && tp[TP_DIR] != DIR_GRAPH; }
+int rv_seqmod_ok(int t)
+{
+    const int16_t *tp = rv.tp[t & 7];
+    if (tp[TP_KIND] == KIND_PERC && tp[TP_ENGINE] == 1)
+        return 1;
+    return tp[TP_KIND] != KIND_LOOP && tp[TP_KIND] != KIND_COMP && tp[TP_SEQMODE] == SEQ_STEPS && tp[TP_DIR] != DIR_GRAPH;
+}
+int rv_is_moddest_t(int t, int p)
+{
+    if (!rv_is_moddest(p) || !rv_pinfo_track(t, p)->name || !rv_tp_applies(t, p))
+        return 0;
+    if (p == TP_LEN)
+        return rv_seqmod_ok(t);
+    if (p >= TP_H1ROLE && p < TP_H1ROLE + CH_SETS)
+        return seq_chance(t);
+    return 1;
 }
 
 /* the globals the matrix and the macros can move (GLOBAL): the clock, the LFOs and dust, and each
@@ -941,7 +970,7 @@ int rv_moddest_next_t(int t, int p, int dir)
             p = TP_N - 1;
         if (p >= TP_N)
             p = 0;
-        if (rv_is_moddest(p) && rv_pinfo_track(t, p)->name && rv_tp_applies(t, p))
+        if (rv_is_moddest_t(t, p))
             return p;
     }
     return rv_moddest_next(p, dir);

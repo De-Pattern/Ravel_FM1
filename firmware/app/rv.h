@@ -139,6 +139,14 @@ _Static_assert(GP_N <= RV_GP && TP_N <= RV_TP, "the parameters fit their rows");
 #define PID_T(t, p) ((t) * RV_TP + (p))
 #define PID_G(g) (RV_GPID + (g))
 #define PID_MAT(k) (RV_NPID + (k))     /* a matrix destination: row k's AMOUNT (only the matrix uses these) */
+/* matrix destinations in a track's sequence with no setting of their own: HITS (a euclidean pattern with
+ * as many more or fewer hits as the pattern has) and ROTATE (the pattern turned); only the matrix uses these.
+ * (Older firmware passes over a row it doesn't know.) */
+enum { SQM_HITS, SQM_ROT, SQM_N };
+#define RV_SPID (RV_NPID + RV_MATRIX)
+#define PID_SQ(t, k) (RV_SPID + (t) * SQM_N + (k))
+#define PID_IS_SQ(pid) ((pid) >= RV_SPID && (pid) < RV_SPID + RV_TRACKS * SQM_N)
+#define SQM_RANGE 16                   /* a row at full AMOUNT: this many hits or steps either way */
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_LOOP, KIND_WEFT, KIND_N };   /* WEFT: a voice patched from blocks (rv_weft.c) */   /* LOOP: four lanes of recorded audio (rv_loop.c; one track at most) */   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
                                                                               * COMP (T8 only): the bus compressor on the main mix, not a voice */
@@ -447,6 +455,8 @@ const char *rv_pid_label(int pid, char *buf, int max);   /* "T3 CUT" */
 int rv_is_moddest(int p);                       /* a track parameter that modulation may move */
 int rv_tp_applies(int t, int p);                /* 0: in the track's current setup this knob does nothing */
 int rv_moddest_next_t(int t, int p, int dir);
+int rv_is_moddest_t(int t, int p);              /* rv_is_moddest, and it does something on track t as it is set */
+int rv_seqmod_ok(int t);                        /* HITS and ROTATE can be moved on track t (STEPS, or a kit) */
 int rv_moddest_next(int p, int dir);
 extern const char *const rv_kind_names[], *const rv_engine_names[], *const rv_route_names[];
 extern const char *const rv_msrc_names[], *const rv_cond_names[];

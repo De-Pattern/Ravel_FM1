@@ -1071,6 +1071,15 @@ The FM-1's own keys are switches: they play every note at the same velocity and 
 4. Turn KNOB 3 to pick the parameter (only parameters that can move smoothly are offered).
 5. Turn KNOB 4 to set the amount.
 
+**Moving the sequence.** A track's PARAM list also holds its sequence, after its sound: on a STEPS track or a kit, **LENGTH**, then **HITS** and **ROTATE** (EUCLID's), and on a CHANCE track its settings (DENS, RANGE, DRIFT, MEMORY, CENTER, LENGTH, GATE, RATCHET, JITTER and ACCENT; FEEL and LOCK are switches, not offered). None of them change the steps: they change what plays, and when the row is off the pattern plays as written.
+
+- **LENGTH** moves the track's LENGTH (at AMOUNT ±63 the whole 1–64). A slow LFO on it stretches and shrinks the loop; a pattern waiting to start waits for the loop's end as it is now.
+- **HITS** plays the pattern as a euclidean one with more or fewer hits than it has (at AMOUNT ±63, 16 either way): 4 hits and +4 is 8 spread evenly over the LENGTH. A hit plays its own step, or, on an empty one, the last step before it that plays, so the notes, locks and ratchets come from your pattern. A kit does each lane on its own, and leaves a lane with no hits silent.
+- **ROTATE** turns the pattern round (at AMOUNT ±63, 16 steps either way), the hits keeping their notes.
+- They are read at each step, so an LFO, dust, a macro or the wheel can play the rhythm.
+- On a CHANCE track the settings move as they are read: DENS and the rest change what CHANCE decides next. MEMORY keeps what it has already decided, so with MEMORY high a moved DENS shows slowly; turn MEMORY down (or move it too) to hear it at once.
+- A project with these rows opens on older firmware, which passes over them.
+
 **Key tracking with KEY.** At AMOUNT +63, KEY moves these parameters by exactly one semitone a key: the **INSERT TUNE** of a COMB insert, **CUTOFF**, **PITCH** and **FINE**. Any other parameter moves one step a key. Smaller amounts track part of the way, and negative amounts turn the keyboard upside down. KEY reads the target track's newest note, so with several voices the comb follows the last key played.
 
 *Example: a strike track whose comb rings in tune with the keys.*
@@ -1220,7 +1229,7 @@ Editing a held empty step switches it on. While a step key is held, OCT− / OCT
 
 <p align="center"><img src="docs/manual/seq-euclid.png" alt="The EUCLID page: a pattern drawn as a ring of its steps, E(hits, length) in the middle" width="240"></p>
 
-**EUCLID** spreads HITS as evenly as they go over the track's LENGTH (5 over 16 is x..x..x..x..x...., the first on step 1) and ROTATE turns the pattern round. It writes ordinary steps as you turn: the steps it lights are steps like any others, with their notes, locks and ratchets, and you can edit them by hand from there. HITS starts from how many steps play now. Each turn rewrites which steps play (up to LENGTH), so turn it to find a rhythm, then leave it. On a kit the page is LANE, HITS, ROTATE and the lane's LENGTH, and it writes the chosen lane only: give each lane its own length and hits for rhythms that interlock and drift. The picture is the pattern as a ring, E(hits, length) in the middle.
+**EUCLID** spreads HITS as evenly as they go over the track's LENGTH (5 over 16 is x..x..x..x..x...., the first on step 1) and ROTATE turns the pattern round. It writes ordinary steps as you turn: the steps it lights are steps like any others, with their notes, locks and ratchets, and you can edit them by hand from there. HITS starts from how many steps play now. Each turn rewrites which steps play (up to LENGTH), so turn it to find a rhythm, then leave it. To move HITS, ROTATE or LENGTH as it plays without rewriting anything, use the matrix (LFO › MATRIX, PARAM: the track's HITS, ROTATE or LENGTH). On a kit the page is LANE, HITS, ROTATE and the lane's LENGTH, and it writes the chosen lane only: give each lane its own length and hits for rhythms that interlock and drift. The picture is the pattern as a ring, E(hits, length) in the middle.
 
 **Ratchets that move.** A ratchet repeats the step's note within the step. Two settings change how the repeats fall and sound:
 

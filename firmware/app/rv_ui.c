@@ -766,6 +766,21 @@ static const char *const lib_next[RV_SENV + 1] = {"NONE", "1", "2", "3", "4", "5
 
 typedef struct { const char *name; int min, max; uint8_t fmt; const char *const *names; } kinfo_t;
 
+/* a track's matrix destinations in the order PARAM turns through them: its parameters, with HITS and ROTATE
+ * after LENGTH */
+static int mat_tpos(int pid)
+{
+    if (PID_IS_SQ(pid))
+        return TP_LEN + 1 + (pid - RV_SPID) % SQM_N;
+    pid %= RV_TP;
+    return pid <= TP_LEN ? pid : pid + SQM_N;
+}
+static int mat_tpid(int t, int q)
+{
+    if (q > TP_LEN && q <= TP_LEN + SQM_N)
+        return PID_SQ(t, q - TP_LEN - 1);
+    return PID_T(t, q <= TP_LEN ? q : q - SQM_N);
+}
 static int macro_dest_count(void) { return RV_TRACKS * TP_N + GP_N; }
 
 /* ------------------------------------------------------------ EUCLID --- */
@@ -800,7 +815,10 @@ static void euc_write(int t, int hits, int rot)
         rv_step *s = &rv.pat[t][pat].s[i];
         int j = (i - rot + len) % len, on = hits > 0 && (j * hits) % len < hits;
         if (is_kit_ui(t)) {
-            if (on && !(s->note & bit)) {
+            if (!on && !(s->flags & ST_ON))          /* (an empty step this lane doesn't play stays empty, whatever
+                                                      * its note holds: a cleared pattern's is 60, lanes 3-6) */
+                continue;
+            if (on && (!(s->flags & ST_ON) || !(s->note & bit))) {
                 if (!(s->flags & ST_ON)) {           /* an empty step: start it clean */
                     s->note = s->env = s->len = 0;
                     s->vel = 100;
@@ -1298,9 +1316,9 @@ static RV_SMALL int kb_get(kb_t k)
         if (k.id == MF_SRC)
             return m->src;
         if (k.id == MF_TRACK)
-            return m->dst >= RV_NPID ? RV_TRACKS + 1 : m->dst >= RV_GPID ? RV_TRACKS : m->dst / RV_TP;
+            return PID_IS_SQ(m->dst) ? (m->dst - RV_SPID) / SQM_N : m->dst >= RV_NPID ? RV_TRACKS + 1 : m->dst >= RV_GPID ? RV_TRACKS : m->dst / RV_TP;
         if (k.id == MF_PARAM)
-            return m->dst >= RV_NPID ? m->dst - RV_NPID : m->dst >= RV_GPID ? m->dst - RV_GPID : m->dst % RV_TP;
+            return m->dst < RV_GPID || PID_IS_SQ(m->dst) ? mat_tpos(m->dst) : m->dst >= RV_NPID ? m->dst - RV_NPID : m->dst >= RV_GPID ? m->dst - RV_GPID : m->dst % RV_TP;
         return m->amt;
     }
     case K_MACRO: {
@@ -1576,8 +1594,21 @@ static RV_SMALL void kb_set(kb_t k, int v)
             int p = m->dst >= RV_GPID ? TP_CUT : m->dst % RV_TP;
             if (v > RV_TRACKS)                          /* MATRIX: the next row's AMOUNT */
                 m->dst = (uint16_t)PID_MAT((ui.cur_mat + 1) % RV_MATRIX);
+            else if (v < RV_TRACKS && PID_IS_SQ(m->dst) && rv_seqmod_ok(v))   /* (HITS or ROTATE: the other track's) */
+                m->dst = (uint16_t)PID_SQ(v, (m->dst - RV_SPID) % SQM_N);
             else
-                m->dst = (uint16_t)(v == RV_TRACKS ? PID_G(GP_FBREGEN) : PID_T(v, rv_is_moddest(p) ? p : TP_CUT));
+                m->dst = (uint16_t)(v == RV_TRACKS ? PID_G(GP_FBREGEN) : PID_T(v, rv_is_moddest_t(v, p) ? p : TP_CUT));
+        } else if (k.id == MF_PARAM && (m->dst < RV_GPID || PID_IS_SQ(m->dst))) {   /* a track's: its knobs, then its HITS and ROTATE */
+            int t = PID_IS_SQ(m->dst) ? (m->dst - RV_SPID) / SQM_N : m->dst / RV_TP, n = TP_N + SQM_N, i;
+            int cur = mat_tpos(m->dst), q = cur, dir = v > cur ? 1 : -1, pid = m->dst;
+            for (i = 0; i < n; i++) {
+                q = (q + dir + n) % n;
+                pid = mat_tpid(t, q);
+                if (PID_IS_SQ(pid) ? rv_seqmod_ok(t) : rv_is_moddest_t(t, pid % RV_TP))
+                    break;
+            }
+            if (i < n)
+                m->dst = (uint16_t)pid;
         } else if (k.id == MF_PARAM) {
             if (m->dst >= RV_NPID) {                    /* which row: any but this one */
                 int cur = m->dst - RV_NPID, nk = clampi(v, 0, RV_MATRIX - 1);
@@ -1592,9 +1623,6 @@ static RV_SMALL void kb_set(kb_t k, int v)
                     g += dir;
                 if (g >= 0 && g < GP_N)
                     m->dst = (uint16_t)PID_G(g);
-            } else {
-                int cur = m->dst % RV_TP;
-                m->dst = (uint16_t)PID_T(m->dst / RV_TP, rv_moddest_next_t(m->dst / RV_TP, cur, v > cur ? 1 : -1));
             }
         } else
             m->amt = (int8_t)v;
@@ -1608,7 +1636,7 @@ static RV_SMALL void kb_set(kb_t k, int v)
             int i = v, dir = v > macro_dst_to_index(d->dst) ? 1 : -1, guard = 2000;
             while (i > 0 && i <= macro_dest_count() && guard--) {
                 uint16_t pid = macro_index_to_dst(i);
-                if (pid >= RV_GPID ? rv_pinfo_pid(pid)->name != 0 && rv_is_moddest_g(pid - RV_GPID) : (rv_is_moddest(pid % RV_TP) && rv_pinfo_pid(pid)->name))
+                if (pid >= RV_GPID ? rv_pinfo_pid(pid)->name != 0 && rv_is_moddest_g(pid - RV_GPID) : (rv_is_moddest(pid % RV_TP) && rv_pinfo_pid(pid)->name && (pid % RV_TP != TP_LEN && (pid % RV_TP < TP_H1ROLE || pid % RV_TP >= TP_H1ROLE + CH_SETS) ? 1 : rv_is_moddest_t(pid / RV_TP, pid % RV_TP))))
                     break;
                 i += dir;
             }
@@ -2030,7 +2058,7 @@ static RV_SMALL void kb_format(kb_t k, int v, char *o)
         char b[20];
         const char *lbl = rv_pid_label(m->dst, b, 20);
         int i = 0;
-        while (*lbl && *lbl != ' ' && m->dst < RV_GPID)
+        while (*lbl && *lbl != ' ' && (m->dst < RV_GPID || PID_IS_SQ(m->dst)))
             lbl++;
         if (*lbl == ' ')
             lbl++;

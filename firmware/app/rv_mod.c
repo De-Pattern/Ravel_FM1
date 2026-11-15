@@ -8,6 +8,7 @@
 
 track_t trk[RV_TRACKS];
 static float geff[GP_N];                            /* global parameters after modulation */
+float sq_mod[RV_TRACKS][SQM_N];                     /* the matrix's HITS and ROTATE now: hits or steps, either way (rv_seq.c) */
 #define G(i) geff[i]
 static uint32_t mod_rng = 0x2545F491u;
 
@@ -388,6 +389,7 @@ RV_HOT2 static void eff_compute(void)   /* (in the pool since v1.22: RAMTEXT for
     static uint8_t full;                              /* now and then every value is checked, not only the moved */
     __builtin_memset(eff_moved, 0, sizeof eff_moved);
     __builtin_memset(geff_moved, 0, sizeof geff_moved);
+    __builtin_memset(sq_mod, 0, sizeof sq_mod);
     /* the knobs and the step locks */
     for (t = 0; t < RV_TRACKS; t++) {
         float *e = trk[t].eff;
@@ -447,7 +449,16 @@ RV_HOT2 static void eff_compute(void)   /* (in the pool since v1.22: RAMTEXT for
             const rv_mslot *m = &rv.mat[i];
             float s, amt = aeff[i] * (1.0f / 64.0f);
             rv_live.mat_amt[i] = (int8_t)aeff[i];
-            if (m->src == MS_OFF || m->src >= MS_N || fm_fabsf(aeff[i]) < 0.01f || m->dst >= RV_NPID)
+            if (m->src == MS_OFF || m->src >= MS_N || fm_fabsf(aeff[i]) < 0.01f)
+                continue;
+            if (PID_IS_SQ(m->dst)) {                    /* a track's HITS or ROTATE: the sequencer reads it at each step */
+                int dt = (m->dst - RV_SPID) / SQM_N;
+                s = m->src == MS_ENV ? trk[dt].lead_env : m->src == MS_VEL ? trk[dt].lead_vel
+                    : m->src == MS_KEY ? trk[dt].lead_key * (1.0f / 60.0f) : src[m->src];
+                sq_mod[dt][(m->dst - RV_SPID) % SQM_N] += s * amt * (float)SQM_RANGE;
+                continue;
+            }
+            if (m->dst >= RV_NPID)
                 continue;
             if (m->src == MS_BEND) {                    /* pitch bend: AMOUNT is its range in semitones (2: a tone each way) */
                 eff_add(m->dst, src[MS_BEND] * key_units(m->dst) * aeff[i]);

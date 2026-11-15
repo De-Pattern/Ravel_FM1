@@ -45,6 +45,54 @@ static void click_at(uint32_t when, int down, int countin)
 /* ------------------------------------------------- graph mode and heads --- */
 static int is_kit(int t) { return rv.tp[t][TP_KIND] == KIND_PERC && rv.tp[t][TP_ENGINE] == 1; }   /* a PERC kit */
 static int is_graph(int t) { return !is_kit(t) && (rv.tp[t][TP_SEQMODE] == SEQ_GRAPH || rv.tp[t][TP_DIR] == DIR_GRAPH); }
+/* the matrix in the sequence: LENGTH as modulation moves it (the knob's until the first block is worked out),
+ * and HITS and ROTATE (sq_mod), which change what the steps play, never the steps */
+static int seq_len(int t)
+{
+    float e = trk[t].eff[TP_LEN];
+    return e >= 0.5f ? clampi((int)(e + 0.5f), 1, RV_STEPS) : clampi(rv.tp[t][TP_LEN], 1, RV_STEPS);
+}
+static int sqm_int(float x) { return (int)(x < 0.0f ? x - 0.5f : x + 0.5f); }
+static int sqm_on(int t) { return sqm_int(sq_mod[t][SQM_HITS]) != 0 || sqm_int(sq_mod[t][SQM_ROT]) != 0; }
+static rv_step sqm_dflt;                          /* a hit where the pattern has no note to lend it */
+/* the step that plays at place si of len (lane: a kit's lane, -1: a track's): ROTATE turns the pattern; HITS
+ * makes it a euclidean pattern of as many more or fewer hits as it has (the first on place 1, turned with it),
+ * each hit playing its own step, or the last one before it that plays (a kit: each lane its own, a lane with
+ * none left silent). 0: nothing plays here */
+static RV_SMALL rv_step *sqm_step(int t, int si, int len, int lane, int *at)
+{
+    rv_pattern *pt = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
+    int rot = sqm_int(sq_mod[t][SQM_ROT]), dh = sqm_int(sq_mod[t][SQM_HITS]), j, i, n = 0, h;
+    uint8_t bit = (uint8_t)(lane >= 0 ? 1u << lane : 0u);
+#define SQM_PLAYS(q) (((q)->flags & ST_ON) && (lane < 0 || ((q)->note & bit)))
+    rot = ((rot % len) + len) % len;
+    j = ((si % len) - rot + len) % len;
+    *at = j;
+    if (!dh)
+        return &pt->s[j];
+    for (i = 0; i < len; i++)
+        n += SQM_PLAYS(&pt->s[i]) ? 1 : 0;
+    if (lane >= 0 && n == 0)                          /* (a kit's silent lane stays silent) */
+        return 0;
+    h = clampi(n + dh, 0, len);
+    if (h <= 0 || (j * h) % len >= h)
+        return 0;
+    for (i = 0; i < len; i++) {
+        rv_step *q = &pt->s[(j - i + len) % len];
+        if (SQM_PLAYS(q)) {
+            *at = (j - i + len) % len;
+            return q;
+        }
+    }
+#undef SQM_PLAYS
+    __builtin_memset(&sqm_dflt, 0, sizeof sqm_dflt);
+    sqm_dflt.flags = ST_ON;
+    sqm_dflt.note = (uint8_t)(lane >= 0 ? 63 : 60);
+    sqm_dflt.vel = 100;
+    sqm_dflt.chance = 100;
+    sqm_dflt.len = 8;
+    return &sqm_dflt;
+}
 /* HEAD 2 picks the pair: OFF or NOTES (head 1 plays notes too), MELODY (head 2 sets the pitch,
  * head 1 plays it: ROLE_PITCH) or RHYTHM (head 2 plays head 1's pitches: ROLE_GATE). Head 1's role
  * follows, so no setting leaves the track silent. */
@@ -110,9 +158,16 @@ static void all_off_now(void);
 static void hs_move(int rmv, int kit);              /* (rv_engine.c) a ratchet repeat's R MOVE, for the next note */
 static uint8_t spark_pend;
 
+#ifndef RV_FM1
+uint32_t rv_dbg_ons[RV_TRACKS];                    /* (the desktop builds: notes the sequencer started, for the tests) */
+#endif
 static void ev_push(const event_t *e)               /* (the last 16 places: note-offs only, so a queue
                                                      * that fills up never keeps a note that has sounded) */
 {
+#ifndef RV_FM1
+    if (e->type == EV_ON)
+        rv_dbg_ons[e->track & 7]++;
+#endif
     if (evn < (e->type == EV_OFF || e->type == EV_AOFF ? RV_EVQ : RV_EVQ - 16))
         evq[evn++] = *e;
 }
@@ -214,7 +269,7 @@ static int is_chance(int t)
 {
     return !is_kit(t) && rv.tp[t][TP_KIND] != KIND_LOOP && rv.tp[t][TP_SEQMODE] == SEQ_CHANCE && rv.tp[t][TP_DIR] != DIR_GRAPH;
 }
-static int ch_set(int t, int k) { return rv.tp[t][TP_H1ROLE + k]; }
+static int ch_set(int t, int k) { float e = trk[t].eff[TP_H1ROLE + k]; return k == CH_FEEL || k == CH_LOCK ? rv.tp[t][TP_H1ROLE + k] : sqm_int(e); }   /* (as modulation moves them) */
 static float ch_u(chance_t *c) { return xs_uni(&c->rng); }
 
 /* a degree of the song's scale from the root at middle C (signed: down as well as up) */
@@ -374,7 +429,7 @@ static int cond_pass(const rv_step *s, int t)
 /* the step a head goes to next */
 static int next_step(int t, int h, int cur)
 {
-    int len = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), dir = is_graph(t) ? DIR_GRAPH : clampi(rv.tp[t][TP_DIR], 0, DIR_N - 1), n;
+    int len = is_graph(t) ? clampi(rv.tp[t][TP_LEN], 1, RV_STEPS) : seq_len(t), dir = is_graph(t) ? DIR_GRAPH : clampi(rv.tp[t][TP_DIR], 0, DIR_N - 1), n;
     seqtrk_t *s = &sq[t];
     if (cur < 0) {                                  /* the first step */
         if (h == 1)
@@ -502,7 +557,7 @@ static void kit_fire(int t, int si, uint32_t when)
 {
     const rv_kit *k = &rv.kit[t];
     rv_pattern *pt = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
-    int tlen = clampi(rv.tp[t][TP_LEN], 1, RV_STEPS), l, r;
+    int tlen = seq_len(t), l, r, sqm = sqm_on(t);
     float sd = step_seconds(t), tick = sd * (1.0f / 24.0f), quant;
     float density = rv.arcs[t][(song_bar >> clampi(rv.gp[GP_ARCSPAN], 0, 2)) & 15];
     for (l = 0; l < RV_LANES; l++) {
@@ -529,6 +584,11 @@ static void kit_fire(int t, int si, uint32_t when)
         li = ri == 4 && len == tlen ? si : (int)(kk % (uint32_t)len);
         rv_live.lane_step[t][l] = (int8_t)li;
         s = &pt->s[li];
+        if (sqm) {                                    /* the matrix's HITS or ROTATE: what plays here */
+            s = sqm_step(t, li, len, l, &li);
+            if (!s)
+                continue;
+        }
         if (!(s->flags & ST_ON) || !((s->note >> l) & 1))
             continue;
         if (!cond_pass(s, t))
@@ -568,6 +628,13 @@ static void kit_fire(int t, int si, uint32_t when)
 static void step_fire(int t, int h, int si, uint32_t when)
 {
     rv_step *s = is_chance(t) ? &ch_step : &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];   /* (CHANCE: the step it decided) */
+    static rv_step sqm_rest;                          /* (nothing plays: HITS left none here) */
+    if (!is_chance(t) && !is_graph(t) && !is_kit(t) && sqm_on(t)) {   /* the matrix's HITS or ROTATE: what plays here */
+        int at;
+        s = sqm_step(t, si, seq_len(t), -1, &at);
+        if (!s)
+            s = &sqm_rest;
+    }
     float sd = step_seconds(t), tick = sd * (1.0f / 24.0f);
     int k, note, cnt, curve, sw;
     int role = head_role(t, h), tt = t;               /* head 2 may play another track */
@@ -696,7 +763,7 @@ static void head_advance(int t, int h, uint32_t when)
 {
     seqtrk_t *s = &sq[t];
     if (h == 0 && pend_pat[t] >= 0 && !is_graph(t)
-        && (s->step[0] < 0 || s->travelled[0] % (uint32_t)clampi(rv.tp[t][TP_LEN], 1, RV_STEPS) == 0)) {
+        && (s->step[0] < 0 || s->travelled[0] % (uint32_t)seq_len(t) == 0)) {
         rv.pat_cur[t] = (uint8_t)(pend_pat[t] % RV_PATTERNS);   /* a launched pattern waits for this one's end, then starts at its top */
         pend_pat[t] = -1;
         s->passes = 0;

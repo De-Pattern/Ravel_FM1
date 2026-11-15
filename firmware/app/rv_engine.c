@@ -1771,7 +1771,7 @@ static int track_used(int t)
             return 1;
     if (t == 0)                                     /* (a global knob moved by "ENV" reads the first track's) */
         for (b = 0; b < RV_MATRIX; b++)
-            if ((rv.mat[b].src == MS_ENV || rv.mat[b].src == MS_KEY || rv.mat[b].src == MS_VEL) && rv.mat[b].dst >= RV_GPID)
+            if ((rv.mat[b].src == MS_ENV || rv.mat[b].src == MS_KEY || rv.mat[b].src == MS_VEL) && rv.mat[b].dst >= RV_GPID && rv.mat[b].dst < RV_NPID)
                 return 1;
     return 0;
 }
