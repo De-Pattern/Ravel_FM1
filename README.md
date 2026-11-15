@@ -35,11 +35,22 @@ Ravel is a custom firmware for the M-VAVE FM-1 that turns the FM-1 into a pocket
 - **GLITCH LOOPER** (any one track, KIND GLITCH): four lanes recorded from the main mix or one track, overdubbing, each with its own level, pitch and speed (pitch and speed apart, by a grain stretch); a threshold to arm a take; quarter slices on the keys that take turns in the order held; PLAY and REC trigs on the steps with sections, Octatrack- and MLR-style. It borrows the effects' memory (it can keep SPACE or DELAY running).
 - **Influence:** an 8 × 8 grid where any track can modulate, trigger, excite, ring, clock, or spark (tap the body of) any other.
 - **Articulation:** onset, continuant and termination stages with curve, overshoot, a loop, a tail and **Give** (a spring that lets the level lag and bounce), two destinations, its own FILTER ENV, and a library of 32 chainable step envelopes that steps start to move any parameter across the steps.
-- **Sequencer:** each track runs in **STEPS**, **GRAPH** or **CHANCE** mode. CHANCE (after Mutable Instruments' Marbles) makes the phrase up itself, in the song's key and scale, and remembers it as much as you let it; when you like it, it goes into the steps. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), or step by step while stopped (a note or chord a step, rests and back), and each kit lane can run at its own rate.
+- **Sequencer:** each track runs in **STEPS**, **GRAPH** or **CHANCE** mode, and a kit in **STEPS** or **CHAIN** (its lanes set each other off by chance, after the Chain Reaction Drum Machine); the matrix can move a track's LENGTH, HITS and ROTATE (and CHANCE's settings) without touching its steps. CHANCE (after Mutable Instruments' Marbles) makes the phrase up itself, in the song's key and scale, and remembers it as much as you let it; when you like it, it goes into the steps. Steps: length, rate and direction, parameter locks, microtiming, ratchets that bounce, climb, fall or darken as they roll, conditions, chance, microcuts of the mix with their own shape and size, and a EUCLID page that writes evenly spread hits into the steps. Graph (from Silt): cords set where a playhead goes next, two playheads walk the same graph, each playing notes, only the gate, or only the pitch (so rhythm and melody can take different paths), head 2 can play another track, and each head has a function generator (rise, fall, arch, decay, swell, or an LFO or dust) that moves its speed, times or plus the clock. Plus density arcs, a per-track note interval, scale quantizing, René-style clocking from LFOs or dust, and a two-oscillator master clock. Recording keeps what you play live, chords included (up to four notes on a step), or step by step while stopped (a note or chord a step, rests and back), and each kit lane can run at its own rate.
 - **Modulation:** two LFOs, dust, an 8-slot matrix and 4 macros with 8 destinations each (curves and windows).
 - **MIDI in** over USB and the TRS jack: notes on one channel, any, or channels 1–8 on tracks 1–8; velocity, mod wheel, aftertouch and pitch bend as matrix sources; clock (counted pulse by pulse, so it never drifts), start and stop.
 - **Buses:** a granular tape delay (echoes and a grain cloud from one half-rate tape; wow, flutter, saturation, age, double tracking, freeze), a 12-BIT space (a gritty late-80s rack plate: decay, damp, motion, crunch, low cut), a feedback bus (filter, comb, smear, shift, fold or crush, a band filter in the loop, returning to the master or into a track), a BED of dust on a tuned wood-to-metal body that sinks under busy tracks and rises in the gaps, and master drive with microcuts (even, bouncing or dragging) and punch-in effects on the keys. Each bus page shows the current track's send into it. Every effect starts off: a new project sends nothing into any bus, and a bus with nothing coming in does not run at all.
 - **Song:** patterns A and B per track, 16 scenes that switch or glide over 1–8 bars, a 32-row arrangement, mute and solo, tap tempo, 32 named project slots (compressed on the FM-1), and four banks of your own sounds that PRESETS reaches from any track; projects and sounds move between the emulator and an FM-1 as a .ravel file.
+
+## What's new
+
+Short versions; the [manual](https://de-pattern.github.io/Ravel_FM1/manual.html) has each in full, with a step-by-step start in [Recipes](#17-recipes-step-by-step).
+
+- **CHANCE** (SEQ › TRACK › MODE): the track makes up its own melody as it plays, in the song's key, after Mutable Instruments' Marbles. DENS (how many notes), RANGE (how far they wander), DRIFT and MEMORY (how much it changes and how much it repeats). Tap REC to lock a phrase you like, REC + OCT+ to vary it, REC + OCT− for a new one, REC + SAVE to turn it into steps. [More](#chance-mode-a-phrase-made-up-as-it-plays)
+- **CHAIN** (a kit's MODE): the drums set each other off. Each lane has three cords to other lanes (or itself) with a chance each: a kick that sets off the hats 85 % of the time, hats that run on, a snare that sometimes rolls. After the Chain Reaction Drum Machine. [More](#chain-mode-a-kits-lanes-setting-each-other-off)
+- **The matrix moves the sequence:** LFO › MATRIX can now move a track's **LENGTH**, **HITS** and **ROTATE**, and CHANCE's settings, without rewriting the steps. [More](#8-lfo-modulation-and-macros)
+- **REC + SEQ:** the keys play notes on the SEQ pages without recording (a **KEYS** box shows it), so you can jam over a pattern, and **REC + SAVE** (TAKE) keeps what you just played. [More](#16-recording)
+- **WEFT block list:** hold EDIT and turn TYPE to pick a block from a list; AUDIO is at the end of the types. [More](#weft-a-voice-you-patch)
+- **A new start screen** with the version at the bottom right; and a fix: EUCLID on a cleared kit no longer lights every step.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
 
@@ -136,7 +147,7 @@ Projects you save in the emulator are kept in your browser, so they are still th
 | **OCT− / OCT+** | Move the keyboard down or up an octave. On SEQ pages they move between step pages (1–16, 17–32, …). On pages with more settings than knobs they move the knobs to the next row instead; those pages show the rows on screen, number the knobs, and the footer says what OCT brings next: a kit's **LANE** pages (machine parameters, then LEVEL, CHANCE, LENGTH), the CZ's **DCO, DCW and DCA** envelopes (two stages at a time, then SUS and END), and **LFO SHAPE** (LFO 1 or LFO 2). |
 | **10 section buttons** | Each one opens a section (a group of pages). Tap it again for the section's next page. |
 | **PLAY** | Starts and stops the sequencer |
-| **REC** | Tap to arm recording on the current track |
+| **REC** | Tap to arm recording on the current track (on a CHANCE page: lock the phrase). Held, a layer: REC + SEQ (the SEQ pages' keys play), REC + SAVE (TAKE), REC + OCT− / OCT+ (CHANCE: a new phrase, mutate) |
 | **Keys** | Play the current track, or act as steps, scenes or switches depending on the page and on what you hold |
 
 The section buttons:
@@ -1337,6 +1348,8 @@ Set **SEQ › TRACK › MODE** to **CHANCE**. The track stops playing its steps 
 | **CHANCE MORE** | LOCK: FREE, NOTES, RHYTHM or BOTH held | RATCHET: how often a step rolls (2 or 3 hits) | JITTER: timing loosened | ACCENT: how often the strong places are accented |
 | **TRACK** | MODE | LENGTH (the phrase's) | RATE | CLOCK |
 
+<p align="center"><img src="docs/manual/seq-chance.png" alt="CHANCE: the phrase it made up, a column a step" width="240"></p>
+
 The picture shows the phrase: a column a step, a note at its height (up from CENTER, down below it; an accent taller), a rest a dot, the step playing marked under it. The top shows the key and scale it follows and what's locked (or MEMORY).
 
 **The notes walk.** A new note is usually close to the last one (the same, a step, two steps), now and then a leap, and is pulled back toward CENTER the further it gets; RANGE widens all of it. A step's chance of a note is DENS, more on the strong places of FEEL's pattern.
@@ -1350,6 +1363,8 @@ The picture shows the phrase: a column a step, a note at its height (up from CEN
 
 The settings are saved with the project. The phrase itself is not: it lives until you switch off, start a new phrase or change the mode (REC + SAVE is how you keep one). Changing MODE into or out of CHANCE starts CHANCE's knobs (or the graph's) from their defaults.
 
+**Moving CHANCE.** Every CHANCE setting but FEEL and LOCK can be moved by the matrix (LFO › MATRIX, PARAM on the track: DENS, RANGE, DRIFT…; see [Moving the sequence](#8-lfo-modulation-and-macros)), and is read as it moves. With MEMORY high, what's already decided stays, so a moved DENS shows slowly. To play the keys over it without recording, **REC + SEQ**. A step-by-step start is in [Recipes](#17-recipes-step-by-step).
+
 ### CHAIN mode (a kit's lanes setting each other off)
 
 On a kit, set **SEQ › TRACK › MODE** to **CHAIN**. The steps rest (they're kept, and play again on STEPS), and the lanes play each other instead, after the Chain Reaction Drum Machine: a lane fires, then each of its **cords** may fire another lane, or itself, one step later, each at its own chance. A kick that sets off the hat 85% of the time and the snare 45%, a hat that sets itself off 80% of the time (so it runs on until a roll fails), a snare that now and then rolls into itself: the groove makes itself up, a little different each time round. Several chains can run at once, a lane at most once a step.
@@ -1358,6 +1373,8 @@ On a kit, set **SEQ › TRACK › MODE** to **CHAIN**. The steps rest (they're k
 | --- | --- | --- | --- | --- |
 | **CHAIN** | LANE: the lane whose cords you set | CORD: 1, 2 or 3 | TO: the lane it sets off (NONE: no cord) | CHANCE: 0–100 % |
 | **CHAIN START** | START: the lane that starts it | RESTART: **LOOP** (START fires at the top of each LENGTH), **QUIET** (only if the chain has died out), **ONCE** (only when PLAY starts it) | LENGTH: the loop, 1–64 steps | RATE |
+
+<p align="center"><img src="docs/manual/seq-chain.png" alt="CHAIN: the six lanes and their cords, the chosen lane's chances, the lanes that just fired lit" width="240"></p>
 
 The picture is the six lanes round an oval with their cords; the chosen lane's cords are bright, with their chances, the chosen cord white, and a lane lights as it fires. Turning CHAIN on starts from a chain for the factory kit (the kick sets off the hats, snare and rim; the hats run on; the snare sets off the clap and rolls). START plays a little stronger than the hits it sets off. Each lane has three cords; the chain is saved with the project, in the slots a kit doesn't otherwise use (a sound saved to a bank keeps its machines, not the chain, as it keeps no steps). Back on STEPS, the steps play as they were.
 
@@ -1588,6 +1605,9 @@ Hold a button (in the emulator: right-click or shift-click to latch it) and the 
 | **GLO** | white keys 1–8 / 9–16, black 1 | Mute / solo, tap tempo |
 | **SAVE** | white key | Store scene 1–16 |
 | **SCL** | any key | Set the root |
+| **REC** | SEQ | The SEQ pages' keys play notes (not recording), or are steps again |
+| **REC** | SAVE | TAKE: the last loop you played goes into the steps (on a CHANCE page: the phrase does) |
+| **REC** | OCT− / OCT+ | On a CHANCE page: a new phrase / three steps decided again |
 
 <p align="center"><img src="docs/manual/hold-seq.png" alt="SEQ held: steps on any page" width="240"> <img src="docs/manual/hold-fx.png" alt="FX held: the punch-ins" width="240"></p>
 
@@ -1622,9 +1642,11 @@ Step recording is for the tracks whose keys play notes: SYNTH, STRIKE, WEFT, and
 
 **Chords on steps.** A step with a chord shows **X2**, **X3** or **X4** (how many notes) under its note on the STEPS page. NOTE moves the whole chord, its shape kept; transposition, the scale and INTERVAL apply to each note. The chord's notes share the step's velocity, length, ratchets and timing. To make a step a single note again, record one note over it. Chords need the voices: a synth track plays up to four notes at once (VOICES on EDIT › SOUND).
 
-**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a track whose keys play notes (SYNTH, STRIKE, WEFT, or a PERC track with one machine) they play notes instead, so you can watch the steps fill in as you play (the footer says KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again.
+**Recording from a SEQ page.** On the SEQ pages the keys are normally the steps. With REC armed on a track whose keys play notes (SYNTH, STRIKE, WEFT, or a PERC track with one machine) they play notes instead, so you can watch the steps fill in as you play (the footer says KEYS PLAY); OCT- and OCT+ change the octave rather than the step page (while it plays; stopped, they are step recording's rest and back). Hold **SEQ** for the keys to be steps again for a moment: tap one to add or remove a step, then let go and keep playing. Tap REC to stop, and the keys are steps again. A **kit** works the same way: REC unlit, the keys put trigs on the chosen lane's steps; REC lit, the white keys play the lanes (1–6 and again) and, while it plays, record them into the lanes as you play them. How close to the grid they sound is **QUANTZE** (0 %: as played, 100 %: on the grid; on SEQ › DRUM FEEL for a kit, SEQ › DIRECTION for a note track, and SONG › CLOCK FEEL), which changes playback only, so it can be turned back.
 
-**REC + SEQ: the keys play on the SEQ pages, without recording.** Hold REC and tap SEQ: the keys play notes (a kit's, its lanes) on every SEQ page, as with REC armed, but nothing is recorded, so you can jam over the pattern, try a line before you record it, or play something for TAKE to keep. A **KEYS** box by the page's name says so (teal; red when REC is armed and they record), and the footer says KEYS PLAY. Hold SEQ for the keys to be steps for a moment; REC + SEQ again and they're steps for good. Pressed outside SEQ, it opens SEQ too. It lasts until you change it or power off. A **kit** works the same way: REC unlit, the keys put trigs on the chosen lane's steps; REC lit, the white keys play the lanes (1–6 and again) and, while it plays, record them into the lanes as you play them. How close to the grid they sound is **QUANTZE** (0 %: as played, 100 %: on the grid; on SEQ › DRUM FEEL for a kit, SEQ › DIRECTION for a note track, and SONG › CLOCK FEEL), which changes playback only, so it can be turned back.
+**REC + SEQ: the keys play on the SEQ pages, without recording.** Hold REC and tap SEQ: the keys play notes (a kit's, its lanes) on every SEQ page, as with REC armed, but nothing is recorded, so you can jam over the pattern, try a line before you record it, or play something for TAKE to keep. A **KEYS** box by the page's name says so (teal; red when REC is armed and they record), and the footer says KEYS PLAY. Hold SEQ for the keys to be steps for a moment; REC + SEQ again and they're steps for good. Pressed outside SEQ, it opens SEQ too. It lasts until you change it or power off.
+
+<p align="center"><img src="docs/manual/seq-keys.png" alt="REC + SEQ: the KEYS box by the page's name, the footer KEYS PLAY" width="240"></p>
 
 ## 17. Recipes, step by step
 
@@ -1690,6 +1712,37 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 3. Name it with **KNOB 2** (position) and **KNOB 3** (letter).
 4. ALGORITHM to another track, **KNOB 1** = LOAD, press **SAVE**. The track becomes the sound's kind if it wasn't already.
 
+**Let a track write its own melody (CHANCE)**
+
+1. Pick a synth track with **ALGORITHM** (CHANCE writes notes; a kit has CHAIN instead, below).
+2. Press **SEQ**, turn **SELECT** to **TRACK** and turn **KNOB 1 (MODE)** to **CHANCE**. The step pages give way to **CHANCE**, **CHANCE SHAPE** and **CHANCE MORE**.
+3. Press **PLAY**. It starts making up a phrase at once: on the screen a column a step, a note at its height, a rest a dot.
+4. On **CHANCE**: **DENS** about halfway (how many steps play), **RANGE** low (a tight, singable line), **DRIFT** low (changes are small), **MEMORY** high (it repeats like a riff).
+5. On **CHANCE SHAPE**: **CENTER** higher or lower, **LENGTH** 16 for a bar (8 or 4 for something catchier), **FEEL** (EVEN, OFFBEAT, SYNCOP or FREE), **GATE** short for plucks, long for legato.
+6. On **CHANCE MORE**, near zero to start, then up for spice: **RATCHET** (quick repeats), **JITTER** (looser timing), **ACCENT** (harder hits on the beats).
+7. When you hear something you like, **tap REC**: PHRASE LOCKED, it repeats exactly. Tap again to let it move (PHRASE FREE).
+8. While it plays: **REC + OCT+** changes three steps; **REC + OCT−** starts a new phrase.
+9. **REC + SAVE** keeps it: the phrase goes into the steps and the track goes back to STEPS, to edit by hand (if the pattern already has steps, press it again to replace them).
+
+The notes always fit the song's key and scale (**SCL**). Two CHANCE tracks talk to each other well: RANGE low on one for a bass, higher on the other for a lead. For a phrase that keeps changing on its own, turn MEMORY down a little, or move DENS or RANGE from an LFO (LFO › MATRIX: TRACK the track, PARAM DENS). To play over it on the keys without leaving the CHANCE pages, **REC + SEQ**.
+
+**A drum groove that writes itself (CHAIN)**
+
+1. Make a track a kit (HOME › TRACKS: KIND PERC, ENGINE KIT).
+2. **SEQ › TRACK**, **KNOB 1 (MODE)** to **CHAIN**. A chain for the factory kit is set up: the kick sets off the hats, snare and rim; the hats run on; the snare sometimes rolls.
+3. Press **PLAY**. The lanes light on the picture as they fire.
+4. On **CHAIN**, choose a lane (**KNOB 1**), one of its three cords (**KNOB 2**), the lane it sets off (**KNOB 3 TO**, itself for a roll, NONE for no cord) and how often (**KNOB 4 CHANCE**).
+5. On **CHAIN START**: **START** (the lane that begins it, usually the kick), **RESTART** (LOOP: every loop; QUIET: only once it has died out; ONCE: only at PLAY), **LENGTH** and **RATE**.
+
+High chances on a lane's cord to itself make it run on (hats); a cord at 10–20 % is a fill now and then. Your steps are kept: MODE back to STEPS and they play again.
+
+**A rhythm an LFO moves**
+
+1. Make a pattern (SEQ › EUCLID, or tap steps in).
+2. **LFO › LFO 1**: a slow rate.
+3. **LFO › MATRIX**: SOURCE **LFO1**, TRACK the track, PARAM **HITS** (just after LENGTH in the list), AMOUNT about 16.
+4. The pattern gains and loses hits as the LFO moves; turn the row off and it plays as written. ROTATE turns it, LENGTH stretches the loop.
+
 ## 18. Quick reference
 
 | I want to… | Press / turn |
@@ -1736,6 +1789,12 @@ The full walkthrough is [GLITCH LOOPER, step by step](#step-by-step).
 | A kit lane faster or slower | SEQ › DRUM, KNOB 3 RATE (or the lane's LANE page) |
 | Choose a kit lane's machine | EDIT › LANE n (black keys 3–8), PRESETS |
 | Spread hits evenly (a track or a kit lane) | SEQ › EUCLID: HITS, ROTATE |
+| An LFO moving the rhythm (steps kept) | LFO › MATRIX: TRACK the track, PARAM HITS, ROTATE or LENGTH |
+| A melody that writes itself | SEQ › TRACK: MODE CHANCE; DENS, RANGE, MEMORY; REC to lock, REC + SAVE to keep |
+| A drum groove that writes itself | A kit: SEQ › TRACK: MODE CHAIN; CHAIN: LANE, CORD, TO, CHANCE |
+| Play the keys on a SEQ page (not recording) | REC + SEQ (KEYS by the page name) |
+| Keep what you just played | REC + SAVE (TAKE) |
+| Pick a WEFT block from a list | WEFT PATCH: hold EDIT, turn KNOB 2 (TYPE), let go |
 | A bouncing, darkening roll | SEQ › STEP TIMING: RATCHET, R CURVE BOUNCE; STEP SHAPE: R MOVE DARK |
 | A stutter that settles or drags | SEQ › STEP CUT: C SHAPE, C SIZE (punch-ins: FX › MASTER 2) |
 | Every hit a little different | EDIT › SKIN 2: GRAIN (strike, perc) |
@@ -1843,7 +1902,7 @@ Why: firmwares built on M-VAVE's SDK, and M-VAVE's own updater M-UPGRADE, hand o
 | `firmware/fm1/` | The FM-1 side, bare metal: Felucca's hardware layer (`hal/`), start-up and memory map, the update loader (`loader/`), and in `src/`: USB, LCD, storage, the update entry, the panel map, Ravel's platform (`plat_fm1.c`) and the boot, audio interrupt and main loop (`main_fm1.c`) |
 | `host/` | The simulator: the whole app on a desktop, driven by scripts, writing screenshots and WAV files |
 | `web/emu/` | The browser emulator: the same code compiled to WebAssembly, on a drawn FM-1 panel |
-| `tests/scenarios/` | Simulator scripts that play the firmware and check it (`tour.rvl` visits every page; `manual.rvl` takes the manual's screenshots) |
+| `tests/scenarios/` | Simulator scripts that play the firmware and check it (`tour.rvl` visits every page; `manual.rvl` and `manual_seq.rvl` take the manual's screenshots) |
 | `docs/` | The signal-flow diagram, and `docs/manual/`: the panel drawing and the screenshots used in this manual |
 | `tools/` | The FM-1 build (`build_fm1.py`, `fm1pkg_make.py`), the installer and rescue tools, the site assembler (`make_site.py`), toolchain and SDK-file downloads, font and table generators |
 | `web/installer/` | The web installer (Web MIDI), from Felucca and X0X |

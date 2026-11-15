@@ -1,0 +1,62 @@
+# The manual's screenshots of CHANCE, CHAIN and the SEQ pages' KEYS (copied to docs/manual/)
+wait 300
+tap SEQ
+wait 150
+turn SELECT 5
+wait 150
+expect page TRACK
+turn K1 2
+wait 150
+expect tp 1 SEQMODE 2
+turn SELECT -3
+wait 150
+expect page CHANCE
+tap PLAY
+wait 4200
+shot seq-chance.png
+tap PLAY
+press REC
+wait 50
+tap SEQ
+wait 50
+release REC
+wait 2600
+expect page CHANCE
+turn SELECT 20
+wait 2600
+shot seq-keys.png
+press REC
+wait 50
+tap SEQ
+wait 50
+release REC
+wait 100
+# a kit on T2, on CHAIN
+turn ALGO 1
+wait 100
+tap HOME
+turn SELECT -20
+turn K3 1
+wait 100
+turn K3 1
+wait 200
+expect tp 2 KIND 3
+clear 2
+tap SEQ
+wait 150
+turn SELECT -20
+wait 150
+turn SELECT 5
+wait 150
+expect page TRACK
+turn K1 1
+wait 100
+expect tp 2 SEQMODE 3
+turn SELECT -20
+wait 150
+wait 150
+expect page CHAIN
+tap PLAY
+wait 2300
+shot seq-chain.png
+tap PLAY
