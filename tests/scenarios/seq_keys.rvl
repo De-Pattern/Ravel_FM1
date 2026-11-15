@@ -1,0 +1,45 @@
+# REC + SEQ: on the SEQ pages the keys play (without recording), then are steps again
+wait 300
+tap SEQ
+wait 150
+expect steps 1 0
+tapkey 0
+wait 100
+expect steps 1 1
+tapkey 0
+wait 100
+expect steps 1 0
+press REC
+wait 50
+tap SEQ
+wait 50
+release REC
+wait 150
+expect page STEPS
+key 0 down
+wait 150
+expect held 1 1
+key 0 up
+wait 300
+expect steps 1 0
+shot keys.png
+# REC wasn't armed by it
+tap PLAY
+wait 300
+key 4 down
+wait 300
+key 4 up
+wait 300
+tap PLAY
+wait 100
+expect steps 1 0
+# again: the keys are steps
+press REC
+wait 50
+tap SEQ
+wait 50
+release REC
+wait 150
+tapkey 0
+wait 100
+expect steps 1 1

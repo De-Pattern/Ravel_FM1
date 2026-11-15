@@ -265,7 +265,8 @@ static struct {
     uint8_t armed;
     int8_t srec_t;                  /* step recording on this track (-1: off) */
     uint8_t wf_blk, wf_map;         /* WEFT: the block on PATCH and BLOCK, the knob on MAP */
-    uint8_t chn_cord;               /* CHAIN: which of the chosen lane's cords the knobs set */
+    uint8_t chn_cord;
+    uint8_t keys_play;              /* REC + SEQ: on the SEQ pages the keys play (as with REC armed), not recording */               /* CHAIN: which of the chosen lane's cords the knobs set */
     uint8_t wf_list, wf_lpos;       /* WEFT PATCH, EDIT held and TYPE turned: the list of blocks open, and where in it */
     uint8_t wl_sel, wl_cursor;      /* WEFT LIBRARY: the entry chosen, the name's cursor */
     char wf_name[RV_TRACKS][12];    /* WEFT: the name of the patch each track has (its own: "") */
@@ -2842,7 +2843,7 @@ static int note_track_ui(int t)
  * then they play (and, playing, record) notes or the kit's lanes, and holding SEQ makes them steps again */
 static int seq_keys_play(int t)
 {
-    return ui.sec == SEC_SEQ && ui.armed && !(plat_buttons() & (1u << B_SEQ)) && (note_track_ui(t) || is_kit_ui(t));
+    return ui.sec == SEC_SEQ && (ui.armed || ui.keys_play) && !(plat_buttons() & (1u << B_SEQ)) && (note_track_ui(t) || is_kit_ui(t));
 }
 
 /* MUTE / SOLO: a track's mute or solo, turned over, and said */
@@ -3237,6 +3238,13 @@ static void buttons(uint32_t now_btn)
     }
     if (down & (1u << B_PLAY)) {
         rv_transport(!rv_live.playing);
+    }
+    if ((down & (1u << B_SEQ)) && (now_btn & (1u << B_REC))) {   /* REC + SEQ: the SEQ pages' keys play, or are steps */
+        ui.keys_play ^= 1;
+        if (ui.sec != SEC_SEQ)
+            section_open(SEC_SEQ);
+        msg(ui.keys_play ? "SEQ KEYS: PLAY" : "SEQ KEYS: STEPS");
+        ui.layer_used[B_REC] = ui.layer_used[B_SEQ] = 1;
     }
     if ((down & (1u << B_SAVE)) && (now_btn & (1u << B_REC))) {   /* REC + SAVE: TAKE what was played in the last loop */
         if (cur_page()->pic == PIC_CHANCE && chance_ui(ui.track))
@@ -3755,6 +3763,13 @@ static void draw_top(void)
          * held for a moment at its peak so a spike can be read */
         static uint32_t hold, hold_ms;
         uint32_t cpu = plat_cpu_pct(), tw = (uint32_t)g_text_w(&FONT_B, pg->title);
+        if (seq_keys_play(t)) {                       /* the SEQ pages' keys play: a KEYS badge by the title (teal: REC + SEQ; red: REC armed) */
+            int bw = g_text_w(&FONT_T, "KEYS") + 8, bx = 236 - (int)tw - 6 - bw;
+            uint16_t bc = ui.armed ? C_RED : C_TEAL;
+            g_rbox(bx, 5, bw, 13, 3, bc, 0);
+            g_text_c(bx + bw / 2, 8, &FONT_T, "KEYS", bc);
+            tw += (uint32_t)(bw + 6);
+        }
         if (cpu > 0) {
             int cx = 236 - (int)tw - 48;
             uint16_t cc = cpu >= 90 ? C_RED : cpu >= 75 ? C_AMBER : C_MID;
@@ -3908,8 +3923,8 @@ static void draw_footer(void)
         }
         hint = ui.srec_t >= 0 ? (prefs_stay() ? "STAY: PRESETS PICKS THE STEP" : "OCT+ REST  OCT- BACK")
                : pg->pr == PR_STEP && !seq_keys_play(ui.track) && !is_kit_ui(ui.track) ? "PRESETS: STEP  KEYS: STEPS"
-               : seq_keys_play(ui.track) ? "KEYS PLAY  HOLD SEQ: STEPS"
-               : !is_kit_ui(ui.track) ? "KEYS: STEPS  OCT: PAGE"
+               : seq_keys_play(ui.track) ? (ui.armed ? "KEYS PLAY  HOLD SEQ: STEPS" : "KEYS PLAY  REC+SEQ: STEPS")
+               : !is_kit_ui(ui.track) ? "KEYS: STEPS  REC+SEQ: PLAY"
                : held_step() >= 0 ? "HOLD THE STEP: ITS KNOBS ON DRUM STEP"
                : "BLACK 3-8: LANE  KEYS: STEPS ON/OFF";
         break;
