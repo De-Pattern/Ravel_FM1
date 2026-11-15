@@ -166,6 +166,21 @@ enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_ZVOWEL, FT_
 enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
 enum { DIR_FWD, DIR_REV, DIR_PING, DIR_SNAKE, DIR_GRAPH, DIR_N };   /* DIR_GRAPH: old projects; now TP_SEQMODE */
 enum { SEQ_STEPS, SEQ_GRAPH, SEQ_CHANCE };   /* CHANCE: generated, after Mutable's Marbles (rv_seq.c): its settings in the graph's slots */
+/* CHAIN (a kit's, after the Chain Reaction Drum Machine): each lane fires, then each of its cords may fire
+ * another lane (or itself) a step later, at its own chance. The cords live in the graph heads' slots, a
+ * kit's spare: twelve of 16 bits = 192, ten a cord (TO 0 none or 1-6, then CHANCE 0-100), three a lane
+ * (rv_chain_get/set) */
+enum { SEQ_CHAIN = 3 };
+#define CHN_CORDS 3
+#define CHN_TO(l, c) (((l) * CHN_CORDS + (c)) * 10)
+#define CHN_PCT(l, c) (CHN_TO(l, c) + 3)
+#define CHN_START 180                    /* 3 bits: the lane that starts it (0-5) */
+#define CHN_RESTART 183                  /* 2 bits: LOOP, QUIET or ONCE */
+enum { CHR_LOOP, CHR_QUIET, CHR_ONCE, CHR_N };
+int rv_chain_get(int t, int off, int n);
+void rv_chain_set(int t, int off, int n, int v);
+void rv_chain_defaults(int t);
+int rv_chain_lit(int t);                 /* the lanes that fired on the last step (a bit each) */
 /* CHANCE's settings, in the slots the graph's two heads use (a CHANCE track has no graph): TP_H1ROLE + these */
 enum { CH_DENS, CH_RANGE, CH_DRIFT, CH_MEMORY, CH_CENTER, CH_LENGTH, CH_FEEL, CH_GATE, CH_LOCK, CH_RATCHET, CH_JITTER, CH_ACCENT, CH_SETS };
 enum { ROLE_OFF, ROLE_NOTES, ROLE_GATE, ROLE_PITCH };   /* what a playhead does at a step */

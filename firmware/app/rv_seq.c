@@ -625,6 +625,90 @@ static void kit_fire(int t, int si, uint32_t when)
     }
 }
 
+/* ---- CHAIN: a kit's lanes setting each other off ---- */
+int rv_chain_get(int t, int off, int n)
+{
+    int v = 0, i;
+    for (i = 0; i < n; i++) {
+        int b = off + i;
+        v |= (((uint16_t)rv.tp[t & 7][TP_H1ROLE + (b >> 4)] >> (b & 15)) & 1) << i;
+    }
+    return v;
+}
+void rv_chain_set(int t, int off, int n, int v)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        int b = off + i;
+        uint16_t w = (uint16_t)rv.tp[t & 7][TP_H1ROLE + (b >> 4)];
+        w = (uint16_t)((w & ~(1u << (b & 15))) | (((unsigned)v >> i & 1u) << (b & 15)));
+        rv.tp[t & 7][TP_H1ROLE + (b >> 4)] = (int16_t)w;
+    }
+}
+/* a chain to start from, for the factory kit (KICK, SNARE, CH HAT, OH HAT, CLAP, RIM): the kick sets off
+ * hats and the snare, hats run on, the snare now and then rolls */
+RV_SMALL void rv_chain_defaults(int t)
+{
+    static const uint8_t d[RV_LANES][CHN_CORDS][2] = {
+        {{3, 85}, {2, 45}, {6, 20}},                  /* KICK: hat, snare, rim */
+        {{3, 60}, {5, 25}, {2, 15}},                  /* SNARE: hat, clap, itself (a roll) */
+        {{3, 80}, {4, 10}, {1, 12}},                  /* CH HAT: itself, open, kick */
+        {{3, 50}, {6, 20}, {0, 0}},                   /* OH HAT: hat, rim */
+        {{2, 35}, {3, 30}, {0, 0}},                   /* CLAP: snare, hat */
+        {{1, 30}, {6, 25}, {0, 0}}};                  /* RIM: kick, itself */
+    int l, c, i;
+    for (i = TP_H1ROLE; i < TP_H1ROLE + 12; i++)
+        rv.tp[t & 7][i] = 0;
+    for (l = 0; l < RV_LANES; l++)
+        for (c = 0; c < CHN_CORDS; c++) {
+            rv_chain_set(t, CHN_TO(l, c), 3, d[l][c][0]);
+            rv_chain_set(t, CHN_PCT(l, c), 7, d[l][c][1]);
+        }
+}
+static uint8_t chn_next[RV_TRACKS], chn_lit[RV_TRACKS], chn_go[RV_TRACKS];
+int rv_chain_lit(int t) { return chn_lit[t & 7]; }
+static int is_chain(int t) { return is_kit(t) && rv.tp[t][TP_SEQMODE] == SEQ_CHAIN; }
+/* a step of the chain: the lanes set off last step fire (and the start lane at the loop's top, as RESTART
+ * says), and each one's cords roll for the next */
+static RV_SMALL void chain_fire(int t, int si, uint32_t when)
+{
+    int live = chn_next[t], l, c, nx = 0, start = rv_chain_get(t, CHN_START, 3) % RV_LANES;
+    int restart = rv_chain_get(t, CHN_RESTART, 2), startbit = 0;
+    float sd = step_seconds(t);
+    int sw = (sq[t].travelled[0] & 1u) ? 0 : rv.gp[GP_SWING] - 50;   /* (travelled counts this step: odd is the downbeat) */
+    if (chn_go[t] || (si == 0 && (restart == CHR_LOOP || (restart == CHR_QUIET && !live)))) {
+        live |= 1 << start;
+        startbit = 1 << start;
+        chn_go[t] = 0;
+    }
+    chn_lit[t] = (uint8_t)live;
+    for (l = 0; l < RV_LANES; l++) {
+        event_t e;
+        if (!(live >> l & 1))
+            continue;
+        {
+            e.when = when + (uint32_t)(int32_t)(((float)LATENCY_TICKS * sd * (1.0f / 24.0f)) * RV_FS + (float)sw * 0.02f * sd * RV_FS);
+            e.track = (uint8_t)t;
+            e.chain = (uint16_t)(1u << t);
+            e.env = (uint8_t)(rv.pat_cur[t] % RV_PATTERNS);
+            e.step = (uint8_t)si;
+            e.head = 0x40;                            /* a kit hit (the step's locks for the lane, if it has any) */
+            e.rmv = 0;
+            e.type = EV_ON;
+            e.note = (uint8_t)(60 + l);
+            e.len_s = 0.0f;
+            e.vel = (uint8_t)((startbit >> l & 1) ? 110 : 90);   /* the start a little stronger */
+            ev_push(&e);
+        }
+        for (c = 0; c < CHN_CORDS; c++) {
+            int to = rv_chain_get(t, CHN_TO(l, c), 3), pc = rv_chain_get(t, CHN_PCT(l, c), 7);
+            if (to >= 1 && to <= RV_LANES && pc > 0 && xs_uni(&seq_rng) * 100.0f < (float)pc)
+                nx |= 1 << (to - 1);
+        }
+    }
+    chn_next[t] = (uint8_t)nx;
+}
+
 static void step_fire(int t, int h, int si, uint32_t when)
 {
     rv_step *s = is_chance(t) ? &ch_step : &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];   /* (CHANCE: the step it decided) */
@@ -659,8 +743,12 @@ static void step_fire(int t, int h, int si, uint32_t when)
         rv_live.step[t][1] = (int16_t)si;
     }
     if (is_kit(t)) {
-        if (h == 0)
-            kit_fire(t, si, when);
+        if (h == 0) {
+            if (is_chain(t))
+                chain_fire(t, si, when);
+            else
+                kit_fire(t, si, when);
+        }
         return;
     }
     if (!(s->flags & ST_ON))
@@ -1366,6 +1454,9 @@ static void seq_start(void)
         sq[t].pitch_set = 0;
         turn_bits[t] = 0;
         chs[t].pos = -1;                              /* (CHANCE starts its phrase from the top; ch_get sets it up if new) */
+        chn_next[t] = 0;                              /* (CHAIN starts from its start lane) */
+        chn_go[t] = 1;
+        chn_lit[t] = 0;
     }
     if (pend_scene >= 0)                              /* row 1's scene now, without counting a bar */
         apply_pending();

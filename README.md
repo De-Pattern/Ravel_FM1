@@ -926,7 +926,7 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 - **RATE** is the lane's own speed against the track's: X1/4, X1/3, X1/2, X2/3, TRK (the track's), X3/2, X2, X3 or X4. A hat at X2 runs through its steps twice as fast as the kick (sixteenths over eighths, or 32nds as rolls); a lane at X2/3 or X3/2 plays triplets against straight steps; X1/2 stretches a lane's pattern over twice the time. Each lane keeps its own place, wrapping at its own LENGTH, and its hits fall between the track's steps where the rate puts them. Lanes at a rate of their own play forward. The DRUM page marks a lane's rate under its name when it isn't TRK.
 - **Shared by the whole kit:** EDIT › **KIT FX** (AMD, AMF, EQF, EQG) and **KIT FILTER** (FLTF, FLTW, FLTQ), SKIN (DEREZ is the Machinedrum's SRR), INSERT, MIX and SENDS. A kit has no PITCH or synth FILTER page: each machine has its own pitch and tone.
 
-**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps LENGTH, RATE and CLOCK, with QUANTZE. A kit's ratchets are set per lane on DRUM STEP only.
+**SEQ is the drum sequencer**, and the only place the lanes are drawn as steps. On a kit track SEQ opens on the **DRUM** page instead of STEPS: all six lanes over sixteen steps, the chosen lane in red, accents white, ratchets marked above, locked steps marked with a dot, each lane's playhead in teal. The note pages (STEPS, STEP SHAPE, the graphs) are hidden on a kit, since a drum hit has no note or length. Every kit SEQ page draws the lanes: STEP TIMING keeps MICRO, R CURVE and CONDITN (a step's timing is shared by the lanes on it), and TRACK keeps MODE (STEPS or CHAIN, below), LENGTH, RATE and CLOCK. A kit's ratchets are set per lane on DRUM STEP only.
 
 - **In SEQ, black keys 3–8 choose the lane** you are sequencing, and **the white keys are its sixteen steps**: one tap puts a hit there, the next tap clears it (and its locks). OCT- and OCT+ page through longer patterns.
 - **The DRUM pages:**
@@ -935,13 +935,14 @@ A PERC track starts as a **KIT**: six **lanes**, each its own machine with its o
 | --- | --- | --- | --- | --- |
 | **DRUM** | LANE | LENGTH of the lane's loop (as on its LANE page) | RATE of the lane, against the track's (as on its LANE page) | CHANCE |
 | **DRUM STEP** (hold a step) | ACCENT: the chosen lane's hit on this step plays at full force | VELO | CHANCE | RATCHET: the chosen lane rolls on this step (1 = no roll; lanes rolling on one step share the count) |
-| **DRUM FEEL** | LANE | QUANTZE of the lane: **SONG** (the song's QUANTZE, SEQ › TRACK or SONG › CLOCK FEEL) or its own 0–100 % (0: as played, 100: on the grid), so a kick can sit tight while the hats keep their swing | – | – |
+| **DRUM FEEL** | LANE | QUANTZE of the lane: **SONG** (the song's QUANTZE, KNOB 3 here or SONG › CLOCK FEEL) or its own 0–100 % (0: as played, 100: on the grid), so a kick can sit tight while the hats keep their swing | QUANTZE of the song (as SONG › CLOCK FEEL) | – |
 
 - **Parameter locks.** Go to a lane's LANE page, hold SEQ and a step key, and turn a knob: that value (a machine parameter, or LEVEL) is locked for that lane on that step only, and the knob shows the locked value while the step is held. A teal dot marks the step on DRUM. A lock on an empty step puts the lane's hit there. Each kit holds 48 locks; clearing a hit clears its locks. The kit-wide sound (KIT FX, KIT FILTER, SKIN, the insert) locks the usual way.
-- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). On SEQ they do too while REC is lit (unlit, they are the steps). With REC armed, what you play is recorded into the lanes with its timing kept; QUANTZE sets how close to the grid it plays back, the song's (SEQ › TRACK) or each lane's own (SEQ › DRUM FEEL).
+- **Playing it live:** outside SEQ, the white keys play the lanes, 1–6 and again (key 7 is lane 1). On SEQ they do too while REC is lit (unlit, they are the steps). With REC armed, what you play is recorded into the lanes with its timing kept; QUANTZE sets how close to the grid it plays back, the song's or each lane's own (both on SEQ › DRUM FEEL).
 - A step's velocity, chance, timing and condition are shared by the lanes that play on it; each lane adds its own CHANCE. Each lane is one voice: a new hit cuts its last.
 - **SWING** is on GLO › CLOCK (it was DRUM's fourth knob before lanes had their own RATE).
 - **EUCLID** (the last SEQ page) writes evenly spread hits into the chosen lane; **R CURVE** and **R MOVE** (STEP TIMING) shape its rolls.
+- **CHAIN** (SEQ › TRACK › MODE): the lanes set each other off instead of playing steps. See [CHAIN mode](#chain-mode-a-kits-lanes-setting-each-other-off).
 - **Presets:** TRX KIT (kick, snare, hats, clap, rim; the kit a new PERC track starts with), EFM KIT, PI KIT and MD MIX KIT (machines from every family).
 
 - **Presets:** TRX KICK, TRX SNARE, TRX CLAP, TRX HAT, TRX OPEN HAT, TRX COWBELL, EFM KICK, EFM SNARE, EFM HAT, EFM BELL, PI KICK, PI SNARE, PI TOM, PI RIDE, PI SHAKER, METALLICA, GND SUB and IMPULSE.
@@ -1348,6 +1349,17 @@ The picture shows the phrase: a column a step, a note at its height (up from CEN
 - **REC + OCT+:** mutate: three steps decided again.
 
 The settings are saved with the project. The phrase itself is not: it lives until you switch off, start a new phrase or change the mode (REC + SAVE is how you keep one). Changing MODE into or out of CHANCE starts CHANCE's knobs (or the graph's) from their defaults.
+
+### CHAIN mode (a kit's lanes setting each other off)
+
+On a kit, set **SEQ › TRACK › MODE** to **CHAIN**. The steps rest (they're kept, and play again on STEPS), and the lanes play each other instead, after the Chain Reaction Drum Machine: a lane fires, then each of its **cords** may fire another lane, or itself, one step later, each at its own chance. A kick that sets off the hat 85% of the time and the snare 45%, a hat that sets itself off 80% of the time (so it runs on until a roll fails), a snare that now and then rolls into itself: the groove makes itself up, a little different each time round. Several chains can run at once, a lane at most once a step.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **CHAIN** | LANE: the lane whose cords you set | CORD: 1, 2 or 3 | TO: the lane it sets off (NONE: no cord) | CHANCE: 0–100 % |
+| **CHAIN START** | START: the lane that starts it | RESTART: **LOOP** (START fires at the top of each LENGTH), **QUIET** (only if the chain has died out), **ONCE** (only when PLAY starts it) | LENGTH: the loop, 1–64 steps | RATE |
+
+The picture is the six lanes round an oval with their cords; the chosen lane's cords are bright, with their chances, the chosen cord white, and a lane lights as it fires. Turning CHAIN on starts from a chain for the factory kit (the kick sets off the hats, snare and rim; the hats run on; the snare sets off the clap and rolls). START plays a little stronger than the hits it sets off. Each lane has three cords; the chain is saved with the project, in the slots a kit doesn't otherwise use (a sound saved to a bank keeps its machines, not the chain, as it keeps no steps). Back on STEPS, the steps play as they were.
 
 ## 13. GLO: song, scenes and clock
 

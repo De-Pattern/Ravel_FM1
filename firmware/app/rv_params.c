@@ -16,7 +16,7 @@ const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHR
 static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE", "SEM"};
 static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
-static const char *const seqmode_names[] = {"STEPS", "GRAPH", "CHANCE"};
+static const char *const seqmode_names[] = {"STEPS", "GRAPH", "CHANCE", "CHAIN"};   /* (CHAIN: a kit's) */
 /* CHANCE (a track's generated phrase, rv_seq.c): its settings, in the graph heads' slots (TP_H1ROLE on) */
 static const char *const ch_feel_names[] = {"EVEN", "OFFBEAT", "SYNCOP", "FREE"};
 static const char *const ch_lock_names[] = {"FREE", "NOTES", "RHYTHM", "BOTH"};

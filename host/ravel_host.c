@@ -48,6 +48,7 @@
  *   expect stepchord T S N        track T's step S has N notes (1..4)
  *   expect matdst K NAME          matrix row K (1..8) moves NAME ("T1 HITS")
  *   expect ons T LO HI            the sequencer started from LO to HI notes on track T since "ons 0"
+ *   chainclear T                  track T's (1..8) CHAIN with no cords
  *   clear T                       track T's (1..8) current pattern: every step off
  *   ons 0                         count track notes from now
  *   setmatp K S T NAME A          matrix row K (1..8) from source S into track T's parameter NAME, amount A
@@ -279,6 +280,8 @@ static int find_name(const char *const *t, int n, const char *s)
 static int find_tp(int t, const char *s)
 {
     int p;
+    if (!strcmp(s, "SEQMODE"))                         /* (the sequencer's MODE: other knobs are called MODE too) */
+        return TP_SEQMODE;
     for (p = 0; p < TP_N; p++) {
         const rv_pinfo *pi = rv_pinfo_track(t, p);
         int k;
@@ -394,6 +397,10 @@ int main(int argc, char **argv)
                 rv.gp[x] = (int16_t)y;
         } else if (!strcmp(a, "clear")) {    /* clear T: track T's current pattern, no steps */
             rv_pattern_clear((atoi(b) - 1) & 7);
+        } else if (!strcmp(a, "chainclear")) {   /* chainclear T: track T's CHAIN with no cords (START the first lane, RESTART LOOP) */
+            int p;
+            for (p = TP_H1ROLE; p < TP_H1ROLE + 12; p++)
+                rv.tp[(atoi(b) - 1) & 7][p] = 0;
         } else if (!strcmp(a, "ons")) {
             __builtin_memset(rv_dbg_ons, 0, sizeof rv_dbg_ons);
         } else if (!strcmp(a, "setmatq")) {
