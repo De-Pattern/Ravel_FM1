@@ -165,7 +165,7 @@
   <h2 id="stock" data-t="stockh"></h2>
   <p class="small" data-t="stockwhy"></p>
   <ol class="small">
-    <li data-t="stock1"></li>
+    <li><b data-t="stock1"></b> <a href="#bk" style="color:inherit" data-t="stock1go"></a></li>
     <li data-t="stock3"></li>
   </ol>
   <p class="small" id="stockready" hidden data-t="stockready"></p>
@@ -203,7 +203,8 @@ const TEXT = {
     otherbtn: "純正ファームウェアに戻す ↓",
     stockh: "純正ファームウェアに戻す",
     stockwhy: "M-VAVE の FM-1 V15 を、Ravel（またはそのセーフモード）から同じ USB ケーブルで書き込みます。Ravel のプロジェクトとサウンドは消えます（純正の設定も工場出荷時に戻ります）。先に上の「バックアップ」で保存してください。純正に戻ったら、System → Reset Patches でバンクを読み込み直してください。",
-    stock1: "上の「バックアップ」でプロジェクトとサウンドを保存します。",
+    stock1: "まずバックアップして保存してください。純正に戻すと Ravel のプロジェクトとサウンドは消えます。上の「プロジェクトとサウンド」で「FM-1 に接続」を押し、何も選ばずに「← バックアップ」を押すと、すべてが .ravel ファイルとしてダウンロードフォルダに保存されます。",
+    stock1go: "バックアップへ ↑",
     stock2: "（または、自分の V15 のファイルを選ぶ）",
     stockready: "M-VAVE の FM-1 V15 はこのページにあります（M-VAVE の FM1 Open SDK の復旧イメージ、Apache-2.0）。",
     stock3: "FM-1 を USB で接続し、下のボタンを押す。",
@@ -279,7 +280,8 @@ const TEXT = {
     otherbtn: "Back to the stock firmware ↓",
     stockh: "Back to the stock firmware",
     stockwhy: "This writes M-VAVE's own FM-1 V15 back, from Ravel (or its safe mode, or Felucca) over the same USB cable. Ravel's projects and sounds are erased, and the stock settings start as on a new unit: save them first with Back up above. Back on stock, reload the banks with System → Reset Patches.",
-    stock1: "Save your projects and sounds first, with Back up above.",
+    stock1: "BACK UP AND SAVE FIRST. Going back to stock erases Ravel's projects and sounds. In Projects and sounds above, press Connect to the FM-1, then ← Back up with nothing selected: everything is saved as a .ravel file in your downloads.",
+    stock1go: "Go to Back up ↑",
     stock2: "(Or choose your own copy of the V15 file)",
     stockready: "M-VAVE's FM-1 V15 comes with this page (the recovery image of M-VAVE's FM1 Open SDK, Apache-2.0).",
     stock3: "Connect the FM-1 by USB and press the button below.",
