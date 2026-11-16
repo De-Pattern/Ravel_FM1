@@ -244,6 +244,7 @@ const TEXT = {
     bknofm: "FM-1 が見つかりません。Ravel を起動した FM-1 を USB で接続し、MIDI を使う他のアプリを閉じてから、もう一度押してください。",
     bknotravel: "FM-1 は応答しましたが、Ravel ではないようです（Ravel を入れてから使ってください）。",
     bklost: "FM-1 との接続が切れました。挿し直して「FM-1 に接続」を押してください。",
+    bkafter: "インストールで FM-1 が再起動しました。プロジェクトを見るには「FM-1 に接続」を押してください。",
     bkreading: "FM-1 を読み込み中", bkwriting: "書き込み中: ", bkbacking: "読み込み中: ",
     bkread: "FM-1 を読み込みました。", bksent: "送りました: ", bkbacked: "バックアップしました（ファイルをダウンロード）: ",
     bkover: "FM-1 のこれを置き換えます: ", bkovq: "。送りますか？",
@@ -319,6 +320,7 @@ const TEXT = {
     bknofm: "No FM-1 found. Connect it by USB with Ravel running, close other apps that use MIDI, and press again.",
     bknotravel: "The FM-1 answered, but not as Ravel (install Ravel first).",
     bklost: "The FM-1 was disconnected. Plug it back in and press Connect to the FM-1.",
+    bkafter: "The FM-1 restarted for the install. To see its projects, press Connect to the FM-1.",
     bkreading: "Reading the FM-1", bkwriting: "Writing ", bkbacking: "Reading ",
     bkread: "Read the FM-1.", bksent: "Sent: ", bkbacked: "Backed up into a file (downloaded): ",
     bkover: "This replaces on the FM-1: ", bkovq: ". Send?",
@@ -422,6 +424,7 @@ showVer();
 }
 
 let writing = false;
+let lostInRun = false, quietUntil = 0;                                 /* (the FM-1 left the backup part's connection during an install: said after it, calmly) */
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
 
 /* the chosen version's package, fetched when it is chosen */
@@ -489,6 +492,8 @@ async function run(img, product, isStock) {
   try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
   catch (e) { sayK("denied"); return; }
   writing = true;
+  lostInRun = false;
+  $("bkalert").textContent = "";                         /* (no old "disconnected" in red while it installs: it restarts on purpose) */
   $("go").disabled = $("stockgo").disabled = $("pick").disabled = true;
   $(isStock ? "stockline" : "goline").after($("runbox"));
   $("log").textContent = "";
@@ -533,6 +538,8 @@ async function run(img, product, isStock) {
     log(String(e && e.stack || e));
   }
   writing = false;
+  quietUntil = Date.now() + 20000;                       /* (the FM-1 may still be restarting into what was installed) */
+  if (lostInRun) bkShow(t("bkafter"), false);
   $("go").disabled = !image;
   $("pick").disabled = false;
   $("stockgo").disabled = !stock;
@@ -766,7 +773,10 @@ async function bkOpen() {
   m.onstatechange = (e) => {
     if (dev && (e.port.id === dev.inp.id || e.port.id === dev.out.id) && e.port.state === "disconnected") {
       dev.inp.onmidimessage = null; dev = null; fm = new Map(); fmSel.clear();
-      bkShow(t("bklost"), true); bkDraw();
+      if (writing) lostInRun = true;                     /* an install restarts the FM-1 on purpose: not a warning to unplug or switch off */
+      else if (Date.now() < quietUntil) bkShow(t("bkafter"), false);   /* (its restart just after the install) */
+      else bkShow(t("bklost"), true);
+      bkDraw();
     }
   };
   dev = { sess, inp, out };
