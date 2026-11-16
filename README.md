@@ -81,7 +81,9 @@ Short versions; the [manual](https://de-pattern.github.io/Ravel_FM1/manual.html)
 
 > **Installing a different firmware?** Go back to the stock firmware first, every time: on the [install page](https://de-pattern.github.io/Ravel_FM1/install/#stock), press **Back to the stock firmware** (it's linked at the top of the page). Then install the other firmware from its own page. Installing another firmware straight over Ravel can switch the FM-1 off or leave it unable to start. See [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel).
 
-**On the FM-1:** [Installing](#installing-on-the-fm-1) · [Back to the stock firmware](#back-to-the-stock-firmware) · [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel) · [If the FM-1 will not start](#if-the-fm-1-will-not-start)
+**On the FM-1:** [Installing](#installing-on-the-fm-1) · [Back to the stock firmware](#back-to-the-stock-firmware) · [Updating to another firmware from Ravel](#updating-to-another-firmware-from-ravel) · [If the FM-1 will not start (unbricking)](#if-the-fm-1-will-not-start-unbricking)
+
+> **Bricked?** Almost always fixable: the chip's own USB update mode (`WL80UBOOT`) is in its ROM and can't be erased. Black screen? Charge it, plug it in, try the install page's **Back to the stock firmware**, then look for `WL80UBOOT`. A rescue tool puts M-VAVE's V15 back from there (Mac: one Terminal line; Windows/Linux: MvaveFM1Unbricker) and you reinstall Ravel. [Step by step, by symptom](#if-the-fm-1-will-not-start-unbricking)
 
 **For developers:** [What's here](#whats-here) · [Building](#building) · [The FM-1 build](#the-fm-1-build) · [Licence](#licence)
 
@@ -1888,14 +1890,46 @@ Why: firmwares built on M-VAVE's SDK, and M-VAVE's own updater M-UPGRADE, hand o
 
 **Newer FM-1s.** Later units have a different flash chip (a UC25HQ80, ID `B36014`, where the first ones have Puya's P25Q80, `856014`). Ravel 1.27.1 and later save, load and update on both; GLO › FLASH shows which one yours has. An earlier Ravel on a newer unit runs but keeps nothing (saves stay in RAM until it is switched off) and refuses updates from the installer. To move it on: hold **OCT− and OCT+ for 5 seconds** (the chip's own update mode), put M-VAVE's firmware back with a rescue tool (below; this repository's knows the newer chip), then install Ravel from the page as usual.
 
-### If the FM-1 will not start
+### If the FM-1 will not start (unbricking)
 
-- **Hold OCT− and OCT+ for 5 seconds** while Ravel runs: the FM-1 goes into the chip's own update mode. It shows up on USB as `WL80UBOOT`, not as MIDI, so the web installer can't reach it; the rescue tool below can (switch the FM-1 off and on to leave it).
-- **Safe mode:** if Ravel crashes twice while starting, it starts in a safe mode instead: no sound, USB on, so the web installer can reach it. PLAY tries Ravel again.
-- **Calibration:** hold OCT− and OCT+ while switching on to teach Ravel which button and knob is which, if the panel seems mixed up.
-- **Rescue tools:** in the chip's update mode, these put M-VAVE's V15 back (both back up the whole flash first). Then install Ravel (or anything else) from the page. They need the **V15** file (see above): M-VAVE's download is now V16, and V16 lays out the flash differently, so don't use it with them.
-  - **Mac:** `tools/fm1_rescue.sh` (from X0X, fetching this repository's `fm1_rescue.py`, which knows both flash chips).
-  - **Windows or Linux:** [MvaveFM1Unbricker](https://github.com/Quixotic7/MvaveFM1Unbricker), from an administrator PowerShell on Windows 10/11 (no extra drivers). On a newer unit (flash `B36014`) it asks for `--i-know`. Beyond that, recovery needs the [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+**An FM-1 that won't start can almost always be brought back.** The chip has its own USB update mode ("UBOOT") in its ROM, built in at the factory: no firmware can erase it, Ravel included. When the FM-1 shows up on a computer as **`WL80UBOOT`**, a rescue tool can put M-VAVE's firmware (V15) back, and then you install Ravel again. The rescue tools and Ravel's installer never write the boot area at the start of the flash, so that way back stays open.
+
+**First, what do you see?**
+
+| What the FM-1 does | What it means | What to do |
+| --- | --- | --- |
+| Starts, but Ravel says **SAFE MODE** (no sound) | Ravel crashed twice while starting and is protecting itself | Press **PLAY** to try Ravel again. If it keeps happening, reinstall from the [install page](https://de-pattern.github.io/Ravel_FM1/install/): USB works in safe mode |
+| Runs, but buttons or knobs do the wrong things | The panel's calibration is off | Switch off. Hold **OCT− and OCT+** while switching on, and follow the screen |
+| Runs, but won't update or misbehaves | | Hold **OCT− and OCT+ for 5 seconds**: it goes into UBOOT. Then use a rescue tool (below). Switch off and on to leave UBOOT |
+| **Black screen, no lights** (a firmware that crashes at once, or an install that stopped part way) | The firmware is broken; the chip is almost certainly fine | 1. Charge it, then plug it into the computer and switch it on. 2. Try the [install page](https://de-pattern.github.io/Ravel_FM1/install/#stock)'s **Back to the stock firmware**: it has brought back a unit that stayed dark. 3. Check whether the computer now sees **`WL80UBOOT`** (a crashing firmware with a start guard, as X0X's, goes there after two failed starts): if so, use a rescue tool (below). The Mac rescue waits for it, so start it first and switch the FM-1 off and on a few times |
+| The computer sees a disk or a device called **`WL80UBOOT`** | It's in UBOOT already | Use a rescue tool (below) |
+| Nothing at all, even after charging, and never `WL80UBOOT` | The boot area itself may be damaged (very rare: none of Ravel's tools write it, but an interrupted M-VAVE update or bootloader tool can) | Low-level recovery only: [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter) and [jl-uboot-tool](https://github.com/kagaimiq/jl-uboot-tool). Ask on the repository's issues first |
+
+**You'll need M-VAVE's V15 file** for every rescue tool: [FM-1_015.fwsc](https://de-pattern.github.io/Ravel_FM1/firmware/stock/FM-1_015.fwsc), from Ravel's site (M-VAVE's recovery image, Apache 2.0). Don't use M-VAVE's current download (V16): it lays out the flash differently and the tools refuse it. Save it in Downloads.
+
+**Rescue on a Mac, step by step**
+
+1. Download **FM-1_015.fwsc** (above) into Downloads.
+2. Open **Terminal** and paste: `bash -c "$(curl -fsSL https://raw.githubusercontent.com/De-Pattern/Ravel_FM1/main/tools/fm1_rescue.sh)"`. The first time, it may ask to install Apple's command line tools: click Install, then run the same line again.
+3. It asks for your Mac password (it needs to take the FM-1 away from macOS, which mistakes UBOOT for a disk).
+4. Connect the FM-1 and get it into UBOOT (the table above). The script waits for it.
+5. It checks the chip, **backs up the whole flash** to a file first, then shows what it will write. Confirm, and it writes V15, checks it, and restarts the FM-1 on M-VAVE's firmware.
+   - If it says **"the protected head of the flash differs from V15 … not writing"**, nothing was written: the boot area isn't M-VAVE's (installing Ravel from the stock firmware writes Ravel's own there, and bootloader tools write theirs). If Ravel still starts, even in safe mode, use the install page's **Back to the stock firmware** instead: it puts V15's boot area back too. If not, open an issue on the repository with the script's output and keep the backup file.
+6. On the stock firmware, reload its sounds with **System › Reset Patches**. Then install Ravel from the [install page](https://de-pattern.github.io/Ravel_FM1/install/) and restore your projects from your backup file.
+
+**Rescue on Windows or Linux, step by step**
+
+1. Download **FM-1_015.fwsc** (above).
+2. Get [MvaveFM1Unbricker](https://github.com/Quixotic7/MvaveFM1Unbricker) and follow its page: on Windows 10/11, from an **administrator** PowerShell (no extra drivers).
+3. Get the FM-1 into UBOOT (the table above) and run it with the V15 file. It backs up the whole flash first. On a newer unit (flash `B36014`, GLO › FLASH shows it) it asks for `--i-know`.
+4. When the FM-1 is on M-VAVE's firmware: **System › Reset Patches**, then install Ravel from the install page and restore your backup.
+
+**Good habits that make a brick harmless**
+
+- Back up projects and sounds before every install (install page › **Projects and sounds** › **Back up**, or the emulator's **Get from FM-1**).
+- Use a USB **data** cable, plugged straight into the computer, and keep the laptop from sleeping while it writes. Don't unplug part way: if the power goes during an install from the page, switch on and press Install again.
+- Going to another firmware? Go **back to stock first** ([above](#updating-to-another-firmware-from-ravel)).
+- **Bootloader replacements** (such as M-Flasher's m-bootloader) rewrite the boot area that every rescue above leaves alone; Ravel hasn't been tested with them, and this repository's Mac rescue refuses to write when the boot area isn't stock (so it never writes over something it doesn't know). If you install one, its own recovery menu, or its "restore the stock bootloader", is your way back.
 
 ## What's here
 
