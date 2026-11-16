@@ -545,5 +545,7 @@ const char *rv_stress_name(int step);
 
 /* rv_ui.c: the control side */
 void ui_init(void);
+void ui_open_last(void);                        /* power-on: the last project opened (START WITH LAST), unless it reset while running */
+void ui_boot_power(void);                       /* (desktop builds) a power-off: the reset mark gone */
 void ui_frame(void);                            /* input, then a frame of the screen */
 void ui_input_only(void);

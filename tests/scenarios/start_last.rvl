@@ -1,0 +1,96 @@
+# Power-on opens the last project saved or loaded (GLO > PANEL: START WITH LAST, the default); not after a
+# reset while it ran (a crash: blank, so a project it can't open can't stop it starting); BLANK as before
+wait 300
+settp 1 LENGTH 7
+tap SAVE
+wait 150
+expect page PROJECT
+tap SAVE
+wait 100
+tap SAVE
+wait 2500
+expect slotused 1 1
+reboot
+wait 3000
+expect tp 1 LENGTH 7
+# a reset while it ran: blank, and says so
+reset
+wait 3000
+expect tp 1 LENGTH 16
+reboot
+wait 3000
+expect tp 1 LENGTH 7
+# a demo after it: power-on still opens the slot
+demo 1
+wait 300
+reboot
+wait 3000
+expect tp 1 LENGTH 7
+# START WITH BLANK
+tap GLO
+turn SELECT 30
+wait 150
+expect page PANEL
+turn K2 1
+wait 2500
+shot start_with.png
+reboot
+wait 3000
+expect tp 1 LENGTH 16
+tap GLO
+turn SELECT 30
+wait 150
+expect page PANEL
+turn K2 -1
+wait 2500
+shot panel.png
+reboot
+wait 3000
+expect tp 1 LENGTH 7
+# CLEAR of that slot: power-on blank
+tap SAVE
+wait 150
+expect page PROJECT
+turn K1 6
+wait 150
+tap SAVE
+wait 100
+tap SAVE
+wait 300
+expect slotused 1 0
+wait 2500
+reboot
+wait 3000
+expect tp 1 LENGTH 16
+# LOAD remembers its slot too: 7 saved in slot 1, 5 in slot 2, slot 1 loaded: power-on opens slot 1
+settp 1 LENGTH 7
+tap SAVE
+wait 150
+turn K1 -6
+wait 150
+tap SAVE
+wait 100
+tap SAVE
+wait 300
+settp 1 LENGTH 5
+turn PRESET 1
+wait 150
+tap SAVE
+wait 100
+tap SAVE
+wait 300
+expect slotused 2 1
+turn PRESET -1
+wait 300
+turn K1 1
+wait 300
+tap SAVE
+wait 150
+tap SAVE
+wait 300
+expect tp 1 LENGTH 7
+wait 2500
+reboot
+wait 3000
+expect tp 1 LENGTH 7
+shot start_opened.png

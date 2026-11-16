@@ -49,6 +49,7 @@
  *   expect matdst K NAME          matrix row K (1..8) moves NAME ("T1 HITS")
  *   expect ons T LO HI            the sequencer started from LO to HI notes on track T since "ons 0"
  *   chainclear T                  track T's (1..8) CHAIN with no cords
+ *   reset                         as reboot, but a reset while it ran (a crash): what survives a reset kept
  *   clear T                       track T's (1..8) current pattern: every step off
  *   ons 0                         count track notes from now
  *   setmatp K S T NAME A          matrix row K (1..8) from source S into track T's parameter NAME, amount A
@@ -511,8 +512,10 @@ int main(int argc, char **argv)
             sscanf(line, "%*s %x %x %x", &x, &y, &z);
             host_midi_push((int)x, (int)y, (int)z);
             run_ms(1);
-        } else if (!strcmp(a, "reboot")) {
+        } else if (!strcmp(a, "reboot") || !strcmp(a, "reset")) {   /* reboot: off and on; reset: a reset while it ran (memory kept) */
             held_btn = held_keys = 0;
+            if (!strcmp(a, "reboot"))
+                ui_boot_power();
             boot();
         } else if (!strcmp(a, "input")) {
             snprintf(path, sizeof path, "%s", b);

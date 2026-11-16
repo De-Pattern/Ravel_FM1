@@ -29,11 +29,12 @@
 #pragma clang attribute pop
 #endif
 
-/* start: always a blank project */
+/* start: a blank project, then the last one saved or loaded (SONG > PANEL: START WITH) */
 void ravel_start(void)
 {
     rv_demo(2);                     /* a blank project; saved ones stay in their slots (SAVE > LOAD) */
     rv_engine_init();
     rv_bank_init();                 /* your sounds (SAVE > SOUNDS) */
     ui_init();
+    ui_open_last();                 /* the last project, if PANEL > START WITH is LAST (not after a reset) */
 }

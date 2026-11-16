@@ -232,7 +232,7 @@ static const page_t pages[] = {
     {SEC_SONG, V_ALL, PIC_CPU2, PR_NONE, "CPU 2", {{K_STRESS, 7}, {K_STRESS, 8}, {K_STRESS, 9}, {K_STRESS, 10}}},   /* BUFFER, GUARD, SCREEN, CORE TEST */
     {SEC_SONG, V_ALL, PIC_STRESS, PR_NONE, "STRESS", {{K_STRESS, 0}, {K_STRESS, 1}, {K_STRESS, 2}, NO}},   /* how much this unit takes */
     {SEC_SONG, V_ALL, PIC_FLASH, PR_NONE, "FLASH", {NO, NO, NO, NO}},   /* the flash as the boot set it up (read only) */
-    {SEC_SONG, V_ALL, PIC_PANEL, PR_NONE, "PANEL", {{K_LRN, 3}, NO, NO, NO}},   /* the FM-1's own: kept through power-off */
+    {SEC_SONG, V_ALL, PIC_PANEL, PR_NONE, "PANEL", {{K_LRN, 3}, {K_LRN, 5}, NO, NO}},   /* the FM-1's own: kept through power-off; START WITH: the last project at power-on, or a blank one */
 
     {SEC_SAVE, V_ALL, PIC_SAVE, PR_SLOT, "PROJECT", {{K_SAVE, 0}, {K_SAVE, 1}, {K_SAVE, 2}, NO}},   /* the action; the project's name, as SOUNDS names a sound */
     {SEC_SAVE, V_ALL, PIC_BANK, PR_BANK, "SOUNDS", {{K_BANK, 0}, {K_BANK, 1}, {K_BANK, 2}, {K_BANK, 3}}},   /* your own sounds, any kind, in banks A-D */
@@ -537,7 +537,10 @@ typedef struct {
     uint8_t back;                                     /* BACKLIGHT + 1 (0: never set, LOW); bit 7: STEP REC STAY */
     uint8_t nb;                                       /* the learned controls */
     mbind_t b[NBIND];
+    uint8_t start;                                    /* (third version) bit 0: START WITH a blank project (0: the last one) */
+    uint8_t last;                                     /* the project last saved or loaded: its slot + 1 (0: none) */
 } prefs_t;
+#define PREFS_V2 ((int)__builtin_offsetof(prefs_t, start))   /* (the second version: no START WITH) */
 static const uint8_t pref_gp[3] = {GP_MIDICH, GP_MIDICLK, GP_MIDITRN};
 static prefs_t prefs;
 static uint8_t prefs_dirty, prefs_tries;
@@ -547,6 +550,16 @@ static const page_t *prefs_pg;                        /* the page it changed on 
 static uint8_t learn;                                 /* 0 off, 1 armed: waiting for a knob, 2: a knob chosen, waiting for a controller */
 static uint16_t learn_pid;
 static uint8_t learn_sel;
+static void prefs_touch(void);
+static char boot_msg[28];                             /* (what power-on opened: ui_open_last) */
+static uint32_t boot_msg_at;
+static void prefs_last(int slot)                      /* the project to open at power-on (START WITH LAST) */
+{
+    if (prefs.last != slot + 1) {
+        prefs.last = (uint8_t)(slot + 1);
+        prefs_touch();
+    }
+}
 static void prefs_changed(int g);
 static int prefs_back_get(void) { return (prefs.back & 0x7F) ? ((prefs.back & 0x7F) - 1) & 3 : 1; }
 static int prefs_stay(void) { return (prefs.back >> 7) & 1; }   /* (bit 7 of back: STEP REC STAY) */
@@ -1198,11 +1211,11 @@ static RV_SMALL kinfo_t kb_info(kb_t k)
     case K_LRN: {
         static const char *const ln[] = {"OFF", "ARMED", "ARMED"}, *const one[] = {"TURN"};
         static const char *const bl[] = {"OFF", "LOW", "MID", "HIGH"}, *const st[] = {"NEXT", "STAY"};
-        static const char *const kn[] = {"LEARN", "DELETE", "CLEAR ALL", "BACKLIGHT", "STEP REC"};
-        r.name = kn[k.id < 5 ? k.id : 0];
+        static const char *const kn[] = {"LEARN", "DELETE", "CLEAR ALL", "BACKLIGHT", "STEP REC", "START WITH"}, *const sw[] = {"LAST", "BLANK"};
+        r.name = kn[k.id < 6 ? k.id : 0];
         r.fmt = PF_ENUM;
-        r.max = k.id == 0 ? 2 : k.id == 3 ? 3 : k.id == 4 ? 1 : 0;
-        r.names = k.id == 0 ? ln : k.id == 3 ? bl : k.id == 4 ? st : one;
+        r.max = k.id == 0 ? 2 : k.id == 3 ? 3 : k.id == 4 || k.id == 5 ? 1 : 0;
+        r.names = k.id == 0 ? ln : k.id == 3 ? bl : k.id == 4 ? st : k.id == 5 ? sw : one;
         break;
     }
     case K_SAVE:
@@ -1429,7 +1442,7 @@ static RV_SMALL int kb_get(kb_t k)
         }
     }
     case K_LRN:
-        return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : k.id == 4 ? prefs_stay() : 0;
+        return k.id == 0 ? learn : k.id == 3 ? prefs_back_get() : k.id == 4 ? prefs_stay() : k.id == 5 ? prefs.start & 1 : 0;
     case K_WF: {
         const rv_weft *w = &rv.weft[ui.track];
         int b = ui.wf_blk % WF_BLOCKS;
@@ -2720,6 +2733,7 @@ static void save_do(void)
     case 0: {
         int rc = rv_save(PLAT_PROJ(ui.cur_slot));
         if (rc == 0) {
+            prefs_last(ui.cur_slot);
             sx_cat(b, "SAVED TO ");
             sx_int(b + 9, ui.cur_slot + 1);
             msg(b);
@@ -2738,6 +2752,7 @@ static void save_do(void)
         rv_hush = 0;
         if (rc == 0) {
             ui_project_new();
+            prefs_last(ui.cur_slot);
             sx_cat(b, "LOADED ");
             sx_int(b + 7, ui.cur_slot + 1);
             msg(b);
@@ -2761,6 +2776,10 @@ static void save_do(void)
         break;
     case 6:                                           /* CLEAR: the slot emptied (the project you have is kept) */
         if (plat_proj_clear(PLAT_PROJ(ui.cur_slot)) == 0) {
+            if (prefs.last == ui.cur_slot + 1) {      /* (nothing to open at power-on now) */
+                prefs.last = 0;
+                prefs_touch();
+            }
             sx_cat(b, "CLEARED ");
             sx_int(b + 8, ui.cur_slot + 1);
             msg(b);
@@ -3356,9 +3375,13 @@ static void prefs_init(void)
     prefs_t p;
     __builtin_memset(&p, 0, sizeof p);
     n = plat_prefs_load(&p, sizeof p);
-    ok = (n == PREFS_V1 || n == (int)sizeof p) && p.magic == PREFS_MAGIC;
+    ok = (n == PREFS_V1 || n == PREFS_V2 || n == (int)sizeof p) && p.magic == PREFS_MAGIC;
     if (ok && n == PREFS_V1)
         p.back = p.nb = 0;                            /* (the first version: no backlight, nothing learned) */
+    if (ok && n < (int)sizeof p)
+        p.start = p.last = 0;                         /* (before the third: START WITH LAST, none known yet) */
+    if (p.last > PLAT_PROJECTS)
+        p.last = 0;
     for (i = 0; ok && i < 3; i++) {
         const rv_pinfo *pi = rv_pinfo_global(pref_gp[i]);
         ok = p.v[i] >= pi->min && p.v[i] <= pi->max;
@@ -3548,6 +3571,11 @@ static void lrn_turn(int id, int d)                   /* MIDI LEARN's knobs: LEA
 {
     if (id == 3) {
         prefs.back = (uint8_t)((clampi(prefs_back() + d, 0, 3) + 1) | (prefs.back & 0x80));
+        prefs_touch();
+        return;
+    }
+    if (id == 5) {                                    /* START WITH: the last project (LAST) or a blank one */
+        prefs.start = (uint8_t)(d > 0 ? prefs.start | 1 : prefs.start & ~1);
         prefs_touch();
         return;
     }
@@ -6170,7 +6198,8 @@ static void pic_panel(void)
         g_rbox(10 + i * 18, y + 48, 15, 30, 3, c, 1);
         g_rbox(10 + i * 18, y + 48, 15, 30, 3, C_LINE, 0);
     }
-    g_text(8, y + 88, &FONT_T, "ONLY ON THE FM-1", C_DIM);
+    g_text(8, y + 88, &FONT_T, "(BACKLIGHT: ONLY ON THE FM-1)", C_DIM);
+    g_text(8, y + 99, &FONT_T, prefs.start & 1 ? "POWER-ON: A BLANK PROJECT" : "POWER-ON: YOUR LAST PROJECT", C_DIM);
     g_text(8, y + 124, &FONT_T, st[prefs_state & 3], prefs_state == 3 ? C_RED : prefs_state == 0 ? C_TEAL : C_DIM);
 }
 
@@ -6979,8 +7008,14 @@ RV_SMALL void ui_frame(void)
         ui.c2_tried = 1;
         if (plat_par_on(1) == 0)
             rv_live.cores2 = 1;
-        else
+        else {
             msg("ONE CORE: POWER OFF AND ON FOR TWO");   /* (held after a crash or reset while it ran) */
+            boot_msg_at = plat_ms() + 2500u;          /* (power-on's own message after it) */
+        }
+    }
+    if (boot_msg[0] && (int32_t)(plat_ms() - boot_msg_at) >= 0) {   /* what power-on opened, once the start screen is gone */
+        msg(boot_msg);
+        boot_msg[0] = 0;
     }
     stress_tick();
     if (ui.bank_dirty && (plat_ms() - ui.bank_edit_ms > 1500u || (ui.sec != SEC_SAVE && cur_page()->pic != PIC_WEFTLIB)))
@@ -7021,6 +7056,44 @@ RV_SMALL void ui_frame(void)
         }
     }
     leds();
+}
+
+/* power-on: the last project saved or loaded opened (START WITH LAST), unless the FM-1 reset while Ravel
+ * ran (a crash, a hang, an update: a mark in memory a reset keeps and a power-off loses), so a project it
+ * can't open can't stop it starting: then it starts blank and says so */
+#define BOOT_MAGIC 0x52564f50u                        /* "POVR" */
+static struct { uint32_t magic, running; } boot_mark RV_NOINIT;
+void ui_boot_power(void) { boot_mark.magic = 0; }    /* (the desktop builds' power-off) */
+void ui_open_last(void)
+{
+    int reset = boot_mark.magic == BOOT_MAGIC && boot_mark.running == 1u, rc, s = prefs.last - 1;
+    boot_mark.magic = BOOT_MAGIC;
+    boot_mark.running = 1u;
+    boot_msg[0] = 0;
+    if ((prefs.start & 1) || prefs.last == 0)
+        return;
+    if (reset) {
+        sx_cat(boot_msg, "AFTER A RESET: NEW PROJECT");
+        return;
+    }
+    rv_hush = 1;
+    rc = rv_load(PLAT_PROJ(s));
+    if (rc == -2)
+        rv_demo(2);
+    rv_hush = 0;
+    if (rc == 0) {
+        ui.cur_slot = s;
+        ui_project_new();
+        sx_cat(boot_msg, "OPENED ");
+        sx_int(boot_msg + 7, s + 1);
+        if (rv.name[0]) {
+            sx_cat(boot_msg, " ");
+            sx_cat(boot_msg, rv.name);
+        }
+    } else if (rc == -2) {
+        ui_project_new();
+        sx_cat(boot_msg, "LAST PROJECT DAMAGED");
+    }
 }
 
 void ui_init(void)

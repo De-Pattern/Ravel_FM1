@@ -50,6 +50,7 @@ Short versions; the [manual](https://de-pattern.github.io/Ravel_FM1/manual.html)
 - **The matrix moves the sequence:** LFO › MATRIX can now move a track's **LENGTH**, **HITS** and **ROTATE**, and CHANCE's settings, without rewriting the steps. [More](#8-lfo-modulation-and-macros)
 - **REC + SEQ:** the keys play notes on the SEQ pages without recording (a **KEYS** box shows it), so you can jam over a pattern, and **REC + SAVE** (TAKE) keeps what you just played. [More](#16-recording)
 - **WEFT block list:** hold EDIT and turn TYPE to pick a block from a list; AUDIO is at the end of the types. [More](#weft-a-voice-you-patch)
+- **Your last project at power-on:** switching on opens the project you last saved or loaded (GLO › PANEL: START WITH LAST or BLANK); after a crash it starts blank, so it can always start. [More](#13-glo-song-scenes-and-clock)
 - **A new start screen** with the version at the bottom right; and a fix: EUCLID on a cleared kit no longer lights every step.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
@@ -1398,7 +1399,7 @@ The picture is the six lanes round an oval with their cords; the chosen lane's c
 | **CPU** | CORES: 2 (the default) gives the FM-1's second core the effects and every other voice; 1 turns it off (see below) | FLASH WT: OFF, or ON to count how much of the render waits for its code to come from the flash | VIEW: PARTS (the render's parts) or TRACKS (each track's cost) | SILENT: SKIP (the default) or PLAY: whether the voices of a track you can't hear stop (SKIP SILENT, below) | – |
 | **STRESS** | STEP: OFF, or 1–16, each adding load to the last (below) | ENGINE: the synth engine the voices use | AUTO: RUN walks the steps, three seconds each, and fills in the table | – | – |
 | **FLASH** | – (read only: how the boot set the flash up) | | | | – |
-| **PANEL** | BACKLIGHT: OFF, LOW (the default), MID, HIGH: how brightly the unlit buttons and keys glow, on the FM-1 | – | – | – | – |
+| **PANEL** | BACKLIGHT: OFF, LOW (the default), MID, HIGH: how brightly the unlit buttons and keys glow, on the FM-1 | START WITH: **LAST** (the default: at power-on, the project you last saved or loaded) or **BLANK** | – | – | – |
 
 <p align="center"><img src="docs/manual/song-cpu.png" alt="CPU" width="240"> <img src="docs/manual/song-stress.png" alt="STRESS" width="240"></p>
 <p align="center"><sub>(Taken on the desktop simulator, a far faster machine: the same project reads many times higher on the FM-1.)</sub></p>
@@ -1423,7 +1424,7 @@ Grains already playing finish as they were, and sounding WEFT voices play on: no
 
 **Two cores.** The FM-1's chip has two cores, and Ravel starts the second at power-on. It takes a share of the effect buses (three jobs: the BED with the SPACE it sends into, FEEDBACK, DELAY) and of the sounding tracks: a track it takes plays its voices and its own effects (SKIN, the INSERT, RING) there, while the first core plays the rest, and every track's level, pan and sends into the mix, in order. The tracks and the bus jobs are shared out whole by what they cost a moment ago, the dearest first, so that both cores finish at the same time (a bus job the first core keeps runs while the second core plays its voices); then single voices of a track with several, if that evens them out further (that track's effects stay on the first core). A heavy WEFT patch goes to whichever core has room, and heavy buses are split between the two. The CPU page shows its share (CORE 2 40 %), and WAIT how long the first core waited for it. For this the buses play one control step behind the tracks: the effects come about 3 ms after the dry sound, with one core or two, so the sound is the same either way. On some units the second core misreads memory, so it is watched: if it ever reads a wrong job or doesn't finish one in time, the first core takes the work back at once (CORE 2 FAILED on the CPU page), and after a crash or a hang with it running it stays off until the FM-1 is switched off and on (the top bar says ONE CORE: POWER OFF AND ON FOR TWO at start, and CORES reads 1). Installing an update is not counted: the second core comes back on its own afterwards. CORES 1 turns it off by hand.
 
-<p align="center"><img src="docs/manual/midi-learn.png" alt="MIDI LEARN: a control on CC 21 tied to T2's level" width="240"> <img src="docs/manual/panel.png" alt="PANEL: the backlight" width="240"></p>
+<p align="center"><img src="docs/manual/midi-learn.png" alt="MIDI LEARN: a control on CC 21 tied to T2's level" width="240"> <img src="docs/manual/panel.png" alt="PANEL: the backlight and START WITH" width="240"></p>
 
 **MIDI control of the knobs.** Two ways, and both follow MIDI IN's channel:
 
@@ -1433,6 +1434,8 @@ Grains already playing finish as they were, and sounding WEFT voices play on: no
 - The learned controls, like MIDI IN's settings and the backlight, belong to the FM-1, not to a project: they stay through power-off and whatever you load.
 
 **PANEL.** The FM-1's buttons and keys glow dimly, so you can find them in the dark; what's lit (the page's button, a step, a key held) stays lit fully, so the two never get mixed up. BACKLIGHT sets how dim: OFF, LOW, MID or HIGH. The glow comes from the panel's own scanning (each unlit LED is lit on one scan in a few), so it costs the sound nothing and the keys are read as before. It's kept through power-off.
+
+**START WITH.** On **LAST** (the default), switching on opens the project you last saved or loaded, and says so ("OPENED 3 MYSONG"); on **BLANK** it starts on a new project, as before. You still save as you go: it opens the project as you last saved it, not what you had when you switched off. Clearing that slot means a blank start. If the FM-1 reset while Ravel was running (a crash, a hang, an update), the next start is blank ("AFTER A RESET: NEW PROJECT"), so a project it can't open can never stop it starting; switch off and on to open it again.
 
 **FLASH.** The page after STRESS shows how the FM-1's boot set its flash up: the chip, its status (QE: whether its four-wire mode is allowed), the flash controller's read mode and clock divider. It is read once at start and nothing on it writes the flash. A photo of it tells whether a faster read is possible on that unit.
 
@@ -1526,7 +1529,7 @@ SAVE has two pages: **PROJECT** (the whole song) and **SOUNDS** (one track's sou
 5. Press **SAVE** once: the footer says "PRESS SAVE AGAIN TO CONFIRM".
 6. Press **SAVE** again to do it.
 
-Ravel starts on a blank project every time it is switched on (or the emulator is opened). Saved projects stay in their slots: load one with **LOAD**.
+When it's switched on (or the emulator is opened), Ravel opens the project you last saved or loaded (GLO › PANEL: START WITH LAST, the default), or a blank one (BLANK). Saved projects stay in their slots: load one with **LOAD**. There's no autosave: save before you switch off.
 
 A load is silent while it happens, so nothing half-loaded plays. If a saved project turns out to be damaged as it is read (its check fails), LOAD says **DAMAGED: A NEW PROJECT** and starts a blank one, rather than leaving a mix of the old project and part of the saved one; the damaged slot stays as it was.
 
