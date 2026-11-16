@@ -51,7 +51,7 @@ Short versions; the [manual](https://de-pattern.github.io/Ravel_FM1/manual.html)
 - **REC + SEQ:** the keys play notes on the SEQ pages without recording (a **KEYS** box shows it), so you can jam over a pattern, and **REC + SAVE** (TAKE) keeps what you just played. [More](#16-recording)
 - **WEFT block list:** hold EDIT and turn TYPE to pick a block from a list; AUDIO is at the end of the types. [More](#weft-a-voice-you-patch)
 - **Your last project at power-on:** switching on opens the project you last saved or loaded (GLO › PANEL: START WITH LAST or BLANK); after a crash it starts blank, so it can always start. [More](#13-glo-song-scenes-and-clock)
-- **A new start screen** with the version at the bottom right; and a fix: EUCLID on a cleared kit no longer lights every step.
+- **The start screen** is a failing VHS tape again, with the new outlined RAVEL wordmark and the version at the bottom right; and a fix: EUCLID on a cleared kit no longer lights every step.
 
 **New here?** Open the emulator ([Opening it](#1-opening-it)), load a demo, press Play, then read [The five moves](#3-the-five-moves-how-every-page-works). Everything else is reference.
 
