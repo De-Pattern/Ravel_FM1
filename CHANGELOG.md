@@ -3,6 +3,27 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.42.0
+
+Added
+- CHANCE, a third sequencer MODE (SEQ › TRACK), after Mutable Instruments' Marbles: the track makes up its own phrase as it plays, in the song's key and scale. DENS, RANGE, DRIFT and MEMORY; CENTER, LENGTH, FEEL and GATE; LOCK, RATCHET, JITTER and ACCENT. Tap REC to lock a phrase, REC + OCT+ to vary it, REC + OCT− for a new one, REC + SAVE to keep it as steps.
+- CHAIN, a kit's MODE (SEQ › TRACK), after the Chain Reaction Drum Machine: each lane has three cords to other lanes (or itself), each with a chance, so the drums set each other off and the groove plays itself. Pages CHAIN and CHAIN START (START, RESTART: LOOP, QUIET or ONCE).
+- The matrix moves the sequence: LFO › MATRIX can move a track's LENGTH, HITS and ROTATE, and CHANCE's settings, without rewriting its steps.
+- ANALOG: on STEPS, tap SEQ to see the same steps as a 16-step analog sequencer: pitch faders on KNOB 1–4 (SELECT: the next four), a step held and a knob turned: its GATE, on/off switches on the white keys, OCT for the pages.
+- REC + SEQ: the keys play notes on the SEQ pages without recording (a KEYS box shows it); REC + SAVE (TAKE) keeps what you just played.
+- Power-on opens the project you last saved or loaded (GLO › PANEL: START WITH LAST, the default, or BLANK). After a crash or reset it starts blank, so a project can never stop it starting.
+- WEFT: VCFQ (a Serge-style band pass that rings for seconds when pinged; an envelope on FREQ bends each ring) and BUBBLES (watery pings that rise as they ring), and the factory patch RAIN.
+- The manual: step-by-step recipes for CHANCE, CHAIN and an LFO moving the rhythm, and an unbricking guide by symptom (also short, in the README).
+
+Changed
+- The start screen is the failing VHS tape again, with the new outlined RAVEL wordmark in corner brackets and the version at the bottom right. It's drawn by code, which frees 8 KB of flash.
+- A kit's TRACK page has MODE where QUANTZE was; the song's QUANTZE is on DRUM FEEL (and SONG › CLOCK FEEL).
+- SEQ on the STEPS page switches to the ANALOG view instead of going on to the next page (SELECT still does).
+- Install page: no red "FM-1 was disconnected" while an install restarts it; backing up is the first, bold step of going back to stock.
+
+Fixed
+- EUCLID on a cleared kit lit every step with lanes 3–6.
+
 ## 1.41.2
 
 Changed
