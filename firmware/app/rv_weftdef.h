@@ -33,6 +33,8 @@ enum {
     WO_IMPULSE, WO_CREASE, WO_LOCATE,                  /* a rise and fall on each cycle (after Mangrove); a cut at zero, a
                                                          * clipped integrator (after Cold Mac) */
     WO_VCA, WO_ENV,                                     /* the modular basics, by their names */
+    WO_VCFQ, WO_BUBBLES,                                /* a band pass that rings for seconds when pinged (after Serge's VCFQ);
+                                                         * bubbles: pings that rise as they ring, scattered */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -158,6 +160,8 @@ static const wf_type_t wf_types[WO_N] = {
     {"LOCATE", "RATE", "LEAK", "IN", "RESET", 60, 0, 0, 0, 0, 0},
     {"VCA", "LEVEL", "CURVE", "IN", "CV", 0, 0, 0, 0, 0, 0},
     {"ENV", "ATTACK", "RELEASE", "GATE", "TIME", 4, 60, 0, 0, 0, 0},
+    {"VCFQ", "FREQ", "Q", "IN/PING", "FREQ", 76, 110, 0, 0, 0, 0},
+    {"BUBBLES", "DENSITY", "SPREAD", "TRIG", "PITCH", 50, 64, 0, 0, 0, 0},
 };
 
 /* what each block is, in a few words: WEFT PATCH's bottom right, for the chosen block */
@@ -235,7 +239,9 @@ static const char *const wf_short[WO_N] = {
     "HALF SWAP",
     "LEAKY SUM",
     "VCA",
-    "2-STAGE ENV"
+    "2-STAGE ENV",
+    "PINGABLE HIGH-Q BP",
+    "WATERY PINGS"
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -313,7 +319,9 @@ static const char *const wf_desc[WO_N] = {
     "A CUT AT ZERO, HALVES SWAPPED",
     "A ADDED UP, HELD AT ITS EDGES",
     "A, AS LOUD AS LEVEL PLUS CV",
-    "ATTACK WHILE THE GATE IS UP, RELEASE"
+    "ATTACK WHILE THE GATE IS UP, RELEASE",
+    "RINGS FOR SECONDS WHEN A CLICK STRIKES IT",
+    "PINGS THAT RISE AS THEY RING, SCATTERED"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -503,6 +511,12 @@ static const wf_preset_t wf_presets[] = {
      {{WO_PHASE, 0, 0, 0, 0, 2, 64}, {WO_CREASE, 1, 100, 5, 60, 64, 64}, {WO_LP, 2, 100, 0, 0, 70, 30},
       {WO_SLOPE, 0, 0, 0, 0, 3, 70}, {WO_CYCLE, 0, 0, 0, 0, 20, 64}, {WO_MULT, 3, 100, 4, 100, 64, 64}},
      6, 2, {WM(2, 0), WM(2, 1), WM(3, 0), WM(5, 0)}, 0},
+    {"RAIN",          /* drops pinging two Serge-style VCFQs in a row, each drop bending the first as it rings; bubbles;
+                       * a smear */
+     {{WO_DUST, 0, 0, 0, 0, 45, 40}, {WO_VCFQ, 1, 100, 4, 25, 80, 118}, {WO_VCFQ, 2, 100, 0, 0, 66, 112},
+      {WO_SLOPE, 1, 100, 0, 0, 0, 30}, {WO_BUBBLES, 0, 0, 0, 0, 40, 70}, {WO_MIX, 3, 100, 5, 100, 64, 64},
+      {WO_DIFFUSE, 6, 100, 0, 0, 70, 60}},
+     7, 2, {WM(1, 0), WM(2, 0), WM(2, 1), WM(5, 0)}, 0},
 };
 #define WF_NPRESETS ((int)(sizeof wf_presets / sizeof wf_presets[0]))
 #endif

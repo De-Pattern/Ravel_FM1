@@ -422,6 +422,13 @@ static __attribute__((noinline)) void wf_setup(wcx_t *W, int i, int ty, float x1
         break;
     case WO_VCA: W->c1[i] = x1; W->c2[i] = x2; break;   /* LEVEL: open with nothing on CV; CURVE: linear to exponential */
     case WO_ENV: W->kr[i] = wk(wtime(x1)); W->kf[i] = wk(wtime(x2)); break;
+    case WO_VCFQ:                               /* FREQ 20 Hz .. 20 kHz; Q 0.7 .. about 400 (R = 1 / 2Q) */
+        W->c1[i] = 20.0f * wx_exp2(x1 * 10.0f);
+        W->c2[i] = 0.5f / (0.7f * wx_exp2(x2 * 9.2f));
+        W->fg[i] = wx_tan(3.14159265f * clampf(W->c1[i], 20.0f, wf_top(W, 18000.0f)) * W->dt);
+        W->fd[i] = wsvd(W->fg[i], W->c2[i]);
+        break;
+    case WO_BUBBLES: W->c1[i] = wx_exp2(x1 * 7.0f); W->c2[i] = x2 * 1.6f; break;   /* bubbles a second 1 .. 128; SPREAD: octaves either way */
     case WO_LOCATE: W->c1[i] = 0.1f * wx_exp2(x1 * 13.0f) * W->dt; W->c2[i] = x2 * x2 * 0.02f; break;   /* RATE: 0.1 to 800 a second; LEAK */
     case WO_NOISE: W->c2[i] = wx_exp2((1.0f - x2) * 10.0f) * (W->hr ? 0.5f : 1.0f); break;   /* samples each is held: 1 .. 1024 */
     case WO_LISSA: W->c1[i] = 0.02f * wx_exp2(x1 * 17.0f) * W->dt; break;
@@ -2245,6 +2252,83 @@ RV_HOT2 static void wk_none(wk_t *K, int i, int j1, int j2)
         return;
 }
 
+/* a soft clip to +-1 */
+RV_INL float wq_clip(float x) { return x > 3.0f ? 1.0f : x < -3.0f ? -1.0f : x * (27.0f + x * x) / (27.0f + 9.0f * x * x); }
+
+WK_FLASH static void wk_vcfq(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {   /* a band pass that can ring for seconds (after Serge's VCFQ): A goes in (audio, or a click or a gate's edge to
+         * ping it: low pings are lifted so a one-sample click rings as loud as a high one); B: FREQ, five octaves each
+         * way, followed every fourth sample, so an envelope on it bends the ring as it sounds. Driven hard, it rounds off */
+        float R = W->c2[i], s1 = s->s1, s2 = s->s2, fg = W->fg[i], fd = W->fd[i], c1 = W->c1[i];
+        for (j = j1; j < j2; j++) {
+            float g = fg, d = fd, hp, bp, lift;
+            if (bc && !((K->j0 + j) & 3)) {
+                s->hold = RV_FAR(wx_tan)(3.14159265f * clampf(c1 * fm_exp2f(WB * 5.0f), 20.0f, wf_top(W, 18000.0f)) * W->dt);
+                s->z[0] = wsvd(s->hold, R);
+            }
+            if (bc && s->hold > 0.0f) {
+                g = s->hold;
+                d = s->z[0];
+            }
+            lift = 0.25f / g;
+            lift = lift < 1.0f ? 1.0f : lift > 8.0f ? 8.0f : lift;
+            hp = (WA * lift - (2.0f * R + g) * s1 - s2) * d;
+            bp = g * hp + s1;
+            s1 = g * hp + bp;
+            s2 = g * bp + (g * bp + s2);
+            if (!(bp > -64.0f && bp < 64.0f))   /* (blown up: start over) */
+                s1 = s2 = bp = 0.0f;
+            yo[j] = wq_clip(bp * 1.5f);
+        }
+        s->s1 = s1;
+        s->s2 = s2;
+        return;
+    }
+}
+
+WK_FLASH static void wk_bubbles(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {   /* four bubbles at a time: each a ping at its own pitch (around two octaves over the note, SPREAD octaves either
+         * way; B: PITCH, five octaves each way), rising as it rings and dying away, the small ones quicker (as a
+         * bubble's Minnaert ring does). They come at random, DENSITY a second, more with each note; A: one at each rise */
+        float rate = W->c1[i], spr = W->c2[i], dt = W->dt, mid = K->hz * 4.0f * (bc ? fm_exp2f(pb[j1] * kb_ * 5.0f) : 1.0f);
+        float *ph = &s->z[0], *am = &s->z[4], *in = &s->ph;   /* (each bubble's phase, its level, its step: ph y s1 s2) */
+        int k;
+        for (j = j1; j < j2; j++) {
+            int hit = xs_uni(&s->rng) < rate * dt || trg[j] > 0.0f || (ac && wrise(WA, &s->prevb, 0.5f));
+            float o = 0.0f;
+            if (hit) {                                  /* (into the quietest) */
+                int q = 0;
+                float f;
+                for (k = 1; k < 4; k++)
+                    if (am[k] < am[q])
+                        q = k;
+                f = mid * fm_exp2f((xs_uni(&s->rng) * 2.0f - 1.0f) * spr);
+                f = clampf(f, 60.0f, wf_top(W, 9000.0f));
+                in[q] = f * dt;
+                ph[q] = 0.0f;
+                am[q] = 0.3f + 0.7f * xs_uni(&s->rng);
+            }
+            for (k = 0; k < 4; k++) {
+                float st = in[k];
+                if (am[k] < 0.0005f)
+                    continue;
+                o += am[k] * fm_sin_turns(ph[k]);
+                ph[k] += st;
+                if (ph[k] >= 1.0f)
+                    ph[k] -= 1.0f;
+                am[k] *= 1.0f - st * (1.0f / 30.0f);   /* (about 30 cycles to die away) */
+                in[k] = st * (1.0f + st * am[k] * 0.012f);   /* (and rising as it rings, less as it fades) */
+            }
+            yo[j] = wq_clip(o * 0.7f);
+        }
+        return;
+    }
+}
+
 static const wk_fn wk_tab[WO_N] = {
     [WO_PHASE] = wk_phase,
     [WO_WAVE] = wk_wave,
@@ -2314,6 +2398,8 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_LOCATE] = wk_locate,
     [WO_VCA] = wk_vca,
     [WO_ENV] = wk_env,
+    [WO_VCFQ] = wk_vcfq,
+    [WO_BUBBLES] = wk_bubbles,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,
