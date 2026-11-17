@@ -1,0 +1,125 @@
+# ANALOG: the STEPS page's steps as an analog sequencer: SEQ switches the views; the white keys switch steps
+# on and off; K1-K4 the pitch faders of four steps, SELECT which four (then the pages either side); a step
+# held and a knob turned: its GATE (velocity); OCT: the 16-step pages
+wait 300
+settp 1 LENGTH 32
+tap SEQ
+wait 150
+expect page STEPS
+tap SEQ
+wait 150
+expect page ANALOG
+shot analog0.png
+tapkey 0
+wait 100
+expect stepnote 1 1 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+wait 100
+expect stepnote 1 1 65
+turn K4 -1
+wait 60
+turn K4 -1
+wait 60
+turn K4 -1
+wait 60
+wait 100
+tapkey 6
+wait 100
+expect stepnote 1 4 57
+# the second four: steps 5-8
+turn SELECT 1
+wait 100
+expect page ANALOG
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+wait 100
+tapkey 7
+wait 100
+expect stepnote 1 5 67
+# step 1 held, a knob: its GATE; let go: still on (no tap)
+key 0 down
+wait 50
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+turn K3 -1
+wait 60
+wait 100
+shot analog1.png
+key 0 up
+wait 100
+expect stepnote 1 1 65
+expect stepvel 1 1 90
+# past the fourth four: the page after; back: the fourth four
+turn SELECT 2
+wait 100
+expect page ANALOG
+turn SELECT 1
+wait 100
+expect page TEMPO
+turn SELECT -1
+wait 100
+expect page ANALOG
+turn K1 1
+wait 60
+turn K1 1
+wait 60
+wait 100
+tapkey 21
+wait 100
+expect stepnote 1 13 62
+# OCT+: steps 17-32
+tap OCT+
+wait 100
+turn SELECT -3
+wait 100
+turn K1 1
+wait 60
+wait 100
+tapkey 0
+wait 100
+expect stepnote 1 17 61
+tap PLAY
+wait 600
+shot analog2.png
+tap PLAY
+# SEQ: back to STEPS
+tap SEQ
+wait 150
+expect page STEPS

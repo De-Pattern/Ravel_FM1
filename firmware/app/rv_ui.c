@@ -44,7 +44,7 @@ static const char *const sec_names[NSEC] = {"HOME", "VOICE", "ARTICULATION", "MO
 static const uint8_t sec_button[NSEC] = {B_HOME, B_EDIT, B_ENV, B_LFO, B_FX, B_SCL, B_ARP, B_SEQ, B_GLO, B_SAVE};
 
 /* knob bindings: what a knob in the row stands for */
-enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN, K_LP, K_WF, K_CHN };   /* K_CHN: CHAIN (CORD, TO, CHANCE, START, RESTART) */   /* K_WF: WEFT (rv_weft.c): the patch, a block, the map */   /* K_LP: LOOP TRIGS (LANE, TRIG, RANGE) */   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
+enum { K_NONE, K_TP, K_GP, K_STEP, K_ROUTE, K_MAT, K_MACRO, K_ARR, K_ARC, K_LIB, K_TLEVEL, K_SAVE, K_CZ, K_LANE, K_LFOR, K_OSC, K_BANK, K_EUC, K_STRESS, K_LRN, K_LP, K_WF, K_CHN, K_ANA };   /* K_ANA: ANALOG, its four faders (a step held: its GATE) */   /* K_CHN: CHAIN (CORD, TO, CHANCE, START, RESTART) */   /* K_WF: WEFT (rv_weft.c): the patch, a block, the map */   /* K_LP: LOOP TRIGS (LANE, TRIG, RANGE) */   /* K_LRN: MIDI LEARN (LEARN, DELETE, CLEAR ALL) */   /* K_STRESS: the stress test (STEP, ENGINE, AUTO) */   /* K_EUC: EUCLID, HITS and ROTATE */   /* K_LFOR, K_OSC: resolved by page_knob() */
 /* K_LANE: a KIT lane's settings (the lane chosen on the top-row buttons or black keys 3-8) */
 enum { LF_SEL, LF_MACH, LF_P0, LF_LEVEL = LF_P0 + 8, LF_LEN, LF_CHANCE, LF_RATE, LF_QUANT, LF_NONE, LF_SLOT0 };   /* LF_QUANT: rv.kit_quant */   /* LF_SLOT0-3: a LANE page's knobs, by row */
 /* K_CZ ids: line << 8 | envelope << 4 | field (the wave fields have no envelope) */
@@ -58,7 +58,7 @@ typedef struct { uint8_t kind; uint16_t id; } kb_t;
 
 /* pictures */
 enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_MIX, PIC_ENV, PIC_LIB, PIC_MATRIX,
-       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CHANCE, PIC_CHAIN, PIC_CPU, PIC_CPU2, PIC_STRESS, PIC_MASTER, PIC_SCALE,
+       PIC_LFO1, PIC_LFO2, PIC_DUST, PIC_MACRO, PIC_FB, PIC_DELAY, PIC_SPACE, PIC_BED, PIC_EUCLID, PIC_CHANCE, PIC_CHAIN, PIC_ANALOG, PIC_CPU, PIC_CPU2, PIC_STRESS, PIC_MASTER, PIC_SCALE,
        PIC_STEPS, PIC_GRAPH, PIC_MOTION, PIC_MIXER, PIC_MUTES, PIC_SCENES, PIC_ARR, PIC_ARCS, PIC_CLOCK, PIC_SAVE,
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB, PIC_WEFTRATE };
 /* when a page shows */
@@ -266,6 +266,8 @@ static struct {
     int8_t srec_t;                  /* step recording on this track (-1: off) */
     uint8_t wf_blk, wf_map;         /* WEFT: the block on PATCH and BLOCK, the knob on MAP */
     uint8_t chn_cord;
+    uint8_t ana_bank;               /* ANALOG: which four of the page's 16 steps the knobs move (0..3) */
+    uint8_t analog;                 /* ANALOG: the STEPS page as an analog sequencer (SEQ on STEPS) */
     uint8_t keys_play;              /* REC + SEQ: on the SEQ pages the keys play (as with REC armed), not recording */               /* CHAIN: which of the chosen lane's cords the knobs set */
     uint8_t wf_list, wf_lpos;       /* WEFT PATCH, EDIT held and TYPE turned: the list of blocks open, and where in it */
     uint8_t wl_sel, wl_cursor;      /* WEFT LIBRARY: the entry chosen, the name's cursor */
@@ -637,9 +639,17 @@ static const uint8_t *osc_mix_map(int eng)
 }
 
 /* a page's knob, with the indirect ones resolved: LFO SHAPE's row, OSC MIX's engine */
+static const page_t *cur_page(void);
+static int analog_on(void);
+const char *ui_page_title(void);
 static kb_t page_knob(const page_t *pg, int i)
 {
     kb_t k = pg->k[i];
+    if (pg == cur_page() && analog_on()) {            /* ANALOG: the four pitch faders (a step held: its GATE) */
+        k.kind = K_ANA;
+        k.id = (uint8_t)i;
+        return k;
+    }
     if (k.kind == K_LFOR) {
         static const uint8_t g[2][3] = {{GP_LFO1SYM, GP_LFO1PHASE, GP_LFO1MODE}, {GP_LFO2SYM, GP_LFO2PHASE, GP_LFO2MODE}};
         k.kind = K_GP;
@@ -673,6 +683,10 @@ static kb_t page_knob(const page_t *pg, int i)
     return k;
 }
 
+static int note_track_ui(int t);
+/* ANALOG: the STEPS page seen as an analog sequencer (SEQ on STEPS turns it on and off): 16 pitch faders over gate
+ * faders and on/off switches, the knobs on four at a time (SELECT: which four), a step held: its GATE (velocity) */
+static int analog_on(void);
 static int page_visible(int i)
 {
     int t = ui.track, kind = rv.tp[t][TP_KIND];
@@ -1099,6 +1113,22 @@ static RV_SMALL kinfo_t kb_info(kb_t k)
                 : k.id == 7 ? bufs : k.id == 9 ? scr : k.id == 10 ? runs : onoff;
         break;
     }
+    case K_ANA: {                              /* ANALOG: a pitch fader (a step held: its GATE fader) */
+        static char an[12];
+        int si = ui.step_page * 16 + (ui.ana_bank & 3) * 4 + k.id;
+        an[0] = 0;
+        if (held_step() >= 0) {
+            sx_cat(an, "GATE ");
+            sx_int(an + 5, held_step() + 1);
+        } else {
+            sx_cat(an, "STEP ");
+            sx_int(an + 5, si + 1);
+        }
+        r.name = an;
+        r.max = 127;
+        r.fmt = PF_NUM;
+        break;
+    }
     case K_CHN: {                              /* CHAIN: CORD, TO, CHANCE, START, RESTART */
         static const char *const cords[] = {"1", "2", "3"}, *const rst[] = {"LOOP", "QUIET", "ONCE"};
         static const char *lanes[RV_LANES + 1];
@@ -1394,6 +1424,8 @@ static RV_SMALL int kb_get(kb_t k)
     case K_STRESS: return k.id == 0 ? ui.st_step : k.id == 1 ? ui.st_eng : k.id == 2 ? ui.st_auto : k.id == 3 ? rv_live.cores2
                         : k.id == 5 ? ui.cpu_view : k.id == 6 ? !rv_live.skip_off : k.id == 7 ? rv_live.buf_safe : k.id == 8 ? !rv_live.guard_off
                         : k.id == 9 ? rv_live.ui_freeze : k.id == 10 ? ui.core_test : rv_live.fetch_on;
+    case K_ANA:
+        return held_step() >= 0 ? step_ptr(held_step())->vel : step_ptr(ui.step_page * 16 + (ui.ana_bank & 3) * 4 + k.id)->note;
     case K_CHN: {
         int l = ui.lane[ui.track] % RV_LANES, c = ui.chn_cord % CHN_CORDS;
         return k.id == 1 ? c : k.id == 2 ? rv_chain_get(ui.track, CHN_TO(l, c), 3) % (RV_LANES + 1) : k.id == 3 ? clampi(rv_chain_get(ui.track, CHN_PCT(l, c), 7), 0, 100)
@@ -1819,6 +1851,18 @@ static RV_SMALL void kb_set(kb_t k, int v)
             ui.st_built = 255;                         /* the same step again, with this engine */
         ui.st_turn = plat_ms();
         break;
+    case K_ANA: {                              /* a pitch fader moves the step's note (on or off, it keeps it); a step
+                                                * held: its GATE, the velocity (0: it rests) */
+        int hs = held_step();
+        rv_step *sp = step_ptr(hs >= 0 ? hs : ui.step_page * 16 + (ui.ana_bank & 3) * 4 + k.id);
+        if (hs >= 0)
+            sp->vel = (uint8_t)v;
+        else {
+            sp->note = (uint8_t)v;
+            sp->flags &= (uint8_t)~ST_JUMP;
+        }
+        break;
+    }
     case K_CHN: {
         int l = ui.lane[ui.track] % RV_LANES, c = ui.chn_cord % CHN_CORDS;
         if (k.id == 1)
@@ -2031,7 +2075,7 @@ static RV_SMALL void kb_format(kb_t k, int v, char *o)
         rv_param_format(PID_G(k.id), v, o, 12);
         return;
     }
-    if (k.kind == K_STEP && k.id == SF_NOTE) {
+    if ((k.kind == K_STEP && k.id == SF_NOTE) || (k.kind == K_ANA && held_step() < 0)) {
         sx_note(o, v);
         return;
     }
@@ -2336,7 +2380,7 @@ static RV_SMALL void knob_turn(int i, int d)
         ui.turned_ms[i] = plat_ms();
         return;
     }
-    if (k.kind == K_STEP && held >= 0)
+    if ((k.kind == K_STEP || k.kind == K_ANA) && held >= 0)
         ui.step_turned = 1;
     {
         int gp = (int)(cur_page() - pages), nv = kb_get(k) + d;
@@ -2800,8 +2844,26 @@ static void save_do(void)
     ui.save_confirm = 0;
 }
 
+static int strcmp_p(const char *a, const char *b)  /* (0: the same) */
+{
+    while (*a && *a == *b)
+        a++, b++;
+    return *a != *b;
+}
+
+static int analog_on(void)
+{
+    const page_t *pg = cur_page();
+    return ui.analog && ui.sec == SEC_SEQ && pg->pic == PIC_STEPS && !strcmp_p(pg->title, "STEPS") && note_track_ui(ui.track) && !chance_ui(ui.track);
+}
+
 static void section_open(int s)
 {
+    if (ui.sec == s && s == SEC_SEQ && cur_page()->pic == PIC_STEPS && !strcmp_p(cur_page()->title, "STEPS") && note_track_ui(ui.track)) {
+        ui.analog ^= 1;                               /* SEQ on STEPS: the other view of the same steps */
+        ui.ana_bank = 0;
+        return;
+    }
     if (ui.sec == s) {                        /* tapping the section's button again: the next page */
         uint8_t list[SEC_PAGES_MAX];
         int n = sec_page_list(s, list), p = n ? (ui.page[s] + 1) % n : 0;
@@ -3684,11 +3746,19 @@ RV_SMALL void ui_input_only(void)
             key_event(i, (keys >> i) & 1);
     ui.prev_keys = keys;
     d = plat_enc(EN_SELECT);
-    if (d) {
+    while (d) {                                       /* (ANALOG: its four banks of faders, between STEPS and the page after) */
         uint8_t list[SEC_PAGES_MAX];
-        int n = sec_page_list(ui.sec, list);
+        int n = sec_page_list(ui.sec, list), one = d > 0 ? 1 : -1, was = analog_on();
+        if (was && ui.ana_bank + one >= 0 && ui.ana_bank + one <= 3) {
+            ui.ana_bank = (uint8_t)(ui.ana_bank + one);
+            d -= one;
+            continue;
+        }
         if (n)
-            ui.page[ui.sec] = (uint8_t)clampi(ui.page[ui.sec] + d, 0, n - 1);
+            ui.page[ui.sec] = (uint8_t)clampi(ui.page[ui.sec] + one, 0, n - 1);
+        if (!was && analog_on())
+            ui.ana_bank = (uint8_t)(one > 0 ? 0 : 3);  /* (in from the left: the first four; from the right: the last) */
+        d -= one;
     }
     d = plat_enc(EN_ALGO);
     if (d && held_step() >= 0)
@@ -3769,7 +3839,6 @@ static const char *sound_name(int t)
 static void draw_top(void)
 {
     char b[24];
-    const page_t *pg = cur_page();
     int t = ui.track, x;
     g_fill(0, 0, 240, 22, C_BG);
     g_rbox(4, 3, 21, 16, 4, kind_dcol(t), 1);         /* the track's badge, in its kind's deep colour */
@@ -3790,7 +3859,7 @@ static void draw_top(void)
         /* the audio load, where the platform measures it (the FM-1): a thin bar and the percent,
          * held for a moment at its peak so a spike can be read */
         static uint32_t hold, hold_ms;
-        uint32_t cpu = plat_cpu_pct(), tw = (uint32_t)g_text_w(&FONT_B, pg->title);
+        uint32_t cpu = plat_cpu_pct(), tw = (uint32_t)g_text_w(&FONT_B, ui_page_title());
         if (seq_keys_play(t)) {                       /* the SEQ pages' keys play: a KEYS badge by the title (teal: REC + SEQ; red: REC armed) */
             int bw = g_text_w(&FONT_T, "KEYS") + 8, bx = 236 - (int)tw - 6 - bw;
             uint16_t bc = ui.armed ? C_RED : C_TEAL;
@@ -3817,7 +3886,7 @@ static void draw_top(void)
             }
         }
     }
-    g_text_r(236, 4, &FONT_B, pg->title, C_INK);
+    g_text_r(236, 4, &FONT_B, ui_page_title(), C_INK);
 }
 
 /* one knob: a small dial in its colour, its name, its value, and a bar in its colour (bipolar ones
@@ -3939,7 +4008,11 @@ static void draw_footer(void)
     const page_t *pg = cur_page();
     g_fill(0, FOOT_Y - 2, 240, 26, C_BG);
     g_hline(6, FOOT_Y - 2, 228, C_LINE);
-    switch (pg->pr) {
+    if (analog_on())                                  /* ANALOG: what everything does, with the step held or not */
+        hint = held_step() >= 0 ? "HOLD STEP + KNOB: ITS GATE"
+               : seq_keys_play(ui.track) ? (ui.armed ? "KEYS PLAY  HOLD SEQ: STEPS" : "KEYS PLAY  REC+SEQ: STEPS")
+               : "KEYS: ON/OFF  SELECT: BANK";
+    else switch (pg->pr) {
     case PR_ROUTE: hint = "PRESETS: TARGET  ALGO: SOURCE"; break;
     case PR_MAT: hint = "PRESETS: SLOT"; break;
     case PR_MACRO: hint = "PRESETS: DEST  HOLD LFO: MACROS"; break;
@@ -5099,6 +5172,72 @@ static RV_SMALL void chance_commit(int t)
     rv.pat_cur[t] = (uint8_t)q;
     seqmode_set(t, SEQ_STEPS);
     msg(q ? "PHRASE IN PATTERN B: STEPS" : "PHRASE IN PATTERN A: STEPS");
+}
+
+/* ANALOG: the page's 16 steps as an analog sequencer's panel: a pitch fader each (its cap at the note, C1 to C7),
+ * a short GATE fader under it (the velocity), an on/off switch under that (lever up: it plays); the four the knobs
+ * move bracketed in their colours, the step playing marked, the step held ringed */
+static RV_SMALL void pic_analog(void)
+{
+    int t = ui.track, len = clampi(rv.tp[t][TP_LEN], 1, 64), play = rv_live.step[t][0], held = held_step(), i;
+    int bk = ui.ana_bank & 3, pages_n = (len + 15) / 16;
+    const rv_pattern *p = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS];
+    uint16_t col = kind_dcol(t);
+    char b[40];
+    b[0] = 0;
+    sx_cat(b, "STEPS ");
+    sx_int(b + sx_cat(b, ""), ui.step_page * 16 + bk * 4 + 1);
+    sx_cat(b, "-");
+    sx_int(b + sx_cat(b, ""), ui.step_page * 16 + bk * 4 + 4);
+    sx_cat(b, "  PAGE ");
+    sx_int(b + sx_cat(b, ""), ui.step_page + 1);
+    sx_cat(b, "/");
+    sx_int(b + sx_cat(b, ""), pages_n);
+    if (pages_n > 1)
+        sx_cat(b, " (OCT)");
+    g_text(8, PIC_Y, &FONT_T, b, C_INK);
+    for (i = 0; i < 16; i++) {
+        int si = ui.step_page * 16 + i, x = 8 + i * 14, inb = i / 4 == bk, on;
+        const rv_step *st = &p->s[si];
+        int ny = PIC_Y + 84 - clampi(st->note - 24, 0, 72), vh = st->vel * 18 / 127;
+        uint16_t kc = inb ? knob_col[i & 3] : C_LINE;
+        if (si >= len) {                              /* (past the track's LENGTH: dark) */
+            g_vline(x + 6, PIC_Y + 12, 72, C_BG);
+            continue;
+        }
+        on = (st->flags & ST_ON) != 0;
+        if (inb)                                      /* the four on the knobs: a bracket in each knob's colour */
+            g_hline(x + 1, PIC_Y + 11, 11, kc), g_hline(x + 1, PIC_Y + 12, 11, kc);
+        g_vline(x + 6, PIC_Y + 15, 70, C_LINE);       /* the pitch fader's slot, and its cap */
+        g_rbox(x + 2, ny - 2, 9, 5, 1, on ? (inb ? kc : C_INK) : inb ? g_mix(kc, C_BG, 0.55f) : C_LINE, 1);
+        g_vline(x + 6, PIC_Y + 90, 18, C_LINE);       /* the GATE fader: the velocity */
+        g_rbox(x + 4, PIC_Y + 108 - vh, 5, vh > 1 ? vh : 1, 1, held == si ? C_WHITE : g_mix(col, C_INK, 0.3f), 1);
+        g_rbox(x + 3, PIC_Y + 112, 7, 12, 2, on ? g_mix(col, C_INK, 0.5f) : C_LINE, 0);   /* the switch: lever up, it plays */
+        g_fill(x + 5, on ? PIC_Y + 114 : PIC_Y + 118, 3, 4, on ? C_WHITE : C_DIM);
+        if (si == play)
+            g_hline(x + 2, PIC_Y + 127, 9, C_WHITE);
+        if (held == si)
+            g_rbox(x, PIC_Y + 13, 13, 114, 3, C_WHITE, 0);
+    }
+    if (held >= 0) {                                  /* the held step, said */
+        b[0] = 0;
+        sx_cat(b, "STEP ");
+        sx_int(b + 5, held + 1);
+        sx_cat(b, " GATE ");
+        sx_int(b + sx_cat(b, ""), p->s[held].vel);
+        g_text_c(120, PIC_Y + 129, &FONT_T, b, C_WHITE);
+    } else {
+        sx_note(b, p->s[ui.step_page * 16 + bk * 4].note);
+        b[0] = 0;
+        for (i = 0; i < 4; i++) {
+            char nb[6];
+            sx_note(nb, p->s[ui.step_page * 16 + bk * 4 + i].note);
+            sx_cat(b, nb);
+            if (i < 3)
+                sx_cat(b, "  ");
+        }
+        g_text_c(120, PIC_Y + 129, &FONT_T, b, C_DIM);
+    }
 }
 
 /* CHAIN: the six lanes round an oval, their cords between them (the chosen lane's brighter, with their
@@ -6831,11 +6970,14 @@ static RV_SMALL void draw_picture(void)
     case PIC_STRESS: pic_stress(); break;
     case PIC_EUCLID: pic_euclid(); break;
     case PIC_CHAIN: pic_chain(); break;
+
     case PIC_CHANCE: pic_chance(); break;
     case PIC_SCALE: pic_scale(); break;
     case PIC_STEPS:
         if (chance_ui(ui.track))                     /* (TRACK on a CHANCE track: the phrase) */
             pic_chance();
+        else if (analog_on())
+            pic_analog();
         else
             pic_steps();
         break;
@@ -7140,7 +7282,7 @@ void ui_notice(const char *title, const char *l1, const char *l2, const char *l3
 int ui_section(void) { return ui.sec; }
 int ui_step_cur(void) { return ui.step_cur; }   /* (the scenarios: the step on the knobs) */
 int ui_track(void) { return ui.track; }
-const char *ui_page_title(void) { return cur_page()->title; }
+const char *ui_page_title(void) { return analog_on() ? "ANALOG" : cur_page()->title; }
 const char *ui_msg_text(void) { return ui.msg_until && (int32_t)(ui.msg_until - plat_ms()) > 0 ? ui.msg : ""; }
 const char *ui_sound_name(int t) { return sound_name(t & 7); }
 /* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */

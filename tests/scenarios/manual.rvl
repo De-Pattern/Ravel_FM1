@@ -166,7 +166,6 @@ wait 150
 expect page STEPS
 wait 600
 shot seq-steps.png
-tap SEQ
 turn SELECT -20
 turn SELECT 1
 wait 150

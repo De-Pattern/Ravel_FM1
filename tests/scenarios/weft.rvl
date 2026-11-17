@@ -288,6 +288,11 @@ key 12 up
 wait 600
 turn PRESET 1
 wait 100
+expect wtype 1 1 23
+expect wtype 1 2 74
+expect wtype 1 5 75
+turn PRESET 1
+wait 100
 expect wtype 1 1 2
 expect wtype 1 5 0
 turn SELECT 1

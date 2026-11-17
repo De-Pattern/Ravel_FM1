@@ -45,6 +45,7 @@
  *   expect slotused N 0|1         project slot N (1..32) is empty or saved
  *   expect steps T N              track T (1..8) has N steps on in its current pattern
  *   expect stepnote T S NOTE      track T's step S (1..64) plays NOTE (-1: the step is off)
+ *   expect stepvel T S V          track T's step S has velocity V (on or off)
  *   expect stepchord T S N        track T's step S has N notes (1..4)
  *   expect matdst K NAME          matrix row K (1..8) moves NAME ("T1 HITS")
  *   expect ons T LO HI            the sequencer started from LO to HI notes on track T since "ons 0"
@@ -616,6 +617,10 @@ int main(int argc, char **argv)
                 int tt = atoi(w1) - 1;
                 const rv_step *ss = &rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)];
                 got = (ss->flags & ST_ON) ? ss->note : -1;
+                want = atoi(w3);
+            } else if (!strcmp(b, "stepvel")) {              /* track T's step S: its velocity (on or off) */
+                int tt = atoi(w1) - 1;
+                got = rv.pat[tt & 7][rv.pat_cur[tt & 7] % RV_PATTERNS].s[(atoi(w2) - 1) & (RV_STEPS - 1)].vel;
                 want = atoi(w3);
             } else if (!strcmp(b, "ons")) {                  /* notes started on track T: from LO to HI */
                 int lo = atoi(w2), hi = atoi(w3), n = (int)rv_dbg_ons[(atoi(w1) - 1) & 7];

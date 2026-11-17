@@ -1,7 +1,89 @@
 # The manual's screenshots of CHANCE, CHAIN and the SEQ pages' KEYS (copied to docs/manual/)
 wait 300
+# ANALOG: a pattern of five, the faders set, playing
 tap SEQ
 wait 150
+tap SEQ
+wait 150
+expect page ANALOG
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn SELECT 1
+wait 60
+turn K1 -1
+wait 40
+turn K1 -1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn K3 1
+wait 40
+turn SELECT 1
+wait 60
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+tapkey 0
+wait 60
+tapkey 4
+wait 60
+tapkey 7
+wait 60
+tapkey 11
+wait 60
+tapkey 14
+wait 60
+turn SELECT -2
+wait 60
+tap PLAY
+wait 900
+shot seq-analog.png
+tap PLAY
+wait 100
+tap SEQ
+wait 150
+expect page STEPS
 turn SELECT 5
 wait 150
 expect page TRACK
