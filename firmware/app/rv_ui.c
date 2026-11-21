@@ -4586,9 +4586,12 @@ static void pic_skin(void)
 static void pic_insert(void)
 {
     int t = ui.track;
-    static const char *const d[INS_N] = {"NO INSERT", "COMB: TUNE IS ITS NOTE", "FREQ SHIFT, -200..+200 HZ",
-                                         "CRUSH: RATE AND BITS", "SMEAR: FOUR ALLPASSES"};
-    g_text(8, PIC_Y + 6, &FONT_B, d[clampi(rv.tp[t][TP_INS], 0, INS_N - 1)], C_INK);
+    static const char *const d[] = {"NO INSERT", "COMB: TUNE IS ITS NOTE", "FREQ SHIFT, -200..+200 HZ",
+                                    "CRUSH: RATE AND BITS", "SMEAR: FOUR ALLPASSES",
+                                    "TAPE: WOW, WEAR, HISS"};
+    _Static_assert(sizeof d / sizeof d[0] == INS_N, "a line for every INSERT");
+    const char *s = d[clampi(rv.tp[t][TP_INS], 0, INS_N - 1)];
+    g_text(8, PIC_Y + 6, &FONT_B, s ? s : "", C_INK);   /* (an insert added without its line shows none, not a fault) */
     pic_scope(t, PIC_Y + 30, 100, C_TEAL);
 }
 

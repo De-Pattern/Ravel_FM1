@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.43.2
+
+Fixed
+- Choosing TAPE on EDIT › INSERT crashed the FM-1 (red screen): the page had no description line for TAPE. It now reads "TAPE: WOW, WEAR, HISS", and the build checks every insert has one.
+
 ## 1.43.1
 
 Changed

@@ -1,0 +1,10 @@
+# INSERT page with every insert shown: TAPE once had no line on this page, and drawing it faulted the unit (1.43.0, 1.43.1)
+wait 300
+tap EDIT
+turn SELECT -20
+turn SELECT 9
+wait 150
+expect page INSERT
+settp 1 INSERT 5
+wait 200
+expect tp 1 INSERT 5
