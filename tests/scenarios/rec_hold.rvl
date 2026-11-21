@@ -1,0 +1,25 @@
+# Recording while it plays: a key held long sounds for as long as it's held, even when it lands on a step just
+# recorded (the step isn't played over the held key, whose own note-off would cut it short), across the loop too
+wait 300
+tap SEQ
+wait 100
+tap REC
+tap PLAY
+wait 1090
+key 12 down
+wait 600
+key 16 down
+wait 200
+key 12 up
+wait 3000
+key 16 up
+wait 300
+key 19 down
+wait 400
+expect meter_min 1 0.003
+wait 1000
+expect meter_min 1 0.003
+wait 2000
+expect meter_min 1 0.003
+key 19 up
+wait 500

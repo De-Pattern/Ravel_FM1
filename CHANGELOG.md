@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.44.1
+
+Fixed
+- Recording while it plays cut a held note short: a key held on a step it had just written (it rounds to the nearest step, often the next one) was played over by that step a moment later, and the step's own note-off ended the held note. A step whose key is still down is now left to the key, so a note sounds for as long as you hold it and is written with that length, across the loop too.
+
 ## 1.44.0
 
 Added

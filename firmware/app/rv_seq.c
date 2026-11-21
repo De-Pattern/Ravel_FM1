@@ -709,6 +709,7 @@ static RV_SMALL void chain_fire(int t, int si, uint32_t when)
     chn_next[t] = (uint8_t)nx;
 }
 
+static int rec_key_down(int t, int si);
 static void step_fire(int t, int h, int si, uint32_t when)
 {
     rv_step *s = is_chance(t) ? &ch_step : &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[si];   /* (CHANCE: the step it decided) */
@@ -753,6 +754,9 @@ static void step_fire(int t, int h, int si, uint32_t when)
     }
     if (!(s->flags & ST_ON))
         return;
+    if (h == 0 && rec_key_down(t, si))
+        return;                                       /* being recorded, its key still down: the key is playing it (the step's own
+                                                       * note-off would cut the held note short) */
     if (!cond_pass(s, t))
         return;
     if (rv.tp[t][TP_KIND] == KIND_LOOP) {             /* a LOOP track: its record and play trigs (chance and conditions apply) */
@@ -1931,6 +1935,18 @@ static void take_now(void)
     __builtin_memset(&take_pat, 0, sizeof take_pat);
     __builtin_memset(take_when, 0, sizeof take_when);
     rv_live.take_res = (uint8_t)(n + 1 > 255 ? 255 : n + 1);
+}
+
+/* a step written by recording whose key is still held (while recording that track) */
+static int rec_key_down(int t, int si)
+{
+    int k;
+    if (!rv_live.recording || rv_live.rec_track != t)
+        return 0;
+    for (k = 0; k < 16; k++)
+        if (sq[t].held_note[k] == si)
+            return 1;
+    return 0;
 }
 
 static void record_note(int t, int note, int vel)
