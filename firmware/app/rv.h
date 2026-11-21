@@ -517,6 +517,7 @@ void rv_pattern_clear(int t);
 int rv_kitlock_find(int t, int pat, int step, int lane, int field);   /* index, or -1 */
 int rv_kitlock_set(int t, int pat, int step, int lane, int field, int v);   /* 0: the table is full */
 void rv_kitlock_clear(int t, int pat, int step, int lane);
+void rv_step_move(int t, int from, int to);       /* a step and its locks to another place (from: left empty) */
 void rv_pattern_copy(int t);                    /* the current pattern onto the clipboard */
 int rv_pattern_paste(int t);                    /* 0, or -1 nothing copied, -2 kit and notes don't mix */   /* lane -1: every lane */
 void rv_track_set_kind(int t, int kind);           /* KIND changed: defaults, and steps cleared when lanes and notes swap */

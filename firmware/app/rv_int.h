@@ -56,13 +56,13 @@ typedef struct {
 /* PIANO: a grand's strings as waveguides (one string in the low bass, two above), each a loop of tape in buf
  * (its own part: base, size) read back through two allpasses that stretch its partials as a piano string's
  * stiffness does (ap), a fractional delay (fr) and its loss (lp); the felt hammer's stroke (exc_*), the
- * key's thump and the dampers' noise (nz), the soundboard (bd) */
+ * key's thump and the dampers' noise (nz), the soundboard (bd); the recorded hammer strike laid over it (atk_*) */
 #define PN_BUF 1920
 typedef struct {
     int16_t buf[PN_BUF];
     int16_t base[2], size[2], w[2];
     float ap[2][2], fr[2], lp[2];
-    float det[2], exc_t, exc_len, exc_amp, exc_pos, hard, thump, offn, nlp, dc, held;
+    float det[2], exc_t, exc_len, exc_amp, exc_pos, hard, thump, offn, nlp, dc, held, atk_pos, atk_rate, atk_amp;
     svf_t nz, bd;
     uint8_t nstr, gate_was;
     uint32_t ns;

@@ -26,6 +26,10 @@ expect page SOURCE 2
 turn SELECT 1
 wait 200
 expect page SOURCE 3
+turn SELECT 1
+wait 200
+expect page SOURCE 4
+expect tp 1 ATTACK 60
 preset 1 11
 wait 50
 expect tp 1 FELT 105

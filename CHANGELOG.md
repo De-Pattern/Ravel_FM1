@@ -3,6 +3,13 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.45.0
+
+Added
+- Moving steps: hold a step key and tap another, and the step moves there with its chord, timing and locks (a kit's whole step); hold a step key and turn PRESETS to nudge it a step left or right.
+- Auditioning steps: stopped, hold a step key a moment and it plays its note and chord until you let go (a quick tap still toggles it).
+- PIANO is now a hybrid: ATTACK lays a recording of a real grand's hammer strike (25 ms, from the Salamander Grand Piano, CC-BY 3.0) over the modelled strings' start. On SOURCE 4; softer with FELT, louder when played hard.
+
 ## 1.44.1
 
 Fixed

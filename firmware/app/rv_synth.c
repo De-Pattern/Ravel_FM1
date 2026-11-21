@@ -622,7 +622,9 @@ RV_INL void cz_render(voice_t *v, const float *eff, float f, float *out, int n, 
  * the damper stops it, unless PEDAL holds them off (half way: a half pedal), and the top octave and a
  * half has no dampers. THUMP is the key and hammer's knock at the start (louder with FELT, as on a felt
  * piano), KEY OFF the damper's soft noise as it lands, BODY the soundboard's warmth, DYNAMC how much
- * harder playing brightens the tone as well as its level. */
+ * harder playing brightens the tone as well as its level. ATTACK lays a recording of a real grand's hammer strike
+ * (25 ms of its bite and knock, above the strings' low partials) over the start of each note: the modelled
+ * strings and a sampled attack, as hybrid pianos do. */
 static float pn_atan(float x)                         /* (within about 1e-5) */
 {
     float a = fm_fabsf(x), z, r;
@@ -638,6 +640,7 @@ static float pn_atan(float x)                         /* (within about 1e-5) */
 /* a first-order allpass's delay at w radians a sample, in samples (sw, cw: w's sine and cosine) */
 static float pn_apd(float a, float w, float sw, float cw) { return 1.0f - 2.0f * pn_atan(a * sw / (1.0f + a * cw)) / w; }
 #define PN_DAMPED 89
+#include "rv_pnatk.h"                                 /* (ATTACK: a real grand's hammer strike, 25 ms, tools/make_piano_attack.py) */
 #define PN_ECHO 0.45f                                 /* (how much of the stroke comes back from the near end: the partials it misses, not quite gone) */
 static float pn_comb(float wd)                        /* that echo's effect on a partial wd radians out of step: |1 - k e^-jwd| */
 {
@@ -654,7 +657,7 @@ static float pn_hann(float F)
     return 0.5f * fm_sinf(x) / (x * d);
 }                                  /* (F6: the first note with no damper) */
 
-static void piano_note(voice_t *v, const float *eff)
+static RV_SMALL void piano_note(voice_t *v, const float *eff)
 {
     piano_t *s = &v->e.pn;
     float f = note_hz((float)v->note + eff[TP_PITCH]), per = 44100.0f / f, vel = v->vel;
@@ -699,6 +702,9 @@ static void piano_note(voice_t *v, const float *eff)
     }
     s->thump = eff[TP_S8] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * (0.5f + felt) * 1.6f;
     s->offn = s->nlp = s->dc = s->held = 0.0f;
+    s->atk_pos = 0.0f;                                /* the recorded strike: followed half way to the note, darker for FELT */
+    s->atk_rate = 0.5f * fm_exp2f((float)(v->note - 66) * (1.0f / 24.0f));
+    s->atk_amp = eff[TP_S12] * (1.0f / 127.0f) * vel * fm_sqrtf(vel) * (1.0f - 0.85f * felt) * 0.22f * (1.0f / 127.0f);
     s->nz.ic1 = s->nz.ic2 = s->bd.ic1 = s->bd.ic2 = 0.0f;
     s->gate_was = 1;
 }
@@ -720,9 +726,23 @@ static __attribute__((noinline)) float pn_stroke(piano_t *s)
     return e * s->exc_amp;
 }
 
+/* the recorded strike's next sample (out of the render: the pool is short) */
+static __attribute__((noinline)) RV_SMALL float pn_attack(piano_t *s)
+{
+    int i = (int)s->atk_pos;
+    float f = s->atk_pos - (float)i, y;
+    if (i >= PN_ATK_N - 1) {
+        s->atk_pos = (float)PN_ATK_N;
+        return 0.0f;
+    }
+    y = (float)pn_atk[i] + ((float)pn_atk[i + 1] - (float)pn_atk[i]) * f;
+    s->atk_pos += s->atk_rate;
+    return y * s->atk_amp;
+}
+
 /* a block's settings, worked out once a block (out of the render, in flash: the pool is short) */
 typedef struct { float a, c, eta[2], g[2], gain, body, thd, ofd; int dly[2]; } pn_blk_t;
-static __attribute__((noinline)) int piano_block(voice_t *v, const float *eff, float f, int n, pn_blk_t *b)
+static __attribute__((noinline)) RV_SMALL int piano_block(voice_t *v, const float *eff, float f, int n, pn_blk_t *b)
 {
     piano_t *s = &v->e.pn;
     int k, nst = s->nstr == 2 ? 2 : 1;
@@ -837,6 +857,8 @@ RV_INL void piano_render(voice_t *v, const float *eff, float f, float *out, int 
                 wi[k] = 0;
         }
         y *= bk.gain;
+        if (s->atk_pos < (float)PN_ATK_N)             /* ATTACK: the recorded hammer strike, over the strings' start */
+            y += RV_FAR(pn_attack)(s);
         if (s->thump + s->offn > 1e-5f) {             /* the knock and the damper: noise through the wood (only then) */
             nzv = xs_bi(&s->ns) * (s->thump + s->offn);
             s->thump *= bk.thd;

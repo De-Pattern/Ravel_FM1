@@ -285,7 +285,7 @@ static __attribute__((noinline)) RV_SMALL void gtr_note(voice_t *v, const float 
     s->held = 0.0f;
     s->wait = (float)idx * eff[TP_S5] * (0.045f * 44100.0f / 127.0f);   /* up to 45 ms a string */
 }
-static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
+static RV_SMALL void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
 {
     track_t *tr = &trk[t];
     int kind = rv.tp[t][TP_KIND], i, spark = spark_pend;

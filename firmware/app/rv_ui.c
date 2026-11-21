@@ -249,6 +249,12 @@ static struct {
     uint8_t lfo_row;                         /* LFO SHAPE: LFO 1 or LFO 2 on the knobs */
     uint8_t lib_row;                         /* LIBRARY: segment 1-8 on the knobs, or (8) start, time, loop and next */
     uint32_t step_key_held;                  /* step keys held (bit = white key index) */
+    uint32_t step_moved;                     /* step keys whose let-go is nothing: a step moved with them */
+    uint32_t step_ms;                        /* when the step key was pressed (the audition waits a moment) */
+    int8_t held_off;                         /* PRESETS has nudged the held step this far from its key */
+    int8_t aud_step;                         /* the step sounding (audition), -1: none */
+    uint8_t aud_n, aud_done;
+    uint8_t aud_note[4];
     uint8_t step_turned;
     uint8_t key_note[NKEYS];
     uint8_t key_trk[NKEYS];                  /* the track a key's note went to, + 1 (0: the key plays no note) */
@@ -780,10 +786,10 @@ static rv_step *step_ptr(int si)
 
 static int held_step(void)
 {
-    int i;
+    int i, len = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS);
     for (i = 0; i < 16; i++)
         if (ui.step_key_held & (1u << i))
-            return ui.step_page * 16 + i;
+            return ui.held_off ? ((ui.step_page * 16 + i + ui.held_off) % len + len) % len : ui.step_page * 16 + i;
     return -1;
 }
 
@@ -2949,6 +2955,10 @@ static void key_event(int k, int on)
             ui.key_trk[k] = 0;
             return;
         }
+        if (wi >= 0 && (ui.step_moved & (1u << wi))) {   /* (a step moved from here: nothing more) */
+            ui.step_moved &= ~(1u << wi);
+            return;
+        }
         if (wi >= 0) {
             if (ui.step_key_held & (1u << wi)) {   /* a step key: a tap toggles the step */
                 ui.step_key_held &= ~(1u << wi);
@@ -3113,8 +3123,27 @@ static void key_event(int k, int on)
         if (wi >= 0) {
             int si = ui.step_page * 16 + wi;
             if (on) {
+                if (ui.step_key_held && !loop_track_ui(t) && ui.srec_t != t) {   /* a step held, then another: it moves there */
+                    char b[24] = "STEP ";
+                    int from = held_step();
+                    rv_step_move(t, from, si);
+                    ui.step_moved |= ui.step_key_held;
+                    ui.step_key_held = 1u << wi;  /* (now the step held is the moved one, under this key) */
+                    ui.held_off = 0;
+                    ui.step_turned = 1;
+                    ui.aud_done = 1;
+                    ui.step_cur = (int16_t)si;
+                    sx_int(b + 5, from + 1);
+                    sx_cat(b, " > ");
+                    sx_int(b + sx_cat(b, ""), si + 1);
+                    msg(b);
+                    return;
+                }
                 ui.step_key_held |= 1u << wi;
                 ui.step_turned = 0;
+                ui.held_off = 0;
+                ui.aud_done = 0;
+                ui.step_ms = plat_ms();
                 ui.step_cur = (int16_t)si;
                 ui.btn_down_ms[0] = plat_ms();
             }
@@ -3701,8 +3730,40 @@ static void vio_keys(uint32_t struck, uint32_t held)
     rv_live.vheld += (fm_minf(1.0f, (float)n * (1.0f / 6.0f)) - rv_live.vheld) * fm_minf(1.0f, dt * 25.0f);
 }
 
+/* AUDITION: stopped, a step held a moment plays its note (and chord) until it is let go */
+static RV_SMALL void audition(void)
+{
+    int hs = held_step(), t = ui.track, k;
+    if (ui.aud_n && (hs != ui.aud_step || rv_live.playing)) {
+        for (k = 0; k < ui.aud_n; k++)
+            rv_note(t, ui.aud_note[k], 0);
+        ui.aud_n = 0;
+        ui.aud_step = -1;
+    }
+    if (ui.aud_n || ui.aud_done || hs < 0 || rv_live.playing || ui.srec_t == t || is_kit_ui(t) || loop_track_ui(t)
+        || plat_ms() - ui.step_ms < 250u)
+        return;
+    ui.aud_done = 1;
+    {
+        rv_step *s = step_ptr(hs);
+        if (!(s->flags & ST_ON) || rv.tp[t][TP_KIND] == KIND_PERC)
+            return;
+        for (k = 0; k < 4; k++) {
+            int n;
+            if (k && !s->chord[k - 1])
+                continue;
+            n = clampi(rv_quantize_note(s->note + (k ? s->chord[k - 1] : 0) + rv.gp[GP_TRANSPOSE]), 0, 127);
+            ui.aud_note[ui.aud_n++] = (uint8_t)n;
+            rv_note(t, n, clampi(s->vel, 1, 127));
+        }
+        ui.aud_step = (int8_t)hs;
+        ui.step_turned = 1;                           /* (heard, so letting go leaves it on) */
+    }
+}
+
 RV_SMALL void ui_input_only(void)
 {
+    audition();
     uint32_t keys = plat_keys(), btn = plat_buttons(), ch;
     int i, d;
     rv_live.ui_track = ui.track;                      /* (MIDI in plays this track: OMNI, or one channel) */
@@ -3773,6 +3834,20 @@ RV_SMALL void ui_input_only(void)
         }
     }
     d = plat_enc(EN_PRESET);
+    if (d && held_step() >= 0 && !loop_track_ui(ui.track) && ui.srec_t != ui.track) {   /* a step held: PRESETS nudges it */
+        int len = clampi(rv.tp[ui.track][TP_LEN], 1, RV_STEPS), from = held_step(), to = ((from + (d > 0 ? 1 : -1)) % len + len) % len;
+        char b[24] = "STEP ";
+        rv_step_move(ui.track, from, to);
+        ui.held_off = (int8_t)(ui.held_off + (d > 0 ? 1 : -1));
+        ui.step_turned = 1;
+        ui.aud_done = 1;
+        ui.step_cur = (int16_t)to;
+        sx_int(b + 5, from + 1);
+        sx_cat(b, " > ");
+        sx_int(b + sx_cat(b, ""), to + 1);
+        msg(b);
+        d = 0;
+    }
     if (d) {
         int gp = (int)(cur_page() - pages);
         preset_turn(d);

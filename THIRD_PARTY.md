@@ -9,6 +9,7 @@
 | Web installer (Web MIDI) | `web/installer/` | GPL-3.0, Felucca and X0X (branded for Ravel) |
 | Update-path tests | `tests/fm1/` | GPL-3.0, Felucca and X0X |
 | The CZ engine's waveforms, windows, envelope stepping, pitch and level curves and modulation: a port of how MAME's NEC uPD933 device emulates the CZ's sound chip | `firmware/app/rv_synth.c` (the CZ section) | BSD-3-Clause, Copyright Devin Acker (MAME), below |
+| The PIANO's ATTACK: 25 ms of a recorded grand's hammer strike (F#4, velocity layer 12, high-passed, 8-bit) | `firmware/app/rv_pnatk.h` (from `tools/make_piano_attack.py`) | CC-BY 3.0, the Salamander Grand Piano V3 by Alexander Holm (https://archive.org/details/SalamanderGrandPianoV3) |
 | PNG writer of the desktop simulator | `host/ravel_host.c` | GPL-3.0 (from X0X) |
 
 Not in this repository, fetched at build time: JieLi's Linux toolchain (`tools/get_toolchain.sh`) and three files

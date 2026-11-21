@@ -111,7 +111,8 @@ static const rv_pinfo SRC_PIANO[16] = {
     {"FELT", 0, 127, 70, PF_NUM, 0}, {"HAMMER", 0, 127, 55, PF_NUM, 0}, {"DECAY", 0, 127, 75, PF_NUM, 0},
     {"PEDAL", 0, 127, 0, PF_NUM, 0}, {"TONE", 0, 127, 60, PF_NUM, 0}, {"STRETCH", 0, 127, 64, PF_NUM, 0},
     {"UNISON", 0, 127, 45, PF_NUM, 0}, {"STRIKE", 0, 127, 50, PF_NUM, 0}, {"THUMP", 0, 127, 50, PF_NUM, 0},
-    {"KEY OFF", 0, 127, 40, PF_NUM, 0}, {"BODY", 0, 127, 60, PF_NUM, 0}, {"DYNAMC", 0, 127, 80, PF_NUM, 0}};
+    {"KEY OFF", 0, 127, 40, PF_NUM, 0}, {"BODY", 0, 127, 60, PF_NUM, 0}, {"DYNAMC", 0, 127, 80, PF_NUM, 0},
+    {"ATTACK", 0, 127, 60, PF_NUM, 0}};
 /* the slots HYBRID FM's further pages used (format 26 to 27; the synth engines leave them free): cleared */
 static const uint8_t hfm_pid[9] = {TP_WX0, TP_WX1, TP_WX2, TP_WX3, TP_WX4, TP_WX5, TP_VOC, TP_PAIRS, TP_BANDS};
 static const rv_pinfo SRC_PHYS[16] = {

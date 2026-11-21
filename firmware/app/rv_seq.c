@@ -851,7 +851,7 @@ static int track_clocked_by_route(int t)
 }
 
 /* one head moves one step and plays it */
-static void head_advance(int t, int h, uint32_t when)
+static RV_SMALL void head_advance(int t, int h, uint32_t when)
 {
     seqtrk_t *s = &sq[t];
     if (h == 0 && pend_pat[t] >= 0 && !is_graph(t)
@@ -1710,6 +1710,27 @@ void rv_kitlock_clear(int t, int pat, int step, int lane)
             k[i].what = 0xFF;
 }
 
+/* a step moved (hold a step and tap another, or turn PRESETS): the step, its locks and a kit's (kept apart) go to
+ * the other place; what was there goes, and where it came from is left empty */
+RV_SMALL void rv_step_move(int t, int from, int to)
+{
+    int pat = rv.pat_cur[t & 7] % RV_PATTERNS, i;
+    rv_step *p = rv.pat[t & 7][pat].s;
+    from &= 63;
+    to &= 63;
+    if (from == to)
+        return;
+    p[to] = p[from];
+    __builtin_memset(&p[from], 0, sizeof p[from]);
+    if (is_kit(t & 7)) {
+        rv_kitlock *k = rv.kitlk[t & 7];
+        rv_kitlock_clear(t, pat, to, -1);
+        for (i = 0; i < RV_KITLOCKS; i++)
+            if (k[i].what != 0xFF && (k[i].step & 63) == from && ((k[i].step >> 6) & 1) == (pat & 1))
+                k[i].step = (uint8_t)((k[i].step & 64) | to);
+    }
+}
+
 /* COPY marks a pattern; PASTE copies it from where it is (no buffer: RAM is tight), with a kit's locks */
 static int8_t clip_t = -1, clip_p;
 
@@ -1949,7 +1970,7 @@ static int rec_key_down(int t, int si)
     return 0;
 }
 
-static void record_note(int t, int note, int vel)
+static RV_SMALL void record_note(int t, int note, int vel)
 {
     int micro, si, k, shadow = 0;
     rv_step *s, *base;

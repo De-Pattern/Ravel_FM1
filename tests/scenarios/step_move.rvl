@@ -1,0 +1,55 @@
+# The step keys: hold a step and tap another, it moves there (the old place empty, the tap toggles nothing);
+# hold a step and turn PRESETS, it nudges a step at a time (the held key keeps it); stopped, a step held a
+# moment plays its note until it is let go, a quick tap doesn't
+wait 300
+tap SEQ
+wait 100
+expect page STEPS
+key 0 down
+wait 50
+key 0 up
+wait 100
+expect steps 1 1
+expect stepnote 1 1 60
+wait 1500
+key 0 down
+wait 400
+expect meter_min 1 0.002
+key 0 up
+wait 2500
+expect meter_max 1 0.0005
+key 0 down
+wait 60
+key 7 down
+wait 60
+key 7 up
+wait 60
+key 0 up
+wait 100
+expect steps 1 1
+expect stepnote 1 1 -1
+expect stepnote 1 5 60
+key 7 down
+wait 60
+turn PRESET 1
+wait 60
+turn PRESET 1
+wait 60
+key 7 up
+wait 100
+expect steps 1 1
+expect stepnote 1 5 -1
+expect stepnote 1 7 60
+key 11 down
+wait 60
+turn PRESET -1
+wait 60
+key 11 up
+wait 100
+expect steps 1 1
+expect stepnote 1 6 60
+key 9 down
+wait 60
+key 9 up
+wait 100
+expect steps 1 0

@@ -53,16 +53,16 @@ static const rv_cz cz_noise = {{
     {7, 1, 0, 0, {CZ_FLAT, {{99, 46}, {99, 0}, 0, 2}, {{99, 44}, {92, 0}, 0, 2}}}}};
 static const int8_t p_cznoise[] = {TP_S0, 3, TP_S2, 2, TP_S5, 1, CZ_OPEN_FILTER, TP_LEVEL, 74, END};
 /* PIANO: struck, open and held, the strings' own decay and the dampers (FELT, HAMMER, DECAY, PEDAL; TONE, STRETCH,
- * UNISON, STRIKE; THUMP, KEY OFF, BODY, DYNAMC) */
+ * UNISON, STRIKE; THUMP, KEY OFF, BODY, DYNAMC; ATTACK) */
 #define PN_OPEN TP_POLY, 3, TP_FTYPE, FT_LP, TP_CUT, 127, TP_RES, 0, TP_EFILT, 0, TP_KTRK, 0, TP_ATK, 0, TP_SUS, 127, TP_REL, 120, TP_VELO, 100
 static const int8_t p_feltpiano[] = {TP_S0, 105, TP_S1, 35, TP_S2, 70, TP_S3, 60, TP_S4, 45, TP_S5, 64, TP_S6, 45, TP_S7, 50,
-                                     TP_S8, 80, TP_S9, 60, TP_S10, 70, TP_S11, 80, PN_OPEN, TP_REVS, 45, TP_LEVEL, 110, END};
+                                     TP_S8, 80, TP_S9, 60, TP_S10, 70, TP_S11, 80, TP_S12, 30, PN_OPEN, TP_REVS, 45, TP_LEVEL, 110, END};
 static const int8_t p_grand[] = {TP_S0, 0, TP_S1, 65, TP_S2, 80, TP_S3, 0, TP_S4, 70, TP_S5, 64, TP_S6, 40, TP_S7, 50,
-                                 TP_S8, 35, TP_S9, 30, TP_S10, 55, TP_S11, 90, PN_OPEN, TP_REVS, 30, TP_LEVEL, 100, END};
+                                 TP_S8, 35, TP_S9, 30, TP_S10, 55, TP_S11, 90, TP_S12, 75, PN_OPEN, TP_REVS, 30, TP_LEVEL, 100, END};
 static const int8_t p_upright[] = {TP_S0, 25, TP_S1, 75, TP_S2, 55, TP_S3, 0, TP_S4, 55, TP_S5, 90, TP_S6, 70, TP_S7, 40,
-                                   TP_S8, 55, TP_S9, 50, TP_S10, 95, TP_S11, 80, PN_OPEN, TP_REVS, 25, TP_LEVEL, 100, END};
+                                   TP_S8, 55, TP_S9, 50, TP_S10, 95, TP_S11, 80, TP_S12, 85, PN_OPEN, TP_REVS, 25, TP_LEVEL, 100, END};
 static const int8_t p_nightfelt[] = {TP_S0, 127, TP_S1, 20, TP_S2, 90, TP_S3, 127, TP_S4, 35, TP_S5, 64, TP_S6, 55, TP_S7, 55,
-                                     TP_S8, 95, TP_S9, 75, TP_S10, 80, TP_S11, 60, PN_OPEN, TP_REVS, 60, TP_LEVEL, 118, END};
+                                     TP_S8, 95, TP_S9, 75, TP_S10, 80, TP_S11, 60, TP_S12, 15, PN_OPEN, TP_REVS, 60, TP_LEVEL, 118, END};
 static const int8_t p_string[] = {TP_S0, 0, TP_S1, 92, TP_S2, 20, TP_S3, 22, TP_S7, 100, TP_FTYPE, FT_LP, TP_CUT, 120, TP_EFILT, 0,
                                    TP_ATK, 0, TP_DEC, 110, TP_SUS, 127, TP_REL, 96, TP_REVS, 40, TP_LEVEL, 83, END};
 /* RESIN: the bowed string and the reed, pushed toward breaking down */
