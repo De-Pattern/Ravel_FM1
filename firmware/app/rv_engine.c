@@ -854,7 +854,7 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
          * 7 Hz, 1.5 at the middle), drifting at random as a tired motor does, with a little flutter; the second head
          * sways partly the other way, so the note doubles into a slow, detuned chorus. AMOUNT: how far it sways (up to
          * 3.3 ms of tape), and with it the tape's age: the highs worn away (one pole from open down to about 1 kHz at
-         * 96, two more near 4 to 5 kHz), the tape driven, and its hiss under the note, fading slowly after it. State:
+         * 96, two more near 8 kHz), the tape driven, and its hiss under the note, fading slowly after it. State:
          * the SMEAR memory and the SHIFT/CRUSH fields (the insert's, cleared when it changes hands) */
         float rate = 0.3f * fm_exp2f(a * 4.6f), dep = b * 3.3f * 0.001f * RV_FS, m, m2, d, fd, z, y, y2, n;
         float *drift = &tr->hilb_i[0], *target = &tr->hilb_i[1], *lp = &tr->hilb_i[2], *l2 = &tr->hilb_i[3], *l3 = &tr->hilb_i[4];
@@ -897,7 +897,7 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
         z = n * *hs * b * 0.011f;                        /* (the hiss, after the wear: tape hiss is the brightest thing left) */
         n = (1.0f - b) * (1.0f - b);
         *lp += (y - *lp) * (0.075f + 0.875f * n);        /* (the highs worn away: open at 0, about 1 kHz at 96) */
-        *l2 += (*lp - *l2) * (0.68f + 0.27f * n);        /* (and past about 4 kHz, more steeply) */
+        *l2 += (*lp - *l2) * (0.68f + 0.27f * n);        /* (and past about 8 kHz, more steeply) */
         *l3 += (*l2 - *l3) * (0.68f + 0.27f * n);
         return *l3 + z;
     }
