@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.43.0
+
+Added
+- INSERT TAPE (EDIT › INSERT): a slowed, worn reel-to-reel on the track itself, not an echo. The sound warbles as if the tape under it ran on a tired motor: TUNE is how fast the speed sways (drifting at random, with a fast shallow flutter on top), AMOUNT how far (up to about a semitone) and how dark and driven the tape gets, MIX the warble against the dry note (below full: a wide, detuned smear).
+
 ## 1.42.0
 
 Added

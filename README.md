@@ -593,11 +593,13 @@ OSC MIX appears on engines with more than one sound source. **OSC LVL** (LEVEL1 
 | **FILTER** | FILTER type: LADDER, LOWPASS, BANDPASS, HIGHPASS, LPG, MS-20, SH-101, and six Z filters (Z VOWEL, Z TALK, Z PHASER, Z PEAKS, Z SWEEP, Z METAL) five XT filters (XT LP24, XT BP24, XT NOTCH, XT S&H, XT SHAPE) and SEM | CUTOFF (Hz); on a Z filter, MORPH | RESO; on a Z filter, XFORM | ENV>CUT: how much the FILTER ENV opens the filter (±); the same setting as on ENV › FENV ROUTE, so turning either moves both |
 | **SKIN** | DRIVE (saturation of everything the track plays at once: 0 by default, so chords stay clean; turn it up to make them break up together) | FOLD (wavefolding) | BITS (bit reduction) | – |
 | **SKIN 2** | BITMASK (digital grit) | DEREZ (sample-rate reduction) | GRAIN (strike and perc tracks): each hit a little different, see below | – |
-| **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift | AMOUNT | MIX |
+| **INSERT** | INSERT effect: OFF, COMB, SHIFT, CRUSH, SMEAR, TAPE | TUNE: on COMB its note (C4 at the middle, a semitone a step); on SHIFT the shift; on TAPE how fast the tape sways | AMOUNT (on TAPE: how far it sways, how dark and driven) | MIX |
 | **MIX** | LEVEL | PAN | DELAY send | SPACE send |
 | **SENDS** | FEEDBK send | DELAY send | SPACE send | – |
 
 <p align="center"><img src="docs/manual/voice-filter.png" alt="FILTER page" width="240"> <img src="docs/manual/voice-skin.png" alt="SKIN page" width="240"> <img src="docs/manual/voice-mix.png" alt="MIX page" width="240"></p>
+
+**INSERT TAPE: a slowed, worn reel-to-reel on the track itself.** Not an echo: the sound you play warbles as if the tape under it were running on a tired motor, the lo-fi, seasick lead of slowed-down tape. **TUNE** is how fast the speed sways (about one sway every seven seconds at 0, three a second at 127), drifting at random as a worn motor does, with a fast, shallow flutter on top. **AMOUNT** is how far it sways (up to about a semitone at the fastest), and, as it goes up, the darker and more driven the tape. **MIX** at full for the warble alone; below that the dry note stays under it, which detunes into a wide, chorused smear. For a lead: TUNE low (a slow seasick drift), AMOUNT around three quarters, MIX full, and the DELAY bus with TAPE WEAR for echoes that wobble along with it. It costs very little, and nothing when INSERT is off.
 
 **MS-20** is hot and dirty: a two-pole filter whose resonance runs through clipping diodes, with the input driven. Turned up, it barks, then screams. **SH-101** is round and liquid: four smooth stages whose resonance sings rather than bites, and keeps its bass as it rises.
 
@@ -1829,6 +1831,7 @@ High chances on a lane's cord to itself make it run on (hats); a cord at 10–20
 | Graph steps past 16 | GRAPH page, OCT+ / OCT− |
 | A long reverb | FX › SPACE: DECAY near the top |
 | A worn tape echo | FX › DELAY, then TAPE WEAR: WOW, FLUTTER, SATURAT, AGE |
+| A slowed reel-to-reel warble on the track itself | EDIT › INSERT: TAPE; TUNE (how fast), AMOUNT (how far), MIX full |
 | Grains in the delay | FX › GRAINS: GRAINS up |
 | A crunchier reverb | FX › SPACE 2: CRUNCH up (fewer bits) |
 

@@ -14,7 +14,7 @@ const char *const rv_msrc_names[] = {"OFF", "LFO1", "LFO2", "DUST", "ENV", "VELO
 const char *const rv_cond_names[] = {"ALWAYS", "FIRST", "NOT 1ST", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "FILL", "NO FILL"};
 const char *const rv_scale_names[] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXO", "PENTA", "MINPENT", "WHOLE", "HIRAJO", "IWATO"};
 static const char *const ftype_names[] = {"LADDER", "LOWPASS", "BANDPASS", "HIGHPASS", "LPG", "MS-20", "SH-101", "Z VOWEL", "Z TALK", "Z PHASER", "Z PEAKS", "Z SWEEP", "Z METAL", "XT LP24", "XT BP24", "XT NOTCH", "XT S&H", "XT SHAPE", "SEM"};
-static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR"};
+static const char *const ins_names[] = {"OFF", "COMB", "SHIFT", "CRUSH", "SMEAR", "TAPE"};
 static const char *const dir_names[] = {"FWD", "REV", "PINGPONG", "SNAKE", "GRAPH"};
 static const char *const seqmode_names[] = {"STEPS", "GRAPH", "CHANCE", "CHAIN"};   /* (CHAIN: a kit's) */
 /* CHANCE (a track's generated phrase, rv_seq.c): its settings, in the graph heads' slots (TP_H1ROLE on) */

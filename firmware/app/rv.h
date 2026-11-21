@@ -163,7 +163,7 @@ enum { CW_TRI, CW_SAW, CW_PULSE, CW_NOISE, CW_SAWPUL, CW_RING, CW_PWM, CW_KICK, 
 enum { FT_LADDER, FT_LP, FT_BP, FT_HP, FT_LPG, FT_MS20, FT_SH101, FT_ZVOWEL, FT_ZTALK, FT_ZPHASER, FT_ZPEAKS, FT_ZSWEEP, FT_ZMETAL, FT_XLP24, FT_XBP24, FT_XNOTCH, FT_XSH, FT_XSHAPE, FT_SEM, FT_N };   /* Z: morphing; X: digital (XT) */
 #define FT_IS_Z(f) ((f) >= FT_ZVOWEL && (f) <= FT_ZMETAL)
 #define FT_IS_XT(f) ((f) >= FT_XLP24 && (f) <= FT_XSHAPE)
-enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_N };
+enum { INS_OFF, INS_COMB, INS_SHIFT, INS_CRUSH, INS_SMEAR, INS_TAPE, INS_N };   /* TAPE: a slowed reel-to-reel's wow and flutter on the track */
 enum { DIR_FWD, DIR_REV, DIR_PING, DIR_SNAKE, DIR_GRAPH, DIR_N };   /* DIR_GRAPH: old projects; now TP_SEQMODE */
 enum { SEQ_STEPS, SEQ_GRAPH, SEQ_CHANCE };   /* CHANCE: generated, after Mutable's Marbles (rv_seq.c): its settings in the graph's slots */
 /* CHAIN (a kit's, after the Chain Reaction Drum Machine): each lane fires, then each of its cords may fire

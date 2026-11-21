@@ -847,6 +847,38 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
         }
         return y;
     }
+    case INS_TAPE: {
+        /* a slowed, worn reel-to-reel: the track read back from a short tape loop (the SMEAR memory, 6.8 ms) whose
+         * speed sways (WOW: TUNE sets how fast, 0.15 to 3.4 Hz, drifting at random as a tired motor does), wavers
+         * (FLUTTER, about 9 Hz, a little) and, with AMOUNT, swings further (up to +-3 ms: about a third of a
+         * semitone at 1 Hz), darker and driven harder. State: the SMEAR memory and the SHIFT/CRUSH fields */
+        float rate = 0.15f * fm_exp2f(a * 4.5f), dep = b * b * 3.0f * 0.001f * RV_FS, m, d, fd, z, y;
+        float *drift = &tr->hilb_i[0], *target = &tr->hilb_i[1], *lp = &tr->hilb_i[2];
+        int32_t di, i0, w = tr->sm_i[0];
+        tr->sh_ph += rate * RV_DT;
+        tr->sh_ph -= fm_floorf(tr->sh_ph);
+        tr->sh_z += 9.3f * RV_DT;
+        tr->sh_z -= fm_floorf(tr->sh_z);
+        if (!((++tr->sm_i[1]) & 4095)) {               /* (now and then the motor wanders somewhere else) */
+            tr->crush_n = (int32_t)((uint32_t)tr->crush_n * 1103515245u + 12345u);
+            *target = (float)((tr->crush_n >> 16) & 0x7FFF) * (2.0f / 32767.0f) - 1.0f;
+        }
+        *drift += (*target - *drift) * 0.00008f;
+        m = 0.6f * sin_lut(tr->sh_ph) + 0.4f * *drift + 0.07f * sin_lut(tr->sh_z);
+        d = 1.0f + dep * (1.0f + m);
+        tr->smear[w] = (int16_t)clampf(x * 16384.0f, -32000.0f, 32000.0f);
+        di = (int32_t)d;
+        fd = d - (float)di;
+        i0 = w - di;
+        if (i0 < 0)
+            i0 += 300;
+        z = (float)tr->smear[i0];
+        y = (z + ((float)tr->smear[i0 ? i0 - 1 : 299] - z) * fd) * (1.0f / 16384.0f);
+        tr->sm_i[0] = w + 1 >= 300 ? 0 : w + 1;
+        y = sat(y * (1.0f + b * 1.2f)) * (1.0f / (1.0f + b * 0.35f));   /* (driven harder as it wears) */
+        *lp += (y - *lp) * (0.85f - b * 0.55f);         /* (darker as it wears: about 13 kHz down to 2 kHz) */
+        return *lp;
+    }
     default:
         return x;
     }

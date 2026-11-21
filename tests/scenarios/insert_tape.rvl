@@ -1,0 +1,17 @@
+# INSERT TAPE: a slowed, worn reel-to-reel's wow and flutter on the track (TUNE: how fast it sways, AMOUNT: how far)
+wait 300
+settp 1 INSERT 5
+settp 1 TUNE 60
+settp 1 AMOUNT 100
+settp 1 MIX 127
+expect tp 1 INSERT 5
+key 12 down
+wait 800
+expect meter_min 1 0.002
+key 12 up
+wait 300
+settp 1 AMOUNT 0
+key 12 down
+wait 500
+expect meter_min 1 0.002
+key 12 up
