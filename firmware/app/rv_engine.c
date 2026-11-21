@@ -848,25 +848,33 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
         return y;
     }
     case INS_TAPE: {
-        /* a slowed, worn reel-to-reel: the track read back from a short tape loop (the SMEAR memory, 6.8 ms) whose
-         * speed sways (WOW: TUNE sets how fast, 0.15 to 3.4 Hz, drifting at random as a tired motor does), wavers
-         * (FLUTTER, about 9 Hz, a little) and, with AMOUNT, swings further (up to +-3 ms: about a third of a
-         * semitone at 1 Hz), darker and driven harder. State: the SMEAR memory and the SHIFT/CRUSH fields */
-        float rate = 0.15f * fm_exp2f(a * 4.5f), dep = b * b * 3.0f * 0.001f * RV_FS, m, d, fd, z, y;
-        float *drift = &tr->hilb_i[0], *target = &tr->hilb_i[1], *lp = &tr->hilb_i[2];
+        /* a slowed, worn reel-to-reel, matched by measurement to a lo-fi tape-synth lead (its spectrum, band by band
+         * from 500 Hz up to 16 kHz, within about 3 dB; its wow, about 55 cents peak to peak at 1.5 Hz): the track read
+         * back from a short tape loop (the SMEAR memory, 6.8 ms) by two heads. The tape's speed sways (WOW: TUNE, 0.3 to
+         * 7 Hz, 1.5 at the middle), drifting at random as a tired motor does, with a little flutter; the second head
+         * sways partly the other way, so the note doubles into a slow, detuned chorus. AMOUNT: how far it sways (up to
+         * 3.3 ms of tape), and with it the tape's age: the highs worn away (one pole from open down to about 1 kHz at
+         * 96, two more near 4 to 5 kHz), the tape driven, and its hiss under the note, fading slowly after it. State:
+         * the SMEAR memory and the SHIFT/CRUSH fields (the insert's, cleared when it changes hands) */
+        float rate = 0.3f * fm_exp2f(a * 4.6f), dep = b * 3.3f * 0.001f * RV_FS, m, m2, d, fd, z, y, y2, n;
+        float *drift = &tr->hilb_i[0], *target = &tr->hilb_i[1], *lp = &tr->hilb_i[2], *l2 = &tr->hilb_i[3], *l3 = &tr->hilb_i[4];
+        float *hs = &tr->hilb_i[5];
         int32_t di, i0, w = tr->sm_i[0];
+        uint32_t r;
         tr->sh_ph += rate * RV_DT;
         tr->sh_ph -= fm_floorf(tr->sh_ph);
-        tr->sh_z += 9.3f * RV_DT;
+        tr->sh_z += 7.1f * RV_DT;
         tr->sh_z -= fm_floorf(tr->sh_z);
-        if (!((++tr->sm_i[1]) & 4095)) {               /* (now and then the motor wanders somewhere else) */
-            tr->crush_n = (int32_t)((uint32_t)tr->crush_n * 1103515245u + 12345u);
-            *target = (float)((tr->crush_n >> 16) & 0x7FFF) * (2.0f / 32767.0f) - 1.0f;
-        }
-        *drift += (*target - *drift) * 0.00008f;
-        m = 0.6f * sin_lut(tr->sh_ph) + 0.4f * *drift + 0.07f * sin_lut(tr->sh_z);
-        d = 1.0f + dep * (1.0f + m);
+        r = (uint32_t)tr->crush_n * 1103515245u + 12345u;
+        tr->crush_n = (int32_t)r;
+        n = (float)((r >> 9) & 0xFFFF) * (2.0f / 65535.0f) - 1.0f;   /* (the hiss, and now and then the motor's next whim) */
+        if (!((++tr->sm_i[1]) & 4095))
+            *target = n;
+        *drift += (*target - *drift) * 0.00006f;
+        m = 0.55f * sin_lut(tr->sh_ph) + 0.4f * *drift + 0.06f * sin_lut(tr->sh_z);
+        m2 = -0.45f * sin_lut(tr->sh_ph + 0.13f) + 0.4f * *drift - 0.06f * sin_lut(tr->sh_z + 0.5f);
         tr->smear[w] = (int16_t)clampf(x * 16384.0f, -32000.0f, 32000.0f);
+        d = 1.0f + dep * (1.0f + m);                    /* (the first head) */
         di = (int32_t)d;
         fd = d - (float)di;
         i0 = w - di;
@@ -874,10 +882,24 @@ static inline float insert_tick(track_t *tr, int ins, float x, float a, float b)
             i0 += 300;
         z = (float)tr->smear[i0];
         y = (z + ((float)tr->smear[i0 ? i0 - 1 : 299] - z) * fd) * (1.0f / 16384.0f);
+        d = 1.0f + dep * (1.0f + m2);                   /* (the second) */
+        di = (int32_t)d;
+        fd = d - (float)di;
+        i0 = w - di;
+        if (i0 < 0)
+            i0 += 300;
+        z = (float)tr->smear[i0];
+        y2 = (z + ((float)tr->smear[i0 ? i0 - 1 : 299] - z) * fd) * (1.0f / 16384.0f);
         tr->sm_i[0] = w + 1 >= 300 ? 0 : w + 1;
-        y = sat(y * (1.0f + b * 1.2f)) * (1.0f / (1.0f + b * 0.35f));   /* (driven harder as it wears) */
-        *lp += (y - *lp) * (0.85f - b * 0.55f);         /* (darker as it wears: about 13 kHz down to 2 kHz) */
-        return *lp;
+        y = (y + y2 * (0.15f + 0.5f * b)) * (1.0f / (1.0f + 0.3f * b));
+        *hs += (fm_fabsf(x) - *hs) * (fm_fabsf(x) > *hs ? 0.01f : 0.00005f);   /* (the hiss follows the note, slowly away) */
+        y = sat(y * (1.0f + b * 1.4f)) * (1.0f / (1.0f + b * 0.45f));
+        z = n * *hs * b * 0.011f;                        /* (the hiss, after the wear: tape hiss is the brightest thing left) */
+        n = (1.0f - b) * (1.0f - b);
+        *lp += (y - *lp) * (0.075f + 0.875f * n);        /* (the highs worn away: open at 0, about 1 kHz at 96) */
+        *l2 += (*lp - *l2) * (0.68f + 0.27f * n);        /* (and past about 4 kHz, more steeply) */
+        *l3 += (*l2 - *l3) * (0.68f + 0.27f * n);
+        return *l3 + z;
     }
     default:
         return x;

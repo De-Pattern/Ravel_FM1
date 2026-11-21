@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.43.1
+
+Changed
+- INSERT TAPE, rebuilt to sound like the slowed, lo-fi tape-synth lead it was made for, measured against a recording of it: a deeper, slower warble (about half a semitone at the defaults, one and a half sways a second), a second tape head that sways against the first for a slow detuned chorus, the highs worn away much further (down to about 1 kHz), and tape hiss under the note. TUNE now spans one sway every three seconds to about seven a second. Projects keep their settings; a track already using TAPE will sound darker and wider.
+
 ## 1.43.0
 
 Added
