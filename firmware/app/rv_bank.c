@@ -67,7 +67,7 @@ static void bank_blank(void)
 {
     __builtin_memset(&bankmem, 0, sizeof bankmem);
     bank.magic = RV_BANK_MAGIC;
-    bank.version = 10;
+    bank.version = 11;
 }
 
 /* a sound's track parameters past the 96 it was kept with: their defaults */
@@ -125,10 +125,10 @@ static void bank_upgrade(void)
                 for (p = TP_WX0; p <= TP_WX5; p++)
                     bank.s[i].tp[p] = 0;
             }
-            if (bank.version < 10 && bank.s[i].kind == KIND_SYNTH && bank.s[i].tp[TP_ENGINE] == ENG_FM)
-                rv_hfm_defaults(bank.s[i].tp);   /* (HYBRID FM, format 26) */
+            if (bank.version < 11 && bank.s[i].kind == KIND_SYNTH && bank.s[i].tp[TP_ENGINE] == ENG_PIANO)
+                rv_piano_from_fm(bank.s[i].tp);   /* (HYBRID FM gone: the PIANO in its place, format 28) */
         }
-    bank.version = 10;
+    bank.version = 11;
 }
 
 /* the old single bank, in RAM as version 1: reshaped in place into version 2 (each sound is
@@ -162,7 +162,7 @@ static int bank_read(int b)                            /* 1 read; 0 not (bank_ba
     if (n < 0 && n != -3)
         return 0;                                      /* (nothing there: an empty bank, free to write) */
     bank_bad = 1;
-    if (n < 0 || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 10)
+    if (n < 0 || bank.magic != RV_BANK_MAGIC || bank.version < 2 || bank.version > 11)
         return 0;
     if (bank.version < 6) {                            /* 96 track parameters a sound: spread out */
         if (n != (int)sizeof(rv_bank_96))
@@ -172,7 +172,7 @@ static int bank_read(int b)                            /* 1 read; 0 not (bank_ba
         return 0;
     bank_bad = 0;
     __builtin_memset((uint8_t *)&bankmem + sizeof bank, 0, sizeof bankmem - sizeof bank);
-    if (bank.version < 10)                             /* (kept as version 10 the next time it is written) */
+    if (bank.version < 11)                             /* (kept as version 11 the next time it is written) */
         bank_upgrade();
     return 1;
 }

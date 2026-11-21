@@ -150,7 +150,7 @@ enum { SQM_HITS, SQM_ROT, SQM_N };
 
 enum { KIND_SYNTH, KIND_STRIKE, KIND_TAPE, KIND_PERC, KIND_COMP, KIND_LOOP, KIND_WEFT, KIND_N };   /* WEFT: a voice patched from blocks (rv_weft.c) */   /* LOOP: four lanes of recorded audio (rv_loop.c; one track at most) */   /* PERC: drum machines after the Machinedrum; TAPE: gone (format 22), its number kept;
                                                                               * COMP (T8 only): the bus compressor on the main mix, not a voice */
-enum { ENG_VA, ENG_CZ, ENG_FM, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_GUITAR, ENG_HARM, ENG_N };   /* ENG_CZ: was PD */
+enum { ENG_VA, ENG_CZ, ENG_PIANO, ENG_PHYS, ENG_FORMANT, ENG_PARTICLE, ENG_CHIP, ENG_WAVE, ENG_LOGIC, ENG_ORGAN, ENG_MONO, ENG_RESIN, ENG_TINE, ENG_GUITAR, ENG_HARM, ENG_N };   /* ENG_CZ: was PD */
 enum { LW_SAW, LW_TRI, LW_SQR, LW_SINE, LW_PULSE, LW_NOISE, LW_N };   /* LOGIC: the sources' waves */
 enum { LO_ADD, LO_MULT, LO_MIN, LO_MAX, LO_AND, LO_OR, LO_XOR, LO_NAND, LO_COMP, LO_GATE, LO_DIFF, LO_QUANT, LO_MOD, LO_SINE, LO_AOFB, LO_N };
 enum { PM_TRX_BD, PM_TRX_B2, PM_TRX_SD, PM_TRX_XT, PM_TRX_CP, PM_TRX_RS, PM_TRX_CB, PM_TRX_CH, PM_TRX_OH, PM_TRX_CY,
@@ -267,7 +267,7 @@ typedef struct { uint8_t scene, bars; } rv_arrrow;
 
 /* ----------------------------------------------------------------- project --- */
 #define RV_MAGIC 0x4A505652u        /* "RVPJ" */
-#define RV_FORMAT 27                /* 27: a QUANTZE per kit lane (rv.kit_quant, all SONG); 26: HYBRID FM's pages (FM tracks: their defaults, the sound as it was); 25: WEFT has twelve blocks (rv_weft reshaped, its built-in sources renumbered); 24: WEFT patches (rv.weft); 23: the arpeggiator (its settings at their defaults), COMP on T8; 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
+#define RV_FORMAT 28                /* 28: HYBRID FM gone, the PIANO in its place (its tracks load as the PIANO at its defaults); 27: a QUANTZE per kit lane (rv.kit_quant, all SONG); 26: HYBRID FM's pages (FM tracks: their defaults, the sound as it was); 25: WEFT has twelve blocks (rv_weft reshaped, its built-in sources renumbered); 24: WEFT patches (rv.weft); 23: the arpeggiator (its settings at their defaults), COMP on T8; 22: the tape gone (a tape track loads as a blank VA synth, its steps cleared; JUMP routes off); 21: the SQ engine and the SQ-80 filter gone (their tracks load as VA and LADDER; later engines and filters move down one); 20: the FM-1 build without the vocoder, the filter pair and BANDS (their sends to 0), the space only 12-BIT, the pair's FREQ 1 and 2 now the feedback loop's BASE and WIDTH; 19: BLACKHOLE gone from the space (it loads as CLOUDS, 12-BIT moves down one); 18: TAPE plays samples (KEYS, STRETCH, SHARDS, kits; Beads gone), the delay is a granular tape delay; 17: chords on steps; 16: a rate per kit lane; 15: 112 track parameters (the FILTER ENV's DEST and AMOUNT); 14: DRIVE defaults to 0 (old projects at the old default 10 move to 0); 13: the LIBRARY is step envelopes (32, chainable), STEP ENV; 12: the FILTER ENV (SHAPE gone, its slots reused); 11: OSC LVL (old projects at full); 10: a tempo per scene; 9: metronome, count-in, swing in %; 8: kit locks; 7: PERC kits; 6: 96 track parameters (SHAPE); 5: 128 globals (BANDS); 4: the CZ patches; 3: graph mode and heads (2 and 3 load and are upgraded) */
 
 /* the CZ engine's patch (a Casio CZ tone): per line, two waves, key follow and three 8-step
  * envelopes, all in the CZ's own panel units */
@@ -478,7 +478,7 @@ extern const char *const rv_msrc_names[], *const rv_cond_names[];
 extern const char *const rv_scale_names[];
 #define RV_NCOND 14
 void rv_track_defaults(int t, int kind, int engine);
-void rv_hfm_defaults(int16_t *tp);               /* HYBRID FM's further settings at their defaults (a FM sound; else 0) */
+void rv_piano_from_fm(int16_t *tp);              /* a HYBRID FM sound (gone, format 28): the PIANO at its defaults */
 void rv_track_src_defaults(int t);              /* the engine's own knobs back to their defaults */
 void rv_cz_init(int t);                         /* a plain CZ patch on track t */
 void rv_engine_track_defaults(int t, int engine);   /* ORGAN, MONO: the filter and envelope they want */

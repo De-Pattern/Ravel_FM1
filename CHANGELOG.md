@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.44.0
+
+Added
+- PIANO, a new synth engine in HYBRID FM's place: a grand piano, felted or not, modelled rather than sampled. Real strings (one in the low bass, a detuned pair above, so the unisons beat and bloom) struck by a felt hammer; stiff-string stretch; a two-stage decay; dampers on release (none on the top octave and a half) and a sustain PEDAL, half pedal included; the knock of the action and the damper's soft noise. FELT, HAMMER, DECAY, PEDAL; TONE, STRETCH, UNISON, STRIKE; THUMP, KEY OFF, BODY, DYNAMC. Presets FELT PIANO, GRAND, UPRIGHT and NIGHT FELT. Four held notes cost about what VA does and less than CZ.
+
+Removed
+- HYBRID FM, and its nine presets. Projects and kept sounds made with it load as the PIANO at its defaults, around a piano's track settings; the rest of each track (level, sends, steps) is kept. Projects saved by this version (format 28) and banks (version 11) don't load in older ones.
+
 ## 1.43.2
 
 Fixed

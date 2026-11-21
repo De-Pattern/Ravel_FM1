@@ -33,7 +33,7 @@ wait 200
 expect page SOURCE 4
 turn K4 -1
 wait 200
-expect tp 1 VELO 63
+expect tp 1 VELO 99
 shot wave_src4.png
 turn SELECT 1
 wait 200

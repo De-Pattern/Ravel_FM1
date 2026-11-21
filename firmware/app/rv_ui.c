@@ -63,7 +63,7 @@ enum { PIC_TRACKS, PIC_INFL, PIC_SOURCE, PIC_FILTER, PIC_SKIN, PIC_INSERT, PIC_M
        PIC_CZWAVE, PIC_CZENV, PIC_DRUM, PIC_LANE, PIC_BANK, PIC_FENV, PIC_SENV, PIC_ARP, PIC_COMP, PIC_FLASH, PIC_MIDI, PIC_PANEL, PIC_LEARN, PIC_LOOP, PIC_LOOPSEQ, PIC_WEFT, PIC_WEFTBLK, PIC_WEFTMAP, PIC_WEFTPLAY, PIC_WEFTLIB, PIC_WEFTRATE };
 /* when a page shows */
 enum { V_ALL, V_SRC0, V_SRC1, V_SRC2, V_SRC3, V_SYNTH, V_STRIKE, V_NOTTAPE, V_PKIT,
-       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CHANCE, V_NOTCH, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT, V_HFM, V_CHAIN, V_KITSTEPS };
+       V_STEPSMODE, V_GRAPH, V_GRAPH2, V_CHANCE, V_NOTCH, V_CZL1, V_CZL2, V_NOTCZ, V_KIT, V_NOTKIT, V_SEM, V_OSCMIX, V_COMP, V_LOOP, V_WEFT, V_CHAIN, V_KITSTEPS };
 /* what PRESETS does on the page */
 enum { PR_NONE, PR_SOUND, PR_ROUTE, PR_MAT, PR_MACRO, PR_PATTERN, PR_SCENE, PR_ARR, PR_ARC, PR_LIB, PR_SLOT, PR_STEPCUR, PR_LANE,
        PR_CZSTEP, PR_LFOROW, PR_BANK, PR_LEARN, PR_STEP , PR_WEFT, PR_WLIB};   /* PR_STEP: the step pages, PRESETS steps through the steps */
@@ -113,10 +113,6 @@ static const page_t pages[] = {
     {SEC_VOICE, V_SRC1, PIC_SOURCE, PR_SOUND, "SOURCE 2", {TP(TP_S4), TP(TP_S5), TP(TP_S6), TP(TP_S7)}},
     {SEC_VOICE, V_SRC2, PIC_SOURCE, PR_SOUND, "SOURCE 3", {TP(TP_S8), TP(TP_S9), TP(TP_S10), TP(TP_S11)}},
     {SEC_VOICE, V_SRC3, PIC_SOURCE, PR_SOUND, "SOURCE 4", {TP(TP_S12), TP(TP_S13), TP(TP_S14), TP(TP_S15)}},
-    /* HYBRID FM: the modulators' envelope; the formants (after the FS1R) and the breath; the formant sequence */
-    {SEC_VOICE, V_HFM, PIC_SOURCE, PR_SOUND, "MOD ENV", {TP(TP_WX0), TP(TP_S13), TP(TP_WX1), TP(TP_S15)}},
-    {SEC_VOICE, V_HFM, PIC_SOURCE, PR_SOUND, "FORMANTS", {TP(TP_WX2), TP(TP_WX3), TP(TP_WX4), TP(TP_WX5)}},
-    {SEC_VOICE, V_HFM, PIC_SOURCE, PR_SOUND, "FSEQ", {TP(TP_VOC), TP(TP_PAIRS), TP(TP_BANDS), NO}},
     {SEC_VOICE, V_OSCMIX, PIC_SOURCE, PR_SOUND, "OSC MIX", {{K_OSC, 0}, {K_OSC, 1}, {K_OSC, 2}, {K_OSC, 3}}},   /* each oscillator's level */
     /* a KIT: a page per lane, its whole sound on screen; PRESETS picks the machine, OCT the knobs' row */
 #define LANEPG(n) {SEC_VOICE, V_KIT, PIC_LANE, PR_LANE, "LANE " #n, {LF(LF_SLOT0), LF(LF_SLOT0 + 1), LF(LF_SLOT0 + 2), LF(LF_SLOT0 + 3)}}
@@ -626,11 +622,10 @@ static int page_all_dead(int i, int t)
 /* OSC MIX: the engine's oscillator levels side by side (0: an engine with one source) */
 static const uint8_t *osc_mix_map(int eng)
 {
-    static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0}, fm[4] = {TP_OSC1, TP_S6, TP_S7, TP_S8};
+    static const uint8_t va[4] = {TP_OSC1, TP_S4, TP_S5, 0};
     static const uint8_t wv[4] = {TP_OSC1, TP_S15, 0, 0}, ch[4] = {TP_OSC1, TP_S8, 0, 0}, mo[4] = {TP_S0, TP_S1, TP_S2, TP_S4};
     switch (eng) {
     case ENG_VA: return va;
-    case ENG_FM: return fm;
     case ENG_WAVE: return wv;
     case ENG_CHIP: return ch;
     case ENG_MONO: return mo;
@@ -722,7 +717,6 @@ static int page_visible(int i)
     case V_SRC2: return !is_kit_ui(t) && src_page_visible(t, 2);
     case V_SRC3: return !is_kit_ui(t) && src_page_visible(t, 3);
     case V_SYNTH: return kind == KIND_SYNTH;
-    case V_HFM: return kind == KIND_SYNTH && rv.tp[t][TP_ENGINE] == ENG_FM;
     case V_STRIKE: return kind == KIND_STRIKE;
     case V_PKIT: return kind == KIND_PERC && is_kit_ui(t);
     case V_NOTTAPE: return 1;
@@ -1572,10 +1566,9 @@ static RV_SMALL void kb_set(kb_t k, int v)
                 const rv_pinfo *pi = rv_pinfo_track(ui.track, p);
                 rv.tp[ui.track][p] = pi->name ? pi->def : 0;
             }
-            rv_hfm_defaults(rv.tp[ui.track]);           /* (HYBRID FM's further pages) */
             if (v == ENG_CZ)
                 rv_cz_init(ui.track);
-            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE || v == ENG_GUITAR || v == ENG_HARM)
+            if (v == ENG_ORGAN || v == ENG_MONO || v == ENG_TINE || v == ENG_GUITAR || v == ENG_HARM || v == ENG_PIANO)
                 rv_engine_track_defaults(ui.track, v);
             return;
         }

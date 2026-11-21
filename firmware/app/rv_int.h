@@ -53,16 +53,20 @@ typedef struct {
     uint32_t ns;
     uint8_t gate, done, pm_n;
 } cz_t;
-/* FM (HYBRID FM): four operators; the modulators' envelope (rising first when MOD ATK is up); the formants: three
- * band passes on the operators (fv), two on noise (fn), their level matched to the operators' (rin, rout, agc);
- * where the formant sequence is (fpos, fdir: forward or back) */
+/* PIANO: a grand's strings as waveguides (one string in the low bass, two above), each a loop of tape in buf
+ * (its own part: base, size) read back through two allpasses that stretch its partials as a piano string's
+ * stiffness does (ap), a fractional delay (fr) and its loss (lp); the felt hammer's stroke (exc_*), the
+ * key's thump and the dampers' noise (nz), the soundboard (bd) */
+#define PN_BUF 1920
 typedef struct {
-    float ph[4], fb1, fb2, menv;
-    uint8_t mnew, mup, fdir;
-    svf_t fv[3], fn[2];
-    float rin, rout, agc, fpos, vlast, nlast;   /* (vlast, nlast: the half-rate formants' and breath's last sample) */
+    int16_t buf[PN_BUF];
+    int16_t base[2], size[2], w[2];
+    float ap[2][2], fr[2], lp[2];
+    float det[2], exc_t, exc_len, exc_amp, exc_pos, hard, thump, offn, nlp, dc, held;
+    svf_t nz, bd;
+    uint8_t nstr, gate_was;
     uint32_t ns;
-} fm_t;
+} piano_t;
 typedef struct { int16_t line[RV_KS_LEN], neck[RV_KS_LEN]; int32_t w, wn; float lp, ap, bow, exc, dly, prev; uint32_t ns; float mode_s[6][2]; } phys_t;   /* neck: BOWED's second segment */
 typedef struct { float ph, vib; svf_t f[3]; float fof_ph[3], fof_env[3], fof_t[3]; uint32_t ns; } form_t;
 typedef struct { float th[3], since[3], rd[3]; uint8_t on[3]; uint32_t ns; uint32_t count; } part_t;
@@ -165,9 +169,10 @@ typedef struct {
     float last;
     uint32_t rng;
     hitshade_t hs;
-    union { va_t va; cz_t cz; fm_t fm; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; gtr_t gt; harm_t hm; } e;
+    union { va_t va; cz_t cz; piano_t pn; phys_t ph; form_t fo; part_t pa; chip_t ch; wave_t wv; logic_t lg; organ_t og; mono_t mo; resin_t rs; tine_t tn; gtr_t gt; harm_t hm; } e;
 } voice_t;
 _Static_assert(sizeof(gtr_t) <= sizeof(resin_t) && sizeof(harm_t) <= sizeof(resin_t), "GUITAR and HARMONIC fit in the voice's memory as it is");
+_Static_assert(sizeof(piano_t) <= sizeof(chip_t), "PIANO fits in the voice's memory as it is");
 
 /* PERC: one drum hit of a Machinedrum-style machine (rv_perc.c) */
 typedef struct {

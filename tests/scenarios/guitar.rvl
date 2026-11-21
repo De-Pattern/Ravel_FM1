@@ -19,7 +19,7 @@ wait 300
 key 7 up
 wait 100
 tap HOME
-preset 1 77
+preset 1 72
 expect tp 1 ENGINE 13
 expect tp 1 VOICES 3
 wav guitar_clean.wav
@@ -34,7 +34,7 @@ wait 200
 wavstop
 expect peak_db_min -30
 expect meter_max 1 1.0
-preset 1 78
+preset 1 73
 wait 50
 key 2 down
 key 9 down
@@ -43,7 +43,7 @@ wait 600
 key 2 up
 key 9 up
 key 14 up
-preset 1 79
+preset 1 74
 wait 50
 key 2 down
 wait 120
@@ -51,7 +51,7 @@ key 2 up
 key 2 down
 wait 120
 key 2 up
-preset 1 80
+preset 1 75
 expect tp 1 VOICES 0
 wait 50
 key 14 down
@@ -60,7 +60,7 @@ key 16 down
 key 14 up
 wait 600
 key 16 up
-preset 1 81
+preset 1 76
 wait 50
 wav guitar_fuzz.wav
 key 7 down
@@ -83,7 +83,7 @@ wait 400
 key 7 up
 wait 200
 expect meter_max 1 1.0
-preset 1 78
+preset 1 73
 wait 50
 key 7 down
 wait 400

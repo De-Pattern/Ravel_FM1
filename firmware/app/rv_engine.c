@@ -195,6 +195,11 @@ RV_INL void synth_flush(voice_t *v)
         fm_flush_n(&v->e.tn.blp, 1);
         fm_flush_n(&v->e.tn.thlp, 1);
         break;
+    case ENG_PIANO:
+        fm_flush_n(&v->e.pn.ap[0][0], 8);
+        fm_flush_n(&v->e.pn.nz.ic1, 2);
+        fm_flush_n(&v->e.pn.bd.ic1, 2);
+        break;
     case ENG_GUITAR:
         fm_flush_n(&v->e.gt.lp, 4);
         break;
@@ -366,6 +371,8 @@ static void note_on_internal(int t, int note, int vel, int env, uint16_t chain)
             resin_note(vo, tr->eff, legato);
         else if (rv.tp[t][TP_ENGINE] == ENG_TINE)
             tine_note(vo, tr->eff);
+        else if (rv.tp[t][TP_ENGINE] == ENG_PIANO)
+            piano_note(vo, tr->eff);
         else if (rv.tp[t][TP_ENGINE] == ENG_MONO)
             mono_note(vo, tr->eff, legato);
         else if (rv.tp[t][TP_ENGINE] == ENG_GUITAR)

@@ -1,0 +1,23 @@
+# HYBRID FM gone (format 28, bank version 11): a project saved with FM tracks loads them as the PIANO at its
+# defaults, the rest of the track kept; a sound kept in the bank with FM comes back as the PIANO too
+wait 300
+storeput 2 tests/fixtures/format27-fm.proj
+rvload 2
+wait 100
+expect tp 1 ENGINE 2
+expect tp 1 FELT 70
+expect tp 1 SUSTAIN 127
+expect tp 1 LEVEL 101
+expect tp 2 ENGINE 2
+expect tp 2 FELT 70
+key 12 down
+wait 400
+expect meter_min 1 0.005
+key 12 up
+wait 300
+storeput 9 tests/fixtures/bank-v10-fm.bank
+bankreload
+bankapply 3 1
+wait 50
+expect tp 3 ENGINE 2
+expect tp 3 FELT 70

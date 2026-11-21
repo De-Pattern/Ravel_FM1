@@ -610,288 +610,249 @@ RV_INL void cz_render(voice_t *v, const float *eff, float f, float *out, int n, 
     }
 }
 
-/* ---------------------------------------------------------------- FM --- */
-static const float fm_ratio_tab[32] = {0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.5f, 5.0f,
-                                       5.5f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f,
-                                       1.4142f, 1.7321f, 2.2361f, 2.7183f, 3.1416f, 0.7071f, 1.01f, 2.01f};
-/* per algorithm: which ops modulate each op (bit k = op k+1), and which are heard */
-static const uint8_t fm_mod[12][4] = {
-    {2, 4, 8, 0}, {2 | 8, 4, 0, 0}, {2 | 4 | 8, 0, 0, 0}, {2, 0, 8, 0}, {4, 4, 8, 0}, {8, 8, 8, 0},
-    {2, 0, 0, 0}, {0, 4, 8, 0}, {2, 4, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-static const uint8_t fm_car[12] = {1, 1, 1, 1 | 4, 1 | 2, 1 | 2 | 4, 1 | 4 | 8, 1 | 2, 1 | 8, 15, 15, 0};
-
-static inline float fm_wave(int w, float ph)
+/* -------------------------------------------------------------- PIANO --- */
+/* A grand piano, felted or not, by waveguides rather than samples: each note's strings (one in the low
+ * bass, a detuned pair above, UNISON apart, so they beat and the tone blooms) are loops of delay. A felt
+ * hammer's stroke goes into them: a smooth pulse, longer for a soft hammer, a gentle blow or the FELT
+ * between hammer and strings (which reaches fewer partials, so the note is darker and rounder), struck
+ * STRIKE along the string (the partials it misses). Each loop is read back through two allpasses that
+ * stretch its upper partials sharp as a stiff steel string's are (STRETCH, more in the treble and the low
+ * bass, as on a grand), and loses its highs faster than its fundamental (TONE). DECAY is how long a held
+ * note rings (about 12 s at middle C, far longer in the bass, short at the top); when the key is let go
+ * the damper stops it, unless PEDAL holds them off (half way: a half pedal), and the top octave and a
+ * half has no dampers. THUMP is the key and hammer's knock at the start (louder with FELT, as on a felt
+ * piano), KEY OFF the damper's soft noise as it lands, BODY the soundboard's warmth, DYNAMC how much
+ * harder playing brightens the tone as well as its level. */
+static float pn_atan(float x)                         /* (within about 1e-5) */
 {
-    float s, x;
-    switch (w) {
-    case 0: return sin_lut(ph);
-    case 1: x = ph - fm_floorf(ph); return x < 0.5f ? 4.0f * x - 1.0f : 3.0f - 4.0f * x;
-    case 2: x = ph - fm_floorf(ph); return 2.0f * x - 1.0f;
-    case 3: x = ph - fm_floorf(ph); return x < 0.5f ? 0.8f : -0.8f;
-    case 4: s = sin_lut(ph); return s > 0.0f ? s * 1.6f - 0.5f : -0.5f;
-    case 5: s = sin_lut(ph); return (s < 0.0f ? -s : s) * 2.0f - 1.27f;
-    case 6: x = ph - fm_floorf(ph); return x < 0.25f ? sin_lut(x) : x < 0.5f ? 0.0f : x < 0.75f ? -sin_lut(x - 0.5f) : 0.0f;
-    default: s = sin_lut(ph); return (float)(int)(s * 7.0f) * (1.0f / 7.0f);
+    float a = fm_fabsf(x), z, r;
+    int inv = a > 1.0f;
+    if (inv)
+        a = 1.0f / a;
+    z = a * a;
+    r = a * (0.99997726f + z * (-0.33262347f + z * (0.19354346f + z * (-0.11643287f + z * (0.05265332f - z * 0.01172120f)))));
+    if (inv)
+        r = 1.57079633f - r;
+    return x < 0.0f ? -r : r;
+}
+/* a first-order allpass's delay at w radians a sample, in samples (sw, cw: w's sine and cosine) */
+static float pn_apd(float a, float w, float sw, float cw) { return 1.0f - 2.0f * pn_atan(a * sw / (1.0f + a * cw)) / w; }
+#define PN_DAMPED 89
+#define PN_ECHO 0.45f                                 /* (how much of the stroke comes back from the near end: the partials it misses, not quite gone) */
+static float pn_comb(float wd)                        /* that echo's effect on a partial wd radians out of step: |1 - k e^-jwd| */
+{
+    return fm_sqrtf(1.0f + PN_ECHO * PN_ECHO - 2.0f * PN_ECHO * fm_cosf(wd));
+}
+/* a raised-cosine pulse's spectrum, F cycles across it (its area 1/2 at F = 0) */
+static float pn_hann(float F)
+{
+    float d = 1.0f - F * F, x = 3.14159265f * F;
+    if (F < 1e-4f)
+        return 0.5f;
+    if (fm_fabsf(d) < 1e-3f)
+        return 0.25f;
+    return 0.5f * fm_sinf(x) / (x * d);
+}                                  /* (F6: the first note with no damper) */
+
+static void piano_note(voice_t *v, const float *eff)
+{
+    piano_t *s = &v->e.pn;
+    float f = note_hz((float)v->note + eff[TP_PITCH]), per = 44100.0f / f, vel = v->vel;
+    float felt = eff[TP_S0] * (1.0f / 127.0f), hard = eff[TP_S1] * (1.0f / 127.0f), dyn = eff[TP_S11] * (1.0f / 127.0f);
+    float uni = eff[TP_S6] * (1.0f / 127.0f), vt, t;
+    int k, sz;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    s->nstr = per * 1.25f + 8.0f <= (float)(PN_BUF / 2) ? 2 : 1;
+    sz = s->nstr == 2 ? PN_BUF / 2 : PN_BUF;
+    __builtin_memset(s->buf, 0, sizeof s->buf);
+    for (k = 0; k < 2; k++) {
+        s->base[k] = (int16_t)(k * sz);
+        s->size[k] = (int16_t)sz;
+        s->w[k] = 0;
+        s->ap[k][0] = s->ap[k][1] = s->fr[k] = s->lp[k] = 0.0f;
     }
-}
-
-/* HYBRID FM's formants, after the FS1R's: eight spectral states, each three formants (log2 Hz, log2 level, log2
- * width in Hz) and two noise bands (log2 Hz). SHAPE picks one, MORPH moves toward the next (the last to the
- * first): frequencies and widths through log space, levels through dB, so each formant glides to its partner */
-static const float hfm_st[8][11] = {
-    {8.2288f, 9.7649f, 11.1293f, 0.0000f, -1.9932f, -4.9829f, 5.9069f, 6.4919f, 6.9069f, 8.9658f, 9.9658f},   /* OO: 300/870/2240 Hz, 0/-12/-30 dB, 60/90/120 Hz wide; noise at 500/1000 Hz */
-    {9.5118f, 10.0901f, 11.2527f, 0.0000f, -0.8305f, -2.8236f, 6.4919f, 6.7814f, 7.2288f, 10.1033f, 11.2877f},   /* AH: 730/1090/2440 Hz, 0/-5/-17 dB, 90/110/150 Hz wide; noise at 1100/2500 Hz */
-    {8.0768f, 11.1611f, 11.5555f, 0.0000f, -2.4914f, -1.6610f, 5.9069f, 6.7814f, 7.3219f, 11.4512f, 12.1357f},   /* EE: 270/2290/3010 Hz, 0/-15/-10 dB, 60/110/160 Hz wide; noise at 2800/4500 Hz */
-    {8.1293f, 9.8138f, 11.2288f, 0.0000f, -0.4983f, -0.8305f, 6.3219f, 7.7814f, 9.2288f, 11.2288f, 12.5507f},   /* BOW: 280/900/2400 Hz, 0/-3/-5 dB, 80/220/600 Hz wide; noise at 2400/6000 Hz */
-    {9.0224f, 10.5507f, 11.6439f, 0.0000f, -0.4983f, -1.3288f, 6.9069f, 7.6439f, 8.3219f, 10.6439f, 11.8918f},   /* REED: 520/1500/3200 Hz, 0/-3/-8 dB, 120/200/320 Hz wide; noise at 1600/3800 Hz */
-    {10.3554f, 11.6303f, 12.4067f, -0.4983f, 0.0000f, -0.3322f, 4.3219f, 4.9069f, 5.6439f, 12.0362f, 12.9658f},   /* METAL: 1310/3170/5430 Hz, -3/0/-2 dB, 20/30/50 Hz wide; noise at 4200/8000 Hz */
-    {8.8455f, 10.4305f, 11.1674f, 0.0000f, -0.6644f, -1.3288f, 5.4919f, 5.7814f, 6.1293f, 9.8138f, 11.0362f},   /* HOLLOW: 460/1380/2300 Hz, 0/-4/-8 dB, 45/55/70 Hz wide; noise at 900/2100 Hz */
-    {7.9658f, 10.8918f, 11.3718f, 0.0000f, -1.4949f, -0.9966f, 5.6439f, 8.1293f, 7.1293f, 11.3443f, 12.0362f},   /* NASAL: 250/1900/2650 Hz, 0/-9/-6 dB, 50/280/140 Hz wide; noise at 2600/4200 Hz */
-};
-/* the formant sequences (FSEQ): eight frames each, played at F RATE (a frame each division of the tempo) or
- * scrubbed by MORPH. A frame: where it moves the formants from SHAPE (32 = one state on), its level (high
- * nibble, 15 = full) and its breath (low nibble). F DEPTH scales all three. mode: 0 loops, 1 once a note,
- * 2 back and forth; step: 1 jumps from frame to frame, 0 glides */
-typedef struct { uint8_t mode, step; int16_t off[8]; uint8_t la[8]; } hfm_seq_t;
-static const hfm_seq_t hfm_seq[8] = {
-    {0, 0, {0, 8, 16, 24, 32, 24, 16, 8}, {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0}},             /* WAH */
-    {0, 0, {0, 32, 64, 32, 0, 96, 64, 32}, {0xF0, 0xF0, 0xF0, 0xC0, 0xF0, 0xF0, 0xE0, 0xD0}},           /* TALK */
-    {1, 0, {0, 0, 4, 8, 8, 8, 8, 8}, {0x6F, 0x9C, 0xB9, 0xD6, 0xE4, 0xF2, 0xF1, 0xF0}},                 /* BREATH */
-    {1, 0, {0, 12, 24, 40, 56, 72, 88, 96}, {0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0}},          /* BLOOM */
-    {0, 1, {0, 0, 32, 0, 0, 64, 0, 32}, {0xF0, 0x00, 0xF0, 0xF0, 0x00, 0xF0, 0xF2, 0x00}},              /* STUTTER */
-    {2, 0, {0, 32, 64, 96, 128, 160, 192, 224}, {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0}},      /* ORBIT */
-    {0, 0, {0, 4, -4, 6, 0, -6, 3, -2}, {0xF8, 0xEC, 0xF6, 0xDF, 0xF9, 0xEB, 0xF5, 0xDD}},              /* SCRAPE */
-    {1, 0, {128, 96, 64, 40, 24, 12, 4, 0}, {0xF4, 0xF3, 0xF2, 0xF1, 0xF0, 0xF0, 0xF0, 0xF0}},          /* DROP */
-};
-static const float hfm_len16[8] = {0.0f, 32.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f, 0.5f};   /* F RATE: SCRUB, 2 BAR ... 1/32 */
-static float clk_period;                              /* (rv_mod.c: seconds a step) */
-
-static __attribute__((noinline)) float hfm_exp2(float x) { return fm_exp2f(x); }   /* (out of line: the flash is short) */
-static __attribute__((noinline)) void hfm_svf(svf_t *f, float lhz, float q, float lk)   /* at 2^lhz Hz, k x 2^lk */
-{
-    svf_set(f, hfm_exp2(lhz + 1.0f), q);              /* (+1: the formants run at half the sample rate) */
-    f->k *= hfm_exp2(lk);
-}
-
-/* the formants for this block: where the state is (SHAPE, MORPH, the sequence), the filters set to it.
- * Returns the sequence frame's level; *air its breath */
-static __attribute__((noinline)) float hfm_block(fm_t *s, const float *eff, int n, float *air)
-{
-    int shape = clampi((int)(eff[TP_WX2] + 0.5f), 1, 8), sq = clampi((int)(eff[TP_VOC] + 0.5f), 0, 8);
-    int rate = clampi((int)(eff[TP_PAIRS] + 0.5f), 0, 7), k, a, b;
-    float morph = clampf(eff[TP_WX3] * (1.0f / 128.0f), 0.0f, 1.0f), pos = (float)(shape - 1), lvl = 1.0f, br = 0.0f;
-    float g[11], u;
-    if (sq) {                                         /* where the sequence is, and its frame */
-        const hfm_seq_t *q = &hfm_seq[sq - 1];
-        float depth = clampf(eff[TP_BANDS] * (1.0f / 127.0f), 0.0f, 1.0f), fp, fr, off, la, lb;
-        int fa, fb;
-        if (!rate)
-            fp = morph * 7.0f;                        /* SCRUB: MORPH is where in it */
-        else {
-            s->fpos += (float)n * RV_DT / (fm_maxf(clk_period, 0.01f) * hfm_len16[rate]) * (s->fdir ? -1.0f : 1.0f);
-            if (s->fpos >= (q->mode ? 7.0f : 8.0f)) {   /* (a loop: frame 8 glides back into frame 1) */
-                if (q->mode == 0)
-                    s->fpos -= 8.0f;
-                else if (q->mode == 1)
-                    s->fpos = 7.0f;
-                else {
-                    s->fpos = 14.0f - s->fpos;
-                    s->fdir = 1;
-                }
-            } else if (s->fpos < 0.0f) {
-                s->fpos = -s->fpos;
-                s->fdir = 0;
-            }
-            fp = clampf(s->fpos, 0.0f, 7.999f);
-            pos += morph;
+    s->det[0] = s->nstr == 2 ? -uni * (0.6f + 0.6f * xs_uni(&s->ns)) : 0.0f;   /* cents */
+    s->det[1] = uni * (0.6f + 0.6f * xs_uni(&s->ns));
+    vt = 1.0f - dyn + dyn * vel;                      /* how hard it was played, as the tone hears it */
+    t = 0.0010f * fm_powf(261.6f / f, 0.6f);          /* the hammer on the string: longer in the bass */
+    t *= (1.0f + felt * 1.5f) * (1.4f - 0.8f * hard) * (1.6f - 0.95f * vt);
+    s->exc_len = clampf(t * 44100.0f, 4.0f, fm_maxf(per * 0.9f, 4.0f));   /* (never longer than the string's period) */
+    s->exc_pos = per * (0.055f + eff[TP_S7] * (0.12f / 127.0f));
+    s->exc_t = 0.0f;
+    s->hard = vt * vt * hard * (1.0f - felt) * 1.2f;  /* a hard hammer's edge: a shorter stroke on top */
+    {                                                 /* its level: the same loudness whatever the note and the hammer */
+        float e2 = 0.0f, w0 = 6.28318531f / per;
+        int h, nh = (int)(per * 0.45f);
+        if (nh > 48)
+            nh = 48;
+        for (h = 1; h <= nh; h++) {
+            float F = (float)h * s->exc_len / per, G = F * (1.0f / 0.33f), x, cb;
+            x = pn_hann(F) * s->exc_len + s->hard * pn_hann(G) * s->exc_len * 0.33f;
+            cb = pn_comb((float)h * w0 * s->exc_pos);
+            x *= cb * 2.0f / per;
+            e2 += x * x * 0.5f;
         }
-        fa = clampi((int)fp, 0, 7);
-        fb = fa < 7 ? fa + 1 : (q->mode == 0 ? 0 : 7);
-        fr = q->step ? 0.0f : fp - (float)fa;
-        fr = fr * fr * (3.0f - 2.0f * fr);
-        off = ((float)q->off[fa] + ((float)q->off[fb] - (float)q->off[fa]) * fr) * (1.0f / 32.0f);
-        la = (float)(q->la[fa] >> 4) + (float)((q->la[fb] >> 4) - (q->la[fa] >> 4)) * fr;
-        lb = (float)(q->la[fa] & 15) + (float)((q->la[fb] & 15) - (q->la[fa] & 15)) * fr;
-        pos += off * depth;
-        lvl = 1.0f + depth * (la * (1.0f / 15.0f) - 1.0f);
-        br = depth * lb * (1.0f / 15.0f);
-    } else
-        pos += morph;
-    pos -= 8.0f * fm_floorf(pos * 0.125f);            /* (around the ring of states) */
-    a = clampi((int)pos, 0, 7);
-    b = (a + 1) & 7;
-    u = pos - (float)a;
-    for (k = 0; k < 11; k++)
-        g[k] = hfm_st[a][k] + (hfm_st[b][k] - hfm_st[a][k]) * u;
-    for (k = 0; k < 3; k++)                           /* (k x band: the band's peak at its level) */
-        hfm_svf(&s->fv[k], g[k], hfm_exp2(g[k] - g[6 + k]), g[3 + k]);
-    for (k = 0; k < 2; k++)
-        hfm_svf(&s->fn[k], g[9 + k], 1.2f, 0.0f);
-    *air = br;
-    return lvl;
+        s->exc_amp = 0.16f * (1.0f - 0.3f * felt) * (f > 261.6f ? fm_powf(f * (1.0f / 261.6f), 0.3f) : 1.0f) / fm_sqrtf(fm_maxf(e2, 1e-9f));
+        if (s->exc_amp > 1.6f)
+            s->exc_amp = 1.6f;
+    }
+    s->thump = eff[TP_S8] * (1.0f / 127.0f) * (0.3f + 0.7f * vel) * (0.5f + felt) * 1.6f;
+    s->offn = s->nlp = s->dc = s->held = 0.0f;
+    s->nz.ic1 = s->nz.ic2 = s->bd.ic1 = s->bd.ic2 = 0.0f;
+    s->gate_was = 1;
 }
 
-/* a formant band's band pass (svf_tick's, the low and high passes left out) */
-RV_INL float hfm_bp(svf_t *f, float x)
+/* the hammer: a smooth stroke, less its echo from the agraffe's end; a sample of it (out of the render: the pool is short) */
+static __attribute__((noinline)) float pn_stroke(piano_t *s)
 {
-    float v3 = x - f->ic2, v1 = f->a1 * f->ic1 + f->a2 * v3, v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
-    f->ic1 = 2.0f * v1 - f->ic1;
-    f->ic2 = 2.0f * v2 - f->ic2;
-    return v1;
+    float t = s->exc_t, L = s->exc_len, h = s->exc_len * 0.33f, e = 0.0f;
+    if (t < L)
+        e += 0.5f - 0.5f * fm_cosf(6.28318531f * t / L);
+    if (t < h)
+        e += s->hard * (0.5f - 0.5f * fm_cosf(6.28318531f * t / h));
+    t -= s->exc_pos;
+    if (t >= 0.0f && t < L)
+        e -= PN_ECHO * (0.5f - 0.5f * fm_cosf(6.28318531f * t / L));
+    if (t >= 0.0f && t < h)
+        e -= PN_ECHO * s->hard * (0.5f - 0.5f * fm_cosf(6.28318531f * t / h));
+    s->exc_t += 1.0f;
+    return e * s->exc_amp;
 }
-/* the operators (out, at 0.45) through the formants, breath through its bands (only with some AIR), the level
- * matched, softly limited. In RAM on the FM-1. The formants and the breath run at half the sample rate (each pair
- * of samples averaged in, the result eased between), the operators' own part (1 - BODY) at the full rate */
-RV_HOT2 static void hfm_run(fm_t *s, float *out, int n, float air, float body, float flvl, float agc_t)
+
+/* a block's settings, worked out once a block (out of the render, in flash: the pool is short) */
+typedef struct { float a, c, eta[2], g[2], gain, body, thd, ofd; int dly[2]; } pn_blk_t;
+static __attribute__((noinline)) int piano_block(voice_t *v, const float *eff, float f, int n, pn_blk_t *b)
 {
-    int i;
-    float ga = s->agc, gk = 1.0f - body, vl = s->vlast, nl = s->nlast;
-    float k0 = s->fv[0].k, k1 = s->fv[1].k, k2 = s->fv[2].k, rin = s->rin, rout = s->rout;
-    for (i = 0; i + 1 < n; i += 2) {
-        float y0 = out[i] * (1.0f / 0.45f), y1 = out[i + 1] * (1.0f / 0.45f), x = 0.5f * (y0 + y1);
-        float vs = hfm_bp(&s->fv[0], x) * k0 + hfm_bp(&s->fv[1], x) * k1 + hfm_bp(&s->fv[2], x) * k2;
-        rin += (x * x - rin) * 0.0016f;
-        rout += (vs * vs - rout) * 0.0016f;
-        ga += (agc_t - ga) * 0.004f;
-        out[i] = (y0 * gk + 0.5f * (vl + vs) * ga * body) * flvl;
-        out[i + 1] = (y1 * gk + vs * ga * body) * flvl;
-        vl = vs;
-    }
-    if (i < n)                                        /* (an odd sample left: the formants held) */
-        out[i] = (out[i] * (1.0f / 0.45f) * gk + vl * ga * body) * flvl;
-    if (air > 0.0f) {                                 /* the breath */
-        float g = air * flvl;
-        for (i = 0; i + 1 < n; i += 2) {
-            float nz = xs_bi(&s->ns), ns = hfm_bp(&s->fn[0], nz) * s->fn[0].k + hfm_bp(&s->fn[1], nz) * s->fn[1].k;
-            out[i] += 0.5f * (nl + ns) * g;
-            out[i + 1] += ns * g;
-            nl = ns;
+    piano_t *s = &v->e.pn;
+    int k, nst = s->nstr == 2 ? 2 : 1;
+    float dt = (float)n * RV_DT, vel = v->vel;
+    float felt = eff[TP_S0] * (1.0f / 127.0f), decay = eff[TP_S2] * (1.0f / 127.0f), pedal = eff[TP_S3] * (1.0f / 127.0f);
+    float tone = eff[TP_S4] * (1.0f / 127.0f), body = eff[TP_S10] * (1.0f / 127.0f);
+    float a, c, t60, lf;
+    int damped = !v->a.gate && v->note < PN_DAMPED && pedal < 0.99f;
+    if (!s->ns)
+        s->ns = v->rng | 1u;
+    if (!s->nstr)
+        return 0;
+    for (k = 0; k < nst; k++) {
+        if (s->base[k] < 0 || s->size[k] < 16 || s->base[k] + s->size[k] > PN_BUF || (uint16_t)s->w[k] >= (uint16_t)s->size[k]) {
+            s->nstr = 0;                              /* (another engine's bytes: silent until the next note) */
+            return 0;
         }
+        if (!(s->lp[k] == s->lp[k]) || !(s->fr[k] == s->fr[k]) || !(s->ap[k][0] == s->ap[k][0]) || !(s->ap[k][1] == s->ap[k][1]))
+            s->lp[k] = s->fr[k] = s->ap[k][0] = s->ap[k][1] = 0.0f;
     }
-    s->vlast = vl;
-    s->nlast = nl;
-    for (i = 0; i < n; i++) {                         /* (a soft limit: a cubic, flat at 1.5) */
-        float y = clampf(out[i], -1.5f, 1.5f);
-        out[i] = (y - y * y * y * (4.0f / 27.0f)) * 0.45f;
+    s->held += dt;
+    if (!v->a.gate && s->gate_was) {                  /* let go: the damper lands, with its own soft noise */
+        s->gate_was = 0;
+        if (damped)
+            s->offn = eff[TP_S9] * (1.0f / 127.0f) * (0.4f + 0.6f * vel) * 0.25f;
     }
-    s->agc = ga;
-    s->rin = rin;
-    s->rout = rout;
+    /* the strings' stiffness: their partials stretched sharp, most in the treble and the low bass */
+    lf = fm_log2f(f * (1.0f / 55.0f));
+    a = -fm_minf(clampf(0.9f - 0.125f * lf, 0.08f, 0.93f) * clampf(eff[TP_S5] * (1.0f / 64.0f), 0.0f, 1.25f), 0.93f);
+    /* how long it rings, held; then what the damper leaves (or the pedal, half way: a half pedal) */
+    t60 = (1.2f + decay * decay * 24.0f) * fm_minf(3.0f, fm_powf(261.6f / f, 0.55f));
+    c = (0.01f + (1.0f - tone) * 0.16f + felt * 0.08f) * fm_powf(261.6f / f, 1.4f);   /* the loss: the highs die sooner (as fast, */
+    c = clampf(c, 0.0f, 0.85f);                       /* a second, in the treble as in the bass: less a pass in a short loop) */
+    if (damped) {
+        float td = 0.1f + pedal * pedal * t60;
+        t60 = fm_minf(t60, td);
+        c += (1.0f - c) * 0.35f * (1.0f - pedal);
+    }
+    for (k = 0; k < nst; k++) {
+        float fk = f * fm_exp2f(s->det[k] * (1.0f / 1200.0f)), per, w, sw, cw, rem, d, hl;
+        int N;
+        if (fk > 15000.0f)
+            fk = 15000.0f;
+        per = 44100.0f / fk;
+        w = 6.28318531f * fk * RV_DT;
+        sw = fm_sinf(w);
+        cw = fm_cosf(w);
+        rem = per - 2.0f * pn_apd(a, w, sw, cw) - pn_atan(c * sw / (1.0f - c * cw)) / w;
+        N = (int)(rem - 0.5f);
+        if (N < 1)
+            N = 1;
+        if (N > s->size[k] - 2)
+            N = s->size[k] - 2;
+        d = clampf(rem - (float)N, 0.1f, 2.5f);
+        b->eta[k] = (1.0f - d) / (1.0f + d);
+        d -= pn_apd(b->eta[k], w, sw, cw) - d;           /* (once more, where the fraction's own delay is off at this pitch) */
+        d = clampf(d, 0.1f, 2.5f);
+        b->eta[k] = (1.0f - d) / (1.0f + d);
+        b->dly[k] = N;
+        hl = (1.0f - c) / fm_sqrtf(1.0f - 2.0f * c * cw + c * c);   /* the loss filter's gain at the note */
+        b->g[k] = fm_exp2f(-9.966f * per / (44100.0f * t60 * (nst == 2 && !damped ? (k ? 1.3f : 0.35f) : 1.0f))) / hl;   /* the pair: */
+        /* one string gives its energy to the bridge fast, the other slowly: the piano's two-stage decay, a loud start
+         * that drops away to a long, quieter singing */
+        if (b->g[k] > 0.99998f)                          /* (never above 1 at any pitch: the loss passes DC whole) */
+            b->g[k] = 0.99998f;
+    }
+    svf_set(&s->nz, 180.0f + 420.0f * (1.0f - felt), 1.1f);   /* the knock: wood and felt */
+    svf_set(&s->bd, 190.0f, 0.8f);                    /* the soundboard's warmth */
+    b->thd = fm_expf(-RV_DT / 0.025f);
+    b->ofd = fm_expf(-RV_DT / 0.04f);
+    b->gain = 1.4f / (float)nst;
+    b->body = body;
+    b->a = a;
+    b->c = c;
+    return nst;
 }
 
-/* a block's start: a new note's modulator envelope and sequence; the formants' settings (hp: AIR, BODY, the
- * sequence's level, the level match, MOD ATK's rise a sample). Returns whether the formants are on (FORM) */
-static __attribute__((noinline)) int hfm_begin(voice_t *v, const float *eff, int n, float *hp)
+RV_INL void piano_render(voice_t *v, const float *eff, float f, float *out, int n)
 {
-    fm_t *s = &v->e.fm;
-    int hy = eff[TP_WX2] > 0.5f;
-    float fair = 0.0f;
-    hp[0] = hp[1] = hp[4] = 0.0f;
-    hp[2] = hp[3] = 1.0f;
-    if (s->mnew) {                                    /* a new note: MOD ATK up, the modulators rise first */
-        s->mnew = 0;
-        s->fpos = 0.0f;
-        s->fdir = 0;
-        if (eff[TP_WX0] > 0.5f) {
-            s->menv = 0.0f;
-            s->mup = 1;
-        } else
-            s->mup = 0;
-    }
-    if (s->mup)
-        hp[4] = RV_DT / rv_time_f(eff[TP_WX0]);
-    if (hy) {
-        float air = clampf(eff[TP_WX4], 0.0f, 127.0f) * (1.0f / 127.0f);
-        hp[2] = hfm_block(s, eff, n, &fair);
-        hp[0] = air * air * 0.45f + fair * 0.3f;
-        hp[1] = clampf(eff[TP_WX5], 0.0f, 127.0f) * (1.0f / 127.0f);
-        hp[3] = clampf(fm_sqrtf((s->rin + 1e-9f) / (s->rout + 1e-7f)), 0.25f, 12.0f);   /* the formants as loud as what goes in */
-        if (s->agc <= 0.0f)
-            s->agc = hp[3];
-        if (!s->ns)
-            s->ns = v->rng | 1u;
-    }
-    return hy;
-}
-
-RV_INL void fm_render(voice_t *v, const float *eff, float f, float *out, int n)
-{
-    fm_t *s = &v->e.fm;
-    int alg = clampi((int)(eff[TP_S0] + 0.5f), 0, 11), i, k;
-    float fb = eff[TP_S1] * (1.0f / 127.0f) * 0.25f;
-    float dt[4], lvl[4], wv[4];
-    float vmod = 1.0f - eff[TP_S15] * (1.0f / 127.0f) * (1.0f - v->vel);
-    float mdec = rv_time_f(eff[TP_S13] * 0.8f + 10.0f), tz = eff[TP_S14] * (1.0f / 127.0f);
-    float mcoef = RV_DT / mdec, msus = clampf(eff[TP_WX1], 0.0f, 128.0f) * (1.0f / 128.0f), hp[5];
-    int hy = RV_FAR(hfm_begin)(v, eff, n, hp);
-    float mrise = hp[4];
-    for (k = 0; k < 4; k++) {
-        dt[k] = f * fm_ratio_tab[clampi((int)(eff[TP_S2 + k] + 0.5f), 0, 31)] * RV_DT;
-        wv[k] = (float)clampi((int)(eff[TP_S9 + k] + 0.5f), 0, 7);
-    }
-    lvl[0] = eff[TP_OSC1] * (1.0f / 127.0f);          /* LEVEL1: op 1, a carrier */
-    lvl[0] *= lvl[0];
-    for (k = 1; k < 4; k++) {
-        float l = eff[TP_S5 + k] * (1.0f / 127.0f);
-        lvl[k] = l * l;
+    piano_t *s = &v->e.pn;
+    pn_blk_t bk;
+    int i, k, nst = RV_FAR(piano_block)(v, eff, f, n, &bk), wi[2], sz[2], bs[2];
+    float a = bk.a, c = bk.c;
+    if (!nst)
+        return;
+    for (k = 0; k < nst; k++) {
+        wi[k] = s->w[k];
+        sz[k] = s->size[k];
+        bs[k] = s->base[k];
     }
     for (i = 0; i < n; i++) {
-        float o[4], ph, y = 0.0f, menv;
-        if (s->mup) {                                 /* MOD ATK: up to full, then MOD DEC toward MOD SUS */
-            s->menv += mrise;
-            if (s->menv >= 1.0f) {
-                s->menv = 1.0f;
-                s->mup = 0;
-            }
-        } else
-            s->menv += (msus - s->menv) * mcoef;
-        menv = s->menv * vmod;
-        /* compute ops 4..1: modulators feed earlier ops */
-        for (k = 3; k >= 0; k--) {
-            float mod = 0.0f;
-            uint8_t m = fm_mod[alg][k];
-            int j;
-            for (j = k + 1; j < 4; j++)
-                if (m & (1 << j))
-                    mod += o[j];
-            if (k == 3 || (alg >= 9 && k == 3))
-                mod += fb * (s->fb1 + s->fb2);
-            ph = s->ph[k] + mod * (alg == 11 ? 0.0f : 1.0f);
-            o[k] = fm_wave((int)wv[k], ph);
-            if (k == 3) {
-                s->fb2 = s->fb1;
-                s->fb1 = o[3];
-            }
-            /* modulators are scaled by level and the mod envelope; carriers by level only */
-            if (!(fm_car[alg] & (1 << k)))
-                o[k] *= lvl[k] * menv * 2.5f;
-            else
-                o[k] *= lvl[k];
+        float e = 0.0f, y = 0.0f, nzv, bp;
+        if (s->exc_t < s->exc_len + s->exc_pos)       /* the hammer (a few milliseconds a note) */
+            e = RV_FAR(pn_stroke)(s);
+        for (k = 0; k < nst; k++) {
+            int r = wi[k] - bk.dly[k];
+            float x, t1, t2, t3, *ap = s->ap[k];
+            if (r < 0)
+                r += sz[k];
+            x = (float)s->buf[bs[k] + r] * (1.0f / 16384.0f);
+            y += x;
+            t1 = bk.eta[k] * x + s->fr[k];               /* the fraction */
+            s->fr[k] = x - bk.eta[k] * t1;
+            t2 = a * t1 + ap[0];                      /* the stiffness */
+            ap[0] = t1 - a * t2;
+            t3 = a * t2 + ap[1];
+            ap[1] = t2 - a * t3;
+            s->lp[k] += (t3 - s->lp[k]) * (1.0f - c); /* the loss */
+            x = clampf((s->lp[k] * bk.g[k] + e) * 16384.0f, -32700.0f, 32700.0f);
+            s->buf[bs[k] + wi[k]] = (int16_t)(x + (x < 0.0f ? -0.5f : 0.5f));   /* (rounded: cut toward 0, a high note would die) */
+            if (++wi[k] >= sz[k])
+                wi[k] = 0;
         }
-        if (alg == 11) {
-            y = (sin_lut(s->ph[0]) * sin_lut(s->ph[1]) * lvl[0] + sin_lut(s->ph[2]) * sin_lut(s->ph[3]) * lvl[3]) * 0.8f;
-        } else {
-            int nc = 0;
-            for (k = 0; k < 4; k++)
-                if (fm_car[alg] & (1 << k)) {
-                    y += o[k];
-                    nc++;
-                }
-            if (nc > 1)
-                y *= 1.0f / fm_sqrtf((float)nc);
+        y *= bk.gain;
+        if (s->thump + s->offn > 1e-5f) {             /* the knock and the damper: noise through the wood (only then) */
+            nzv = xs_bi(&s->ns) * (s->thump + s->offn);
+            s->thump *= bk.thd;
+            s->offn *= bk.ofd;
+            y += svf_tick(&s->nz, nzv, &bp, 0) * 0.7f + bp * 0.5f;   /* (mostly the low thud, a little wood) */
         }
-        for (k = 0; k < 4; k++) {
-            float inc = dt[k];
-            if (k == 0 && tz > 0.001f)
-                inc *= 1.0f + tz * 4.0f * o[1];      /* through-zero: op 1's rate can go negative */
-            s->ph[k] += inc;
-            s->ph[k] -= fm_floorf(s->ph[k]);
+        if (bk.body > 0.0f) {                         /* the soundboard */
+            svf_tick(&s->bd, y, &bp, 0);
+            y += bp * bk.body * 0.8f;
         }
-        out[i] = y * 0.45f;
+        s->dc += (y - s->dc) * 0.0015f;
+        out[i] = y - s->dc;
     }
-    if (hy)
-        RV_FAR(hfm_run)(s, out, n, hp[0], hp[1], hp[2], hp[3]);
-    (void)mcoef;
+    for (k = 0; k < nst; k++)
+        s->w[k] = (int16_t)wi[k];
+    s->held = fm_minf(s->held, 1000.0f);
 }
 
 /* -------------------------------------------------------------- PHYS --- */
@@ -1866,7 +1827,7 @@ RV_INL void voice_engine_reset(voice_t *v, int eng)
     __builtin_memset(&v->e, 0, sizeof(v->e));
     switch (eng) {
     case ENG_VA: v->e.va.ns = v->rng | 1u; break;
-    case ENG_FM: v->e.fm.menv = 1.0f; v->e.fm.mnew = 1; break;
+    case ENG_PIANO: v->e.pn.ns = v->rng | 1u; break;
     case ENG_PHYS: v->e.ph.ns = v->rng | 1u; break;
     case ENG_FORMANT: v->e.fo.ns = v->rng | 1u; break;
     case ENG_PARTICLE: v->e.pa.ns = v->rng | 1u; break;
@@ -1896,9 +1857,6 @@ static void synth_voice_note_on(voice_t *v, int note, float vel, int legato, int
         v->xs_y = v->xs_acc = 0.0f;
         v->svf.ic1 = v->svf.ic2 = 0.0f;
         v->lpg = 0.0f;
-    } else if (eng == ENG_FM) {
-        v->e.fm.menv = 1.0f;
-        v->e.fm.mnew = 1;
     }
     v->on = 1;
 }
@@ -2595,7 +2553,7 @@ RV_HOT2 static float synth_voice_render(voice_t *v, track_t *tr, float *out, int
     switch (eng) {
     case ENG_VA: RV_FAR(va_render)(v, eff, f, buf, n); break;
     case ENG_CZ: cz_render(v, eff, f, buf, n, v->track); break;
-    case ENG_FM: fm_render(v, eff, f, buf, n); break;
+    case ENG_PIANO: piano_render(v, eff, f, buf, n); break;
     case ENG_PHYS: phys_render(v, eff, f, tr->exc, buf, n); break;
     case ENG_FORMANT: form_render(v, eff, f, buf, n); break;
     case ENG_CHIP: chip_render(v, eff, f, buf, n); break;
