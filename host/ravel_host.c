@@ -533,6 +533,10 @@ int main(int argc, char **argv)
                 }
                 got = rv.tp[t][p];
                 want = atoi(w3);
+            } else if (!strcmp(b, "keylit")) {           /* expect keylit KEY N: the key's LED, 0 off, 1 lit, 2 dim */
+                int k = atoi(w1) & 31;
+                got = (lit_keys >> k) & 1u ? 1 : (lit_dim >> k) & 1u ? 2 : 0;
+                want = atoi(w2);
             } else if (!strcmp(b, "gp")) {
                 int g = find_gp(w1);
                 if (g < 0) {

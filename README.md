@@ -1209,6 +1209,7 @@ The picture shows the notes it holds, in the order they came, and one round of t
 Every track has its own sequencer, with **two patterns (A and B)** of up to **64 steps**.
 
 - **PRESETS** switches pattern while on SEQ pages, and so do black keys **1** and **2**.
+- **The keys show the steps:** on SEQ pages each white key is lit when its step is on. While it plays, the **playhead** runs along them: the playing step's key lights as brightly as a step that's on, and a step that's on goes dim while the playhead passes over it. The key and button backlight (GLO) is off on SEQ pages while it plays, so the moving light always stands out.
 - **Black key 9 (COPY)** picks the current pattern as the source. **Black key 10 (PASTE)** copies that pattern, as it is at that moment and with a kit's locks, into the current one: switch to the other pattern, or to another track, first. A kit's pattern pastes only into a kit, and a note pattern only into a note track. Pasting over steps asks first: press it twice. The pattern's steps are copied; the track's LENGTH and RATE stay the target's own.
 - **Black key 11** clears the pattern: press it twice (the first press asks).
 - A pattern launched while playing waits for the current one to finish (its LENGTH, at its RATE), then starts from its first step, so patterns of any length change cleanly. (A GRAPH track has no end, so it changes on the next bar.) Scenes change on the next bar.

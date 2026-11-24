@@ -19,6 +19,7 @@ int32_t plat_enc(int role);             /* detents since the last call, + = cloc
 uint32_t plat_master(void);             /* MASTER knob, 0..4096 */
 int plat_battery(void);                 /* the battery: 0..3 bars, 4 on USB power, -1 none here */
 void plat_leds(uint32_t buttons, uint32_t keys);
+void plat_leds_dim(uint32_t buttons, uint32_t keys, uint32_t dim);   /* the same, and the keys in dim half lit; no backlight */
 
 /* the screen: a band of native-endian RGB565 pixels */
 #define PLAT_W 240

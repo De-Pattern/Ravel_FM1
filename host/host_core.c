@@ -27,7 +27,7 @@ void plat_blit(int x, int y, int w, int h, const uint16_t *px)
 /* ---------------------------------------------------------- platform --- */
 static uint32_t now_ms, held_btn, held_keys, master = 3000;
 static int32_t enc_acc[NE];
-static uint32_t lit_btn, lit_keys;
+static uint32_t lit_btn, lit_keys, lit_dim;
 
 uint32_t plat_ms(void) { return now_ms; }
 uint32_t plat_buttons(void) { return held_btn; }
@@ -46,6 +46,13 @@ void plat_leds(uint32_t b, uint32_t k)
 {
     lit_btn = b;
     lit_keys = k;
+    lit_dim = 0;
+}
+void plat_leds_dim(uint32_t b, uint32_t k, uint32_t d)
+{
+    lit_btn = b;
+    lit_keys = k;
+    lit_dim = d & ~k;
 }
 /* MIDI in: what the simulator's scripts (midi a b c) and the emulator's page (web_midi) send */
 static uint8_t hm_q[256][3];

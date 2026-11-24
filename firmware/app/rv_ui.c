@@ -7088,7 +7088,8 @@ static RV_SMALL void draw_picture(void)
 
 static void leds(void)
 {
-    uint32_t lb = 0, lk = 0;
+    uint32_t lb = 0, lk = 0, ld = 0;
+    int seqplay = 0;
     int i, t = ui.track;
     lb |= 1u << sec_button[ui.sec];
     if (rv_live.playing)
@@ -7111,14 +7112,21 @@ static void leds(void)
         }
         for (i = 0; i < 16; i++) {
             int si = ui.step_page * 16 + i, on = kit ? (p->s[si].flags & ST_ON) && ((p->s[si].note >> l) & 1) : (p->s[si].flags & ST_ON) != 0;
-            int here = kit ? rv_live.playing && si == rv_live.lane_step[t][l] : si == rv_live.step[t][0];
+            int here = rv_live.playing && (kit ? si == rv_live.lane_step[t][l] : si == rv_live.step[t][0]);
             if (loop_track_ui(t))
                 on = (lit[si >> 3] >> (si & 7)) & 1;
             if (ui.srec_t == t && si == rv_live.srec_step)
                 on = (plat_ms() / 200u) & 1u, here = 0;   /* step recording: the cursor's key blinks */
-            if (on ^ here)
+            if (rv_live.playing) {                    /* playing: the playhead as bright as a step, a step under it dim, and
+                                                       * no backlight, so it shows whatever is on */
+                if (on && here)
+                    ld |= 1u << white_keys[i];
+                else if (on || here)
+                    lk |= 1u << white_keys[i];
+            } else if (on)
                 lk |= 1u << white_keys[i];
         }
+        seqplay = rv_live.playing;
         lk |= 1u << black_keys[rv.pat_cur[t] % RV_PATTERNS];
         if (kit) {
             lk |= 1u << black_keys[2 + l];
@@ -7133,7 +7141,10 @@ static void leds(void)
     } else {
         lk = plat_keys();
     }
-    plat_leds(lb, lk);
+    if (seqplay)
+        plat_leds_dim(lb, lk, ld | (1u << 31));       /* (bit 31: no key; dim mode even when no step is under the playhead) */
+    else
+        plat_leds(lb, lk);
 }
 
 

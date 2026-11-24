@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.46.0
+
+Changed
+- The playhead on the keys: on SEQ pages while it plays, the playing step's key lights as brightly as a step that's on, and a step that's on goes dim as the playhead passes over it (it used to go dark, easy to miss), and the backlight is off so the moving light stands out. Stopped, the keys show just the steps that are on (the last playing step no longer shows flipped).
+
 ## 1.45.0
 
 Added

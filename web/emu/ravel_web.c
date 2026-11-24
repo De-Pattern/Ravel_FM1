@@ -123,6 +123,7 @@ EXPORT(rv_enc) void rv_enc(int role, int32_t d)
 EXPORT(rv_set_master) void rv_set_master(uint32_t v) { master = v > 4096u ? 4096u : v; }
 EXPORT(rv_leds_buttons) uint32_t rv_leds_buttons(void) { return lit_btn; }
 EXPORT(rv_leds_keys) uint32_t rv_leds_keys(void) { return lit_keys; }
+EXPORT(rv_leds_dim) uint32_t rv_leds_dim(void) { return lit_dim; }
 EXPORT(rv_sample_rate) uint32_t rv_sample_rate(void) { return 44100u; }
 
 /* flash slots, so the page can keep them between visits */

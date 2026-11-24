@@ -61,13 +61,16 @@ void plat_backlight(int level)
     static const uint8_t div[4] = {0, 6, 3, 2};
     back_div = div[level & 3];
 }
-void plat_leds(uint32_t buttons, uint32_t keys)
+/* the LEDs, lit (buttons, keys) and dim: dk, keys lit on one scan frame in three (the backlight then off), else
+ * the backlight on what's not lit */
+static void leds_set(uint32_t buttons, uint32_t keys, uint32_t dk)
 {
     uint8_t nl[FM1_NCOL] = {0}, dl[FM1_NCOL] = {0};
     uint32_t i, c;
     for (i = 0; i < NB + NKEYS; i++) {
         uint32_t id = i < NB ? panel.btn[i] : 14u + (i - NB);
         int on = i < NB ? (buttons >> i) & 1u : (keys >> (i - NB)) & 1u;
+        int dim = dk ? i >= NB && ((dk >> (i - NB)) & 1u) : 1;
         uint8_t q = led_pos[id];
         if (i == B_PLAY)                         /* PLAY's green LED (keyless position col 8, row PA5, X0X) */
             q = (uint8_t)((8u << 3) | 1u);
@@ -75,15 +78,17 @@ void plat_leds(uint32_t buttons, uint32_t keys)
             continue;
         if (on)
             nl[q >> 3] |= (uint8_t)(1u << (q & 7u));
-        else
+        else if (dim)
             dl[q >> 3] |= (uint8_t)(1u << (q & 7u));
     }
     for (c = 0; c < FM1_NCOL; c++) {
         fm1_led[c] = nl[c];
-        fm1_led_dim[c] = back_div ? (uint8_t)(dl[c] & ~nl[c]) : 0u;
+        fm1_led_dim[c] = dk || back_div ? (uint8_t)(dl[c] & ~nl[c]) : 0u;
     }
-    fm1_led_dim_div = back_div;
+    fm1_led_dim_div = dk ? 3u : back_div;
 }
+void plat_leds(uint32_t buttons, uint32_t keys) { leds_set(buttons, keys, 0); }
+void plat_leds_dim(uint32_t buttons, uint32_t keys, uint32_t dim) { leds_set(buttons, keys, dim); }
 
 /* the screen: Ravel draws bands of native RGB565; the panel wants them byte-swapped, from RAM, and
  * the transfer runs on while the next band is drawn. Two swap buffers take turns (lcd_window waits

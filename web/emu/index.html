@@ -258,7 +258,7 @@ canvas#screen { position: absolute; inset: 6px; width: calc(100% - 12px); height
 .key { filter: brightness(.78); }
 .key.lit { filter: none; }
 .key.lit span { color: #a9b0a8; }
-.key.dim { filter: brightness(.82); }
+.key.dim { filter: brightness(.9); }
 .key.down { filter: none; background: linear-gradient(180deg, #4f8682, #2c5755); box-shadow: inset 0 1px 0 rgba(224,255,251,.30), 0 1px 2px rgba(0,0,0,.6), 0 0 14px rgba(111,227,212,.55); }
 .key.b.down { background: linear-gradient(180deg, #457a76, #244a48); }
 .key.down span { color: #d4f4ef; text-shadow: none; }
@@ -1494,9 +1494,9 @@ function frame(t) {
     px[i] = 0xff000000 | (((bb << 3) | (bb >> 2)) << 16) | (((gg << 2) | (gg >> 4)) << 8) | ((r << 3) | (r >> 2));
   }
   g.putImageData(img, 0, 0);
-  const lb = rv.rv_leds_buttons(), lk = rv.rv_leds_keys(), hk = held_keys | kb_keys, hb = held_btn | latched;
+  const lb = rv.rv_leds_buttons(), lk = rv.rv_leds_keys(), ld = rv.rv_leds_dim ? rv.rv_leds_dim() : 0, hk = held_keys | kb_keys, hb = held_btn | latched;
   BTN.forEach((n, i) => { const b = btnEls[n]; if (!b) return; b.classList.toggle("lit", !!(lb & (1 << i))); b.classList.toggle("down", !!(hb & (1 << i)) && !(latched & (1 << i))); });
-  for (let k = 0; k < 27; k++) { const el = keyEls[k]; el.classList.toggle("lit", !!(lk & (1 << k)) && !(hk & (1 << k))); el.classList.toggle("down", !!(hk & (1 << k))); }
+  for (let k = 0; k < 27; k++) { const el = keyEls[k]; el.classList.toggle("lit", !!(lk & (1 << k)) && !(hk & (1 << k))); el.classList.toggle("dim", !!(ld & (1 << k)) && !(hk & (1 << k))); el.classList.toggle("down", !!(hk & (1 << k))); }
   if ((frameN++ & 3) === 0) slowUpdate();
   if (WF.ready && (frameN & 1)) wfScopes();
   if (frameN & 1) drawScope();

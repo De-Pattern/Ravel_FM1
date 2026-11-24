@@ -1,0 +1,22 @@
+# The playhead on the keys, on SEQ pages while playing: the playing step's key as bright as a step that's on, a
+# step that's on dim while the playhead is over it (no backlight then); stopped, just the steps that are on
+wait 300
+tap SEQ
+wait 100
+key 0 down
+wait 50
+key 0 up
+wait 100
+expect keylit 0 1
+expect keylit 2 0
+tap PLAY
+wait 40
+expect keylit 0 2
+expect keylit 2 0
+wait 120
+expect keylit 0 1
+expect keylit 2 1
+tap PLAY
+wait 100
+expect keylit 0 1
+expect keylit 2 0
