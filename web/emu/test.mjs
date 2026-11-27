@@ -339,4 +339,27 @@ function cstr2(I, p) { const m = new Uint8Array(I.memory.buffer, p); let n = 0; 
   rv.web_transport(0);
   check(!bad && pk < 1.6 && rv.web_fault_count() === 0, `the tape delay flat out stays bounded (peak ${pk.toFixed(2)})`);
 }
+{                                                           // FULL CONTROL: what the mouse finds on the screen, and what it does
+  rv.rv_boot(); run(300);
+  const hit = (x, y) => { const h = rv.web_hit(x, y); return [h >> 16, (h >> 8) & 255, h & 255]; };
+  const title = () => cstr(rv.web_page_title());
+  rv.web_goto(7, 0); run(60);                               // SEQ › STEPS
+  let h = hit(8 + 2 * 28 + 12, 76 + 30 + 20);
+  check(h[0] === 2 && h[1] === 2, `STEPS: the third step's tile is step key 3 (${h})`);
+  h = hit(90, 40);
+  check(h[0] === 1 && h[1] === 1, `a knob's cell is its knob (${h})`);
+  rv.web_set_kind(0, 6, 0); run(60);                        // T1 a WEFT voice: to WEFT PATCH
+  for (let p = 0; p < 30 && title() !== 'WEFT PATCH'; p++) { rv.web_goto(1, p); run(30); }
+  h = hit(8 + 58 + 24, 76 + 16);
+  check(title() === 'WEFT PATCH' && h[0] === 4 && h[1] === 1, `WEFT PATCH: block 2's tile (${title()}, ${h})`);
+  const was = rv.web_wf_get(0, 0, 5);
+  rv.rv_set_buttons(bit('EDIT')); rv.web_ui(4, 5, 0, 0); rv.web_ui(7, 0, 0, 0); run(60);
+  check(rv.web_ui(0, 0, 0, 0) >= 0 && hit(30, 100)[0] === 5, 'clicking a block opens the list of blocks, its rows found');
+  rv.web_ui(5, 3, 0, 0); run(40); rv.rv_set_buttons(0); run(80);
+  check(rv.web_ui(0, 0, 0, 0) < 0 && rv.web_wf_get(0, 0, 5) !== was && title() === 'WEFT PATCH', 'a row chosen: block 6 becomes it, and letting go of EDIT stays on WEFT PATCH');
+  rv.web_goto(1, 1); run(40);
+  for (let p = 0; p < 12 && title() !== 'FILTER'; p++) { rv.web_set_kind(0, 0, 0); rv.web_goto(1, p); run(30); }
+  h = hit(120, 120);
+  check(title() === 'FILTER' && h[0] === 8 && h[1] === 1 && h[2] === 2, `FILTER: the curve drags CUTOFF (knob 2) and RES (knob 3) (${title()}, ${h})`);
+}
 process.exit(fails ? 1 : 0);

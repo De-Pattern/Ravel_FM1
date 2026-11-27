@@ -7369,6 +7369,124 @@ const char *ui_msg_text(void) { return ui.msg_until && (int32_t)(ui.msg_until - 
 const char *ui_sound_name(int t) { return sound_name(t & 7); }
 /* WEFT, for the emulator's patcher: the block the screen shows, and a patch changed (or a factory one put on) */
 void ui_weft_select(int b) { ui.wf_blk = (uint8_t)(b % WF_BLOCKS); }
+
+#ifndef RV_FM1
+/* The emulator's FULL CONTROL (the mouse on the screen; not in the FM-1's build): what is at (x, y), and the few
+ * things the mouse does that no knob does in one move. ui_hit: kind << 16 | a << 8 | b */
+enum { UH_NONE, UH_KNOB, UH_STEP, UH_SPAGE, UH_WBLK, UH_WLIST, UH_WLOUT, UH_GNODE, UH_XY };
+#define UH(k, a, b) (((k) << 16) | (((a) & 255) << 8) | ((b) & 255))
+static int uh_col(int kind, int id)                   /* the knob that turns this setting on the page, -1: none */
+{
+    int i;
+    for (i = 0; i < 4; i++) {
+        kb_t k = page_knob(cur_page(), i);
+        if (k.kind == kind && k.id == id)
+            return i;
+    }
+    return -1;
+}
+int ui_hit(int x, int y)
+{
+    const page_t *pg = cur_page();
+    int i, t = ui.track;
+    if (ui.wf_list && pg->pic == PIC_WEFT) {          /* the list of blocks open: a row, or outside it */
+        int p0 = clampi(ui.wf_lpos - WL_ROWS / 2, 0, WO_N - WL_ROWS);
+        if (x >= 4 && x < 120 && y >= 70 && y < 72 + WL_ROWS * 12)
+            return UH(UH_WLIST, clampi(p0 + clampi((y - 72) / 12, 0, WL_ROWS - 1), 0, WO_N - 1), 0);
+        return UH(UH_WLOUT, 0, 0);
+    }
+    if (y >= 22 && y < 69)                            /* the knob strip: a knob */
+        return page_knob(pg, clampi(x / 60, 0, 3)).kind != K_NONE ? UH(UH_KNOB, clampi(x / 60, 0, 3), 0) : 0;
+    if (y < PIC_Y || y >= PIC_Y + PIC_H)
+        return 0;
+    switch (pg->pic) {
+    case PIC_STEPS:
+        if (chance_ui(t) || analog_on())
+            return 0;
+        if (y < PIC_Y + 26) {                         /* the overview: a page of sixteen */
+            int pgn = (y - PIC_Y) / 6, len = clampi(rv.tp[t][TP_LEN], 1, 64);
+            return pgn * 16 < len ? UH(UH_SPAGE, pgn, 0) : 0;
+        }
+        for (i = 0; i < 16; i++) {
+            int sx = 8 + (i % 8) * 28, sy = PIC_Y + 30 + (i / 8) * 46;
+            if (x >= sx && x < sx + 26 && y >= sy && y < sy + 43 && ui.step_page * 16 + i < clampi(rv.tp[t][TP_LEN], 1, 64))
+                return UH(UH_STEP, i, 0);
+        }
+        return 0;
+    case PIC_WEFT:
+        for (i = 0; i < WF_BLOCKS; i++)
+            if (x >= wf_bx(i) - 3 && x < wf_bx(i) + WF_BW + 3 && y >= wf_by(i) && y < wf_by(i) + WF_BH)
+                return UH(UH_WBLK, i, 0);
+        return 0;
+    case PIC_GRAPH: {
+        int len = clampi(rv.tp[t][TP_LEN], 1, 64), best = -1, bd = 100;
+        for (i = 0; i < len; i++) {
+            float a = (float)i / (float)len;
+            int dx = x - (120 + (int)(sin_lut(a) * 56.0f)), dy = y - (PIC_Y + 66 - (int)(sin_lut(a + 0.25f) * 56.0f));
+            if (dx * dx + dy * dy < bd) {
+                bd = dx * dx + dy * dy;
+                best = i;
+            }
+        }
+        return best >= 0 ? UH(UH_GNODE, best, 0) : 0;
+    }
+    case PIC_FILTER: {
+        int c = uh_col(K_TP, TP_CUT), r = uh_col(K_TP, TP_RES);
+        return c >= 0 && r >= 0 ? UH(UH_XY, c, r) : 0;
+    }
+    default:
+        return 0;
+    }
+}
+/* op 1: the step page (a); 2: a graph cord, from step a to b (c: 0 CORD A, 1 CORD B), a on the knobs; 3: the
+ * step on the knobs (a); 4: open the list of blocks on block a; 5: the list at a; 6: the list put back as it was
+ * (its block's own type, so letting go of EDIT changes nothing); 7: EDIT's press used (its let-go no page). Returns the list's place, or the step */
+int ui_web(int op, int a, int b, int c)
+{
+    int t = ui.track, len = clampi(rv.tp[t][TP_LEN], 1, 64);
+    kb_t kt = {K_WF, 1};
+    switch (op) {
+    case 1:
+        if (a >= 0 && a * 16 < len)
+            ui.step_page = (uint8_t)a;
+        return ui.step_page;
+    case 2: {
+        rv_step *s = &rv.pat[t][rv.pat_cur[t] % RV_PATTERNS].s[a & 63];
+        if (a < 0 || a >= len || b < 0 || b >= len)
+            return -1;
+        if (c)
+            s->to[1] = (uint8_t)(b == a ? 0 : b + 1);   /* (to itself: no branch) */
+        else
+            s->to[0] = (uint8_t)(b == (a + 1) % len ? 0 : b + 1);   /* (the following step: NEXT) */
+        ui.step_cur = (int16_t)a;
+        return a;
+    }
+    case 3:
+        if (a >= 0 && a < len)
+            ui.step_cur = (int16_t)a;
+        return ui.step_cur;
+    case 4:
+        ui.wf_blk = (uint8_t)(a % WF_BLOCKS);
+        ui.wf_lpos = (uint8_t)kb_get(kt);
+        ui.wf_list = 1;
+        return ui.wf_lpos;
+    case 5:
+        ui.wf_lpos = (uint8_t)clampi(a, 0, WO_N - 1);
+        ui.layer_used[B_EDIT] = 1;                    /* (letting go of EDIT then sets the block, not the EDIT pages) */
+        return ui.wf_lpos;
+    case 6:
+        ui.wf_lpos = (uint8_t)kb_get(kt);
+        ui.layer_used[B_EDIT] = 1;
+        return ui.wf_lpos;
+    case 7:
+        ui.layer_used[B_EDIT] = 1;
+        return 0;
+    default:
+        return ui.wf_list ? ui.wf_lpos : -1;
+    }
+}
+int ui_web_nlist(void) { return WO_N; }
+#endif
 int ui_weft_selected(void) { return ui.wf_blk % WF_BLOCKS; }
 void ui_weft_touch(int t, int pre)
 {

@@ -229,6 +229,13 @@ input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 
 }
 .glass { position: absolute; inset: 4px; border-radius: 7px; overflow: hidden; background: #020302; border: 1px solid #000; box-shadow: inset 0 0 12px #000; }
 canvas#screen { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); image-rendering: pixelated; display: block; background: #000; }
+.fcrow { display: flex; gap: 4px; margin-top: 6px; }
+.fcrow .fcb { flex: 1; font-size: 10px; padding: 5px 4px; }
+.fcb.on { color: #0e1012; background: var(--ph, #6dffa6); border-color: transparent; }
+.glass.fc { cursor: crosshair; }
+.glass.fc canvas { touch-action: none; }
+.wlbar { position: absolute; left: 50.5%; top: 29.2%; width: 3.2%; height: 50.5%; background: rgba(255,255,255,.08); border-radius: 3px; cursor: pointer; touch-action: none; }
+.wlthumb { position: absolute; left: 0; right: 0; background: rgba(230,236,228,.75); border-radius: 3px; min-height: 8%; }
 .glass .scan { position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0,0,0,.27) 2px 3px); pointer-events: none; }
 .glass .vig { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%); pointer-events: none; }
 .glass .sheen { position: absolute; inset: 0 0 80% 0; background: linear-gradient(180deg, rgba(255,255,255,.05), transparent); pointer-events: none; }
@@ -629,11 +636,13 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
           <div class="lhs">
             <div class="lefthand" id="lefthand"></div>
             <div class="ro flat" id="octro"><div class="rv" id="octtxt">T1</div></div>
+            <div class="fcrow"><button class="wbtn fcb" id="fullctl" title="Use the mouse on the screen, as on a plugin: drag a knob's cell, click steps and blocks, drag the graph's cords and the filter">FULL CONTROL</button><button class="wbtn fcb" id="holdbtn" hidden title="HOLD: the notes stay when you let go (the ARP page's HOLD)">HOLD</button></div>
           </div>
           <div class="bezel">
             <div class="glass">
               <canvas id="screen" width="240" height="240" aria-label="The FM-1's screen"></canvas>
               <div class="scan"></div><div class="vig"></div><div class="sheen"></div><div class="glare" id="glare"></div>
+              <div class="wlbar" id="wlbar" hidden><div class="wlthumb" id="wlthumb"></div></div>
             </div>
           </div>
           <div class="righthand">
@@ -797,8 +806,9 @@ function makeEnc(role, parent, label) {
   el.setAttribute("role", "slider"); el.setAttribute("aria-label", label);
   el.innerHTML = `<div class="lbl">${label}</div><div class="cap"></div>` + (ENC_FN[label] ? `<div class="fn">${ENC_FN[label]}</div>` : `<div class="fn">&nbsp;</div>`);
   const cap = el.children[1]; let angle = 0, y0 = 0, acc = 0, active = false;
-  const turn = d => { if (!d || !rv) return; if (role >= 0) rv.rv_enc(role, d); angle += d * 15; cap.style.transform = `rotate(${angle}deg)`; };
-  el.turn = turn;
+  const spin = d => { if (!d) return; angle += d * 15; cap.style.transform = `rotate(${angle}deg)`; };
+  const turn = d => { if (!d || !rv) return; if (role >= 0) rv.rv_enc(role, d); spin(d); };
+  el.turn = turn; el.spin = spin;
   el.addEventListener("pointerdown", e => { active = true; y0 = e.clientY; acc = 0; el.setPointerCapture(e.pointerId); e.preventDefault(); });
   /* SELECT, ALGORITHM and PRESETS step through pages, tracks and lists: they need a firmer turn per
      click than the value knobs, or one trackpad swipe skips several pages */
@@ -1480,6 +1490,133 @@ function levelsUpdate(t, ml, mr) {
 }
 
 const cv = $("screen"), g = cv.getContext("2d"), img = g.createImageData(240, 240), px = new Uint32Array(img.data.buffer);
+
+/* FULL CONTROL: the mouse on the screen, as on a plugin's window. A knob's cell: drag up and down (or the wheel) and
+   the knob turns. STEPS: click a step to toggle it, drag on it to change it (KNOB 1, as holding its key and turning),
+   click the strip above for a page. WEFT PATCH: click a block to choose it and open the list of blocks; click one
+   (or the wheel, or the scroll bar, then click), click outside to leave it as it was. GRAPH: drag from a step to
+   another for its CORD A (right- or shift-drag: CORD B), click a step to edit it. FILTER: drag the curve, left
+   and right for CUTOFF, up and down for RES. HOLD: the ARP page's HOLD, for the track. */
+const FC = { on: false, drag: null, list: false };
+const glass = cv.parentElement, fcBtn = $("fullctl"), holdBtn = $("holdbtn"), wlbar = $("wlbar"), wlthumb = $("wlthumb");
+const EDIT_BIT = 1 << BTN.indexOf("EDIT");
+function fcSet(on) {
+  FC.on = on;
+  fcBtn.textContent = on ? "M-VAVE MODE" : "FULL CONTROL";
+  fcBtn.classList.toggle("on", on);
+  fcBtn.title = on ? "Back to the FM-1's own controls only" : "Use the mouse on the screen, as on a plugin";
+  holdBtn.hidden = !on;
+  glass.classList.toggle("fc", on);
+  if (!on) fcListClose(false);
+}
+fcBtn.addEventListener("click", () => fcSet(!FC.on));
+holdBtn.addEventListener("click", () => { if (!rv) return; const t = rv.web_track(), p = rv.web_tp_hold(); rv.web_tp_set(t, p, rv.web_tp(t, p) ? 0 : 1); fcHoldShow(); });
+function fcHoldShow() { if (rv && FC.on) holdBtn.classList.toggle("on", !!rv.web_tp(rv.web_track(), rv.web_tp_hold())); }
+const fcXY = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * 240 / r.width, (e.clientY - r.top) * 240 / r.height]; };
+const fcHit = (x, y) => { const h = rv.web_hit(Math.round(x), Math.round(y)); return { k: h >> 16, a: (h >> 8) & 255, b: h & 255 }; };
+const H = { NONE: 0, KNOB: 1, STEP: 2, SPAGE: 3, WBLK: 4, WLIST: 5, WLOUT: 6, GNODE: 7, XY: 8 };
+function fcEdit(down) { if (down) held_btn |= EDIT_BIT; else held_btn &= ~EDIT_BIT; btnEls.EDIT.classList.toggle("down", down); }
+function fcListOpen(b) {
+  rv.web_wf_select(b);
+  rv.web_ui(4, b, 0, 0);
+  fcEdit(true);
+  rv.web_ui(7, 0, 0, 0);
+  FC.list = true;
+  fcListBar();
+}
+function fcListMove(pos) {
+  const was = rv.web_ui(0, 0, 0, 0), now = rv.web_ui(5, pos, 0, 0);
+  knobEls[1].spin(now - was);
+  fcListBar();
+}
+function fcListClose(apply) {
+  if (!FC.list) return;
+  FC.list = false;
+  wlbar.hidden = true;
+  if (!rv) return;
+  if (!apply) rv.web_ui(6, 0, 0, 0);
+  rv.web_ui(7, 0, 0, 0);
+  setTimeout(() => fcEdit(false), 40);             /* (let go of EDIT: the list sets the block, or leaves it) */
+}
+function fcListBar() {
+  if (!FC.list || !rv) { wlbar.hidden = true; return; }
+  const n = rv.web_nlist(), pos = rv.web_ui(0, 0, 0, 0), rows = 10, p0 = Math.max(0, Math.min(n - rows, pos - rows / 2));
+  wlbar.hidden = false;
+  wlthumb.style.top = (p0 / n * 100) + "%";
+  wlthumb.style.height = (rows / n * 100) + "%";
+}
+{
+  let bar = false;
+  const at = e => { const r = wlbar.getBoundingClientRect(); fcListMove(Math.round((e.clientY - r.top) / r.height * (rv.web_nlist() - 1))); };
+  wlbar.addEventListener("pointerdown", e => { if (!rv) return; bar = true; wlbar.setPointerCapture(e.pointerId); at(e); e.preventDefault(); e.stopPropagation(); });
+  wlbar.addEventListener("pointermove", e => { if (bar) at(e); });
+  wlbar.addEventListener("pointerup", e => { bar = false; e.stopPropagation(); });
+}
+glass.addEventListener("contextmenu", e => { if (FC.on) e.preventDefault(); });
+glass.addEventListener("pointerdown", e => {
+  if (!FC.on || !rv || e.target === wlbar || e.target === wlthumb) return;
+  const [x, y] = fcXY(e), h = fcHit(x, y);
+  e.preventDefault();
+  glass.setPointerCapture(e.pointerId);
+  if (FC.list) {                                     /* the list open: a row is chosen, outside leaves it */
+    if (h.k === H.WLIST) { fcListMove(h.a); fcListClose(true); } else fcListClose(false);
+    return;
+  }
+  const d = FC.drag = { h, x0: x, y0: y, x, y, acc: 0, moved: false, t0: performance.now(), alt: e.button === 2 || e.shiftKey };
+  const t = rv.web_track();
+  if (h.k === H.STEP) { d.key = 1 << WHITE[h.a]; held_keys |= d.key; }
+  else if (h.k === H.SPAGE) { rv.web_ui(1, h.a, 0, 0); FC.drag = null; }
+  else if (h.k === H.WBLK) { const was = rv.web_wf_selected(); rv.web_wf_select(h.a); knobEls[0].spin(h.a - was); }
+  else if (h.k === H.GNODE) rv.web_ui(3, h.a, 0, 0);
+  else if (h.k === H.XY) { d.cut = rv.web_tp(t, rv.web_tp_cut()); d.res = rv.web_tp(t, rv.web_tp_res()); }
+});
+glass.addEventListener("pointermove", e => {
+  if (!FC.on || !rv) return;
+  const [x, y] = fcXY(e), d = FC.drag;
+  if (!d) {                                          /* (hovering: what a click would do) */
+    const k = FC.list ? H.WLIST : fcHit(x, y).k;
+    glass.style.cursor = k === H.KNOB || k === H.STEP ? "ns-resize" : k === H.XY ? "move" : k === H.GNODE ? "grab" : k ? "pointer" : "crosshair";
+    return;
+  }
+  const dy = d.y - y;
+  d.x = x; d.y = y;
+  if (Math.abs(x - d.x0) + Math.abs(y - d.y0) > 3) d.moved = true;
+  if (d.h.k === H.KNOB || (d.h.k === H.STEP && d.moved)) {   /* a knob's cell (a step: KNOB 1, its key held) */
+    d.acc += dy;
+    const n = Math.trunc(d.acc / 4);
+    if (n) { d.acc -= n * 4; knobEls[d.h.k === H.STEP ? 0 : d.h.a].turn(n); }
+  } else if (d.h.k === H.XY) {                       /* the filter: CUTOFF across, RES up */
+    const t = rv.web_track(), pc = rv.web_tp_cut(), pr = rv.web_tp_res();
+    const cut = Math.max(0, Math.min(127, Math.round(d.cut + (x - d.x0) * 127 / 224)));
+    const res = Math.max(0, Math.min(127, Math.round(d.res + (d.y0 - y) * 127 / 110)));
+    const oc = rv.web_tp(t, pc), or = rv.web_tp(t, pr);
+    if (cut !== oc) { rv.web_tp_set(t, pc, cut); knobEls[d.h.a].spin(cut - oc); }
+    if (res !== or) { rv.web_tp_set(t, pr, res); knobEls[d.h.b].spin(res - or); }
+  } else if (d.h.k === H.GNODE && d.moved) glass.style.cursor = "grabbing";
+});
+const fcUp = e => {
+  const d = FC.drag;
+  FC.drag = null;
+  if (!d || !rv) return;
+  if (d.h.k === H.STEP) later(d.t0, () => { held_keys &= ~d.key; });   /* (a click: the key's tap toggles it) */
+  else if (d.h.k === H.WBLK && !d.moved) fcListOpen(d.h.a);
+  else if (d.h.k === H.GNODE && d.moved) {
+    const [x, y] = fcXY(e), to = fcHit(x, y);
+    if (to.k === H.GNODE) { rv.web_ui(2, d.h.a, to.a, d.alt ? 1 : 0); knobEls[d.alt ? 1 : 0].spin(to.a - d.h.a); }
+  }
+};
+glass.addEventListener("pointerup", fcUp);
+glass.addEventListener("pointercancel", () => { const d = FC.drag; FC.drag = null; if (d && d.key) held_keys &= ~d.key; });
+glass.addEventListener("wheel", e => {
+  if (!FC.on || !rv) return;
+  e.preventDefault();
+  const s = e.deltaY < 0 ? 1 : -1;
+  if (FC.list) { fcListMove(rv.web_ui(0, 0, 0, 0) - s); return; }
+  const [x, y] = fcXY(e), h = fcHit(x, y);
+  if (h.k === H.KNOB) knobEls[h.a].turn(s);
+  else if (h.k === H.XY) { const t = rv.web_track(), pc = rv.web_tp_cut(), oc = rv.web_tp(t, pc), v = Math.max(0, Math.min(127, oc + s * 2)); rv.web_tp_set(t, pc, v); knobEls[h.a].spin(v - oc); }
+}, { passive: false });
+addEventListener("keydown", e => { if (e.key === "Escape" && FC.list) fcListClose(false); });
 let lastT = 0, frameN = 0;
 function frame(t) {
   if (!(ctx && ctx.state === "running")) {
@@ -1505,6 +1642,8 @@ function frame(t) {
 let lastTrack = -1, lastKinds = "";
 function slowUpdate() {
   const t = rv.web_track(), playing = rv.web_playing();
+  fcHoldShow();
+  if (FC.list && rv.web_ui(0, 0, 0, 0) < 0) { FC.list = false; wlbar.hidden = true; fcEdit(false); }   /* (the list closed itself: another page) */
   keyLabels();
   const page = cstr(rv.web_page_title()), sound = cstr(rv.web_sound_name(t)), kindNow = rv.web_kind(t);
   const kname = KIND_NAME[kindNow] || "", ename = kindNow === 0 ? ENGINES[rv.web_engine(t)] || "" : "";

@@ -99,6 +99,17 @@ Everything below works the same in the browser emulator and on the FM-1. The pic
 
 **In a browser.** Open `ravel-emulator.html`. It is one file, works offline and needs no install. Click anywhere or press a key once to start the sound; browsers stay silent until you do. On a computer keyboard, A S D F G H J K L ; ' play the white keys from C up, with W E T Y U O P the black keys. Z and X are OCT- and OCT+ (so are [ and ]; the rest of the bottom row does nothing), 1–8 choose the track and the space bar is PLAY.
 
+**FULL CONTROL** (the button under the track display, in the emulator only): the mouse works on the screen itself, as on a plugin's window; the button then reads **M-VAVE MODE**, to go back to the FM-1's own controls alone.
+
+- **A knob's cell** (the strip across the top of every page): drag up or down, or use the wheel; the knob on the panel turns with it.
+- **STEPS:** click a step to switch it on or off; drag up or down on it to change it (as holding its key and turning KNOB 1); click the strip of 64 above to show those sixteen.
+- **WEFT PATCH:** click a block to choose it and open the list of blocks (as holding EDIT and turning TYPE); click a type to make the block that, or scroll the list with the wheel or its scroll bar first. Click outside the list (or Esc) to leave the block as it was.
+- **GRAPH:** click a step to edit it; drag from one step to another to draw its CORD A there (right-drag or shift-drag: CORD B). Dragging to the step after it sets NEXT; a CORD B dragged to its own step, NONE.
+- **FILTER** (and SEM): drag the curve, left and right for CUTOFF, up and down for RES.
+- **HOLD** (next to it): the notes stay when you let go of the keys, the ARP page's HOLD (it works with the arp off too), for the track you're on.
+
+The FM-1 itself has none of this: it is the emulator's, and costs the firmware nothing.
+
 The emulator page has three parts:
 
 - **The left panel (the workbench)** is a set of shortcuts:

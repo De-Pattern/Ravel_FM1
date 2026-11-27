@@ -394,3 +394,10 @@ EXPORT(web_wf_preset_name) const char *web_wf_preset_name(int k) { return rv_wef
 EXPORT(web_wf_preset) void web_wf_preset(int t, int k) { rv_weft_preset(t, k); ui_weft_touch(t, k); }
 EXPORT(web_wf_select) void web_wf_select(int b) { ui_weft_select(b); }
 EXPORT(web_wf_selected) int web_wf_selected(void) { return ui_weft_selected(); }
+/* FULL CONTROL: the mouse on the screen */
+EXPORT(web_hit) int web_hit(int x, int y) { return ui_hit(x, y); }
+EXPORT(web_ui) int web_ui(int op, int a, int b, int c) { return ui_web(op, a, b, c); }
+EXPORT(web_nlist) int web_nlist(void) { return ui_web_nlist(); }
+EXPORT(web_tp_hold) int web_tp_hold(void) { return TP_ARPLATCH; }
+EXPORT(web_tp_cut) int web_tp_cut(void) { return TP_CUT; }
+EXPORT(web_tp_res) int web_tp_res(void) { return TP_RES; }

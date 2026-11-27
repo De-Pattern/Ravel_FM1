@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.47.0
+
+Added
+- The browser emulator's FULL CONTROL mode (a button under the track display; it then reads M-VAVE MODE): the mouse on the screen, as on a plugin. Drag a knob's cell (the knob turns with it), click and drag steps, click a WEFT block for the list of blocks (click a type, scroll with the wheel or a scroll bar), draw GRAPH cords by dragging between steps, drag the FILTER curve for CUTOFF and RES; a HOLD button for the track's HOLD. Not in the FM-1's build.
+
 ## 1.46.1
 
 Changed
