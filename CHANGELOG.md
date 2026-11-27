@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.47.1
+
+Changed
+- The emulator's FULL CONTROL: ‹ BACK and FWD › right under the screen as well (a page at a time, as SELECT), and the ← → arrow keys flip pages even with a knob in focus (they used to turn that knob too, as well as flipping the page).
+
 ## 1.47.0
 
 Added

@@ -106,6 +106,7 @@ Everything below works the same in the browser emulator and on the FM-1. The pic
 - **WEFT PATCH:** click a block to choose it and open the list of blocks (as holding EDIT and turning TYPE); click a type to make the block that, or scroll the list with the wheel or its scroll bar first. Click outside the list (or Esc) to leave the block as it was.
 - **GRAPH:** click a step to edit it; drag from one step to another to draw its CORD A there (right-drag or shift-drag: CORD B). Dragging to the step after it sets NEXT; a CORD B dragged to its own step, NONE.
 - **FILTER** (and SEM): drag the curve, left and right for CUTOFF, up and down for RES.
+- **‹ BACK** and **FWD ›** appear right under the screen too (as SELECT, a page at a time), and the **← →** arrow keys flip pages even when a knob has the focus.
 - **HOLD** (next to it): the notes stay when you let go of the keys, the ARP page's HOLD (it works with the arp off too), for the track you're on.
 
 The FM-1 itself has none of this: it is the emulator's, and costs the firmware nothing.

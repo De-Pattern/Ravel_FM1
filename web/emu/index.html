@@ -229,6 +229,8 @@ input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 
 }
 .glass { position: absolute; inset: 4px; border-radius: 7px; overflow: hidden; background: #020302; border: 1px solid #000; box-shadow: inset 0 0 12px #000; }
 canvas#screen { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); image-rendering: pixelated; display: block; background: #000; }
+.fcnav { position: absolute; left: 0; right: 0; top: 100%; margin-top: 8px; display: flex; justify-content: center; gap: 8px; }
+.bezel.fcon { margin-bottom: 44px; }
 .fcrow { display: flex; gap: 4px; margin-top: 6px; }
 .fcrow .fcb { flex: 1; font-size: 10px; padding: 5px 4px; }
 .fcb.on { color: #0e1012; background: var(--ph, #6dffa6); border-color: transparent; }
@@ -644,6 +646,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
               <div class="scan"></div><div class="vig"></div><div class="sheen"></div><div class="glare" id="glare"></div>
               <div class="wlbar" id="wlbar" hidden><div class="wlthumb" id="wlthumb"></div></div>
             </div>
+            <div class="fcnav" id="fcnav" hidden><button class="wbtn" id="fcback" title="Turn SELECT left (← key)">‹ Back</button><button class="wbtn" id="fcfwd" title="Turn SELECT right (→ key)">Fwd ›</button></div>
           </div>
           <div class="righthand">
             <div class="knobs4" id="knobs4"></div>
@@ -824,7 +827,12 @@ function makeEnc(role, parent, label) {
     const d = Math.trunc(wacc / wheelPx);
     if (d) { wacc -= d * wheelPx; turn(Math.max(-3, Math.min(3, d))); }
   }, { passive: false });
-  el.addEventListener("keydown", e => { if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); } if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); } });
+  el.addEventListener("keydown", e => {   /* (FULL CONTROL: ← → always flip pages, a knob in focus or not) */
+    const lr = e.key === "ArrowRight" || e.key === "ArrowLeft";
+    if (lr && FC.on) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); e.stopPropagation(); }
+    if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); e.stopPropagation(); }
+  });
   parent.appendChild(el);
   return el;
 }
@@ -1070,6 +1078,8 @@ function presetStep(d) {
 $("pprev").addEventListener("click", () => presetStep(-1));
 $("pageback").addEventListener("click", () => rv && rv.rv_enc(0, -1));   /* SELECT, as on the panel */
 $("pagefwd").addEventListener("click", () => rv && rv.rv_enc(0, 1));
+$("fcback").addEventListener("click", () => rv && rv.rv_enc(0, -1));
+$("fcfwd").addEventListener("click", () => rv && rv.rv_enc(0, 1));
 $("pnext").addEventListener("click", () => presetStep(1));
 $("play").addEventListener("click", () => rv && rv.web_transport(!rv.web_playing()));
 $("rec").addEventListener("click", () => tapBtn("REC"));
@@ -1507,6 +1517,8 @@ function fcSet(on) {
   fcBtn.title = on ? "Back to the FM-1's own controls only" : "Use the mouse on the screen, as on a plugin";
   holdBtn.hidden = !on;
   glass.classList.toggle("fc", on);
+  $("fcnav").hidden = !on;                         /* (‹ BACK and FWD › right under the screen too) */
+  glass.parentElement.classList.toggle("fcon", on);
   if (!on) fcListClose(false);
 }
 fcBtn.addEventListener("click", () => fcSet(!FC.on));
