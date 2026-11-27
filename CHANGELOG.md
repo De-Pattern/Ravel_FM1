@@ -3,6 +3,11 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.46.1
+
+Changed
+- The browser emulator's computer keyboard: Z and X are now OCT- and OCT+ (as [ and ] still are), and the rest of the bottom row does nothing; A S D F G H J K L ; ' and W E T Y U O P play the keys from C up as before. The lowest seven keys (F to B) are under OCT-.
+
 ## 1.46.0
 
 Changed

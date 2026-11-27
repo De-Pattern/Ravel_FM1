@@ -735,10 +735,9 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
         <div><span class="kc">Knobs</span><span class="kd">drag up and down, or scroll over them</span></div>
         <div><span class="kc">Buttons</span><span class="kd">click to press; <b>right-click</b> or <b>shift-click</b> holds one down for its hold layer, click again to let go; <kbd>Esc</kbd> lets go of all of them</span></div>
         <div><span class="kc">Keys</span><span class="kd">click or touch them, or play them from your keyboard</span></div>
-        <div><span class="kc"><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>B</kbd> <kbd>N</kbd> <kbd>M</kbd></span><span class="kd">the lowest seven keys in order: F, F♯, G, G♯, A, A♯, B</span></div>
         <div><span class="kc"><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> <kbd>'</kbd></span><span class="kd">the white keys from C4 up</span></div>
         <div><span class="kc"><kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd></span><span class="kd">the black keys from C♯4 up</span></div>
-        <div><span class="kc"><kbd>[</kbd> <kbd>]</kbd></span><span class="kd">OCT- and OCT+</span></div>
+        <div><span class="kc"><kbd>Z</kbd> <kbd>X</kbd></span><span class="kd">OCT- and OCT+ (so do <kbd>[</kbd> <kbd>]</kbd>); the rest of the bottom row does nothing</span></div>
         <div><span class="kc"><kbd>1</kbd> <kbd>…</kbd> <kbd>8</kbd></span><span class="kd">choose the track</span></div>
         <div><span class="kc"><kbd>←</kbd> <kbd>→</kbd></span><span class="kd">SELECT: the page</span></div>
         <div><span class="kc"><kbd>Space</kbd></span><span class="kd">PLAY</span></div>
@@ -912,13 +911,13 @@ function keyLabels() {
 }
 
 /* computer keyboard */
-const KB = { z:0, x:1, c:2, v:3, b:4, n:5, m:6, a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
+const KB = { a:7, w:8, s:9, e:10, d:11, f:12, t:13, g:14, y:15, h:16, u:17, j:18, k:19, o:20, l:21, p:22, ";":23, "'":24 };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if (k in KB) { kb_keys |= 1 << KB[k]; e.preventDefault(); }
-  else if (k === "[" && !e.repeat) tapBtn("OCT-");
-  else if (k === "]" && !e.repeat) tapBtn("OCT+");
+  else if ((k === "z" || k === "[") && !e.repeat) tapBtn("OCT-");   /* (the rest of the bottom row does nothing) */
+  else if ((k === "x" || k === "]") && !e.repeat) tapBtn("OCT+");
   else if (k === " " && !e.repeat && e.target === document.body) { tapBtn("PLAY"); e.preventDefault(); }
   else if (/^[1-8]$/.test(k) && rv) rv.web_set_track(+k - 1);
   else if (k === "arrowleft" && rv) { rv.rv_enc(0, -1); e.preventDefault(); }   /* SELECT, without scrolling sideways */
