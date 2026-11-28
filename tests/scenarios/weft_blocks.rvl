@@ -507,3 +507,45 @@ wait 300
 expect meter_min 1 0.0005
 key 12 up
 wait 150
+# BITS, BITOP, BITDLY (the saw as A); BITWAVE (the saw as its phase, then on its own at the note)
+wset 1 0 2 76
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+wset 1 0 2 77
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+wset 1 0 2 78
+wset 1 1 2 1
+wset 1 3 2 100
+wset 1 7 3 0
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+wset 1 0 2 79
+wset 1 1 2 1
+wset 1 3 2 100
+key 12 down
+wait 300
+expect meter_min 1 0.002
+key 12 up
+wait 150
+wset 1 1 2 0
+wav bitwave.wav
+key 12 down
+wait 600
+expect meter_min 1 0.002
+key 12 up
+wait 150
+wavstop

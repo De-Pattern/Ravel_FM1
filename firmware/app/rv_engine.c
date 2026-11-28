@@ -2695,7 +2695,7 @@ void rv_render(int32_t *out, int frames)
     }
 }
 
-void rv_engine_init(void)
+RV_SMALL void rv_engine_init(void)
 {
     int i;
     synth_tables();

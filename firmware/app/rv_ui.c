@@ -746,7 +746,7 @@ static int page_visible(int i)
 
 /* the visible pages of a section, in order */
 #define SEC_PAGES_MAX 32                 /* the most pages one section can show (FX has 18, a two-line CZ's EDIT 20) */
-static int sec_page_list(int sec, uint8_t *out)
+static RV_SMALL int sec_page_list(int sec, uint8_t *out)
 {
     int i, n = 0;
     for (i = 0; i < NPAGES; i++)
@@ -4980,7 +4980,7 @@ static void pic_matrix(void)
     }
 }
 
-static void pic_lfo(int k)
+static RV_SMALL void pic_lfo(int k)
 {
     int i, prev = 0, shape = rv.gp[k ? GP_LFO2SHAPE : GP_LFO1SHAPE], yc = PIC_Y + 30 + k * 60;   /* LFO 1 above, LFO 2 below */
     int edit = cur_page()->pr == PR_LFOROW, on = edit && (ui.lfo_row & 1) == k;
@@ -5730,7 +5730,7 @@ static void pic_arp(void)
 
 /* COMP: the gain reduction as a meter falling from the top (0 to 20 dB), and the curve it squeezes
  * the level by, with where the mix sits on it now */
-static void pic_comp(void)
+static RV_SMALL void pic_comp(void)
 {
     float gr = rv_live.comp_gr, in = rv_live.comp_in, thr = clampf((float)rv.tp[7][TP_S0], -30.0f, 0.0f);
     static const float slope[3] = {0.5f, 0.75f, 0.9f};
@@ -6140,7 +6140,7 @@ static __attribute__((noinline)) RV_SMALL void pic_weftblk(void)
 }
 
 /* WEFT MAP: what WEFT PLAY's knobs turn; the output */
-static __attribute__((noinline)) void pic_weftmap(void)
+static __attribute__((noinline)) RV_SMALL void pic_weftmap(void)
 {
     const rv_weft *w = &rv.weft[ui.track];
     int i;

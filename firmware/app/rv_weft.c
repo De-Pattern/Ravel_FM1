@@ -771,7 +771,7 @@ RV_HOT2 static void wk_wave(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
     {             /* reads a phase (A, else its own at the note); B: phase modulation */
-        float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f), ph = s->ph, inc = K->hz * W->dt;
+        float p, k = clampf(0.5f + WC(x2) * 0.5f, 0.03f, 0.97f), ph = s->ph, inc = W->hz * W->dt;
         for (j = j1; j < j2; j++) {
             if (ac)
                 p = WA * 0.5f + 0.5f;
@@ -2178,6 +2178,104 @@ WK_FLASH static void wk_rungler(wk_t *K, int i, int j1, int j2)
     }
 }
 
+/* ---- after XAOC's Leibniz system: a signal as an 8-bit word (-1..1 as 0..255) ---- */
+RV_INL int wbyte(float x) { return clampi((int)((x + 1.0f) * 127.5f + 0.5f), 0, 255); }
+RV_INL float wunbyte(int q) { return (float)(q & 255) * (1.0f / 127.5f) - 1.0f; }
+RV_INL int wrev8(int q)
+{
+    q = ((q & 0xF0) >> 4) | ((q & 0x0F) << 4);
+    q = ((q & 0xCC) >> 2) | ((q & 0x33) << 2);
+    return ((q & 0xAA) >> 1) | ((q & 0x55) << 1);
+}
+RV_HOT2 RV_SMALL static void wk_bits(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* (Drezno) A, plus B, taken into 8 bits and rebuilt: MASK the bits let through; OUT the word, the
+                  * word back to front, or one bit as a square (BIT 1 the top) */
+        int out = WN(x1, 10), m = (int)(x2 * 127.0f + 0.5f) * 2 + 1, q;
+        for (j = j1; j < j2; j++) {
+            q = wbyte(WA + (bc ? WB : 0.0f)) & m;
+            yo[j] = out == 0 ? wunbyte(q) : out == 1 ? wunbyte(wrev8(q)) : ((q >> (9 - out)) & 1) ? 1.0f : -1.0f;
+        }
+        return;
+    }
+}
+RV_HOT2 RV_SMALL static void wk_bitop(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* (Lipsk) A's bits shifted, turned or masked: AMOUNT how far (or which bits); B moves the shift, or is
+                  * the other word for XOR, AND and OR */
+        int op = WN(x1, 7), n0 = (int)(x2 * 7.99f), m0 = (int)(x2 * 255.0f + 0.5f), q, n;
+        for (j = j1; j < j2; j++) {
+            q = wbyte(WA);
+            n = clampi(n0 + (bc && op < 3 ? (int)(WB * 8.0f) : 0), 0, 7);
+            switch (op) {
+            case 0: q <<= n; break;
+            case 1: q >>= n; break;
+            case 2: q = (q << n) | (q >> (8 - n)); break;
+            case 3: q ^= m0; break;
+            case 4: q ^= bc ? wbyte(WB) : m0; break;
+            case 5: q &= bc ? wbyte(WB) : m0; break;
+            default: q |= bc ? wbyte(WB) : m0; break;
+            }
+            yo[j] = wunbyte(q);
+        }
+        return;
+    }
+}
+RV_HOT2 RV_SMALL static void wk_bitdly(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* (Rostock) A taken as a word each step (RATE, or B's rises), each bit then played SPREAD x its place
+                  * steps late: the top bit now, the next a step behind, ... the word slipping apart */
+        uint8_t *r = (uint8_t *)s->z;                 /* (the last 32 words) */
+        float hl = 1.0f + x1 * x1 * 4000.0f;
+        int sp = WN(x2, 5), k, q;
+        for (j = j1; j < j2; j++) {
+            if (bc ? wrise(WB, &s->prevb, 0.0f) : (s->ph += 1.0f) >= hl) {
+                s->ph = 0.0f;
+                s->st = (uint8_t)((s->st + 1) & 31);
+                r[s->st] = (uint8_t)wbyte(WA);
+                for (q = 0, k = 0; k < 8; k++)
+                    q |= r[(s->st - (7 - k) * sp) & 31] & (1 << k);
+                s->hold = wunbyte(q);
+            }
+            yo[j] = s->hold;
+        }
+        return;
+    }
+}
+RV_HOT2 RV_SMALL static void wk_bitwave(wk_t *K, int i, int j1, int j2)
+{
+    WK_HEAD
+    {            /* (Jena) a phase (A, else its own at the note) as 8 bits, each a square an octave above the last;
+                  * TABLE which of them turn over, TILT how much of the higher ones; B: XORed into the phase */
+        float w[8], sum = 0.0f, r = x2, g = 1.0f, ph = s->ph, inc = W->hz * W->dt;
+        int pat = (int)(x1 * 255.0f + 0.5f), k, q;
+        for (k = 7; k >= 0; k--) {                    /* (bit 7: the fundamental) */
+            w[k] = (pat >> k) & 1 ? -g : g;
+            sum += g;
+            g *= r;
+        }
+        sum = 1.0f / sum;
+        for (j = j1; j < j2; j++) {
+            if (ac)
+                q = wbyte(WA);
+            else {
+                ph = wwrap(ph + inc);
+                q = (int)(ph * 255.99f);
+            }
+            if (bc)
+                q ^= wbyte(WB);
+            for (y = 0.0f, k = 0; k < 8; k++)
+                y += (q >> k) & 1 ? w[k] : -w[k];
+            yo[j] = y * sum;
+        }
+        s->ph = ph;
+        return;
+    }
+}
+
 RV_HOT2 static void wk_aout(wk_t *K, int i, int j1, int j2)
 {
     WK_HEAD
@@ -2400,6 +2498,10 @@ static const wk_fn wk_tab[WO_N] = {
     [WO_ENV] = wk_env,
     [WO_VCFQ] = wk_vcfq,
     [WO_BUBBLES] = wk_bubbles,
+    [WO_BITS] = wk_bits,
+    [WO_BITOP] = wk_bitop,
+    [WO_BITDLY] = wk_bitdly,
+    [WO_BITWAVE] = wk_bitwave,
     [WO_NOISE] = wk_noise,
     [WO_RUNGLER] = wk_rungler,
     [WO_AOUT] = wk_aout,
@@ -2641,7 +2743,7 @@ static __attribute__((noinline)) void weft_plan(wv_t *v, int t, const float *eff
 }
 
 /* a plan's structure (weft_plan): worked out from the patch, in the flash, when the patch changed */
-static __attribute__((noinline)) void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl,
+static __attribute__((noinline)) RV_SMALL void weft_structure(wps_t *S, const rv_weft *w, const uint8_t *sa, const uint8_t *sb, unsigned live, unsigned ctl,
                                                      unsigned brk, int outb, int sw14, int lis, int scope)
 {
     int8_t *prod = S->prod;

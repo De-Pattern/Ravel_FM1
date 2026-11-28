@@ -933,7 +933,7 @@ static void glide_tick(int n)
     rv_live.glide = gl.u;
 }
 
-static void apply_pending(void)
+static RV_SMALL void apply_pending(void)
 {
     int t;
     if (pend_scene >= 0) {

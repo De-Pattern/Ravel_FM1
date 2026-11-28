@@ -35,6 +35,10 @@ enum {
     WO_VCA, WO_ENV,                                     /* the modular basics, by their names */
     WO_VCFQ, WO_BUBBLES,                                /* a band pass that rings for seconds when pinged (after Serge's VCFQ);
                                                          * bubbles: pings that rise as they ring, scattered */
+    WO_BITS, WO_BITOP, WO_BITDLY, WO_BITWAVE,           /* a signal as an 8-bit word (after XAOC's Leibniz system): taken
+                                                         * apart and rebuilt (Drezno); its bits shifted and masked (Lipsk);
+                                                         * each bit late by its own steps (Rostock); a wave from the bits of
+                                                         * a phase (Jena) */
     WO_N
 };
 #define WO_MODES(t) ((t) >= WO_SKIN && (t) <= WO_FIXED)
@@ -84,6 +88,9 @@ enum { WLPG_BOTH, WLPG_VCA, WLPG_LP };
 static const char *const wf_lratio[9] = {"1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "3:5", "5:4"};
 static const uint8_t wf_lratio_v[9][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, {3, 4}, {4, 3}, {3, 5}, {5, 4}};   /* X turns, Y turns */
 enum { WSW_UP, WSW_DOWN, WSW_PING, WSW_RANDOM, WSW_SELECT };
+static const char *const wf_bout[10] = {"WORD", "REVERSE", "BIT 1", "BIT 2", "BIT 3", "BIT 4", "BIT 5", "BIT 6", "BIT 7", "BIT 8"};
+static const char *const wf_bsp[5] = {"0", "1", "2", "3", "4"};
+static const char *const wf_bop[7] = {"SHIFT <", "SHIFT >", "ROTATE", "INVERT", "XOR B", "AND B", "OR B"};
 
 static const wf_type_t wf_types[WO_N] = {
     {"-", "-", "-", "-", "-", 0, 0, 0, 0, 0, 0},
@@ -162,6 +169,10 @@ static const wf_type_t wf_types[WO_N] = {
     {"ENV", "ATTACK", "RELEASE", "GATE", "TIME", 4, 60, 0, 0, 0, 0},
     {"VCFQ", "FREQ", "Q", "IN/PING", "FREQ", 76, 110, 0, 0, 0, 0},
     {"BUBBLES", "DENSITY", "SPREAD", "TRIG", "PITCH", 50, 64, 0, 0, 0, 0},
+    {"BITS", "OUT", "MASK", "IN", "OFFSET", 0, 127, 10, 0, wf_bout, 0},
+    {"BITOP", "OP", "AMOUNT", "IN", "B", 0, 20, 7, 0, wf_bop, 0},
+    {"BITDLY", "RATE", "SPREAD", "IN", "CLOCK", 70, 1, 0, 5, 0, wf_bsp},
+    {"BITWAVE", "TABLE", "TILT", "PHASE", "XOR", 90, 64, 0, 0, 0, 0},
 };
 
 /* what each block is, in a few words: WEFT PATCH's bottom right, for the chosen block */
@@ -241,7 +252,11 @@ static const char *const wf_short[WO_N] = {
     "VCA",
     "2-STAGE ENV",
     "PINGABLE HIGH-Q BP",
-    "WATERY PINGS"
+    "WATERY PINGS",
+    "8-BIT ADC/DAC",
+    "BIT SHIFTER",
+    "BIT DELAYS",
+    "BIT WAVETABLE"
 };
 
 /* what each block does, in a line (the screen's own words) */
@@ -321,7 +336,11 @@ static const char *const wf_desc[WO_N] = {
     "A, AS LOUD AS LEVEL PLUS CV",
     "ATTACK WHILE THE GATE IS UP, RELEASE",
     "RINGS FOR SECONDS WHEN A CLICK STRIKES IT",
-    "PINGS THAT RISE AS THEY RING, SCATTERED"
+    "PINGS THAT RISE AS THEY RING, SCATTERED",
+    "A IN 8 BITS: MASKED, REBUILT, OR ONE BIT",
+    "A'S BITS SHIFTED, TURNED, MASKED BY B",
+    "EACH OF A'S BITS LATE BY ITS OWN STEPS",
+    "A WAVE MADE FROM THE BITS OF A PHASE"
 };
 
 static const char *const wf_src_names[WS_N] = {"-", "", "", "", "", "", "", "", "", "", "", "", "",

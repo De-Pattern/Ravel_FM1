@@ -3,6 +3,14 @@
 What each release of Ravel adds and fixes. The release workflow puts a version's section at the top of its
 GitHub release; a version with no section here gets its commits listed instead. Newest first.
 
+## 1.48.0
+
+Added
+- WEFT: four bit blocks after XAOC's Leibniz system, a signal as an 8-bit word. BITS (after Drezno): taken apart and rebuilt, MASK on its bits, out as the word, the word reversed or one bit. BITOP (after Lipsk): its bits shifted, rotated, inverted, or combined with B's by XOR, AND or OR. BITDLY (after Rostock): each bit played back its own number of steps late, so the word slips apart. BITWAVE (after Jena): a tone built from the bits of a phase, TABLE choosing the wave and TILT its brightness.
+
+Changed
+- To make room, a few routines that run once in a while (WEFT's patch layout, loading the engine, a pattern change, three of the screens' pictures) are built for size. Nothing was removed, and the sound's CPU is as it was.
+
 ## 1.47.1
 
 Changed
